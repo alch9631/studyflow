@@ -49,6 +49,12 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  */
 export const MIN_MINUTES_PER_EFFORT = 45;
 
+/** Estimated total study minutes for a topic of effort 1 (a "normal" chunk). */
+export const MINUTES_PER_EFFORT = 90;
+
+/** Above this computed daily pace, finishing in time is unrealistic — flag it. */
+export const INTENSE_MINUTES_PER_DAY = 360; // 6h/day
+
 /** Inclusive list of ISO dates from `start` up to (not including) `end`. */
 export function studyDatesBetween(
   startISO: string,
@@ -152,6 +158,33 @@ export function applyCompletedWork(
       return { ...t, effort: t.effort * remainingFraction };
     }),
   };
+}
+
+/**
+ * The right model: StudyFlow DECIDES the daily pace instead of asking the user.
+ * Given the work (topics × effort) and the deadline (exam date over study days),
+ * it computes how many minutes/day are needed to finish in time, then schedules
+ * exactly that. `course.minutesPerDay` is ignored — the output `minutesPerDay`
+ * is the recommended pace. `intense` flags a humanly-unrealistic pace (start
+ * earlier / add study days), but we never tell the student to "trim topics".
+ */
+export function planForDeadline(
+  course: Course,
+  todayISO: string,
+): { blocks: StudyBlock[]; minutesPerDay: number; intense: boolean } {
+  const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
+  const pending = course.topics.filter((t) => !t.done);
+  const totalEffort = pending.reduce((s, t) => s + Math.max(t.effort, 0), 0);
+
+  if (dates.length === 0 || totalEffort <= 0) {
+    return { blocks: [], minutesPerDay: 0, intense: dates.length === 0 && totalEffort > 0 };
+  }
+
+  const totalMinutes = Math.ceil(totalEffort * MINUTES_PER_EFFORT);
+  // The pace needed to finish everything across the available study days.
+  const minutesPerDay = Math.max(15, Math.ceil(totalMinutes / dates.length));
+  const blocks = distribute(pending, dates, minutesPerDay);
+  return { blocks, minutesPerDay, intense: minutesPerDay > INTENSE_MINUTES_PER_DAY };
 }
 
 /** Build a fresh plan for a course, starting from `todayISO`. */

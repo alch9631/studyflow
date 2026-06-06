@@ -85,9 +85,9 @@ export default async function CoursePage({
         <div>
           <h1 className="text-2xl font-bold">{course.name}</h1>
           <p className="text-sm text-gray-500">
-            Exam {course.examDate.toISOString().slice(0, 10)} ·{" "}
-            {course.minutesPerDay} min/day · {doneCount}/{course.topics.length}{" "}
-            topics done
+            Exam {course.examDate.toISOString().slice(0, 10)} · ~
+            {course.minutesPerDay} min/day to finish · {doneCount}/
+            {course.topics.length} topics done
           </p>
         </div>
         <form action={healCourse}>
@@ -117,17 +117,9 @@ export default async function CoursePage({
                 className="mt-1 rounded-lg border border-gray-300 px-3 py-2"
               />
             </label>
-            <label className="text-sm">
-              <span className="block font-medium">Minutes / day</span>
-              <input
-                type="number"
-                name="minutesPerDay"
-                defaultValue={course.minutesPerDay}
-                min={15}
-                step={15}
-                className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2"
-              />
-            </label>
+            <p className="self-end text-xs text-gray-400">
+              Daily pace is computed automatically (~{course.minutesPerDay} min/day).
+            </p>
           </div>
           <div>
             <span className="block text-sm font-medium">Study days</span>
@@ -164,11 +156,17 @@ export default async function CoursePage({
         </form>
       </details>
 
-      {overloaded && (
+      {overloaded ? (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          ⚠️ There&apos;s more work than time left before the exam. The plan packs
-          the remaining days as full as possible — consider trimming topics or
-          adding study days.
+          ⏰ To finish everything in time you&apos;d need about{" "}
+          {(course.minutesPerDay / 60).toFixed(1)} h/day — that&apos;s intense.
+          You can still do it; starting earlier or adding study days makes it
+          easier.
+        </div>
+      ) : (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          📅 StudyFlow scheduled about {course.minutesPerDay} min/day so you
+          finish all topics before the exam.
         </div>
       )}
 

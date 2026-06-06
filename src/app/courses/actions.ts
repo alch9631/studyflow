@@ -13,7 +13,6 @@ export async function createCourse(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const examDate = String(formData.get("examDate") ?? "");
-  const minutesPerDay = parseInt(String(formData.get("minutesPerDay") ?? "120"), 10);
   const studyDays = formData.getAll("studyDays").map(String).join(",");
   const topicLines = String(formData.get("topics") ?? "")
     .split("\n")
@@ -28,7 +27,6 @@ export async function createCourse(formData: FormData) {
     data: {
       name,
       examDate: new Date(examDate + "T00:00:00Z"),
-      minutesPerDay: Number.isNaN(minutesPerDay) ? 120 : minutesPerDay,
       studyDays: studyDays || "1,2,3,4,5",
       userId,
       topics: {
@@ -117,7 +115,6 @@ async function extractTextFromFile(file: File): Promise<string> {
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
   let text = String(formData.get("syllabus") ?? "").trim();
-  const minutesPerDay = parseInt(String(formData.get("minutesPerDay") ?? "120"), 10);
   const studyDays = formData.getAll("studyDays").map(String).join(",") || "1,2,3,4,5";
 
   const file = formData.get("file");
@@ -138,7 +135,6 @@ export async function importSyllabus(formData: FormData) {
     data: {
       name: extracted.courseName || "Imported course",
       examDate,
-      minutesPerDay: Number.isNaN(minutesPerDay) ? 120 : minutesPerDay,
       studyDays,
       userId,
       topics: {
@@ -196,14 +192,12 @@ export async function applyProgress(formData: FormData) {
 export async function updateCourse(formData: FormData) {
   const id = String(formData.get("courseId"));
   const examDate = String(formData.get("examDate") ?? "");
-  const minutesPerDay = parseInt(String(formData.get("minutesPerDay") ?? "120"), 10);
   const studyDays = formData.getAll("studyDays").map(String).join(",");
 
   await prisma.course.update({
     where: { id },
     data: {
       ...(examDate ? { examDate: new Date(examDate + "T00:00:00Z") } : {}),
-      minutesPerDay: Number.isNaN(minutesPerDay) ? 120 : minutesPerDay,
       studyDays: studyDays || "1,2,3,4,5",
     },
   });

@@ -6,6 +6,7 @@ import {
   applyCompletedWork,
   generatePlan,
   healPlan,
+  planForDeadline,
   studyDatesBetween,
   type Course,
 } from "./planner";
@@ -89,6 +90,14 @@ check(
   "no completion -> effort unchanged",
   foldedNone.topics.every((t, i) => t.effort === course.topics[i].effort),
 );
+
+// planForDeadline DECIDES the pace: a nearer exam → more minutes/day.
+const far = planForDeadline(course, "2026-05-01"); // ~7 weeks of weekdays
+const near = planForDeadline(course, "2026-06-15"); // ~1 week left
+check("computes a daily pace", near.minutesPerDay > 0 && far.minutesPerDay > 0);
+check("nearer exam needs more minutes/day", near.minutesPerDay > far.minutesPerDay);
+check("comfortable runway is not intense", far.intense === false);
+check("plan covers all topics at computed pace", new Set(near.blocks.map((b) => b.topicId)).size === 3);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

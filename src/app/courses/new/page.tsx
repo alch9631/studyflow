@@ -69,19 +69,10 @@ export default function NewCoursePage() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium">
-            Minutes per study day
-          </label>
-          <input
-            type="number"
-            name="minutesPerDay"
-            defaultValue={120}
-            min={15}
-            step={15}
-            className="mt-1 w-32 rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
+        <p className="text-xs text-gray-400">
+          StudyFlow works out how much to study each day to finish before your
+          exam — you don&apos;t set the hours.
+        </p>
 
         <button
           type="submit"

@@ -1,8 +1,7 @@
 import { prisma } from "./db";
 import {
   applyCompletedWork,
-  generatePlan,
-  healPlan,
+  planForDeadline,
   type Course as EngineCourse,
   type StudyBlock as EngineBlock,
 } from "./planner";
@@ -90,39 +89,47 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   });
 }
 
-/** (Re)build a fresh plan from today and persist it. */
-export async function regeneratePlan(courseId: string) {
+/**
+ * Build (or rebuild) the plan: StudyFlow computes the daily pace needed to finish
+ * every remaining topic before the exam, stores that pace, and schedules it.
+ * Completed work is folded out first so we never re-schedule what's done.
+ * Returns the recommended pace and whether it's humanly intense.
+ */
+async function buildPlan(courseId: string) {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { topics: { orderBy: { order: "asc" } } },
+    include: { topics: { orderBy: { order: "asc" } }, blocks: true },
   });
   if (!course) throw new Error("Course not found");
-  const blocks = generatePlan(toEngineCourse(course), todayISO());
+
+  const engine = foldCompletedSessions(course); // reduce effort by completed work
+  const { blocks, minutesPerDay, intense } = planForDeadline(engine, todayISO());
+
+  // Persist the computed pace so the UI can show "study ~X/day".
+  await prisma.course.update({
+    where: { id: courseId },
+    data: { minutesPerDay: minutesPerDay || course.minutesPerDay },
+  });
   await persistBlocks(courseId, blocks);
-  return { isOverloaded: false };
+  return { isOverloaded: intense, minutesPerDay };
 }
 
-/** Read-only check: is the remaining work too much for the days left? */
+/** (Re)build the plan from today and persist it (pace decided automatically). */
+export async function regeneratePlan(courseId: string) {
+  return buildPlan(courseId);
+}
+
+/** "I fell behind" — same engine; recomputes the pace over the days left. */
+export async function healCoursePlan(courseId: string) {
+  return buildPlan(courseId);
+}
+
+/** Read-only: is the required daily pace humanly unrealistic (start earlier)? */
 export async function isCourseOverloaded(courseId: string): Promise<boolean> {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
     include: { topics: true, blocks: true },
   });
   if (!course) return false;
-  return healPlan(foldCompletedSessions(course), todayISO()).isOverloaded;
-}
-
-/**
- * The differentiator. Redistribute unfinished work across the days that remain
- * and persist the result. Returns whether the remaining time is overloaded.
- */
-export async function healCoursePlan(courseId: string) {
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    include: { topics: { orderBy: { order: "asc" } }, blocks: true },
-  });
-  if (!course) throw new Error("Course not found");
-  const { blocks, isOverloaded } = healPlan(foldCompletedSessions(course), todayISO());
-  await persistBlocks(courseId, blocks);
-  return { isOverloaded };
+  return planForDeadline(foldCompletedSessions(course), todayISO()).intense;
 }

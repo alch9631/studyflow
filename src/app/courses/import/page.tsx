@@ -77,18 +77,6 @@ export default function ImportPage() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium">Minutes per study day</label>
-          <input
-            type="number"
-            name="minutesPerDay"
-            defaultValue={120}
-            min={15}
-            step={15}
-            className="mt-1 w-32 rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
-
         <button
           type="submit"
           disabled={!enabled}
