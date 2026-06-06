@@ -18,6 +18,11 @@ Newest entries on top. On return, read the **Needs you** section first.
 
 ## ✅ Done
 
+### Session — Day 5 (today view + progress)
+- **`/today`** — every study block scheduled for today across all courses, with check-off (block `completed` toggle) and a "X/Y min done" tally.
+- **Progress bars** on the course list; Today links from the landing page and course list.
+- **Verified:** `tsc` clean · `next build` green (6 routes). Closed issue #4.
+
 ### Session — Day 2–4 (data layer + create course + plan + heal)
 - **Local DB without your accounts:** dev-ing on SQLite (`prisma/dev.db`), so the app runs fully offline. Postgres/Supabase is a one-line provider swap later (documented in schema + README).
 - **Dev-user stand-in** (`src/lib/devUser.ts`) replaces real auth for now — swap to the Supabase session user when it lands, nothing else changes.

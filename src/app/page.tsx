@@ -6,12 +6,20 @@ export default function Home() {
       <p className="max-w-md text-lg text-gray-500">
         The study plan that builds itself — and heals itself when you fall behind.
       </p>
-      <a
-        href="/courses"
-        className="mt-2 rounded-full bg-black px-6 py-3 font-medium text-white hover:bg-gray-800"
-      >
-        Open my courses →
-      </a>
+      <div className="mt-2 flex gap-3">
+        <a
+          href="/courses"
+          className="rounded-full bg-black px-6 py-3 font-medium text-white hover:bg-gray-800"
+        >
+          My courses →
+        </a>
+        <a
+          href="/today"
+          className="rounded-full border border-gray-300 px-6 py-3 font-medium hover:bg-gray-50"
+        >
+          Today
+        </a>
+      </div>
     </main>
   );
 }

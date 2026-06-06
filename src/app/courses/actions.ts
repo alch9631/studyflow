@@ -47,6 +47,20 @@ export async function healCourse(formData: FormData) {
   revalidatePath(`/courses/${id}`);
 }
 
+/** Check off (or uncheck) a single study block — "I did this session". */
+export async function toggleBlock(formData: FormData) {
+  const id = String(formData.get("blockId"));
+  const path = String(formData.get("revalidate") || "/today");
+  const block = await prisma.studyBlock.findUnique({ where: { id } });
+  if (block) {
+    await prisma.studyBlock.update({
+      where: { id },
+      data: { completed: !block.completed },
+    });
+  }
+  revalidatePath(path);
+}
+
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
 export async function toggleTopic(formData: FormData) {
   const id = String(formData.get("topicId"));

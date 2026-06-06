@@ -16,12 +16,17 @@ export default async function CoursesPage() {
     <main className="mx-auto max-w-2xl p-8">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Your courses</h1>
-        <Link
-          href="/courses/new"
-          className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-        >
-          + New course
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/today" className="text-sm font-medium text-gray-600 hover:underline">
+            Today
+          </Link>
+          <Link
+            href="/courses/new"
+            className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          >
+            + New course
+          </Link>
+        </div>
       </div>
 
       {courses.length === 0 ? (
@@ -43,6 +48,18 @@ export default async function CoursesPage() {
                     <span className="text-sm text-gray-500">
                       exam {c.examDate.toISOString().slice(0, 10)}
                     </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-green-500"
+                      style={{
+                        width: `${
+                          c.topics.length
+                            ? Math.round((done / c.topics.length) * 100)
+                            : 0
+                        }%`,
+                      }}
+                    />
                   </div>
                   <div className="mt-1 text-sm text-gray-500">
                     {done}/{c.topics.length} topics done
