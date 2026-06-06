@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { regeneratePlan, healCoursePlan } from "@/lib/planService";
+import { extractSyllabus } from "@/lib/syllabus";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
@@ -32,6 +33,42 @@ export async function createCourse(formData: FormData) {
       userId,
       topics: {
         create: topicLines.map((title, i) => ({ title, order: i })),
+      },
+    },
+  });
+
+  await regeneratePlan(course.id);
+  redirect(`/courses/${course.id}`);
+}
+
+/** Day 6 — paste a syllabus, let Claude extract the course, then build the plan. */
+export async function importSyllabus(formData: FormData) {
+  const userId = await getCurrentUserId();
+  const text = String(formData.get("syllabus") ?? "").trim();
+  const minutesPerDay = parseInt(String(formData.get("minutesPerDay") ?? "120"), 10);
+  const studyDays = formData.getAll("studyDays").map(String).join(",") || "1,2,3,4,5";
+  if (!text) throw new Error("Paste your syllabus text first");
+
+  const extracted = await extractSyllabus(text);
+
+  // Fall back to ~4 weeks out if the syllabus didn't state an exam date.
+  const examDate = extracted.examDate
+    ? new Date(extracted.examDate + "T00:00:00Z")
+    : new Date(Date.now() + 28 * 86400_000);
+
+  const course = await prisma.course.create({
+    data: {
+      name: extracted.courseName || "Imported course",
+      examDate,
+      minutesPerDay: Number.isNaN(minutesPerDay) ? 120 : minutesPerDay,
+      studyDays,
+      userId,
+      topics: {
+        create: extracted.topics.map((t, i) => ({
+          title: t.title,
+          effort: t.effort,
+          order: i,
+        })),
       },
     },
   });

@@ -18,6 +18,13 @@ Newest entries on top. On return, read the **Needs you** section first.
 
 ## ✅ Done
 
+### Session — Day 6 (AI syllabus import) — code-complete, needs your key to verify
+- **`/courses/import`** — paste a syllabus → Claude extracts course name, exam date, and weighted topics via **structured outputs** (`claude-opus-4-8`), then auto-builds the plan. (`src/lib/syllabus.ts`, action `importSyllabus`.)
+- v1 takes **pasted text** (PDF upload deferred — fewer moving parts, same wow).
+- **Gated**: if `ANTHROPIC_API_KEY` is unset, the page shows a friendly notice and the app still runs fully. So this is *not* blocking.
+- **Verified what I can**: `tsc` clean · `next build` green (7 routes). ⏸️ I could **not** run the live Claude call (needs your key) — that's the one unverified path. Drop the key in `.env` and try the Import page to confirm.
+- Model note: used `claude-opus-4-8` for best extraction; `claude-haiku-4-5` is a cheaper swap (one line in `syllabus.ts`) if you want to cut cost per import.
+
 ### Session — Day 5 (today view + progress)
 - **`/today`** — every study block scheduled for today across all courses, with check-off (block `completed` toggle) and a "X/Y min done" tally.
 - **Progress bars** on the course list; Today links from the landing page and course list.
