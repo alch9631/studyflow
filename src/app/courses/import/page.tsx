@@ -20,10 +20,11 @@ export default function ImportPage() {
       <Link href="/courses" className="text-sm text-gray-500 hover:underline">
         ← Back to courses
       </Link>
-      <h1 className="mb-1 mt-2 text-2xl font-bold">Import a syllabus ✨</h1>
+      <h1 className="mb-1 mt-2 text-2xl font-bold">Import from material ✨</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Paste your syllabus and AI pulls out the topics and exam date, then
-        builds your plan.
+        Paste a syllabus <em>or</em> upload a lecture script / study material
+        (PDF, txt, md) — AI pulls out the topics and exam date, then builds a
+        realistic plan.
       </p>
 
       {!enabled && (
@@ -35,11 +36,25 @@ export default function ImportPage() {
 
       <form action={importSyllabus} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium">Syllabus text</label>
+          <label className="block text-sm font-medium">
+            Upload material <span className="text-gray-400">(PDF, txt, md)</span>
+          </label>
+          <input
+            type="file"
+            name="file"
+            accept=".pdf,.txt,.md,application/pdf,text/plain"
+            disabled={!enabled}
+            className="mt-1 block w-full text-sm disabled:opacity-50"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">
+            …or paste syllabus text
+          </label>
           <textarea
             name="syllabus"
-            rows={12}
-            required
+            rows={8}
             disabled={!enabled}
             placeholder="Paste the whole syllabus here — weeks, chapters, exam dates, anything."
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs disabled:bg-gray-100"

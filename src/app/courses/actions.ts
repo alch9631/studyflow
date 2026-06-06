@@ -92,13 +92,40 @@ export async function addFromCatalog(formData: FormData) {
   redirect("/courses");
 }
 
-/** Paste a syllabus, let AI extract the course, then build the plan. */
+/** Extract plain text from an uploaded study material (PDF, txt, md). */
+async function extractTextFromFile(file: File): Promise<string> {
+  const buf = Buffer.from(await file.arrayBuffer());
+  const isPdf =
+    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  if (isPdf) {
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: buf });
+    try {
+      const result = await parser.getText();
+      return result.text;
+    } finally {
+      await parser.destroy();
+    }
+  }
+  return buf.toString("utf-8"); // txt / md
+}
+
+/**
+ * Build a course from a pasted syllabus AND/OR an uploaded study material
+ * (lecture script, PDF, notes). AI extracts the topics + exam date, then plans.
+ */
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
-  const text = String(formData.get("syllabus") ?? "").trim();
+  let text = String(formData.get("syllabus") ?? "").trim();
   const minutesPerDay = parseInt(String(formData.get("minutesPerDay") ?? "120"), 10);
   const studyDays = formData.getAll("studyDays").map(String).join(",") || "1,2,3,4,5";
-  if (!text) throw new Error("Paste your syllabus text first");
+
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    const fromFile = await extractTextFromFile(file);
+    text = text ? `${text}\n\n${fromFile}` : fromFile;
+  }
+  if (!text) throw new Error("Paste text or upload a study material first");
 
   const extracted = await extractSyllabus(text);
 
