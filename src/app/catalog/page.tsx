@@ -1,12 +1,20 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { addFromCatalog } from "../courses/actions";
+import { programByCode, PROGRAMS } from "@/lib/programs";
 
 export const dynamic = "force-dynamic";
 
-export default async function CatalogPage() {
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ program?: string }>;
+}) {
+  const { program: programParam } = await searchParams;
+  const program = programByCode(programParam ?? "IIW") ?? PROGRAMS[0];
+
   const modules = await prisma.moduleTemplate.findMany({
-    where: { university: "TUHH", program: "IIW" },
+    where: { university: "TUHH", program: program.code },
     orderBy: [{ section: "asc" }, { name: "asc" }],
   });
 
@@ -19,55 +27,72 @@ export default async function CatalogPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <Link href="/courses" className="text-sm text-gray-500 hover:underline">
-        ← Back to courses
+      <Link href="/" className="text-sm text-gray-500 hover:underline">
+        ← Choose a different Studiengang
       </Link>
-      <h1 className="mb-1 mt-2 text-2xl font-bold">TUHH module catalog 🎓</h1>
-      <p className="mb-6 text-sm text-gray-500">
-        Informatik-Ingenieurwesen (B.Sc.) — {modules.length} modules from the
-        official handbook. Tick the ones you&apos;re taking and StudyFlow builds
-        a plan for each. (Exam dates default to ~a semester out — adjust per
-        course after.)
-      </p>
+      <h1 className="mb-1 mt-2 text-2xl font-bold">{program.name} 🎓</h1>
 
-      <form action={addFromCatalog} className="space-y-6">
-        {[...bySection.entries()].map(([section, mods]) => (
-          <section key={section}>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              {section.replace(/^Fachmodule der /, "")}
-            </h2>
-            <ul className="space-y-1.5">
-              {mods.map((m) => (
-                <li key={m.id}>
-                  <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 p-2.5 hover:border-gray-400">
-                    <input
-                      type="checkbox"
-                      name="moduleId"
-                      value={m.id}
-                      className="mt-1"
-                    />
-                    <span className="flex-1">
-                      <span className="font-medium">{m.name}</span>
-                      <span className="ml-2 text-xs text-gray-400">
-                        {m.code} · {m.ects} LP
-                      </span>
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-
-        <div className="sticky bottom-4">
-          <button
-            type="submit"
-            className="w-full rounded-full bg-black px-5 py-3 font-medium text-white shadow-lg hover:bg-gray-800"
-          >
-            Add selected modules to my courses →
-          </button>
+      {modules.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800">
+          <p className="font-medium">
+            The module catalog for {program.name} ({program.code}) isn&apos;t imported yet.
+          </p>
+          <p className="mt-2">
+            You can still build your plan — add courses manually or paste a
+            syllabus and let AI extract the topics.
+          </p>
+          <div className="mt-3 flex gap-3">
+            <Link href="/courses/new" className="rounded-full bg-black px-4 py-2 font-medium text-white hover:bg-gray-800">
+              + Add a course
+            </Link>
+            <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium hover:bg-amber-100">
+              ✨ Import a syllabus
+            </Link>
+          </div>
         </div>
-      </form>
+      ) : (
+        <>
+          <p className="mb-6 text-sm text-gray-500">
+            {modules.length} modules from the official handbook. Tick the ones
+            you&apos;re taking and StudyFlow builds a plan for each. (Set the real
+            exam date per course afterwards — see ⚙️ Course settings.)
+          </p>
+
+          <form action={addFromCatalog} className="space-y-6">
+            {[...bySection.entries()].map(([section, mods]) => (
+              <section key={section}>
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  {section.replace(/^Fachmodule der /, "")}
+                </h2>
+                <ul className="space-y-1.5">
+                  {mods.map((m) => (
+                    <li key={m.id}>
+                      <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 p-2.5 hover:border-gray-400">
+                        <input type="checkbox" name="moduleId" value={m.id} className="mt-1" />
+                        <span className="flex-1">
+                          <span className="font-medium">{m.name}</span>
+                          <span className="ml-2 text-xs text-gray-400">
+                            {m.code} · {m.ects} LP
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+
+            <div className="sticky bottom-4">
+              <button
+                type="submit"
+                className="w-full rounded-full bg-black px-5 py-3 font-medium text-white shadow-lg hover:bg-gray-800"
+              >
+                Add selected modules to my courses →
+              </button>
+            </div>
+          </form>
+        </>
+      )}
     </main>
   );
 }
