@@ -155,6 +155,13 @@ export async function importSyllabus(formData: FormData) {
   redirect(`/courses/${course.id}`);
 }
 
+/** Delete a course (cascades to its topics + study blocks). */
+export async function deleteCourse(formData: FormData) {
+  const id = String(formData.get("courseId"));
+  await prisma.course.delete({ where: { id } });
+  redirect("/courses");
+}
+
 /** AI progress: read a plain-language status, mark matching topics done, replan. */
 export async function applyProgress(formData: FormData) {
   const id = String(formData.get("courseId"));

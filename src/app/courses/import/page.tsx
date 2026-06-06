@@ -2,6 +2,9 @@ import Link from "next/link";
 import { importSyllabus } from "../actions";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 
+// Render per-request so the AI-key gating reflects the current env (not build time).
+export const dynamic = "force-dynamic";
+
 const DAYS = [
   { v: 1, label: "Mon" },
   { v: 2, label: "Tue" },
@@ -29,7 +32,8 @@ export default function ImportPage() {
 
       {!enabled && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          ⚠️ AI import is off — set <code>OPENAI_API_KEY</code> in your{" "}
+          ⚠️ AI import is off — set <code>OPENAI_API_KEY</code> or{" "}
+          <code>ANTHROPIC_API_KEY</code> in your{" "}
           <code>.env</code> to enable it. You can still add courses manually.
         </div>
       )}

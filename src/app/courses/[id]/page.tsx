@@ -3,7 +3,13 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
-import { healCourse, toggleTopic, updateCourse, applyProgress } from "../actions";
+import {
+  healCourse,
+  toggleTopic,
+  updateCourse,
+  applyProgress,
+  deleteCourse,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +127,16 @@ export default async function CoursePage({
             Save & rebuild plan
           </button>
         </form>
+
+        <form action={deleteCourse} className="mt-4 border-t border-gray-100 pt-4">
+          <input type="hidden" name="courseId" value={course.id} />
+          <button
+            type="submit"
+            className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+          >
+            🗑 Delete this course
+          </button>
+        </form>
       </details>
 
       {overloaded && (
@@ -152,8 +168,8 @@ export default async function CoursePage({
           </form>
         ) : (
           <p className="text-sm text-gray-400">
-            Set <code>OPENAI_API_KEY</code> to update progress in plain language.
-            For now, tick topics below.
+            Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to
+            update progress in plain language. For now, tick topics below.
           </p>
         )}
       </section>
