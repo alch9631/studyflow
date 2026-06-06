@@ -1,11 +1,16 @@
 # 👋 Start here (test it in 30 seconds)
 
-Everything runs locally with **zero setup** — SQLite + a built-in dev user. No Supabase, no API key needed to try it.
+Everything runs locally with **zero config** — SQLite + a built-in dev user. No Supabase, no API key needed to try it.
 
+**Fresh clone? Run these three:**
 ```bash
 cd studyflow
-npm run dev
+npm install      # install dependencies
+npm run setup    # creates .env, builds the local DB, seeds demo data + TUHH catalog
+npm run dev      # http://localhost:3000
 ```
+
+(After the first time, just `npm run dev`.)
 
 Then open **http://localhost:3000** and click **“My courses”**.
 
