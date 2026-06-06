@@ -232,6 +232,22 @@ export async function healCourse(formData: FormData) {
   redirect(`/courses/${id}?msg=${isOverloaded ? "healed-over" : "healed"}`);
 }
 
+/** Log a finished focus session (Pomodoro) against a block — feeds adaptive pacing. */
+export async function logFocus(formData: FormData) {
+  const id = String(formData.get("blockId"));
+  const minutes = parseInt(String(formData.get("minutes") ?? "25"), 10) || 25;
+  const path = String(formData.get("revalidate") || "/today");
+  const block = await prisma.studyBlock.findUnique({ where: { id } });
+  if (block) {
+    const actual = (block.actualMinutes ?? 0) + minutes;
+    await prisma.studyBlock.update({
+      where: { id },
+      data: { actualMinutes: actual, completed: actual >= block.minutes || block.completed },
+    });
+  }
+  revalidatePath(path);
+}
+
 /** Check off (or uncheck) a single study block — "I did this session". */
 export async function toggleBlock(formData: FormData) {
   const id = String(formData.get("blockId"));
