@@ -5,6 +5,7 @@ import {
   type Course as EngineCourse,
   type StudyBlock as EngineBlock,
 } from "./planner";
+import { isSyllabusAIEnabled, optimizeStudyPlan } from "./syllabus";
 
 /** Today as an ISO date (YYYY-MM-DD), local time. */
 export function todayISO(): string {
@@ -122,6 +123,61 @@ export async function regeneratePlan(courseId: string) {
 /** "I fell behind" — same engine; recomputes the pace over the days left. */
 export async function healCoursePlan(courseId: string) {
   return buildPlan(courseId);
+}
+
+/**
+ * AI optimization (hybrid): the model judges difficulty/order and adds spaced
+ * review sessions; we persist those as topic effort/order (+ review topics), then
+ * the deterministic engine schedules them. Runs once per course (or on demand);
+ * no AI call on later replans. No-op if no API key.
+ */
+export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
+  if (!isSyllabusAIEnabled()) return false;
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: { topics: true },
+  });
+  if (!course || course.topics.length === 0) return false;
+
+  const days = Math.max(
+    1,
+    Math.round((course.examDate.getTime() - Date.now()) / 86_400_000),
+  );
+  const realTopics = course.topics.filter((t) => !/^review:/i.test(t.title));
+  const items = await optimizeStudyPlan(
+    course.name,
+    realTopics.map((t) => t.title),
+    days,
+  );
+  if (items.length === 0) return false;
+
+  // Clear previously AI-added review topics so re-optimizing doesn't pile them up.
+  await prisma.topic.deleteMany({
+    where: { courseId, title: { startsWith: "Review:" } },
+  });
+
+  const byTitle = new Map(realTopics.map((t) => [t.title.trim().toLowerCase(), t]));
+  let order = 0;
+  for (const it of items) {
+    const title = it.title.trim();
+    const effort = it.effort > 0 ? it.effort : 1;
+    const existing = byTitle.get(title.toLowerCase());
+    if (existing) {
+      await prisma.topic.update({ where: { id: existing.id }, data: { effort, order } });
+      byTitle.delete(title.toLowerCase());
+    } else if (it.isReview || /^review:/i.test(title)) {
+      await prisma.topic.create({ data: { courseId, title, effort, order } });
+    }
+    order++;
+  }
+  // Any original topic the model omitted keeps its place at the end.
+  for (const leftover of byTitle.values()) {
+    await prisma.topic.update({ where: { id: leftover.id }, data: { order: order++ } });
+  }
+
+  await prisma.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
+  await regeneratePlan(courseId);
+  return true;
 }
 
 /** Read-only: is the required daily pace humanly unrealistic (start earlier)? */

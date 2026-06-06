@@ -32,6 +32,7 @@ model Course {
   // Set when the course was created from a catalog module (e.g. TUHH "M0850").
   ects          Int?
   sourceCode    String?
+  aiOptimized   Boolean      @default(false) // AI tuned topic difficulty/order/review
 
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String

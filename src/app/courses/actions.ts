@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { regeneratePlan, healCoursePlan } from "@/lib/planService";
+import { regeneratePlan, healCoursePlan, aiOptimizeCourse } from "@/lib/planService";
 import { extractSyllabus, isSyllabusAIEnabled, interpretProgress } from "@/lib/syllabus";
 
 /** Create a course (+ its topics) and generate the first plan. */
@@ -36,6 +36,11 @@ export async function createCourse(formData: FormData) {
   });
 
   await regeneratePlan(course.id);
+  // Auto AI-optimize once (difficulty/order/review). Safe to fail — the
+  // deterministic plan already exists.
+  try {
+    await aiOptimizeCourse(course.id);
+  } catch {}
   redirect(`/courses/${course.id}`);
 }
 
@@ -148,7 +153,22 @@ export async function importSyllabus(formData: FormData) {
   });
 
   await regeneratePlan(course.id);
+  try {
+    await aiOptimizeCourse(course.id);
+  } catch {}
   redirect(`/courses/${course.id}`);
+}
+
+/** Re-run the AI optimizer (difficulty / order / spaced review) on demand. */
+export async function reoptimizeCourse(formData: FormData) {
+  const id = String(formData.get("courseId"));
+  let ok = false;
+  try {
+    ok = await aiOptimizeCourse(id);
+  } catch {
+    ok = false;
+  }
+  redirect(`/courses/${id}?msg=${ok ? "optimized" : "optimize-failed"}`);
 }
 
 /** Delete a course (cascades to its topics + study blocks). */

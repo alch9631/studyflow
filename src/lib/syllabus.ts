@@ -160,6 +160,55 @@ const PROGRESS_SYSTEM =
   "now done. Use only the exact topic titles provided. done=true for completed topics, done=false " +
   "otherwise. Include every topic in your answer.";
 
+// ---------------------------------------------------------------------------
+
+const OPTIMIZE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string", description: "Exact original topic title, or 'Review: <topic>' for a review session" },
+          effort: { type: "number", description: "Difficulty/importance weight, 1 (easy) to 3 (hard)" },
+          isReview: { type: "boolean", description: "true for an inserted revision session" },
+        },
+        required: ["title", "effort", "isReview"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+const OPTIMIZE_SYSTEM =
+  "You are an expert study planner. Given a course's topics and the days left until the exam, " +
+  "return ALL the topics in the best STUDY ORDER (foundational/prerequisite topics first), each " +
+  "with an effort weight 1–3 reflecting difficulty and importance. Keep each original topic's title " +
+  "EXACTLY as given (isReview=false). Then append a few spaced 'Review: <topic>' revision sessions " +
+  "(isReview=true) for the most important/hardest topics, to land near the exam. Don't drop any topic.";
+
+export type OptimizedItem = { title: string; effort: number; isReview: boolean };
+
+export async function optimizeStudyPlan(
+  courseName: string,
+  topicTitles: string[],
+  daysUntilExam: number,
+): Promise<OptimizedItem[]> {
+  const user =
+    `Course: ${courseName}\nDays until exam: ${daysUntilExam}\nTopics:\n` +
+    topicTitles.map((t) => "- " + t).join("\n");
+  const parsed = await jsonComplete<{ items: OptimizedItem[] }>(
+    OPTIMIZE_SYSTEM,
+    user,
+    OPTIMIZE_SCHEMA,
+    "studyplan",
+  );
+  return Array.isArray(parsed.items) ? parsed.items : [];
+}
+
 export async function interpretProgress(
   topics: string[],
   status: string,

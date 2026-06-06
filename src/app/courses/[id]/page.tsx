@@ -9,6 +9,7 @@ import {
   updateCourse,
   applyProgress,
   deleteCourse,
+  reoptimizeCourse,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,8 @@ const BANNERS: Record<string, string> = {
   progress: "✓ Progress applied — your plan adjusted.",
   "progress-none": "No matching topics found in that update — try naming them as they appear below.",
   "progress-error": "Couldn't reach the AI to read that. Check your API key, then try again.",
+  optimized: "✨ AI re-optimized your plan — difficulty, order, and review sessions updated.",
+  "optimize-failed": "Couldn't optimize with AI (no key, or the call failed). Plan is unchanged.",
 };
 
 export default async function CoursePage({
@@ -72,7 +75,7 @@ export default async function CoursePage({
       {banner && (
         <div
           className={`mt-3 rounded-lg border p-3 text-sm ${
-            msg?.startsWith("progress-") && msg !== "progress"
+            ["progress-none", "progress-error", "optimize-failed", "healed-over"].includes(msg ?? "")
               ? "border-amber-300 bg-amber-50 text-amber-800"
               : "border-green-300 bg-green-50 text-green-800"
           }`}
@@ -83,22 +86,42 @@ export default async function CoursePage({
 
       <div className="mb-6 mt-2 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{course.name}</h1>
+          <h1 className="text-2xl font-bold">
+            {course.name}
+            {course.aiOptimized && (
+              <span className="ml-2 align-middle rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-brand">
+                ✨ AI-optimized
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-gray-500">
             Exam {course.examDate.toISOString().slice(0, 10)} · ~
             {course.minutesPerDay} min/day to finish · {doneCount}/
             {course.topics.length} topics done
           </p>
         </div>
-        <form action={healCourse}>
-          <input type="hidden" name="courseId" value={course.id} />
-          <button
-            type="submit"
-            className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-          >
-            😵‍💫 I fell behind — replan
-          </button>
-        </form>
+        <div className="flex flex-col items-end gap-2">
+          {isSyllabusAIEnabled() && (
+            <form action={reoptimizeCourse}>
+              <input type="hidden" name="courseId" value={course.id} />
+              <button
+                type="submit"
+                className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              >
+                ✨ Optimize with AI
+              </button>
+            </form>
+          )}
+          <form action={healCourse}>
+            <input type="hidden" name="courseId" value={course.id} />
+            <button
+              type="submit"
+              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            >
+              😵‍💫 I fell behind — replan
+            </button>
+          </form>
+        </div>
       </div>
 
       <details className="mb-6 rounded-xl border border-gray-200 p-4">
