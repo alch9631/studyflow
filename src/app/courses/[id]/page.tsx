@@ -2,11 +2,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded } from "@/lib/planService";
-import { healCourse, toggleTopic } from "../actions";
+import { healCourse, toggleTopic, updateCourse } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_OPTS = [
+  { v: 1, label: "Mon" },
+  { v: 2, label: "Tue" },
+  { v: 3, label: "Wed" },
+  { v: 4, label: "Thu" },
+  { v: 5, label: "Fri" },
+  { v: 6, label: "Sat" },
+  { v: 0, label: "Sun" },
+];
 
 export default async function CoursePage({
   params,
@@ -59,6 +68,59 @@ export default async function CoursePage({
           </button>
         </form>
       </div>
+
+      <details className="mb-6 rounded-xl border border-gray-200 p-4">
+        <summary className="cursor-pointer text-sm font-medium text-gray-700">
+          ⚙️ Course settings (exam date, study time)
+        </summary>
+        <form action={updateCourse} className="mt-4 space-y-4">
+          <input type="hidden" name="courseId" value={course.id} />
+          <div className="flex flex-wrap gap-4">
+            <label className="text-sm">
+              <span className="block font-medium">Exam date</span>
+              <input
+                type="date"
+                name="examDate"
+                defaultValue={course.examDate.toISOString().slice(0, 10)}
+                className="mt-1 rounded-lg border border-gray-300 px-3 py-2"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block font-medium">Minutes / day</span>
+              <input
+                type="number"
+                name="minutesPerDay"
+                defaultValue={course.minutesPerDay}
+                min={15}
+                step={15}
+                className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2"
+              />
+            </label>
+          </div>
+          <div>
+            <span className="block text-sm font-medium">Study days</span>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {DAY_OPTS.map((d) => (
+                <label key={d.v} className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    name="studyDays"
+                    value={d.v}
+                    defaultChecked={course.studyDays.split(",").includes(String(d.v))}
+                  />
+                  {d.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          >
+            Save & rebuild plan
+          </button>
+        </form>
+      </details>
 
       {overloaded && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">

@@ -128,6 +128,25 @@ export async function importSyllabus(formData: FormData) {
   redirect(`/courses/${course.id}`);
 }
 
+/** Edit a course's exam date / capacity, then rebuild the plan around it. */
+export async function updateCourse(formData: FormData) {
+  const id = String(formData.get("courseId"));
+  const examDate = String(formData.get("examDate") ?? "");
+  const minutesPerDay = parseInt(String(formData.get("minutesPerDay") ?? "120"), 10);
+  const studyDays = formData.getAll("studyDays").map(String).join(",");
+
+  await prisma.course.update({
+    where: { id },
+    data: {
+      ...(examDate ? { examDate: new Date(examDate + "T00:00:00Z") } : {}),
+      minutesPerDay: Number.isNaN(minutesPerDay) ? 120 : minutesPerDay,
+      studyDays: studyDays || "1,2,3,4,5",
+    },
+  });
+  await regeneratePlan(id);
+  revalidatePath(`/courses/${id}`);
+}
+
 /** "I fell behind" — redistribute remaining work across the days left. */
 export async function healCourse(formData: FormData) {
   const id = String(formData.get("courseId"));
