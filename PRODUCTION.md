@@ -40,20 +40,20 @@ user. To make it multi-user:
 3. Replace the body of `getCurrentUserId()` with the Supabase session user id.
    **Nothing else changes** — every `prisma.course` query already scopes by `userId`.
 
-## 3. AI importer — Anthropic key
+## 3. AI importer — OpenAI key
 
 Add to `.env` (and to Vercel env vars in step 4):
 ```
-ANTHROPIC_API_KEY="sk-ant-..."
+OPENAI_API_KEY="sk-..."
 ```
-Get one at https://console.anthropic.com. The importer uses `claude-opus-4-8`;
-swap to `claude-haiku-4-5` in `src/lib/syllabus.ts` for a cheaper per-import cost.
+Get one at https://platform.openai.com/api-keys. The importer uses `gpt-4o-mini`;
+swap to `gpt-4o` in `src/lib/syllabus.ts` for higher-quality extraction.
 
 ## 4. Deploy — Vercel (~10 min)
 
 1. https://vercel.com → **Add New → Project** → import `alch9631/studyflow`.
 2. **Environment Variables** — add `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`.
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `OPENAI_API_KEY`.
 3. Deploy. Vercel auto-detects Next.js and builds.
 4. After first deploy, run the migration against the prod DB once
    (`npx prisma migrate deploy` with the prod `DATABASE_URL`).

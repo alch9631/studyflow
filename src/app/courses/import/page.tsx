@@ -22,13 +22,13 @@ export default function ImportPage() {
       </Link>
       <h1 className="mb-1 mt-2 text-2xl font-bold">Import a syllabus ✨</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Paste your syllabus and Claude pulls out the topics and exam date, then
+        Paste your syllabus and AI pulls out the topics and exam date, then
         builds your plan.
       </p>
 
       {!enabled && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          ⚠️ AI import is off — set <code>ANTHROPIC_API_KEY</code> in your{" "}
+          ⚠️ AI import is off — set <code>OPENAI_API_KEY</code> in your{" "}
           <code>.env</code> to enable it. You can still add courses manually.
         </div>
       )}

@@ -10,7 +10,7 @@ Students don't fail at planning for lack of a calendar — they fail because nob
 
 1. **Auto-generated study plan** — enter a course, get a daily/weekly schedule that works backward from the exam.
 2. **"I fell behind" button** — redistributes unfinished work, no guilt. *The reason people stay.*
-3. **Syllabus → plan (AI)** — upload a PDF, Claude fills in topics + dates. (Built last.)
+3. **Syllabus → plan (AI)** — paste a syllabus / upload material, OpenAI fills in topics + dates.
 
 ## The plan engine
 
@@ -24,7 +24,7 @@ npx tsx src/lib/planner.test.ts   # run the engine tests
 
 ## Stack
 
-Next.js (App Router, TS) · Tailwind · Supabase (Postgres + auth) · Prisma · Claude API · Vercel.
+Next.js (App Router, TS) · Tailwind · Supabase (Postgres + auth) · Prisma · OpenAI API · Vercel.
 
 ## Getting started
 

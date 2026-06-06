@@ -92,7 +92,7 @@ export async function addFromCatalog(formData: FormData) {
   redirect("/courses");
 }
 
-/** Day 6 — paste a syllabus, let Claude extract the course, then build the plan. */
+/** Paste a syllabus, let AI extract the course, then build the plan. */
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
   const text = String(formData.get("syllabus") ?? "").trim();
