@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { importSyllabus } from "../actions";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
+import FilePicker from "@/components/FilePicker";
 
 // Render per-request so the AI-key gating reflects the current env (not build time).
 export const dynamic = "force-dynamic";
@@ -40,16 +41,10 @@ export default function ImportPage() {
 
       <form action={importSyllabus} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium">
+          <label className="mb-1 block text-sm font-medium">
             Upload material <span className="text-gray-400">(PDF, txt, md)</span>
           </label>
-          <input
-            type="file"
-            name="file"
-            accept=".pdf,.txt,.md,application/pdf,text/plain"
-            disabled={!enabled}
-            className="mt-1 block w-full text-sm disabled:opacity-50"
-          />
+          <FilePicker disabled={!enabled} />
         </div>
 
         <div>

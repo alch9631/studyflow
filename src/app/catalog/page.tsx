@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/devUser";
 import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
 
@@ -13,10 +14,19 @@ export default async function CatalogPage({
   const { program: programParam } = await searchParams;
   const program = programByCode(programParam ?? "IIW") ?? PROGRAMS[0];
 
-  const modules = await prisma.moduleTemplate.findMany({
+  // Hide modules the student has already added as courses (by source code).
+  const userId = await getCurrentUserId();
+  const taken = await prisma.course.findMany({
+    where: { userId, sourceCode: { not: null } },
+    select: { sourceCode: true },
+  });
+  const takenCodes = new Set(taken.map((c) => c.sourceCode));
+
+  const allModules = await prisma.moduleTemplate.findMany({
     where: { university: "TUHH", program: program.code },
     orderBy: [{ section: "asc" }, { name: "asc" }],
   });
+  const modules = allModules.filter((m) => !takenCodes.has(m.code));
 
   // Group by section for a tidy, scannable list.
   const bySection = new Map<string, typeof modules>();
@@ -30,9 +40,14 @@ export default async function CatalogPage({
       <Link href="/" className="text-sm text-gray-500 hover:underline">
         ← Choose a different Studiengang
       </Link>
-      <h1 className="mb-1 mt-2 text-2xl font-bold">{program.name} 🎓</h1>
+      <div className="mb-1 mt-2 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">{program.name} 🎓</h1>
+        <Link href="/courses" className="text-sm font-medium text-gray-500 hover:underline">
+          Skip →
+        </Link>
+      </div>
 
-      {modules.length === 0 ? (
+      {allModules.length === 0 ? (
         <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800">
           <p className="font-medium">
             The module catalog for {program.name} ({program.code}) isn&apos;t imported yet.
@@ -49,6 +64,13 @@ export default async function CatalogPage({
               ✨ Import a syllabus
             </Link>
           </div>
+        </div>
+      ) : modules.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-gray-200 p-5 text-sm text-gray-600">
+          <p className="font-medium">You&apos;ve added every module in this program. 🎉</p>
+          <Link href="/courses" className="mt-3 inline-block rounded-full bg-black px-4 py-2 font-medium text-white hover:bg-gray-800">
+            Go to my courses →
+          </Link>
         </div>
       ) : (
         <>
