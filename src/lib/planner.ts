@@ -128,6 +128,32 @@ function distribute(
   return blocks;
 }
 
+/**
+ * Fold completed sessions back into the course before a heal. Finished minutes
+ * shouldn't be redistributed: a topic that's half-done carries only half its
+ * effort into the next plan, and a fully-done topic drops out entirely. This
+ * keeps healPlan/generatePlan pure — the caller supplies, per topic, how many
+ * minutes are already planned and how many of those are done.
+ */
+export function applyCompletedWork(
+  course: Course,
+  completedMinutesByTopic: Record<string, number>,
+  plannedMinutesByTopic: Record<string, number>,
+): Course {
+  return {
+    ...course,
+    topics: course.topics.map((t) => {
+      const planned = plannedMinutesByTopic[t.id] ?? 0;
+      const done = completedMinutesByTopic[t.id] ?? 0;
+      if (done <= 0 || planned <= 0) return t;
+      const remainingFraction = Math.max(0, 1 - done / planned);
+      // Nothing left to do for this topic — let it drop out of the plan.
+      if (remainingFraction <= 0) return { ...t, done: true };
+      return { ...t, effort: t.effort * remainingFraction };
+    }),
+  };
+}
+
 /** Build a fresh plan for a course, starting from `todayISO`. */
 export function generatePlan(course: Course, todayISO: string): StudyBlock[] {
   const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);

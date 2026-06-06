@@ -2,7 +2,13 @@
  * Quick sanity tests for the plan engine. Run with: npx tsx src/lib/planner.test.ts
  * (No test runner yet — keep it dependency-free for day one.)
  */
-import { generatePlan, healPlan, studyDatesBetween, type Course } from "./planner";
+import {
+  applyCompletedWork,
+  generatePlan,
+  healPlan,
+  studyDatesBetween,
+  type Course,
+} from "./planner";
 
 let passed = 0;
 let failed = 0;
@@ -57,6 +63,32 @@ check("overload flagged when too little time", isOverloaded === true);
 // Healing with plenty of time is not overloaded.
 const healthy = healPlan(course, "2026-06-06");
 check("not overloaded with full runway", healthy.isOverloaded === false);
+
+// Folding completed sessions: a fully-done topic drops out of the next plan.
+const foldedAllDone = applyCompletedWork(
+  course,
+  { t1: 120 }, // all of t1's planned minutes done
+  { t1: 120 },
+);
+check(
+  "fully-completed topic is marked done after fold",
+  foldedAllDone.topics.find((t) => t.id === "t1")?.done === true,
+);
+const planAfterFold = generatePlan(foldedAllDone, "2026-06-06");
+check("folded-done topic is dropped from plan", !planAfterFold.some((b) => b.topicId === "t1"));
+
+// Partial completion carries reduced effort (not the full topic) into heal.
+const foldedPartial = applyCompletedWork(course, { t2: 90 }, { t2: 120 });
+const t2 = foldedPartial.topics.find((t) => t.id === "t2");
+check("half-done topic keeps reduced effort", t2 !== undefined && t2.effort === 2 * 0.25);
+check("partial fold does not mark topic done", t2?.done === false);
+
+// No completion data leaves the course untouched.
+const foldedNone = applyCompletedWork(course, {}, {});
+check(
+  "no completion -> effort unchanged",
+  foldedNone.topics.every((t, i) => t.effort === course.topics[i].effort),
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

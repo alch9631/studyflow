@@ -141,7 +141,7 @@ export default async function CoursePage({
 
       {overloaded && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          ⚠️ There's more work than time left before the exam. The plan packs
+          ⚠️ There&apos;s more work than time left before the exam. The plan packs
           the remaining days as full as possible — consider trimming topics or
           adding study days.
         </div>

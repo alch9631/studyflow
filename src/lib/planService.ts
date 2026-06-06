@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import {
+  applyCompletedWork,
   generatePlan,
   healPlan,
   type Course as EngineCourse,
@@ -19,6 +20,29 @@ type DbCourseWithTopics = {
   minutesPerDay: number;
   topics: { id: string; title: string; effort: number; done: boolean }[];
 };
+
+type DbBlock = { topicId: string; topicTitle: string; date: Date; minutes: number; completed: boolean };
+
+/** Stable identity for a session, so completion survives a wipe-and-recreate. */
+const blockKey = (topicTitle: string, date: Date) =>
+  `${topicTitle}|${date.toISOString().slice(0, 10)}`;
+
+/**
+ * Fold per-session completion into the course the engine sees: a topic with
+ * finished sessions carries less (or zero) effort into the next plan, so heal
+ * doesn't redistribute work the student already did.
+ */
+function foldCompletedSessions(
+  course: DbCourseWithTopics & { blocks: DbBlock[] },
+): EngineCourse {
+  const planned: Record<string, number> = {};
+  const done: Record<string, number> = {};
+  for (const b of course.blocks) {
+    planned[b.topicId] = (planned[b.topicId] ?? 0) + b.minutes;
+    if (b.completed) done[b.topicId] = (done[b.topicId] ?? 0) + b.minutes;
+  }
+  return applyCompletedWork(toEngineCourse(course), done, planned);
+}
 
 /** Map a persisted course into the shape the pure engine expects. */
 function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
@@ -41,11 +65,21 @@ function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
 }
 
 async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
-  // The plan is regenerated wholesale, so replace prior blocks.
-  await prisma.studyBlock.deleteMany({ where: { courseId } });
-  if (blocks.length === 0) return;
+  // Completed sessions are durable history — never wipe them. We rebuild only
+  // the unfinished plan, and skip any freshly-planned block that lands on a
+  // topic+date a completed session already covers (matching on topic+date).
+  const existing = await prisma.studyBlock.findMany({ where: { courseId } });
+  const completedKeys = new Set(
+    existing.filter((b) => b.completed).map((b) => blockKey(b.topicTitle, b.date)),
+  );
+  await prisma.studyBlock.deleteMany({ where: { courseId, completed: false } });
+
+  const fresh = blocks.filter(
+    (b) => !completedKeys.has(blockKey(b.topicTitle, new Date(b.date + "T00:00:00Z"))),
+  );
+  if (fresh.length === 0) return;
   await prisma.studyBlock.createMany({
-    data: blocks.map((b) => ({
+    data: fresh.map((b) => ({
       courseId,
       topicId: b.topicId,
       topicTitle: b.topicTitle,
@@ -72,10 +106,10 @@ export async function regeneratePlan(courseId: string) {
 export async function isCourseOverloaded(courseId: string): Promise<boolean> {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { topics: true },
+    include: { topics: true, blocks: true },
   });
   if (!course) return false;
-  return healPlan(toEngineCourse(course), todayISO()).isOverloaded;
+  return healPlan(foldCompletedSessions(course), todayISO()).isOverloaded;
 }
 
 /**
@@ -85,10 +119,10 @@ export async function isCourseOverloaded(courseId: string): Promise<boolean> {
 export async function healCoursePlan(courseId: string) {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { topics: { orderBy: { order: "asc" } } },
+    include: { topics: { orderBy: { order: "asc" } }, blocks: true },
   });
   if (!course) throw new Error("Course not found");
-  const { blocks, isOverloaded } = healPlan(toEngineCourse(course), todayISO());
+  const { blocks, isOverloaded } = healPlan(foldCompletedSessions(course), todayISO());
   await persistBlocks(courseId, blocks);
   return { isOverloaded };
 }
