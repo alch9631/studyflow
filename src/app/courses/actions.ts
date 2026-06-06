@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { regeneratePlan, healCoursePlan, aiOptimizeCourse } from "@/lib/planService";
-import { extractSyllabus, isSyllabusAIEnabled, interpretProgress } from "@/lib/syllabus";
+import {
+  extractSyllabus,
+  isSyllabusAIEnabled,
+  interpretProgress,
+  analyzeModuleContent,
+} from "@/lib/syllabus";
+import { MINUTES_PER_EFFORT } from "@/lib/planner";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
@@ -95,20 +101,25 @@ export async function addFromCatalog(formData: FormData) {
   redirect("/courses");
 }
 
-/** Extract plain text from an uploaded study material (PDF, txt, md). */
+/** Extract plain text from an uploaded study material (PDF, DOCX, txt, md). */
 async function extractTextFromFile(file: File): Promise<string> {
   const buf = Buffer.from(await file.arrayBuffer());
-  const isPdf =
-    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-  if (isPdf) {
+  const name = file.name.toLowerCase();
+  if (file.type === "application/pdf" || name.endsWith(".pdf")) {
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: buf });
     try {
-      const result = await parser.getText();
-      return result.text;
+      return (await parser.getText()).text;
     } finally {
       await parser.destroy();
     }
+  }
+  if (name.endsWith(".docx")) {
+    const mammoth = await import("mammoth");
+    return (await mammoth.extractRawText({ buffer: buf })).value;
+  }
+  if (name.endsWith(".pptx")) {
+    throw new Error("PPTX isn't supported yet — export the slides to PDF and upload that.");
   }
   return buf.toString("utf-8"); // txt / md
 }
@@ -169,6 +180,63 @@ export async function reoptimizeCourse(formData: FormData) {
     ok = false;
   }
   redirect(`/courses/${id}?msg=${ok ? "optimized" : "optimize-failed"}`);
+}
+
+/**
+ * #5 — Upload a module file (PDF/DOCX/TXT/MD), have AI analyze its CONTENT, and
+ * rebuild the course's topics (with content-based difficulty + study-time
+ * estimates), then reschedule. Stores the file's analysis for review.
+ */
+export async function analyzeModuleUpload(formData: FormData) {
+  const courseId = String(formData.get("courseId"));
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/courses/${courseId}?msg=analyze-nofile`);
+  }
+  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  if (!course) redirect("/courses");
+
+  let result = "analyze-error";
+  let n = 0;
+  try {
+    const text = await extractTextFromFile(file as File);
+    if (!text.trim()) throw new Error("No readable text in that file");
+    const analysis = await analyzeModuleContent(course.name, text);
+    if (analysis.topics.length > 0) {
+      // Replace topics with the content-derived ones (effort from estimated time).
+      await prisma.topic.deleteMany({ where: { courseId } });
+      await prisma.topic.createMany({
+        data: analysis.topics.map((t, i) => ({
+          courseId,
+          title: t.title,
+          effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
+          order: i,
+        })),
+      });
+      n = analysis.topics.length;
+      await prisma.moduleFile.create({
+        data: {
+          courseId,
+          filename: file.name,
+          mimeType: file.type || null,
+          sizeBytes: file.size,
+          extractedChars: text.length,
+          analysis: JSON.stringify({
+            summary: analysis.summary,
+            concepts: analysis.concepts,
+            prerequisites: analysis.prerequisites,
+          }),
+        },
+      });
+      await prisma.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
+      await regeneratePlan(courseId);
+      result = "analyzed";
+    }
+  } catch (e) {
+    result =
+      e instanceof Error && e.message.includes("PPTX") ? "analyze-unsupported" : "analyze-error";
+  }
+  redirect(`/courses/${courseId}?msg=${result}&n=${n}`);
 }
 
 /** Delete a course (cascades to its topics + study blocks). */

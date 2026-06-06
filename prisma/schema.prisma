@@ -39,8 +39,24 @@ model Course {
   userId    String
   topics    Topic[]
   blocks    StudyBlock[]
+  files     ModuleFile[]
 
   @@index([userId])
+}
+
+// An uploaded module file (lecture script, notes) + its AI content analysis.
+model ModuleFile {
+  id             String   @id @default(cuid())
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId       String
+  filename       String
+  mimeType       String?
+  sizeBytes      Int      @default(0)
+  extractedChars Int      @default(0)
+  analysis       String? // JSON: summary, concepts, prerequisites, detected topics
+  createdAt      DateTime @default(now())
+
+  @@index([courseId])
 }
 
 model Topic {

@@ -10,7 +10,9 @@ import {
   applyProgress,
   deleteCourse,
   reoptimizeCourse,
+  analyzeModuleUpload,
 } from "../actions";
+import FilePicker from "@/components/FilePicker";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,10 @@ const BANNERS: Record<string, string> = {
   "progress-error": "Couldn't reach the AI to read that. Check your API key, then try again.",
   optimized: "✨ AI re-optimized your plan — difficulty, order, and review sessions updated.",
   "optimize-failed": "Couldn't optimize with AI (no key, or the call failed). Plan is unchanged.",
+  analyzed: "✨ Analyzed your file and rebuilt the topics + plan from its actual content.",
+  "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
+  "analyze-unsupported": "PPTX isn't supported yet — export the slides to PDF and upload that.",
+  "analyze-nofile": "Choose a file first.",
 };
 
 export default async function CoursePage({
@@ -51,9 +57,16 @@ export default async function CoursePage({
     include: {
       topics: { orderBy: { order: "asc" } },
       blocks: { orderBy: { date: "asc" } },
+      files: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!course) notFound();
+
+  const latestFile = course.files[0];
+  let fileAnalysis: { summary?: string; concepts?: string[]; prerequisites?: string[] } | null = null;
+  try {
+    fileAnalysis = latestFile?.analysis ? JSON.parse(latestFile.analysis) : null;
+  } catch {}
 
   const overloaded = await isCourseOverloaded(course.id);
   const doneCount = course.topics.filter((t) => t.done).length;
@@ -75,7 +88,7 @@ export default async function CoursePage({
       {banner && (
         <div
           className={`mt-3 rounded-lg border p-3 text-sm ${
-            ["progress-none", "progress-error", "optimize-failed", "healed-over"].includes(msg ?? "")
+            ["progress-none", "progress-error", "optimize-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile"].includes(msg ?? "")
               ? "border-amber-300 bg-amber-50 text-amber-800"
               : "border-green-300 bg-green-50 text-green-800"
           }`}
@@ -216,6 +229,45 @@ export default async function CoursePage({
             Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to
             update progress in plain language. For now, tick topics below.
           </p>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-lg font-semibold">📎 Module files</h2>
+        {isSyllabusAIEnabled() ? (
+          <form action={analyzeModuleUpload} className="space-y-3">
+            <input type="hidden" name="courseId" value={course.id} />
+            <FilePicker />
+            <button
+              type="submit"
+              className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+            >
+              ✨ Analyze file &amp; rebuild plan from its content
+            </button>
+          </form>
+        ) : (
+          <p className="text-sm text-gray-400">
+            Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to analyze
+            uploaded materials.
+          </p>
+        )}
+        {latestFile && (
+          <div className="mt-3 rounded-lg border border-gray-200 p-3 text-sm">
+            <div className="font-medium">📄 {latestFile.filename}</div>
+            {fileAnalysis?.summary && (
+              <p className="mt-1 text-gray-600">{fileAnalysis.summary}</p>
+            )}
+            {fileAnalysis?.concepts && fileAnalysis.concepts.length > 0 && (
+              <p className="mt-1 text-xs text-gray-500">
+                Concepts: {fileAnalysis.concepts.slice(0, 8).join(", ")}
+              </p>
+            )}
+            {fileAnalysis?.prerequisites && fileAnalysis.prerequisites.length > 0 && (
+              <p className="mt-0.5 text-xs text-gray-500">
+                Prerequisites: {fileAnalysis.prerequisites.join(", ")}
+              </p>
+            )}
+          </div>
         )}
       </section>
 

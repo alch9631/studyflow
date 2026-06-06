@@ -209,6 +209,70 @@ export async function optimizeStudyPlan(
   return Array.isArray(parsed.items) ? parsed.items : [];
 }
 
+const ANALYZE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    summary: { type: "string", description: "1-2 sentence summary of what this material covers" },
+    concepts: { type: "array", items: { type: "string" }, description: "key concepts" },
+    prerequisites: { type: "array", items: { type: "string" } },
+    topics: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          difficulty: { type: "number", description: "1 easy – 3 hard" },
+          estMinutes: { type: "number", description: "estimated study minutes to master it" },
+        },
+        required: ["title", "difficulty", "estMinutes"],
+      },
+    },
+  },
+  required: ["summary", "concepts", "prerequisites", "topics"],
+};
+
+const ANALYZE_SYSTEM =
+  "You analyze a university module's study material (lecture script/notes). Extract a short summary, " +
+  "the key concepts, any prerequisites, and the list of topics a student must master IN THE BEST " +
+  "LEARNING ORDER (foundations first). For each topic give a difficulty (1 easy – 3 hard) and an " +
+  "estimated study time in minutes. Base everything on the actual content, not just the title.";
+
+export type ModuleAnalysis = {
+  summary: string;
+  concepts: string[];
+  prerequisites: string[];
+  topics: { title: string; difficulty: number; estMinutes: number }[];
+};
+
+/** Analyze uploaded module content into a structured, plannable breakdown. */
+export async function analyzeModuleContent(
+  courseName: string,
+  text: string,
+): Promise<ModuleAnalysis> {
+  const parsed = await jsonComplete<ModuleAnalysis>(
+    ANALYZE_SYSTEM,
+    `Module: ${courseName}\n\nMaterial:\n${text.slice(0, 120_000)}`,
+    ANALYZE_SCHEMA,
+    "moduleanalysis",
+  );
+  return {
+    summary: parsed.summary ?? "",
+    concepts: Array.isArray(parsed.concepts) ? parsed.concepts : [],
+    prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
+    topics: Array.isArray(parsed.topics)
+      ? parsed.topics
+          .filter((t) => t && typeof t.title === "string" && t.title.trim())
+          .map((t) => ({
+            title: t.title.trim(),
+            difficulty: t.difficulty > 0 ? t.difficulty : 1,
+            estMinutes: t.estMinutes > 0 ? t.estMinutes : 60,
+          }))
+      : [],
+  };
+}
+
 const SELFTEST_SCHEMA = {
   type: "object",
   additionalProperties: false,
