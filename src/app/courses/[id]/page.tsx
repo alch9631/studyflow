@@ -223,28 +223,46 @@ export default async function CoursePage({
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Topics</h2>
         <ul className="space-y-2">
-          {course.topics.map((t) => (
-            <li key={t.id}>
-              <form action={toggleTopic} className="flex items-center gap-2">
-                <input type="hidden" name="topicId" value={t.id} />
-                <input type="hidden" name="courseId" value={course.id} />
-                <button
-                  type="submit"
-                  className={`flex h-5 w-5 items-center justify-center rounded border ${
-                    t.done
-                      ? "border-green-500 bg-green-500 text-white"
-                      : "border-gray-300"
-                  }`}
-                  aria-label={t.done ? "Mark not done" : "Mark done"}
-                >
-                  {t.done ? "✓" : ""}
-                </button>
-                <span className={t.done ? "text-gray-400 line-through" : ""}>
-                  {t.title}
-                </span>
-              </form>
-            </li>
-          ))}
+          {course.topics.map((t) => {
+            let questions: string[] = [];
+            try {
+              questions = t.questions ? (JSON.parse(t.questions) as string[]) : [];
+            } catch {}
+            return (
+              <li key={t.id}>
+                <form action={toggleTopic} className="flex items-center gap-2">
+                  <input type="hidden" name="topicId" value={t.id} />
+                  <input type="hidden" name="courseId" value={course.id} />
+                  <button
+                    type="submit"
+                    className={`flex h-5 w-5 items-center justify-center rounded border ${
+                      t.done
+                        ? "border-green-500 bg-green-500 text-white"
+                        : "border-gray-300"
+                    }`}
+                    aria-label={t.done ? "Mark not done" : "Mark done"}
+                  >
+                    {t.done ? "✓" : ""}
+                  </button>
+                  <span className={t.done ? "text-gray-400 line-through" : ""}>
+                    {t.title}
+                  </span>
+                </form>
+                {questions.length > 0 && (
+                  <details className="ml-7 mt-1">
+                    <summary className="cursor-pointer text-xs text-brand">
+                      🧠 Self-test ({questions.length})
+                    </summary>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                      {questions.map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </li>
+            );
+          })}
           {course.topics.length === 0 && (
             <li className="text-sm text-gray-500">No topics added.</li>
           )}

@@ -209,6 +209,48 @@ export async function optimizeStudyPlan(
   return Array.isArray(parsed.items) ? parsed.items : [];
 }
 
+const SELFTEST_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string", description: "Exact topic title" },
+          questions: { type: "array", items: { type: "string" } },
+        },
+        required: ["title", "questions"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+const SELFTEST_SYSTEM =
+  "For each study topic, write 3 short active-recall self-test questions that make the student " +
+  "retrieve and explain key ideas (concept understanding, not trivia). Use each topic's exact title.";
+
+export type TopicQuestions = { title: string; questions: string[] };
+
+/** Generate active-recall questions for a course's topics in one call. */
+export async function generateSelfTests(
+  courseName: string,
+  topicTitles: string[],
+): Promise<TopicQuestions[]> {
+  const user =
+    `Course: ${courseName}\nTopics:\n` + topicTitles.map((t) => "- " + t).join("\n");
+  const parsed = await jsonComplete<{ items: TopicQuestions[] }>(
+    SELFTEST_SYSTEM,
+    user,
+    SELFTEST_SCHEMA,
+    "selftests",
+  );
+  return Array.isArray(parsed.items) ? parsed.items : [];
+}
+
 export async function interpretProgress(
   topics: string[],
   status: string,

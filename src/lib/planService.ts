@@ -5,7 +5,7 @@ import {
   type Course as EngineCourse,
   type StudyBlock as EngineBlock,
 } from "./planner";
-import { isSyllabusAIEnabled, optimizeStudyPlan } from "./syllabus";
+import { isSyllabusAIEnabled, optimizeStudyPlan, generateSelfTests } from "./syllabus";
 
 /** Today as an ISO date (YYYY-MM-DD), local time. */
 export function todayISO(): string {
@@ -191,6 +191,23 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
   // Any original topic the model omitted keeps its place at the end.
   for (const leftover of byTitle.values()) {
     await prisma.topic.update({ where: { id: leftover.id }, data: { order: order++ } });
+  }
+
+  // Active recall: generate self-test questions per topic (one call), store as JSON.
+  try {
+    const fresh = await prisma.topic.findMany({
+      where: { courseId, title: { not: { startsWith: "Review:" } } },
+    });
+    const tests = await generateSelfTests(course.name, fresh.map((t) => t.title));
+    const qByTitle = new Map(tests.map((x) => [x.title.trim().toLowerCase(), x.questions]));
+    for (const t of fresh) {
+      const qs = qByTitle.get(t.title.trim().toLowerCase());
+      if (qs && qs.length > 0) {
+        await prisma.topic.update({ where: { id: t.id }, data: { questions: JSON.stringify(qs) } });
+      }
+    }
+  } catch {
+    // questions are a bonus — never block optimization on them
   }
 
   await prisma.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
