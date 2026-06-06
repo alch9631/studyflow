@@ -53,7 +53,7 @@ export async function addFromCatalog(formData: FormData) {
 
   const templates = await prisma.moduleTemplate.findMany({ where: { id: { in: ids } } });
   const aiOn = isSyllabusAIEnabled();
-  // A semester out is a sane default; the student sets the real exam date later.
+  // Fallback when a module has no published exam date (seminars, labs, electives).
   const defaultExam = new Date(Date.now() + 84 * 86400_000);
 
   for (const t of templates) {
@@ -77,7 +77,7 @@ export async function addFromCatalog(formData: FormData) {
     const course = await prisma.course.create({
       data: {
         name: t.name,
-        examDate: defaultExam,
+        examDate: t.examDate ?? defaultExam,
         minutesPerDay: 120,
         studyDays: "1,2,3,4,5",
         ects: t.ects,

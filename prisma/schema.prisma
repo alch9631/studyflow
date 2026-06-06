@@ -65,6 +65,8 @@ model ModuleTemplate {
   section    String
   ects       Int
   content    String // handbook snippet — feeds AI topic extraction later
+  examDate   DateTime? // official exam date for the current semester (if examined)
+  examSemester String? // e.g. "SS2026" — exam plans publish twice a year
 
   @@unique([university, program, code])
   @@index([university, program])

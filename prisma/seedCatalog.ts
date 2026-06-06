@@ -16,6 +16,8 @@ type RawModule = {
   section: string;
   ects: number;
   content: string;
+  examDate?: string | null; // ISO date, or null if no written exam this semester
+  examSemester?: string | null;
 };
 
 const UNIVERSITY = "TUHH";
@@ -35,7 +37,14 @@ async function main() {
           code: m.code,
         },
       },
-      update: { name: m.name, section: m.section, ects: m.ects, content: m.content },
+      update: {
+        name: m.name,
+        section: m.section,
+        ects: m.ects,
+        content: m.content,
+        examDate: m.examDate ? new Date(m.examDate + "T00:00:00Z") : null,
+        examSemester: m.examSemester ?? null,
+      },
       create: {
         university: UNIVERSITY,
         program: PROGRAM,
@@ -44,6 +53,8 @@ async function main() {
         section: m.section,
         ects: m.ects,
         content: m.content,
+        examDate: m.examDate ? new Date(m.examDate + "T00:00:00Z") : null,
+        examSemester: m.examSemester ?? null,
       },
     });
     count++;

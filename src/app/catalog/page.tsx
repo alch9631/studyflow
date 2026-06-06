@@ -95,6 +95,9 @@ export default async function CatalogPage({
                           <span className="font-medium">{m.name}</span>
                           <span className="ml-2 text-xs text-gray-400">
                             {m.code} · {m.ects} LP
+                            {m.examDate
+                              ? ` · exam ${m.examDate.toISOString().slice(0, 10)}`
+                              : ""}
                           </span>
                         </span>
                       </label>
