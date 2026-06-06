@@ -5,8 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Local dev uses SQLite (zero setup, runs offline). For production, switch
+// provider to "postgresql" and point DATABASE_URL at Supabase, then migrate.
+// The schema is intentionally provider-agnostic (no enums / pg-only types).
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

@@ -6,9 +6,12 @@ export default function Home() {
       <p className="max-w-md text-lg text-gray-500">
         The study plan that builds itself — and heals itself when you fall behind.
       </p>
-      <div className="mt-2 rounded-full border border-gray-200 px-4 py-1.5 text-sm text-gray-400">
-        🚧 Day 1 — foundation
-      </div>
+      <a
+        href="/courses"
+        className="mt-2 rounded-full bg-black px-6 py-3 font-medium text-white hover:bg-gray-800"
+      >
+        Open my courses →
+      </a>
     </main>
   );
 }
