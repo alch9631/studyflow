@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:engine": "tsx src/lib/planner.test.ts",
+    "test:service": "tsx src/lib/planService.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:catalog": "tsx prisma/seedCatalog.ts",

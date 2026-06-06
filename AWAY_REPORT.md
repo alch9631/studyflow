@@ -34,6 +34,10 @@ Going to production (Supabase + Vercel): **PRODUCTION.md**.
 
 ## ✅ Done
 
+### Session — Delegate test cycle (Avi directing Flo) — 2026-06-06 19:13
+- **Flo:** removed unused `Link` import in `src/app/today/page.tsx` (eslint warning). Verified: `lint` 0/0 · `tsc --noEmit` clean · `next build` green (5 pages).
+- **Avi:** reviewed the 1-line diff, committed as Flo (`5e2cfbf`, author=Flo, committer=Mohaboss), pushed to main. First live run of the Avi→Flo delegate loop. ✅
+
 ### Session — Make it test-ready (run-verified, seeded, documented)
 - **Booted the real production server** and exercised every route — `/`, `/courses`, `/courses/new`, `/courses/import`, `/today`, `/courses/[id]`. All return 200 with real content; overload banner and the AI-off notice both render; **zero server errors**. (Build only proves it compiles — this proves it *runs*.)
 - **Seed data** (`prisma/seed.ts`, `npm run db:seed`): two demo courses — "Algorithms" (healthy) and "Operating Systems (crunch!)" (overload + replan demo). 24 study blocks. So you can test instantly without creating anything.

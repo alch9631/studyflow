@@ -24,7 +24,7 @@ type DbCourseWithTopics = {
 type DbBlock = { topicId: string; topicTitle: string; date: Date; minutes: number; completed: boolean };
 
 /** Stable identity for a session, so completion survives a wipe-and-recreate. */
-const blockKey = (topicTitle: string, date: Date) =>
+export const blockKey = (topicTitle: string, date: Date) =>
   `${topicTitle}|${date.toISOString().slice(0, 10)}`;
 
 /**
@@ -32,7 +32,7 @@ const blockKey = (topicTitle: string, date: Date) =>
  * finished sessions carries less (or zero) effort into the next plan, so heal
  * doesn't redistribute work the student already did.
  */
-function foldCompletedSessions(
+export function foldCompletedSessions(
   course: DbCourseWithTopics & { blocks: DbBlock[] },
 ): EngineCourse {
   const planned: Record<string, number> = {};
@@ -45,7 +45,7 @@ function foldCompletedSessions(
 }
 
 /** Map a persisted course into the shape the pure engine expects. */
-function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
+export function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
   return {
     id: c.id,
     name: c.name,
