@@ -37,15 +37,21 @@ export default async function CatalogPage({
 
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <Link href="/" className="text-sm text-gray-500 hover:underline">
-        ← Choose a different Studiengang
-      </Link>
-      <div className="mb-1 mt-2 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{program.name} 🎓</h1>
-        <Link href="/courses" className="text-sm font-medium text-gray-500 hover:underline">
+      <div className="mb-4 flex items-center justify-between">
+        <Link
+          href="/"
+          className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          ← Choose a different Studiengang
+        </Link>
+        <Link
+          href="/courses"
+          className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
           Skip →
         </Link>
       </div>
+      <h1 className="mb-1 text-2xl font-bold">{program.name} 🎓</h1>
 
       {allModules.length === 0 ? (
         <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800">

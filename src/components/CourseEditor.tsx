@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { editCourse, type EditState } from "@/app/courses/actions";
+import { editCourse, deleteCourse, type EditState } from "@/app/courses/actions";
 
 const DAYS = [
   { v: 1, label: "Mon" },
@@ -23,6 +23,19 @@ function SaveButton() {
       className="rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
     >
       {pending ? "Saving…" : "Save"}
+    </button>
+  );
+}
+
+function DeleteButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+    >
+      {pending ? "Deleting…" : "🗑 Delete"}
     </button>
   );
 }
@@ -79,6 +92,17 @@ export default function CourseEditor({
           {state?.ok && <span className="text-sm text-green-600">✓ Saved</span>}
           {state?.error && <span className="text-sm text-red-600">{state.error}</span>}
         </div>
+      </form>
+
+      <form
+        action={deleteCourse}
+        onSubmit={(e) => {
+          if (!confirm(`Delete "${course.name}"? This can't be undone.`)) e.preventDefault();
+        }}
+        className="mt-2"
+      >
+        <input type="hidden" name="courseId" value={course.id} />
+        <DeleteButton />
       </form>
     </details>
   );
