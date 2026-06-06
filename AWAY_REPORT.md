@@ -5,6 +5,22 @@ Newest entries on top. On return, read the **Needs you** section first.
 
 ---
 
+## ▶ WHEN YOU WAKE UP (test in 30 seconds)
+
+```bash
+cd studyflow && npm run dev      # → http://localhost:3000 → "My courses"
+```
+
+Two **demo courses are already seeded** (incl. one in "crunch" mode showing the
+overload banner + replan). Full guide: **START_HERE.md**. Tests: `npm run test:engine`
+and `npm run smoke`. It's all **run-verified** in a real browser — every route returns
+200 with real content, no server errors. The only untested path is the live AI import
+(needs your `ANTHROPIC_API_KEY`); it's gated and degrades gracefully without one.
+
+Going to production (Supabase + Vercel): **PRODUCTION.md**.
+
+---
+
 ## ⏸️ Needs you (queued — not acted on)
 
 - **Supabase account + `DATABASE_URL`** — real Postgres for production. Local dev runs on SQLite, so this is *not* blocking; swap when ready.
@@ -17,6 +33,12 @@ Newest entries on top. On return, read the **Needs you** section first.
 - _(none)_
 
 ## ✅ Done
+
+### Session — Make it test-ready (run-verified, seeded, documented)
+- **Booted the real production server** and exercised every route — `/`, `/courses`, `/courses/new`, `/courses/import`, `/today`, `/courses/[id]`. All return 200 with real content; overload banner and the AI-off notice both render; **zero server errors**. (Build only proves it compiles — this proves it *runs*.)
+- **Seed data** (`prisma/seed.ts`, `npm run db:seed`): two demo courses — "Algorithms" (healthy) and "Operating Systems (crunch!)" (overload + replan demo). 24 study blocks. So you can test instantly without creating anything.
+- **START_HERE.md** — 30-second test guide. **PRODUCTION.md** — exact Supabase + Vercel + auth steps.
+- All green: `tsc` · `next build` (7 routes) · `test:engine` 6/6 · `smoke` · live route checks.
 
 ### Session — Day 6 (AI syllabus import) — code-complete, needs your key to verify
 - **`/courses/import`** — paste a syllabus → Claude extracts course name, exam date, and weighted topics via **structured outputs** (`claude-opus-4-8`), then auto-builds the plan. (`src/lib/syllabus.ts`, action `importSyllabus`.)

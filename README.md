@@ -28,12 +28,17 @@ Next.js (App Router, TS) · Tailwind · Supabase (Postgres + auth) · Prisma · 
 
 ## Getting started
 
+> **Just want to try it?** See **[START_HERE.md](START_HERE.md)** — local dev needs no setup (SQLite + a dev user), and demo data is seeded. `npm install && npm run dev`.
+
 ```bash
 npm install
-cp .env.example .env        # fill in DATABASE_URL + keys
-npx prisma migrate dev      # set up the database
+cp .env.example .env        # DATABASE_URL defaults to local SQLite
+npm run db:push             # create the SQLite tables
+npm run db:seed             # optional: demo courses
 npm run dev                 # http://localhost:3000
 ```
+
+For production (Postgres + auth + deploy), see **[PRODUCTION.md](PRODUCTION.md)**.
 
 ## Status
 
