@@ -208,6 +208,36 @@ export async function applyProgress(formData: FormData) {
   redirect(`/courses/${id}?msg=${result}`);
 }
 
+export type EditState = { ok: boolean; error?: string } | null;
+
+/**
+ * Inline edit from the Courses page (used with useActionState). Validates, saves,
+ * reschedules, and returns a status the UI shows without navigating away.
+ */
+export async function editCourse(_prev: EditState, formData: FormData): Promise<EditState> {
+  const id = String(formData.get("courseId"));
+  const name = String(formData.get("name") ?? "").trim();
+  const examDate = String(formData.get("examDate") ?? "");
+  const studyDays = formData.getAll("studyDays").map(String).join(",");
+
+  if (!name) return { ok: false, error: "Course name is required." };
+  if (!examDate) return { ok: false, error: "Exam date is required." };
+  const exam = new Date(examDate + "T00:00:00Z");
+  if (Number.isNaN(exam.getTime())) return { ok: false, error: "Invalid exam date." };
+
+  try {
+    await prisma.course.update({
+      where: { id },
+      data: { name, examDate: exam, studyDays: studyDays || "1,2,3,4,5" },
+    });
+    await regeneratePlan(id);
+    revalidatePath("/courses");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Couldn't save — please try again." };
+  }
+}
+
 /** Edit a course's exam date / capacity, then rebuild the plan around it. */
 export async function updateCourse(formData: FormData) {
   const id = String(formData.get("courseId"));

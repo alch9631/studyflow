@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
+import CourseEditor from "@/components/CourseEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,14 @@ export default async function CoursesPage() {
                     {done}/{c.topics.length} topics done
                   </div>
                 </Link>
+                <CourseEditor
+                  course={{
+                    id: c.id,
+                    name: c.name,
+                    examDate: c.examDate.toISOString().slice(0, 10),
+                    studyDays: c.studyDays,
+                  }}
+                />
               </li>
             );
           })}
