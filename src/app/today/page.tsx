@@ -102,7 +102,15 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
-      <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+        <a
+          href="/api/calendar"
+          className="text-sm font-medium text-brand hover:underline"
+        >
+          📅 Export to calendar
+        </a>
+      </div>
       <p className="mb-6 text-sm text-gray-500">
         {today}
         {blocks.length > 0
