@@ -57,7 +57,7 @@ export default async function CatalogPage({
             syllabus and let AI extract the topics.
           </p>
           <div className="mt-3 flex gap-3">
-            <Link href="/courses/new" className="rounded-full bg-black px-4 py-2 font-medium text-white hover:bg-gray-800">
+            <Link href="/courses/new" className="rounded-full bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark">
               + Add a course
             </Link>
             <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium hover:bg-amber-100">
@@ -68,7 +68,7 @@ export default async function CatalogPage({
       ) : modules.length === 0 ? (
         <div className="mt-6 rounded-xl border border-gray-200 p-5 text-sm text-gray-600">
           <p className="font-medium">You&apos;ve added every module in this program. 🎉</p>
-          <Link href="/courses" className="mt-3 inline-block rounded-full bg-black px-4 py-2 font-medium text-white hover:bg-gray-800">
+          <Link href="/courses" className="mt-3 inline-block rounded-full bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark">
             Go to my courses →
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default async function CatalogPage({
             <div className="sticky bottom-4">
               <button
                 type="submit"
-                className="w-full rounded-full bg-black px-5 py-3 font-medium text-white shadow-lg hover:bg-gray-800"
+                className="w-full rounded-full bg-brand px-5 py-3 font-medium text-white shadow-lg hover:bg-brand-dark"
               >
                 Add selected modules to my courses →
               </button>

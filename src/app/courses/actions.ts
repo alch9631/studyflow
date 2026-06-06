@@ -171,16 +171,25 @@ export async function applyProgress(formData: FormData) {
   const course = await prisma.course.findUnique({ where: { id }, include: { topics: true } });
   if (!course) return;
 
-  const updates = await interpretProgress(course.topics.map((t) => t.title), status);
-  const wanted = new Map(updates.map((u) => [u.title.toLowerCase(), u.done]));
-  for (const t of course.topics) {
-    const d = wanted.get(t.title.toLowerCase());
-    if (d !== undefined && d !== t.done) {
-      await prisma.topic.update({ where: { id: t.id }, data: { done: d } });
+  // Note: redirect() must live OUTSIDE the try (it throws NEXT_REDIRECT).
+  let result: "progress" | "progress-none" | "progress-error" = "progress-none";
+  try {
+    const updates = await interpretProgress(course.topics.map((t) => t.title), status);
+    const wanted = new Map(updates.map((u) => [u.title.toLowerCase(), u.done]));
+    let changed = 0;
+    for (const t of course.topics) {
+      const d = wanted.get(t.title.toLowerCase());
+      if (d !== undefined && d !== t.done) {
+        await prisma.topic.update({ where: { id: t.id }, data: { done: d } });
+        changed++;
+      }
     }
+    result = changed > 0 ? "progress" : "progress-none";
+  } catch {
+    result = "progress-error";
   }
   await regeneratePlan(id);
-  revalidatePath(`/courses/${id}`);
+  redirect(`/courses/${id}?msg=${result}`);
 }
 
 /** Edit a course's exam date / capacity, then rebuild the plan around it. */
@@ -199,14 +208,14 @@ export async function updateCourse(formData: FormData) {
     },
   });
   await regeneratePlan(id);
-  revalidatePath(`/courses/${id}`);
+  redirect(`/courses/${id}?msg=saved`);
 }
 
 /** "I fell behind" — redistribute remaining work across the days left. */
 export async function healCourse(formData: FormData) {
   const id = String(formData.get("courseId"));
-  await healCoursePlan(id);
-  revalidatePath(`/courses/${id}`);
+  const { isOverloaded } = await healCoursePlan(id);
+  redirect(`/courses/${id}?msg=${isOverloaded ? "healed-over" : "healed"}`);
 }
 
 /** Check off (or uncheck) a single study block — "I did this session". */

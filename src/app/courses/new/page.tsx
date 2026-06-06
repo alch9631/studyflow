@@ -85,7 +85,7 @@ export default function NewCoursePage() {
 
         <button
           type="submit"
-          className="rounded-full bg-black px-5 py-2.5 font-medium text-white hover:bg-gray-800"
+          className="rounded-full bg-brand px-5 py-2.5 font-medium text-white hover:bg-brand-dark"
         >
           Create & build my plan
         </button>

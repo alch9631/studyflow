@@ -92,7 +92,7 @@ export default function ImportPage() {
         <button
           type="submit"
           disabled={!enabled}
-          className="rounded-full bg-black px-5 py-2.5 font-medium text-white hover:bg-gray-800 disabled:opacity-40"
+          className="rounded-full bg-brand px-5 py-2.5 font-medium text-white hover:bg-brand-dark disabled:opacity-40"
         >
           ✨ Extract & build my plan
         </button>

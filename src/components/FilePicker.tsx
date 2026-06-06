@@ -30,7 +30,7 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
         type="button"
         disabled={disabled}
         onClick={() => ref.current?.click()}
-        className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-40"
+        className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-40"
       >
         📎 {name ? "Choose a different file" : "Choose file"}
       </button>

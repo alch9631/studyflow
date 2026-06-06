@@ -10,6 +10,9 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* TUHH brand blue — primary actions, active nav. */
+  --color-brand: #00509b;
+  --color-brand-dark: #003d75;
 }
 
 body {

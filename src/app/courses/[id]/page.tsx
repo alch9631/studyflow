@@ -24,12 +24,25 @@ const DAY_OPTS = [
   { v: 0, label: "Sun" },
 ];
 
+const BANNERS: Record<string, string> = {
+  healed: "✓ Plan rebuilt around the days you have left.",
+  "healed-over": "✓ Plan rebuilt — but there's more work than time. Trim topics or add study days.",
+  saved: "✓ Course updated and plan rebuilt.",
+  progress: "✓ Progress applied — your plan adjusted.",
+  "progress-none": "No matching topics found in that update — try naming them as they appear below.",
+  "progress-error": "Couldn't reach the AI to read that. Check your API key, then try again.",
+};
+
 export default async function CoursePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ msg?: string }>;
 }) {
   const { id } = await params;
+  const { msg } = await searchParams;
+  const banner = msg ? BANNERS[msg] : undefined;
   const course = await prisma.course.findUnique({
     where: { id },
     include: {
@@ -55,6 +68,18 @@ export default async function CoursePage({
       <Link href="/courses" className="text-sm text-gray-500 hover:underline">
         ← All courses
       </Link>
+
+      {banner && (
+        <div
+          className={`mt-3 rounded-lg border p-3 text-sm ${
+            msg?.startsWith("progress-") && msg !== "progress"
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-green-300 bg-green-50 text-green-800"
+          }`}
+        >
+          {banner}
+        </div>
+      )}
 
       <div className="mb-6 mt-2 flex items-end justify-between">
         <div>
@@ -122,7 +147,7 @@ export default async function CoursePage({
           </div>
           <button
             type="submit"
-            className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
           >
             Save & rebuild plan
           </button>
@@ -161,7 +186,7 @@ export default async function CoursePage({
             />
             <button
               type="submit"
-              className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
             >
               ✨ Apply & rebuild plan
             </button>
