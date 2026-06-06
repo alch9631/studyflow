@@ -34,9 +34,16 @@ Going to production (Supabase + Vercel): **PRODUCTION.md**.
 
 ## ✅ Done
 
-### Session — Delegate test cycle (Avi directing Flo) — 2026-06-06 19:13
+## 🔵 BACK 2026-06-06 19:28 — away cycle closed. While away (Avi directing Flo): added planService unit tests (16/16) + lint cleanup, both committed & pushed. No blockers; nothing broke. Queue below ("Needs you") unchanged.
+
+### Session — planService unit tests — 2026-06-06 19:18 (`5ecd311`)
+- **Flo:** added `src/lib/planService.test.ts` — **16 tests** for the previously unit-untested core logic: completion-folding (the differentiator — proves completed work is NOT redistributed), DB→engine course mapping, stable `blockKey` identity. Exported 3 pure fns for testing, **no behavior change**. New script `test:service`.
+- **Verified:** test:service 16/16 · test:engine 11/11 · lint 0/0 · tsc clean · build green.
+- **Avi:** reviewed diff (source untouched except `export` keywords), committed as Flo, pushed. (Note: this report's prior edit got swept into the commit — harmless; will commit report separately going forward.)
+
+### Session — Delegate test cycle (Avi directing Flo) — 2026-06-06 19:13 (`5e2cfbf`)
 - **Flo:** removed unused `Link` import in `src/app/today/page.tsx` (eslint warning). Verified: `lint` 0/0 · `tsc --noEmit` clean · `next build` green (5 pages).
-- **Avi:** reviewed the 1-line diff, committed as Flo (`5e2cfbf`, author=Flo, committer=Mohaboss), pushed to main. First live run of the Avi→Flo delegate loop. ✅
+- **Avi:** reviewed the 1-line diff, committed as Flo (author=Flo, committer=Mohaboss), pushed to main. First live run of the Avi→Flo delegate loop. ✅
 
 ### Session — Make it test-ready (run-verified, seeded, documented)
 - **Booted the real production server** and exercised every route — `/`, `/courses`, `/courses/new`, `/courses/import`, `/today`, `/courses/[id]`. All return 200 with real content; overload banner and the AI-off notice both render; **zero server errors**. (Build only proves it compiles — this proves it *runs*.)
