@@ -86,8 +86,23 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
       date: new Date(b.date + "T00:00:00Z"),
       minutes: b.minutes,
       completed: false,
+      kind: b.kind,
     })),
   });
+}
+
+/**
+ * Adaptive estimate (planning fallacy): if the student has logged actual time
+ * (via the Pomodoro timer), learn whether they study faster/slower than the
+ * estimate and scale future plans. Clamped, and only once there's enough data.
+ */
+function calibrationFromHistory(blocks: { minutes: number; actualMinutes: number | null }[]): number {
+  const logged = blocks.filter((b) => b.actualMinutes && b.actualMinutes > 0);
+  if (logged.length < 3) return 1;
+  const planned = logged.reduce((s, b) => s + b.minutes, 0);
+  const actual = logged.reduce((s, b) => s + (b.actualMinutes ?? 0), 0);
+  if (planned <= 0) return 1;
+  return Math.min(2.5, Math.max(0.5, actual / planned));
 }
 
 /**
@@ -104,7 +119,10 @@ async function buildPlan(courseId: string) {
   if (!course) throw new Error("Course not found");
 
   const engine = foldCompletedSessions(course); // reduce effort by completed work
-  const { blocks, minutesPerDay, intense } = planForDeadline(engine, todayISO());
+  const calibration = calibrationFromHistory(course.blocks);
+  const { blocks, minutesPerDay, intense } = planForDeadline(engine, todayISO(), {
+    calibration,
+  });
 
   // Persist the computed pace so the UI can show "study ~X/day".
   await prisma.course.update({

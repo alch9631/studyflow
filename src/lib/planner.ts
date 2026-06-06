@@ -27,6 +27,8 @@ export type StudyBlock = {
   /** Planned minutes for this block. */
   minutes: number;
   completed: boolean;
+  /** "study" = first-pass learning, "review" = spaced-repetition recall. */
+  kind: "study" | "review";
 };
 
 export type Course = {
@@ -73,9 +75,14 @@ export function studyDatesBetween(
   return dates;
 }
 
+/** A single focused session length — keeps blocks Pomodoro-friendly and enables interleaving. */
+export const SESSION_MINUTES = 30;
+
 /**
- * Spread the given topics across the available study dates, weighted by effort.
- * Each topic may be split across multiple days if it doesn't fit in one.
+ * Spread topics across the study dates, weighted by effort, but INTERLEAVED:
+ * each day rotates through the pending topics in ~30-min sessions rather than
+ * finishing one topic before starting the next. Interleaving is evidence-backed
+ * (forces the brain to differentiate concepts) and naturally mixes courses too.
  */
 function distribute(
   topics: Topic[],
@@ -88,46 +95,58 @@ function distribute(
   if (totalEffort <= 0) return [];
 
   const totalMinutes = dates.length * minutesPerDay;
+  // Minutes still owed per topic (fair share of total time, by effort).
+  const remaining = topics.map((t) => {
+    const m = Math.round((Math.max(t.effort, 0) / totalEffort) * totalMinutes);
+    return { t, m: m > 0 ? m : 15 };
+  });
+
   const blocks: StudyBlock[] = [];
+  let ti = 0; // round-robin cursor across topics
 
-  // Minutes each day still has free.
-  const capacity = dates.map(() => minutesPerDay);
-  let cursor = 0;
-
-  for (const topic of topics) {
-    // Fair share of total study time for this topic.
-    let remaining = Math.round((topic.effort / totalEffort) * totalMinutes);
-    if (remaining <= 0) remaining = Math.min(minutesPerDay, 15);
-
-    while (remaining > 0) {
-      // Out of days: dump the remainder onto the last day rather than silently
-      // dropping the topic. Fuller days = visible overload, not lost work.
-      if (cursor >= dates.length) {
-        const last = dates.length - 1;
-        blocks.push({
-          date: dates[last],
-          topicId: topic.id,
-          topicTitle: topic.title,
-          minutes: remaining,
-          completed: false,
-        });
-        remaining = 0;
-        break;
+  for (const date of dates) {
+    let cap = minutesPerDay;
+    while (cap > 0) {
+      if (!remaining.some((r) => r.m > 0)) break;
+      // Next topic (from ti) that still owes time.
+      let pick: (typeof remaining)[number] | null = null;
+      for (let k = 0; k < remaining.length; k++) {
+        const r = remaining[(ti + k) % remaining.length];
+        if (r.m > 0) {
+          pick = r;
+          ti = (ti + k + 1) % remaining.length;
+          break;
+        }
       }
-      if (capacity[cursor] <= 0) {
-        cursor++;
-        continue;
-      }
-      const chunk = Math.min(remaining, capacity[cursor]);
+      if (!pick) break;
+      const chunk = Math.min(SESSION_MINUTES, pick.m, cap);
       blocks.push({
-        date: dates[cursor],
-        topicId: topic.id,
-        topicTitle: topic.title,
+        date,
+        topicId: pick.t.id,
+        topicTitle: pick.t.title,
         minutes: chunk,
         completed: false,
+        kind: "study",
       });
-      capacity[cursor] -= chunk;
-      remaining -= chunk;
+      pick.m -= chunk;
+      cap -= chunk;
+    }
+  }
+
+  // Ran out of days with work left → pile the remainder on the last day (visible
+  // overload, never dropped).
+  const last = dates[dates.length - 1];
+  for (const r of remaining) {
+    if (r.m > 0) {
+      blocks.push({
+        date: last,
+        topicId: r.t.id,
+        topicTitle: r.t.title,
+        minutes: r.m,
+        completed: false,
+        kind: "study",
+      });
+      r.m = 0;
     }
   }
 
@@ -171,6 +190,7 @@ export function applyCompletedWork(
 export function planForDeadline(
   course: Course,
   todayISO: string,
+  opts?: { calibration?: number },
 ): { blocks: StudyBlock[]; minutesPerDay: number; intense: boolean } {
   const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
   const pending = course.topics.filter((t) => !t.done);
@@ -180,11 +200,64 @@ export function planForDeadline(
     return { blocks: [], minutesPerDay: 0, intense: dates.length === 0 && totalEffort > 0 };
   }
 
-  const totalMinutes = Math.ceil(totalEffort * MINUTES_PER_EFFORT);
+  // calibration scales the time estimate from the student's actual pace (≈1 by default).
+  const factor = opts?.calibration && opts.calibration > 0 ? opts.calibration : 1;
+  const totalMinutes = Math.ceil(totalEffort * MINUTES_PER_EFFORT * factor);
   // The pace needed to finish everything across the available study days.
   const minutesPerDay = Math.max(15, Math.ceil(totalMinutes / dates.length));
-  const blocks = distribute(pending, dates, minutesPerDay);
-  return { blocks, minutesPerDay, intense: minutesPerDay > INTENSE_MINUTES_PER_DAY };
+  const study = distribute(pending, dates, minutesPerDay);
+  const reviews = buildReviewBlocks(study, dates);
+  return {
+    blocks: [...study, ...reviews],
+    minutesPerDay,
+    intense: minutesPerDay > INTENSE_MINUTES_PER_DAY,
+  };
+}
+
+/** Shift an ISO date by n calendar days. */
+function addDaysISO(iso: string, n: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Minutes for a spaced-repetition review session. */
+export const REVIEW_MINUTES = 25;
+
+/**
+ * Spaced repetition: after a topic's last study session, schedule short recall
+ * reviews at EXPANDING intervals (+1, +3, +7 days), snapped to the next study
+ * day and kept before the exam. This is the #1 evidence-backed retention lever.
+ */
+function buildReviewBlocks(study: StudyBlock[], dates: string[]): StudyBlock[] {
+  if (dates.length === 0) return [];
+  const intervals = [1, 3, 7];
+  const lastByTopic = new Map<string, { date: string; title: string }>();
+  for (const b of study) {
+    const cur = lastByTopic.get(b.topicId);
+    if (!cur || b.date > cur.date) lastByTopic.set(b.topicId, { date: b.date, title: b.topicTitle });
+  }
+
+  const reviews: StudyBlock[] = [];
+  for (const [topicId, { date, title }] of lastByTopic) {
+    const used = new Set<string>();
+    for (const iv of intervals) {
+      const target = addDaysISO(date, iv);
+      const slot = dates.find((d) => d >= target); // next study day on/after target
+      if (slot && slot > date && !used.has(slot)) {
+        used.add(slot);
+        reviews.push({
+          date: slot,
+          topicId,
+          topicTitle: title,
+          minutes: REVIEW_MINUTES,
+          completed: false,
+          kind: "review",
+        });
+      }
+    }
+  }
+  return reviews;
 }
 
 /** Build a fresh plan for a course, starting from `todayISO`. */
