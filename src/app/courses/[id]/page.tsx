@@ -181,15 +181,14 @@ export default async function CoursePage({
 
       {overloaded ? (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          ⏰ To finish everything in time you&apos;d need about{" "}
-          {(course.minutesPerDay / 60).toFixed(1)} h/day — that&apos;s intense.
-          You can still do it; starting earlier or adding study days makes it
-          easier.
+          ⏰ Even at a realistic ~3 h/day across all your courses, there isn&apos;t
+          quite enough time to finish this one before the exam. Starting earlier,
+          adding study days, or easing your other modules will help.
         </div>
       ) : (
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-          📅 StudyFlow scheduled about {course.minutesPerDay} min/day so you
-          finish all topics before the exam.
+          📅 Planned at about {course.minutesPerDay} min/day for this course —
+          balanced within your ~3 h/day total across all modules.
         </div>
       )}
 

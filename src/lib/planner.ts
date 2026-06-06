@@ -215,7 +215,7 @@ export function planForDeadline(
 }
 
 /** Shift an ISO date by n calendar days. */
-function addDaysISO(iso: string, n: number): string {
+export function addDaysISO(iso: string, n: number): string {
   const d = new Date(iso + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
@@ -229,7 +229,7 @@ export const REVIEW_MINUTES = 25;
  * reviews at EXPANDING intervals (+1, +3, +7 days), snapped to the next study
  * day and kept before the exam. This is the #1 evidence-backed retention lever.
  */
-function buildReviewBlocks(study: StudyBlock[], dates: string[]): StudyBlock[] {
+export function buildReviewBlocks(study: StudyBlock[], dates: string[]): StudyBlock[] {
   if (dates.length === 0) return [];
   const intervals = [1, 3, 7];
   const lastByTopic = new Map<string, { date: string; title: string }>();

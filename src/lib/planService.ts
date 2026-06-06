@@ -1,11 +1,21 @@
 import { prisma } from "./db";
 import {
   applyCompletedWork,
-  planForDeadline,
+  buildReviewBlocks,
+  studyDatesBetween,
+  addDaysISO,
+  MINUTES_PER_EFFORT,
+  SESSION_MINUTES,
   type Course as EngineCourse,
   type StudyBlock as EngineBlock,
 } from "./planner";
 import { isSyllabusAIEnabled, optimizeStudyPlan, generateSelfTests } from "./syllabus";
+
+/** Realistic total study time per day across ALL of a student's courses. */
+export const GLOBAL_DAILY_MINUTES = 180; // ~3h
+/** Cap on one topic's time in a single day, so days stay interleaved/realistic. */
+const MAX_TOPIC_MINUTES_PER_DAY = 60;
+const MAX_SCHEDULE_DAYS = 400;
 
 /** Today as an ISO date (YYYY-MM-DD), local time. */
 export function todayISO(): string {
@@ -105,42 +115,148 @@ function calibrationFromHistory(blocks: { minutes: number; actualMinutes: number
   return Math.min(2.5, Math.max(0.5, actual / planned));
 }
 
+type Work = {
+  courseId: string;
+  topicId: string;
+  title: string;
+  rem: number; // minutes still to schedule
+  exam: string; // ISO date
+  studyDays: number[];
+};
+
 /**
- * Build (or rebuild) the plan: StudyFlow computes the daily pace needed to finish
- * every remaining topic before the exam, stores that pace, and schedules it.
- * Completed work is folded out first so we never re-schedule what's done.
- * Returns the recommended pace and whether it's humanly intense.
+ * GLOBAL realistic scheduler. Plans ALL of a student's courses together against a
+ * single daily budget (~3h), so the total daily load is humanly realistic — not
+ * 8 modules each demanding their own hours. Prioritises by exam proximity, caps
+ * any one topic per day (keeps days interleaved), and never schedules past an
+ * exam. Each course is flagged `intense` if its work can't fit before its exam.
  */
-async function buildPlan(courseId: string) {
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
+export async function rebuildSchedule(
+  userId: string,
+): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
+  const courses = await prisma.course.findMany({
+    where: { userId },
     include: { topics: { orderBy: { order: "asc" } }, blocks: true },
   });
+
+  const pool: Work[] = [];
+  for (const c of courses) {
+    const folded = foldCompletedSessions(c); // effort reduced by completed work
+    const calibration = calibrationFromHistory(c.blocks);
+    const exam = c.examDate.toISOString().slice(0, 10);
+    const days = c.studyDays
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n));
+    for (const t of folded.topics) {
+      if (t.done) continue;
+      const minutes = Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration);
+      if (minutes > 0) {
+        pool.push({ courseId: c.id, topicId: t.id, title: t.title, rem: minutes, exam, studyDays: days });
+      }
+    }
+  }
+
+  const studyByCourse = new Map<string, EngineBlock[]>();
+  for (const c of courses) studyByCourse.set(c.id, []);
+
+  // Day-by-day allocation within the global daily budget.
+  let day = todayISO();
+  for (let d = 0; d < MAX_SCHEDULE_DAYS && pool.some((w) => w.rem > 0); d++) {
+    const dow = new Date(day + "T00:00:00Z").getUTCDay();
+    let budget = GLOBAL_DAILY_MINUTES;
+    const perTopicToday: Record<string, number> = {};
+    while (budget > 0) {
+      const elig = pool.filter(
+        (w) =>
+          w.rem > 0 &&
+          w.studyDays.includes(dow) &&
+          day < w.exam &&
+          (perTopicToday[w.topicId] ?? 0) < MAX_TOPIC_MINUTES_PER_DAY,
+      );
+      if (elig.length === 0) break;
+      elig.sort((a, b) => a.exam.localeCompare(b.exam) || b.rem - a.rem); // soonest exam first
+      const w = elig[0];
+      const chunk = Math.min(
+        SESSION_MINUTES,
+        w.rem,
+        budget,
+        MAX_TOPIC_MINUTES_PER_DAY - (perTopicToday[w.topicId] ?? 0),
+      );
+      studyByCourse.get(w.courseId)!.push({
+        date: day,
+        topicId: w.topicId,
+        topicTitle: w.title,
+        minutes: chunk,
+        completed: false,
+        kind: "study",
+      });
+      w.rem -= chunk;
+      budget -= chunk;
+      perTopicToday[w.topicId] = (perTopicToday[w.topicId] ?? 0) + chunk;
+    }
+    day = addDaysISO(day, 1);
+  }
+
+  // Anything still unscheduled couldn't fit before its exam → pile onto the last
+  // study day before that exam (visible, never dropped) and flag the course.
+  const overloaded = new Set<string>();
+  for (const w of pool) {
+    if (w.rem <= 0) continue;
+    overloaded.add(w.courseId);
+    const dates = studyDatesBetween(todayISO(), w.exam, w.studyDays);
+    const target = dates.length ? dates[dates.length - 1] : todayISO();
+    studyByCourse.get(w.courseId)!.push({
+      date: target,
+      topicId: w.topicId,
+      topicTitle: w.title,
+      minutes: w.rem,
+      completed: false,
+      kind: "study",
+    });
+    w.rem = 0;
+  }
+
+  // Persist per course: study blocks + spaced reviews; record pace + intensity.
+  const result = new Map<string, { isOverloaded: boolean; minutesPerDay: number }>();
+  for (const c of courses) {
+    const study = studyByCourse.get(c.id) ?? [];
+    const dates = studyDatesBetween(
+      todayISO(),
+      c.examDate.toISOString().slice(0, 10),
+      c.studyDays.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n)),
+    );
+    const reviews = buildReviewBlocks(study, dates);
+    await persistBlocks(c.id, [...study, ...reviews]);
+
+    const daysUsed = new Set(study.map((b) => b.date)).size || 1;
+    const minutesPerDay = Math.round(study.reduce((s, b) => s + b.minutes, 0) / daysUsed);
+    const isOverloaded = overloaded.has(c.id);
+    await prisma.course.update({
+      where: { id: c.id },
+      data: { minutesPerDay: minutesPerDay || c.minutesPerDay, intense: isOverloaded },
+    });
+    result.set(c.id, { isOverloaded, minutesPerDay });
+  }
+  return result;
+}
+
+/** Look up the owning user, then run the global rebuild; return this course's result. */
+async function rebuildForCourse(courseId: string) {
+  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { userId: true } });
   if (!course) throw new Error("Course not found");
-
-  const engine = foldCompletedSessions(course); // reduce effort by completed work
-  const calibration = calibrationFromHistory(course.blocks);
-  const { blocks, minutesPerDay, intense } = planForDeadline(engine, todayISO(), {
-    calibration,
-  });
-
-  // Persist the computed pace so the UI can show "study ~X/day".
-  await prisma.course.update({
-    where: { id: courseId },
-    data: { minutesPerDay: minutesPerDay || course.minutesPerDay },
-  });
-  await persistBlocks(courseId, blocks);
-  return { isOverloaded: intense, minutesPerDay };
+  const results = await rebuildSchedule(course.userId);
+  return results.get(courseId) ?? { isOverloaded: false, minutesPerDay: 0 };
 }
 
-/** (Re)build the plan from today and persist it (pace decided automatically). */
+/** (Re)build the whole schedule (any course change reshuffles the global plan). */
 export async function regeneratePlan(courseId: string) {
-  return buildPlan(courseId);
+  return rebuildForCourse(courseId);
 }
 
-/** "I fell behind" — same engine; recomputes the pace over the days left. */
+/** "I fell behind" — recompute the global schedule over the days left. */
 export async function healCoursePlan(courseId: string) {
-  return buildPlan(courseId);
+  return rebuildForCourse(courseId);
 }
 
 /**
@@ -215,12 +331,11 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
   return true;
 }
 
-/** Read-only: is the required daily pace humanly unrealistic (start earlier)? */
+/** Read-only: did the global scheduler fail to fit this course before its exam? */
 export async function isCourseOverloaded(courseId: string): Promise<boolean> {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { topics: true, blocks: true },
+    select: { intense: true },
   });
-  if (!course) return false;
-  return planForDeadline(foldCompletedSessions(course), todayISO()).intense;
+  return course?.intense ?? false;
 }

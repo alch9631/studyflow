@@ -33,6 +33,7 @@ model Course {
   ects          Int?
   sourceCode    String?
   aiOptimized   Boolean      @default(false) // AI tuned topic difficulty/order/review
+  intense       Boolean      @default(false) // global scheduler couldn't fit all work before the exam
 
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
