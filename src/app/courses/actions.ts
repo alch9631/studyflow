@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { regeneratePlan, healCoursePlan } from "@/lib/planService";
-import { extractSyllabus, isSyllabusAIEnabled } from "@/lib/syllabus";
+import { extractSyllabus, isSyllabusAIEnabled, interpretProgress } from "@/lib/syllabus";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
@@ -126,6 +126,27 @@ export async function importSyllabus(formData: FormData) {
 
   await regeneratePlan(course.id);
   redirect(`/courses/${course.id}`);
+}
+
+/** AI progress: read a plain-language status, mark matching topics done, replan. */
+export async function applyProgress(formData: FormData) {
+  const id = String(formData.get("courseId"));
+  const status = String(formData.get("status") ?? "").trim();
+  if (!status) return;
+
+  const course = await prisma.course.findUnique({ where: { id }, include: { topics: true } });
+  if (!course) return;
+
+  const updates = await interpretProgress(course.topics.map((t) => t.title), status);
+  const wanted = new Map(updates.map((u) => [u.title.toLowerCase(), u.done]));
+  for (const t of course.topics) {
+    const d = wanted.get(t.title.toLowerCase());
+    if (d !== undefined && d !== t.done) {
+      await prisma.topic.update({ where: { id: t.id }, data: { done: d } });
+    }
+  }
+  await regeneratePlan(id);
+  revalidatePath(`/courses/${id}`);
 }
 
 /** Edit a course's exam date / capacity, then rebuild the plan around it. */

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded } from "@/lib/planService";
-import { healCourse, toggleTopic, updateCourse } from "../actions";
+import { isSyllabusAIEnabled } from "@/lib/syllabus";
+import { healCourse, toggleTopic, updateCourse, applyProgress } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,33 @@ export default async function CoursePage({
           adding study days.
         </div>
       )}
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-lg font-semibold">📣 Update your progress</h2>
+        {isSyllabusAIEnabled() ? (
+          <form action={applyProgress} className="space-y-2">
+            <input type="hidden" name="courseId" value={course.id} />
+            <textarea
+              name="status"
+              rows={2}
+              required
+              placeholder="In your own words — e.g. 'done with sorting and graphs, still shaky on dynamic programming'"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            >
+              ✨ Apply & rebuild plan
+            </button>
+          </form>
+        ) : (
+          <p className="text-sm text-gray-400">
+            Set <code>OPENAI_API_KEY</code> to update progress in plain language.
+            For now, tick topics below.
+          </p>
+        )}
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Topics</h2>
