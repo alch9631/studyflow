@@ -20,6 +20,9 @@ export default async function CoursesPage() {
           <Link href="/today" className="text-sm font-medium text-gray-600 hover:underline">
             Today
           </Link>
+          <Link href="/catalog" className="text-sm font-medium text-gray-600 hover:underline">
+            🎓 TUHH
+          </Link>
           <Link href="/courses/import" className="text-sm font-medium text-gray-600 hover:underline">
             ✨ Import
           </Link>

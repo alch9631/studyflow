@@ -35,6 +35,7 @@ npm install
 cp .env.example .env        # DATABASE_URL defaults to local SQLite
 npm run db:push             # create the SQLite tables
 npm run db:seed             # optional: demo courses
+npm run db:seed:catalog     # optional: TUHH IIW module catalog (41 modules)
 npm run dev                 # http://localhost:3000
 ```
 

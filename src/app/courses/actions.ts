@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { regeneratePlan, healCoursePlan } from "@/lib/planService";
-import { extractSyllabus } from "@/lib/syllabus";
+import { extractSyllabus, isSyllabusAIEnabled } from "@/lib/syllabus";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
@@ -39,6 +39,57 @@ export async function createCourse(formData: FormData) {
 
   await regeneratePlan(course.id);
   redirect(`/courses/${course.id}`);
+}
+
+/**
+ * Add courses straight from the university catalog (e.g. TUHH IIW modules).
+ * Topics: extracted from the handbook text by AI when a key is set, else
+ * sensible ECTS-sized placeholder units the student can refine.
+ */
+export async function addFromCatalog(formData: FormData) {
+  const userId = await getCurrentUserId();
+  const ids = formData.getAll("moduleId").map(String);
+  if (ids.length === 0) redirect("/catalog");
+
+  const templates = await prisma.moduleTemplate.findMany({ where: { id: { in: ids } } });
+  const aiOn = isSyllabusAIEnabled();
+  // A semester out is a sane default; the student sets the real exam date later.
+  const defaultExam = new Date(Date.now() + 84 * 86400_000);
+
+  for (const t of templates) {
+    let topics: { title: string; effort: number }[] = [];
+    if (aiOn) {
+      try {
+        const extracted = await extractSyllabus(`${t.name}\n\n${t.content}`);
+        topics = extracted.topics;
+      } catch {
+        // fall through to placeholders
+      }
+    }
+    if (topics.length === 0) {
+      const units = Math.max(3, Math.round(t.ects / 2));
+      topics = Array.from({ length: units }, (_, i) => ({
+        title: `${t.name} — part ${i + 1}`,
+        effort: 1,
+      }));
+    }
+
+    const course = await prisma.course.create({
+      data: {
+        name: t.name,
+        examDate: defaultExam,
+        minutesPerDay: 120,
+        studyDays: "1,2,3,4,5",
+        ects: t.ects,
+        sourceCode: t.code,
+        userId,
+        topics: { create: topics.map((tp, i) => ({ title: tp.title, effort: tp.effort, order: i })) },
+      },
+    });
+    await regeneratePlan(course.id);
+  }
+
+  redirect("/courses");
 }
 
 /** Day 6 — paste a syllabus, let Claude extract the course, then build the plan. */

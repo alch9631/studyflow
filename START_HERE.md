@@ -21,6 +21,7 @@ There's already **demo data** waiting (run `npm run db:seed` anytime to reset it
 3. **/today** — what to study today across all courses; check blocks off.
 4. **/courses/new** — create your own course manually.
 5. **/courses/import** — the AI syllabus importer. It shows an “add your key” notice until you set `ANTHROPIC_API_KEY` (see below).
+6. **/catalog** — 🎓 **TUHH module catalog (IIW)**. All 41 Informatik-Ingenieurwesen Bachelor modules from the official handbook. Tick the ones you take → StudyFlow creates a planned course for each. (Run `npm run db:seed:catalog` once if the list is empty.) With an `ANTHROPIC_API_KEY` set, topics are extracted from the handbook text per module; without one, sensible ECTS-sized units are used.
 
 ### Run the tests
 

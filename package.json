@@ -10,6 +10,7 @@
     "test:engine": "tsx src/lib/planner.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:catalog": "tsx prisma/seedCatalog.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
   },
