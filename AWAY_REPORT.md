@@ -34,12 +34,14 @@ Flo takes pure-code items; account-gated items stay queued.
 5. ✅ Input validation (past exam dates, max lengths).
 6. ✅ Basic rate-limiting on AI calls + uploads (`eca8a6e`).
 7. ✅ CI workflow (`9be7bef`).
-8. ⏳ Test coverage (server actions / key logic).
-9. ⏳ Accessibility pass (aria-live banners, focus states).
-10. ⏳ SEO/social: Open Graph + Twitter card metadata.
+8. ✅ Test coverage — dates + ics tests (`de63a03`).
+9. ✅ Accessibility pass (`d670eeb`).
+10. ✅ SEO: Open Graph + Twitter cards (`e3ddda2`).
 
 **⏸️ Queued for Mohaboss (account-gated, NOT auto-done):** real auth/multi-user
 (Supabase), error monitoring (Sentry). These are the "make it real" track.
+
+## 🟢 ALL 10 PURE-CODE AUDIT ITEMS DONE — ~22:00. Queue exhausted, idling (no further wakes). tsc/eslint/build all green; new tests pass (dates 15, ics 10); CI added. **⏸️ Needs you:** auth (Supabase), Sentry. **🧱 Blocked:** none. (The "partial cycle" note below was the first stall; the second "away" finished #4–#10.)
 
 ## 🔵 BACK 2026-06-07 ~21:42 — partial cycle. Shipped #1–#3 (timezone, error
 boundaries, calendar-token reset). The self-paced wake loop stalled after #3
@@ -52,6 +54,12 @@ one-increment turns (avoids the 600s CLI turn-timeout).
 
 ### Progress log (newest on top)
 > Resumed on a second "away" (~21:46) — continuing from #4. Batching ~2 small items/turn + re-arming the wake each turn so it can't silently stall.
+- **`e3ddda2` #10 SEO.** Open Graph + Twitter card metadata (verified og:title /
+  twitter:card render). **`d670eeb` #9 a11y:** global :focus-visible ring +
+  aria-live on course-detail/CourseCard/Today banners. **`de63a03` #8 tests:**
+  dates (15) + ics (10) suites, wired into CI scripts + workflow.
+- **`eca8a6e` #6 rate-limit** (token bucket, 8/min, friendly degrade) · **`9be7bef`
+  #7 CI** (tsc + 4 test suites + build on push/PR).
 - **`cf6e97c` #5 Input validation.** Reject past exam dates (create/edit/update;
   inline error / 'past-exam' banner) + maxLength on course/assignment/lecture
   title inputs. Past assignment due dates left allowed (overdue tracking is valid).
