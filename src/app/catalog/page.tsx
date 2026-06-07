@@ -37,16 +37,21 @@ export default async function CatalogPage({
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-5 flex items-start gap-3">
         <Link
           href="/"
           aria-label="Choose a different Studiengang"
           title="Choose a different Studiengang"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 dark:border-gray-700 text-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 dark:border-gray-700 text-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           ←
         </Link>
-        <h1 className="truncate text-2xl font-bold">{program.name} 🎓</h1>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            🎓 Modules · {program.code}
+          </p>
+          <h1 className="text-xl font-bold leading-tight sm:text-2xl">{program.name}</h1>
+        </div>
       </div>
 
       {allModules.length === 0 ? (
@@ -76,11 +81,16 @@ export default async function CatalogPage({
         </div>
       ) : (
         <>
-          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-            {modules.length} modules from the official handbook. Tick the ones
-            you&apos;re taking and StudyFlow builds a plan for each. (Set the real
-            exam date per course afterwards — see ⚙️ Course settings.)
-          </p>
+          <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+            <strong className="font-semibold text-gray-800 dark:text-gray-100">
+              {modules.length} modules
+            </strong>{" "}
+            from the official handbook. Tick the ones you&apos;re taking and
+            StudyFlow builds a plan for each.
+            <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+              You can set the real exam date per course afterwards in ⚙️ Course settings.
+            </span>
+          </div>
 
           <form action={addFromCatalog} className="space-y-3">
             {[...bySection.entries()].map(([section, mods]) => (
@@ -98,11 +108,16 @@ export default async function CatalogPage({
                 <ul className="space-y-1.5 p-2.5">
                   {mods.map((m) => (
                     <li key={m.id}>
-                      <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 dark:border-gray-800 p-2.5 hover:border-gray-400 dark:hover:border-gray-600">
-                        <input type="checkbox" name="moduleId" value={m.id} className="mt-1" />
-                        <span className="flex-1">
-                          <span className="font-medium">{m.name}</span>
-                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                      <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
+                        <input
+                          type="checkbox"
+                          name="moduleId"
+                          value={m.id}
+                          className="mt-0.5 h-4 w-4 shrink-0"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium leading-snug">{m.name}</span>
+                          <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
                             {m.code} · {m.ects} LP
                             {m.examDate
                               ? ` · exam ${m.examDate.toISOString().slice(0, 10)}`
@@ -116,19 +131,20 @@ export default async function CatalogPage({
               </details>
             ))}
 
-            <div className="sticky bottom-20 sm:bottom-4 mt-3 flex gap-2 rounded-full bg-white/90 p-1 shadow-lg ring-1 ring-gray-200 backdrop-blur dark:bg-gray-900/90 dark:ring-gray-800">
-              <button
-                type="submit"
-                className="flex-1 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white hover:bg-brand-dark"
-              >
-                Add selected →
-              </button>
+            {/* One unified action area: Skip (secondary) + Add selected (primary) */}
+            <div className="sticky bottom-20 z-10 mt-4 flex items-center gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:bottom-4 dark:border-gray-800 dark:bg-gray-900/95">
               <Link
                 href="/courses"
-                className="rounded-full border border-gray-300 dark:border-gray-700 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 Skip
               </Link>
+              <button
+                type="submit"
+                className="flex-1 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
+              >
+                Add selected →
+              </button>
             </div>
           </form>
         </>
