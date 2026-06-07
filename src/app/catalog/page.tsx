@@ -82,13 +82,20 @@ export default async function CatalogPage({
             exam date per course afterwards — see ⚙️ Course settings.)
           </p>
 
-          <form action={addFromCatalog} className="space-y-6">
+          <form action={addFromCatalog} className="space-y-3">
             {[...bySection.entries()].map(([section, mods]) => (
-              <section key={section}>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {section.replace(/^Fachmodule der /, "")}
-                </h2>
-                <ul className="space-y-1.5">
+              <details
+                key={section}
+                open
+                className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-gray-50 px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                  <span className="truncate">{section.replace(/^Fachmodule der /, "")}</span>
+                  <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                    {mods.length}
+                  </span>
+                </summary>
+                <ul className="space-y-1.5 p-2.5">
                   {mods.map((m) => (
                     <li key={m.id}>
                       <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 dark:border-gray-800 p-2.5 hover:border-gray-400 dark:hover:border-gray-600">
@@ -106,10 +113,10 @@ export default async function CatalogPage({
                     </li>
                   ))}
                 </ul>
-              </section>
+              </details>
             ))}
 
-            <div className="sticky bottom-4 flex gap-2 rounded-full bg-white/90 p-1 shadow-lg ring-1 ring-gray-200 backdrop-blur">
+            <div className="sticky bottom-20 sm:bottom-4 mt-3 flex gap-2 rounded-full bg-white/90 p-1 shadow-lg ring-1 ring-gray-200 backdrop-blur dark:bg-gray-900/90 dark:ring-gray-800">
               <button
                 type="submit"
                 className="flex-1 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white hover:bg-brand-dark"

@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+/** Subscribe to changes of the `.dark` class on <html>. */
+function subscribe(cb: () => void) {
+  const obs = new MutationObserver(cb);
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => obs.disconnect();
+}
+
+const isDark = () => document.documentElement.classList.contains("dark");
 
 /** Night-mode toggle: flips `.dark` on <html> and remembers the choice. */
 export default function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  // Reads the real DOM state (set pre-paint by the no-flash script in layout)
+  // without setState-in-effect; the server snapshot is "light".
+  const dark = useSyncExternalStore(subscribe, isDark, () => false);
 
   function toggle() {
-    const next = !document.documentElement.classList.contains("dark");
+    const next = !isDark();
     document.documentElement.classList.toggle("dark", next);
     try {
       localStorage.setItem("theme", next ? "dark" : "light");
     } catch {}
-    setDark(next);
   }
 
   return (

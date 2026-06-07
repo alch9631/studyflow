@@ -98,7 +98,23 @@ export default async function TodayPage() {
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const courseCount = new Set(blocks.map((b) => b.course.id)).size;
-  const heavy = totalMin > 360; // >6h across all courses today
+  const remainingMin = Math.max(0, totalMin - doneMin);
+
+  // Realistic focus time left today: minutes until a 22:00 wind-down (Europe/
+  // Berlin), discounted by a focus factor — nobody studies every waking minute.
+  const nowParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Berlin",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  const [hh, mm] = nowParts.split(":").map(Number);
+  const minutesNow = hh * 60 + mm;
+  const CUTOFF = 22 * 60; // 22:00
+  const FOCUS_RATIO = 0.6; // ~60% of remaining hours is realistically focused study
+  const availableMin = Math.max(0, Math.round((CUTOFF - minutesNow) * FOCUS_RATIO));
+  const achievable = remainingMin === 0 || remainingMin <= availableMin;
+  const overBy = Math.max(0, remainingMin - availableMin);
 
   return (
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
@@ -120,10 +136,28 @@ export default async function TodayPage() {
 
       <PomodoroTimer />
 
-      {heavy && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          ⏰ Heavy day — about {(totalMin / 60).toFixed(1)} h across {courseCount} courses.
-          Use the timer and take breaks.
+      {blocks.length > 0 && remainingMin > 0 && (
+        <div
+          className={`mb-4 rounded-xl border p-4 text-sm ${
+            achievable
+              ? "border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
+              : "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+          }`}
+        >
+          <p className="font-semibold">
+            {achievable ? "✅ Today's goal looks achievable" : "⚠️ Today's goal is at risk"}
+          </p>
+          <p className="mt-1">
+            <strong>{fmtDuration(remainingMin)}</strong> of studying left ·{" "}
+            about <strong>{fmtDuration(availableMin)}</strong> of realistic focus time before 22:00.
+          </p>
+          {!achievable && (
+            <p className="mt-2">
+              You&apos;re ~{fmtDuration(overBy)} over. Recommendation: start now with the top blocks,
+              run the 🍅 timer, and let the 🔁 reviews slide to tomorrow if you run out of time —
+              StudyFlow will re-plan them around you.
+            </p>
+          )}
         </div>
       )}
 
@@ -162,4 +196,13 @@ export default async function TodayPage() {
 
 function courseCountLabel(n: number): string {
   return `${n} course${n === 1 ? "" : "s"}`;
+}
+
+/** "1h 20m" / "45m" / "0m" */
+function fmtDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
 }
