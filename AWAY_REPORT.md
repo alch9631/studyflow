@@ -32,8 +32,8 @@ Flo takes pure-code items; account-gated items stay queued.
 3. ✅ Calendar feed: rotate/reset token action in Settings.
 4. ✅ `CalendarSync` hydration warning cleanup.
 5. ✅ Input validation (past exam dates, max lengths).
-6. ⏳ Basic rate-limiting on AI calls + uploads (in-code limiter).
-7. ⏳ CI workflow (GitHub Actions: tsc + tests + build on push).
+6. ✅ Basic rate-limiting on AI calls + uploads (`eca8a6e`).
+7. ✅ CI workflow (`9be7bef`).
 8. ⏳ Test coverage (server actions / key logic).
 9. ⏳ Accessibility pass (aria-live banners, focus states).
 10. ⏳ SEO/social: Open Graph + Twitter card metadata.
