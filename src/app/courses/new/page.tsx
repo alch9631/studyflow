@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createCourse } from "../actions";
 
+export const metadata = { title: "New course" };
+
 const DAYS = [
   { v: 1, label: "Mon" },
   { v: 2, label: "Tue" },

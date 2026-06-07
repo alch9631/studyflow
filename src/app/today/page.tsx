@@ -7,6 +7,7 @@ import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Today" };
 
 type Row = {
   id: string;

@@ -5,6 +5,7 @@ import FilePicker from "@/components/FilePicker";
 
 // Render per-request so the AI-key gating reflects the current env (not build time).
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Import" };
 
 const DAYS = [
   { v: 1, label: "Mon" },

@@ -5,6 +5,7 @@ import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Modules" };
 
 export default async function CatalogPage({
   searchParams,

@@ -7,6 +7,7 @@ import { todayISO } from "@/lib/planService";
 import CourseCard from "@/components/CourseCard";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "My Courses" };
 
 export default async function CoursesPage() {
   const userId = await getCurrentUserId();

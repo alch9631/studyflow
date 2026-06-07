@@ -4,6 +4,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Insights" };
 
 function fmtMin(min: number): string {
   const h = Math.floor(min / 60);

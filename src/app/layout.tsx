@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
@@ -14,8 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudyFlow",
+  title: { default: "StudyFlow", template: "%s · StudyFlow" },
   description: "The study plan that builds itself — and heals itself when you fall behind.",
+  applicationName: "StudyFlow",
+  appleWebApp: { capable: true, title: "StudyFlow", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#00509b", // TUHH blue — colours the mobile browser chrome
 };
 
 export default function RootLayout({
