@@ -31,12 +31,19 @@ stay queued — not touched.
 1. ✅ Batch 3a — Live calendar **subscribe URL** (`f25b3c8`).
 2. ✅ Batch 3b — **Reminders foundation** (`66305eb`). ⏸️ Activation needs you (see below).
 3. ✅ **Timetable → planner integration** (`3c0a8cf`).
-4. ⏳ **Seed more Studiengänge** (more TUHH programs into the catalog).
+4. ✅ **Seed Maschinenbau** catalog — 17 core modules (`3f215b4`).
 5. ✅ Minor — Pomodoro lint warning fixed (`2b768c1`); **eslint now 0 problems**.
 
 Each item: Flo builds + verifies (tsc/build/live), Avi reviews → commit as Flo → push → log here.
 
+## 🔵 BACK 2026-06-07 ~19:46 — away cycle closed. All 5 queued items shipped & pushed; queue exhausted, idling.
+**⏸️ Needs you (queued, not auto-done):** activate push reminders (generate VAPID keypair, set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY`, add a server send fn + cron) — deploy/secret-gated. **🧱 Blocked:** none.
+
 ### Progress log (newest on top)
+- **`3f215b4` — Seed Maschinenbau (MB).** 17 real Kernqualifikation modules from the
+  official MBBS Modulhandbuch (codes/names/LP; content stubs; exam dates null).
+  Generalized seeder + MB marked seeded. tsc + build green; /catalog?program=MB
+  renders all 17 live. (Finished right as Mohaboss returned.)
 - **`3c0a8cf` — Timetable-aware scheduling.** rebuildSchedule subtracts each
   weekday's lecture minutes from that day's study budget (floor 30), so study is
   planned around classes, not on top. Backward-compatible. Verified: engine 15/15,
