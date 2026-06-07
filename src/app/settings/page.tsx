@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ThemeSetting from "@/components/ThemeSetting";
+import CalendarSync from "@/components/CalendarSync";
+import { getCalendarToken } from "@/lib/devUser";
 
 export const metadata: Metadata = { title: "Settings · StudyFlow" };
 
-export default function SettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const calendarToken = await getCalendarToken();
+
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <h1 className="mb-6 text-2xl font-bold">Settings</h1>
@@ -31,6 +37,16 @@ export default function SettingsPage() {
         </span>
         <span className="shrink-0 text-gray-400">→</span>
       </Link>
+
+      {/* Calendar sync — live subscribe feed (auto-updates in Apple/Google Calendar) */}
+      <section className="mb-5 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+        <h2 className="font-semibold">📆 Calendar sync</h2>
+        <p className="mb-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Subscribe to your study plan in Apple or Google Calendar. Unlike a
+          one-time export, this feed auto-updates whenever your plan changes.
+        </p>
+        <CalendarSync token={calendarToken} />
+      </section>
 
       {/* Account — placeholder for future login-based personalization */}
       <section className="rounded-2xl border border-gray-200 p-5 dark:border-gray-800">

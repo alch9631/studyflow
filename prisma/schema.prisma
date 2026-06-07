@@ -14,12 +14,14 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  createdAt DateTime  @default(now())
-  courses   Course[]
-  lectures  Lecture[]
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  createdAt     DateTime  @default(now())
+  // Secret URL token for the live calendar subscribe feed (webcal). null until first used.
+  calendarToken String?   @unique
+  courses       Course[]
+  lectures      Lecture[]
 }
 
 // A recurring weekly class slot (lecture, tutorial, lab). Used to show the

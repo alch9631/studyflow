@@ -1,0 +1,54 @@
+"use client";
+
+import { useState } from "react";
+
+/**
+ * Shows the live calendar subscribe URL for the user's plan, with Copy and
+ * "Add to calendar" actions. The host is read from the browser so the URL is
+ * correct whether on localhost, LAN/Tailscale, or a deployed domain.
+ */
+export default function CalendarSync({ token }: { token: string }) {
+  const [copied, setCopied] = useState(false);
+
+  // window.location is unavailable during SSR; fall back to a placeholder host.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const host = origin.replace(/^https?:\/\//, "");
+  const path = `/api/calendar/${token}`;
+  const webcalUrl = host ? `webcal://${host}${path}` : "";
+  const displayUrl = host ? `webcal://${host}${path}` : "Loading…";
+
+  async function copy() {
+    if (!webcalUrl) return;
+    try {
+      await navigator.clipboard.writeText(webcalUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API blocked (e.g. insecure context) — user can copy manually.
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <code className="block overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+        {displayUrl}
+      </code>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={copy}
+          disabled={!webcalUrl}
+          className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+        >
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+        <a
+          href={webcalUrl || undefined}
+          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          Add to calendar
+        </a>
+      </div>
+    </div>
+  );
+}
