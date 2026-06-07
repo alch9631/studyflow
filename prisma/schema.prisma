@@ -14,11 +14,31 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String    @id @default(cuid())
+  email     String    @unique
   name      String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   courses   Course[]
+  lectures  Lecture[]
+}
+
+// A recurring weekly class slot (lecture, tutorial, lab). Used to show the
+// student's real week and, later, to plan study around actual free time.
+model Lecture {
+  id        String   @id @default(cuid())
+  title     String
+  weekday   Int // 0=Sun … 6=Sat
+  startMin  Int // minutes from midnight (e.g. 600 = 10:00)
+  endMin    Int
+  location  String?
+  createdAt DateTime @default(now())
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseId String?
+
+  @@index([userId, weekday])
 }
 
 model Course {
@@ -43,6 +63,7 @@ model Course {
   blocks      StudyBlock[]
   files       ModuleFile[]
   assignments Assignment[]
+  lectures    Lecture[]
 
   @@index([userId])
 }

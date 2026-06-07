@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
   description: "The study plan that builds itself — and heals itself when you fall behind.",
   applicationName: "StudyFlow",
   appleWebApp: { capable: true, title: "StudyFlow", statusBarStyle: "default" },
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -48,6 +50,7 @@ export default function RootLayout({
         <Nav />
         {/* pb clears the fixed bottom tab bar (shown below lg) */}
         <div className="flex-1 pb-20 lg:pb-0">{children}</div>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

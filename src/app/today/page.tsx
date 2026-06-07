@@ -107,6 +107,13 @@ export default async function TodayPage() {
   const nextExamDays = nextExam ? daysUntil(nextExam.examDate, today) : null;
   const examWeek = nextExamDays !== null && nextExamDays <= 7; // focus mode
 
+  // Today's recurring classes (lectures/tutorials/labs).
+  const weekday = new Date(today + "T00:00:00Z").getUTCDay();
+  const todaysLectures = await prisma.lecture.findMany({
+    where: { userId, weekday },
+    orderBy: { startMin: "asc" },
+  });
+
   // Open deadlines due within the next 2 weeks, soonest first.
   const upcomingDeadlines = await prisma.assignment.findMany({
     where: {
@@ -169,6 +176,32 @@ export default async function TodayPage() {
         </Link>
       )}
       {!nextExam && <div className="mb-6" />}
+
+      {todaysLectures.length > 0 && (
+        <section className="mb-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            🎓 Today&apos;s classes
+          </h2>
+          <ul className="space-y-2">
+            {todaysLectures.map((l) => (
+              <li
+                key={l.id}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
+              >
+                <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-gray-600 dark:text-gray-300">
+                  {fmtClock(l.startMin)}–{fmtClock(l.endMin)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{l.title}</span>
+                  {l.location && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500">📍 {l.location}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <PomodoroTimer />
 
@@ -266,6 +299,11 @@ export default async function TodayPage() {
 
 function courseCountLabel(n: number): string {
   return `${n} course${n === 1 ? "" : "s"}`;
+}
+
+/** Minutes from midnight -> "10:00". */
+function fmtClock(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
 
 /** "1h 20m" / "45m" / "0m" */

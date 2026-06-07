@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import ThemeSetting from "@/components/ThemeSetting";
 
 export const metadata: Metadata = { title: "Settings · StudyFlow" };
@@ -16,6 +17,20 @@ export default function SettingsPage() {
         </p>
         <ThemeSetting />
       </section>
+
+      {/* Timetable entry point */}
+      <Link
+        href="/timetable"
+        className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-gray-200 p-5 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
+      >
+        <span>
+          <span className="block font-semibold">📅 My timetable</span>
+          <span className="block text-sm text-gray-500 dark:text-gray-400">
+            Add your weekly lectures so your real week shows on Today.
+          </span>
+        </span>
+        <span className="shrink-0 text-gray-400">→</span>
+      </Link>
 
       {/* Account — placeholder for future login-based personalization */}
       <section className="rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
