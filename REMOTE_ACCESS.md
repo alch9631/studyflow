@@ -34,33 +34,35 @@ Three things must be true, or the server dies when you walk away:
   power adapter"** (keep it plugged in), **or** just run the server under
   `caffeinate` (next step) which keeps it awake while it runs.
 
-**2. Run the server in tmux so it survives the terminal closing**
+**2. Run the server so it survives the terminal closing** (no install needed)
    ```bash
    cd studyflow
-   tmux new -s sf                 # opens a persistent session
-   caffeinate -s npm run fresh    # keeps Mac awake + starts the server
+   caffeinate -s nohup npm run fresh > ~/sf.log 2>&1 &
    ```
-   Then **detach** (leaves it running): press `Ctrl-b`, then `d`.
-   You can now close the terminal / lock the Mac and the server keeps running.
+   `nohup … &` keeps it running after you close the terminal; `caffeinate -s`
+   keeps the Mac awake; logs go to `~/sf.log`. You can now close the terminal.
+   (Prefer a reattachable session? `brew install tmux`, then
+   `tmux new -s sf` → `caffeinate -s npm run fresh` → detach with `Ctrl-b`, `d`.)
 
 ## Then, from your phone — anytime
 - **View the app:** open a browser →
   `http://100.x.y.z:3000`  (your Mac's Tailscale IP + the dev port)
 - **Pull my latest update + refresh the server:** use an SSH app (**Termius** or
-  **Blink**) → connect to `your-mac-user@100.x.y.z` → run:
+  **Blink**) → connect to `your-mac-user@100.x.y.z` → run the same one-liner:
   ```bash
-  cd studyflow && tmux attach -t sf   # reattach to the running server
+  cd studyflow && git pull && caffeinate -s nohup npm run fresh > ~/sf.log 2>&1 &
   ```
-  Press `Ctrl-c` to stop it, then:
-  ```bash
-  git pull && caffeinate -s npm run fresh
-  ```
-  (`npm run fresh` syncs the DB + regenerates the Prisma client + restarts —
-  so it always works after a pull.) Detach again with `Ctrl-b` then `d`.
+  `npm run fresh` auto-kills the running server, syncs the DB + regenerates the
+  Prisma client, and restarts with the new code — so it always works after a pull.
+
+## Handy checks
+```bash
+curl -s localhost:3000 >/dev/null && echo "running"   # is it up?
+tail -f ~/sf.log                                       # watch logs
+pkill -f next-server                                   # stop it
+```
 
 ## Notes
-- `npm run dev`/`fresh` keeps that SSH session busy — that's why we use tmux, so
-  it keeps running after you disconnect. Reattach anytime with `tmux attach -t sf`.
 - Tailscale traffic is end-to-end encrypted and private to your devices — the
   app is **not** exposed to the public internet (that's what Vercel is for; see
   PRODUCTION.md when you want a real public URL).
