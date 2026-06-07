@@ -27,6 +27,7 @@ const UNIVERSITY = "TUHH";
 const SOURCES: { program: string; file: string }[] = [
   { program: "IIW", file: "iiw-modules.json" },
   { program: "CS", file: "csbs-modules.json" },
+  { program: "MB", file: "mbbs-modules.json" },
 ];
 
 async function seedProgram(program: string, file: string): Promise<number> {

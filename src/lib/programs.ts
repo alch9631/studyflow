@@ -20,7 +20,7 @@ export const PROGRAMS: Program[] = [
   { code: "ES", name: "Engineering Science", seeded: false },
   { code: "GT", name: "Green Technologies: Energie, Wasser, Klima", seeded: false },
   { code: "LAT", name: "Lehramt Arbeitslehre/Technik", seeded: false },
-  { code: "MB", name: "Maschinenbau", seeded: false },
+  { code: "MB", name: "Maschinenbau", seeded: true },
   { code: "MEC", name: "Mechatronik", seeded: false },
   { code: "SB", name: "Schiffbau", seeded: false },
   { code: "TM", name: "Technomathematik", seeded: false },
