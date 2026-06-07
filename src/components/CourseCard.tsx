@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { editCourse, deleteCourse, type EditState } from "@/app/courses/actions";
+import { examCountdownLabel } from "@/lib/dates";
 
 const DAYS = [
   { v: 1, label: "Mon" },
@@ -19,6 +20,7 @@ export type CardCourse = {
   id: string;
   name: string;
   examDate: string;
+  examInDays: number;
   studyDays: string;
   done: number;
   total: number;
@@ -75,8 +77,21 @@ export default function CourseCard({ course }: { course: CardCourse }) {
             {course.name}
           </Link>
         </div>
-        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-          exam {course.examDate}
+        <span className="shrink-0 text-right">
+          <span
+            className={`block text-xs font-semibold ${
+              course.examInDays < 0
+                ? "text-gray-400 dark:text-gray-500"
+                : course.examInDays <= 7
+                  ? "text-red-600 dark:text-red-400"
+                  : course.examInDays <= 21
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-gray-600 dark:text-gray-300"
+            }`}
+          >
+            ⏳ {examCountdownLabel(course.examInDays)}
+          </span>
+          <span className="block text-xs text-gray-400 dark:text-gray-500">{course.examDate}</span>
         </span>
       </div>
 

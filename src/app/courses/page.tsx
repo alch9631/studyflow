@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { appleFor } from "@/lib/apple";
+import { daysUntil } from "@/lib/dates";
+import { todayISO } from "@/lib/planService";
 import CourseCard from "@/components/CourseCard";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,8 @@ export default async function CoursesPage() {
     orderBy: { examDate: "asc" },
     include: { topics: true, blocks: true },
   });
+
+  const today = todayISO();
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
@@ -27,9 +31,24 @@ export default async function CoursesPage() {
       </div>
 
       {courses.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">
-          No courses yet. Add one and StudyFlow builds the plan for you.
-        </p>
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-2xl">📚</p>
+          <p className="mt-2 font-semibold">No courses yet</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Pick how you want to start — StudyFlow builds the plan for you.
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link href="/catalog" className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark">
+              🎓 Browse TUHH modules
+            </Link>
+            <Link href="/courses/import" className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+              ✨ Import a syllabus
+            </Link>
+            <Link href="/courses/new" className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+              ✍️ Add manually
+            </Link>
+          </div>
+        </div>
       ) : (
         <ul className="space-y-3">
           {courses.map((c) => {
@@ -49,6 +68,7 @@ export default async function CoursesPage() {
                     id: c.id,
                     name: c.name,
                     examDate: c.examDate.toISOString().slice(0, 10),
+                    examInDays: daysUntil(c.examDate, today),
                     studyDays: c.studyDays,
                     done,
                     total: c.topics.length,

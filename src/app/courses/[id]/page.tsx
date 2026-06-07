@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { isCourseOverloaded } from "@/lib/planService";
+import { isCourseOverloaded, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
+import { daysUntil, examCountdownLabel } from "@/lib/dates";
 import {
   healCourse,
   toggleTopic,
@@ -70,6 +71,7 @@ export default async function CoursePage({
 
   const overloaded = await isCourseOverloaded(course.id);
   const doneCount = course.topics.filter((t) => t.done).length;
+  const examInDays = daysUntil(course.examDate, todayISO());
 
   // Group study blocks by date for the weekly view.
   const byDate = new Map<string, typeof course.blocks>();
@@ -107,11 +109,25 @@ export default async function CoursePage({
               </span>
             )}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Exam {course.examDate.toISOString().slice(0, 10)} · ~
-            {course.minutesPerDay} min/day to finish · {doneCount}/
-            {course.topics.length} topics done
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                examInDays < 0
+                  ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  : examInDays <= 7
+                    ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                    : examInDays <= 21
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                      : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
+              }`}
+            >
+              ⏳ {examCountdownLabel(examInDays)}
+            </span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Exam {course.examDate.toISOString().slice(0, 10)} · ~{course.minutesPerDay} min/day · {doneCount}/
+              {course.topics.length} topics done
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
           {isSyllabusAIEnabled() && (
