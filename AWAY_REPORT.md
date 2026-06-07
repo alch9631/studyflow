@@ -32,11 +32,14 @@ stay queued — not touched.
 2. ✅ Batch 3b — **Reminders foundation** (`66305eb`). ⏸️ Activation needs you (see below).
 3. ⏳ **Timetable → planner integration** (schedule study around real class times).
 4. ⏳ **Seed more Studiengänge** (more TUHH programs into the catalog).
-5. ⏳ Minor — fix the Pomodoro `set-state-in-effect` lint warning (last lint nit).
+5. ✅ Minor — Pomodoro lint warning fixed (`2b768c1`); **eslint now 0 problems**.
 
 Each item: Flo builds + verifies (tsc/build/live), Avi reviews → commit as Flo → push → log here.
 
 ### Progress log (newest on top)
+- **`2b768c1` — Pomodoro lint fix.** Moved the phase-switch out of an effect into
+  the tick interval (refs for latest mode/durations); behaviour identical. eslint
+  is now fully clean (0 problems) across the project. tsc + build green.
 - **`66305eb` — Batch 3b: reminders foundation.** Flo (built directly by Avi after
   the first attempt hit a 600s CLI turn-timeout — now running compact one-increment
   turns). PushSubscription model, sw.js push/notificationclick handlers,
