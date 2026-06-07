@@ -5,6 +5,7 @@
   "scripts": {
     "setup": "node scripts/ensure-env.mjs && prisma db push && tsx prisma/seed.ts && tsx prisma/seedCatalog.ts",
     "dev": "next dev",
+    "fresh": "pkill -f 'next dev' 2>/dev/null; pkill -f next-server 2>/dev/null; sleep 1; next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
