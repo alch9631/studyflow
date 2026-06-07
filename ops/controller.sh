@@ -47,7 +47,10 @@ process_track(){
     # green -> check mergeable then squash-merge (auto-merge when green)
     local mrg; mrg=$(gh pr view "$num" --json mergeable --jq '.mergeable' 2>/dev/null)
     if [ "$mrg" = "CONFLICTING" ]; then echo "MERGE_BLOCKED|$track|$num|conflict"; return; fi
-    if gh pr merge "$num" --squash --delete-branch >/dev/null 2>&1; then
+    # squash-merge; do NOT --delete-branch (fails when branch is checked out in a worktree)
+    gh pr merge "$num" --squash >/dev/null 2>&1
+    local prstate; prstate=$(gh pr view "$num" --json state --jq '.state' 2>/dev/null)
+    if [ "$prstate" = "MERGED" ]; then
       echo "MERGED|$track|$num|$inflight"
       [ -n "$inflight" ] && { mark_done "$backlog" "$inflight"; git add "$backlog" >/dev/null 2>&1; \
         git commit -q -m "loop($track): complete backlog item — $inflight" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" >/dev/null 2>&1; \
@@ -55,7 +58,7 @@ process_track(){
       git fetch origin -q 2>/dev/null
       setf "s.tracks.$track.inflight=''"
     else
-      echo "MERGE_BLOCKED|$track|$num|merge_failed"
+      echo "MERGE_BLOCKED|$track|$num|$prstate"
     fi
     return
   fi
