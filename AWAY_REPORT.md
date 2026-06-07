@@ -28,7 +28,7 @@ Mohaboss said **away** and explicitly authorised Flo to work the buildable backl
 stay queued — not touched.
 
 **Queue (priority order):**
-1. ⏳ Batch 3a — Live calendar **subscribe URL** (tokenised .ics feed, auto-updates in Apple/Google Calendar).
+1. ✅ Batch 3a — Live calendar **subscribe URL** (`f25b3c8`).
 2. ⏳ Batch 3b — **Reminders foundation** (web-push plumbing; gated, fully fires only on https/deploy).
 3. ⏳ **Timetable → planner integration** (schedule study around real class times).
 4. ⏳ **Seed more Studiengänge** (more TUHH programs into the catalog).
@@ -37,7 +37,11 @@ stay queued — not touched.
 Each item: Flo builds + verifies (tsc/build/live), Avi reviews → commit as Flo → push → log here.
 
 ### Progress log (newest on top)
-<!-- Flo/Avi entries appended below as items ship -->
+- **`f25b3c8` — Batch 3a: calendar subscribe URL.** Flo: `User.calendarToken`,
+  shared `lib/ics.ts`, new `/api/calendar/[token]` feed, Settings "Calendar sync"
+  card (webcal:// + copy). Avi review: refactor clean, ics byte-identical, tsc +
+  build green, both routes register. Minor note: `CalendarSync` host is read
+  client-side → benign hydration warning, self-heals (polish later). Shipped.
 
 ---
 
