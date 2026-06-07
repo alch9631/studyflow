@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { resetCalendarToken } from "@/app/settings/actions";
 
 /**
  * Shows the live calendar subscribe URL for the user's plan, with Copy and
@@ -48,6 +49,21 @@ export default function CalendarSync({ token }: { token: string }) {
         >
           Add to calendar
         </a>
+        <form
+          action={resetCalendarToken}
+          onSubmit={(e) => {
+            if (!confirm("Reset the calendar link? Anyone using the old link will stop getting updates.")) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <button
+            type="submit"
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
+            Reset link
+          </button>
+        </form>
       </div>
     </div>
   );
