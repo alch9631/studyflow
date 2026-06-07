@@ -21,4 +21,6 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run test:engine
       - run: npm run test:service
+      - run: npm run test:dates
+      - run: npm run test:ics
       - run: npm run build
