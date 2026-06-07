@@ -37,10 +37,11 @@ Three things must be true, or the server dies when you walk away:
 **2. Run the server so it survives the terminal closing** (no install needed)
    ```bash
    cd studyflow
-   caffeinate -s nohup npm run fresh > ~/sf.log 2>&1 &
+   nohup caffeinate -i npm run fresh > ~/sf.log 2>&1 &
    ```
-   `nohup … &` keeps it running after you close the terminal; `caffeinate -s`
-   keeps the Mac awake; logs go to `~/sf.log`. You can now close the terminal.
+   `nohup … &` keeps it running after you close the terminal; `caffeinate -i`
+   keeps the Mac awake (even on battery); logs go to `~/sf.log`. Then run
+   `disown` and you can close the terminal / SSH app safely.
    (Prefer a reattachable session? `brew install tmux`, then
    `tmux new -s sf` → `caffeinate -s npm run fresh` → detach with `Ctrl-b`, `d`.)
 
@@ -50,7 +51,7 @@ Three things must be true, or the server dies when you walk away:
 - **Pull my latest update + refresh the server:** use an SSH app (**Termius** or
   **Blink**) → connect to `your-mac-user@100.x.y.z` → run the same one-liner:
   ```bash
-  cd studyflow && git pull && caffeinate -s nohup npm run fresh > ~/sf.log 2>&1 &
+  cd studyflow && git pull && nohup caffeinate -i npm run fresh > ~/sf.log 2>&1 &
   ```
   `npm run fresh` auto-kills the running server, syncs the DB + regenerates the
   Prisma client, and restarts with the new code — so it always works after a pull.
