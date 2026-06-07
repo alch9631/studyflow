@@ -29,7 +29,7 @@ Flo takes pure-code items; account-gated items stay queued.
 **Queue (pure code — Flo does these):**
 1. ✅ Timezone: `todayISO()` → Europe/Berlin (`12f8283`).
 2. ✅ Error boundaries (`error.tsx` + `global-error.tsx`).
-3. ⏳ Calendar feed: rotate/reset token action in Settings.
+3. ✅ Calendar feed: rotate/reset token action in Settings.
 4. ⏳ `CalendarSync` hydration warning cleanup.
 5. ⏳ Input validation (past exam dates, due dates, max lengths).
 6. ⏳ Basic rate-limiting on AI calls + uploads (in-code limiter).
@@ -45,6 +45,8 @@ Each: Flo builds + verifies → Avi reviews → commit as Flo → push → log. 
 one-increment turns (avoids the 600s CLI turn-timeout).
 
 ### Progress log (newest on top)
+- **`8133220` #3 Calendar token reset.** resetCalendarToken action + "Reset link"
+  button (confirm) in Settings → invalidate a leaked webcal URL. tsc + build green.
 - **#2 Error boundaries.** Added `src/app/error.tsx` (route-level, in-shell reset
   boundary) + `src/app/global-error.tsx` (last-resort, self-contained html/body).
   On-brand, dark. tsc + build green.
