@@ -18,6 +18,10 @@ export async function POST(req: Request) {
   if (!endpoint || !p256dh || !auth) {
     return Response.json({ ok: false, error: "missing fields" }, { status: 400 });
   }
+  // Bound the fields so an oversized payload can't reach the DB write.
+  if (endpoint.length > 2000 || p256dh.length > 500 || auth.length > 500) {
+    return Response.json({ ok: false, error: "field too long" }, { status: 400 });
+  }
   await prisma.pushSubscription.upsert({
     where: { endpoint },
     update: { p256dh, auth, userId },

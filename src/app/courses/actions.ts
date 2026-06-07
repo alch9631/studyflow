@@ -13,34 +13,37 @@ import {
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
 import { rateLimit } from "@/lib/rateLimit";
+import {
+  ValidationError,
+  str,
+  requireText,
+  requireId,
+  requireDate,
+  optionalDate,
+  longText,
+  toUTCDate,
+  sanitizeStudyDays,
+  clampInt,
+  parseGrade,
+} from "@/lib/validate";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
   const userId = await getCurrentUserId();
 
-  const name = String(formData.get("name") ?? "").trim();
-  const examDate = String(formData.get("examDate") ?? "");
-  const studyDays = formData.getAll("studyDays").map(String).join(",");
-  const topicLines = String(formData.get("topics") ?? "")
+  const name = requireText(formData.get("name"), "Course name");
+  const examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
+  const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
+  const topicLines = longText(formData.get("topics"))
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
 
-  if (!name || !examDate) {
-    throw new Error("Name and exam date are required");
-  }
-  if (Number.isNaN(new Date(examDate + "T00:00:00Z").getTime())) {
-    throw new Error("Invalid exam date.");
-  }
-  if (examDate < todayISO()) {
-    throw new Error("Exam date can't be in the past.");
-  }
-
   const course = await prisma.course.create({
     data: {
       name,
-      examDate: new Date(examDate + "T00:00:00Z"),
-      studyDays: studyDays || "1,2,3,4,5",
+      examDate: toUTCDate(examDate),
+      studyDays,
       userId,
       topics: {
         create: topicLines.map((title, i) => ({ title, order: i })),
@@ -64,7 +67,12 @@ export async function createCourse(formData: FormData) {
  */
 export async function addFromCatalog(formData: FormData) {
   const userId = await getCurrentUserId();
-  const ids = formData.getAll("moduleId").map(String);
+  // Bound the selection so junk/oversized ids can't reach Prisma.
+  const ids = formData
+    .getAll("moduleId")
+    .map(String)
+    .filter((s) => s.length > 0 && s.length <= 200)
+    .slice(0, 100);
   if (ids.length === 0) redirect("/catalog");
 
   const templates = await prisma.moduleTemplate.findMany({ where: { id: { in: ids } } });
@@ -140,8 +148,8 @@ export async function importSyllabus(formData: FormData) {
   if (!rateLimit(`ai:${userId}`)) {
     throw new Error("You're importing a lot quickly — give it a minute and try again.");
   }
-  let text = String(formData.get("syllabus") ?? "").trim();
-  const studyDays = formData.getAll("studyDays").map(String).join(",") || "1,2,3,4,5";
+  let text = longText(formData.get("syllabus"));
+  const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
   const file = formData.get("file");
   if (file instanceof File && file.size > 0) {
@@ -182,7 +190,12 @@ export async function importSyllabus(formData: FormData) {
 
 /** Re-run the AI optimizer (difficulty / order / spaced review) on demand. */
 export async function reoptimizeCourse(formData: FormData) {
-  const id = String(formData.get("courseId"));
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
   if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
   let ok = false;
   try {
@@ -199,7 +212,12 @@ export async function reoptimizeCourse(formData: FormData) {
  * estimates), then reschedule. Stores the file's analysis for review.
  */
 export async function analyzeModuleUpload(formData: FormData) {
-  const courseId = String(formData.get("courseId"));
+  let courseId: string;
+  try {
+    courseId = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
   if (!rateLimit(`ai:${courseId}`)) redirect(`/courses/${courseId}?msg=rate-limited`);
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -253,16 +271,26 @@ export async function analyzeModuleUpload(formData: FormData) {
 
 /** Delete a course (cascades to its topics + study blocks). */
 export async function deleteCourse(formData: FormData) {
-  const id = String(formData.get("courseId"));
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
   await prisma.course.delete({ where: { id } });
   redirect("/courses");
 }
 
 /** AI progress: read a plain-language status, mark matching topics done, replan. */
 export async function applyProgress(formData: FormData) {
-  const id = String(formData.get("courseId"));
-  const status = String(formData.get("status") ?? "").trim();
-  if (!status) return;
+  let id: string;
+  let status: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+    status = requireText(formData.get("status"), "Status", 5000);
+  } catch {
+    return;
+  }
   if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
 
   const course = await prisma.course.findUnique({ where: { id }, include: { topics: true } });
@@ -296,21 +324,22 @@ export type EditState = { ok: boolean; error?: string } | null;
  * reschedules, and returns a status the UI shows without navigating away.
  */
 export async function editCourse(_prev: EditState, formData: FormData): Promise<EditState> {
-  const id = String(formData.get("courseId"));
-  const name = String(formData.get("name") ?? "").trim();
-  const examDate = String(formData.get("examDate") ?? "");
-  const studyDays = formData.getAll("studyDays").map(String).join(",");
-
-  if (!name) return { ok: false, error: "Course name is required." };
-  if (!examDate) return { ok: false, error: "Exam date is required." };
-  const exam = new Date(examDate + "T00:00:00Z");
-  if (Number.isNaN(exam.getTime())) return { ok: false, error: "Invalid exam date." };
-  if (examDate < todayISO()) return { ok: false, error: "Exam date can't be in the past." };
+  let id: string;
+  let name: string;
+  let examDate: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+    name = requireText(formData.get("name"), "Course name");
+    examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
+  } catch (e) {
+    return { ok: false, error: e instanceof ValidationError ? e.message : "Invalid input." };
+  }
+  const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
   try {
     await prisma.course.update({
       where: { id },
-      data: { name, examDate: exam, studyDays: studyDays || "1,2,3,4,5" },
+      data: { name, examDate: toUTCDate(examDate), studyDays },
     });
     await regeneratePlan(id);
     revalidatePath("/courses");
@@ -322,19 +351,25 @@ export async function editCourse(_prev: EditState, formData: FormData): Promise<
 
 /** Edit a course's exam date / capacity, then rebuild the plan around it. */
 export async function updateCourse(formData: FormData) {
-  const id = String(formData.get("courseId"));
-  const examDate = String(formData.get("examDate") ?? "");
-  const studyDays = formData.getAll("studyDays").map(String).join(",");
-
-  if (examDate && examDate < todayISO()) {
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
+  let examDate: string | null;
+  try {
+    examDate = optionalDate(formData.get("examDate"), "Exam date", todayISO());
+  } catch {
     redirect(`/courses/${id}?msg=past-exam`);
   }
+  const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
   await prisma.course.update({
     where: { id },
     data: {
-      ...(examDate ? { examDate: new Date(examDate + "T00:00:00Z") } : {}),
-      studyDays: studyDays || "1,2,3,4,5",
+      ...(examDate ? { examDate: toUTCDate(examDate) } : {}),
+      studyDays,
     },
   });
   await regeneratePlan(id);
@@ -343,18 +378,28 @@ export async function updateCourse(formData: FormData) {
 
 /** "I fell behind" — redistribute remaining work across the days left. */
 export async function healCourse(formData: FormData) {
-  const id = String(formData.get("courseId"));
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
   const { isOverloaded } = await healCoursePlan(id);
   redirect(`/courses/${id}?msg=${isOverloaded ? "healed-over" : "healed"}`);
 }
 
 /** Log a finished focus session (Pomodoro) against a block — feeds adaptive pacing. */
 export async function logFocus(formData: FormData) {
-  const id = String(formData.get("blockId"));
+  let id: string;
+  try {
+    id = requireId(formData.get("blockId"), "Block");
+  } catch {
+    return;
+  }
   // Clamp to a sane session length so a bad/negative value can't corrupt the
   // adaptive pacing estimates (actualMinutes feeds the calibration factor).
-  const minutes = Math.min(600, Math.max(1, parseInt(String(formData.get("minutes") ?? "25"), 10) || 25));
-  const path = String(formData.get("revalidate") || "/today");
+  const minutes = clampInt(formData.get("minutes"), 1, 600, 25);
+  const path = str(formData.get("revalidate")) || "/today";
   const block = await prisma.studyBlock.findUnique({ where: { id } });
   if (block) {
     const actual = (block.actualMinutes ?? 0) + minutes;
@@ -368,8 +413,13 @@ export async function logFocus(formData: FormData) {
 
 /** Check off (or uncheck) a single study block — "I did this session". */
 export async function toggleBlock(formData: FormData) {
-  const id = String(formData.get("blockId"));
-  const path = String(formData.get("revalidate") || "/today");
+  let id: string;
+  try {
+    id = requireId(formData.get("blockId"), "Block");
+  } catch {
+    return;
+  }
+  const path = str(formData.get("revalidate")) || "/today";
   const block = await prisma.studyBlock.findUnique({ where: { id } });
   if (block) {
     await prisma.studyBlock.update({
@@ -382,22 +432,32 @@ export async function toggleBlock(formData: FormData) {
 
 /** Add a dated deliverable (homework, lab report, project) to a course. */
 export async function addAssignment(formData: FormData) {
-  const courseId = String(formData.get("courseId"));
-  const title = String(formData.get("title") ?? "").trim();
-  const dueDate = String(formData.get("dueDate") ?? "");
-  const due = new Date(dueDate + "T00:00:00Z");
-  if (title && dueDate && !Number.isNaN(due.getTime())) {
-    await prisma.assignment.create({
-      data: { courseId, title, dueDate: due },
-    });
+  let courseId: string;
+  let title: string;
+  let dueDate: string;
+  try {
+    courseId = requireId(formData.get("courseId"), "Course");
+    title = requireText(formData.get("title"), "Assignment title");
+    // Deliverables can legitimately be logged with a past due date.
+    dueDate = requireDate(formData.get("dueDate"), "Due date", todayISO(), { allowPast: true });
+  } catch {
+    return;
   }
+  await prisma.assignment.create({
+    data: { courseId, title, dueDate: toUTCDate(dueDate) },
+  });
   revalidatePath(`/courses/${courseId}`);
 }
 
 /** Tick an assignment done/undone. */
 export async function toggleAssignment(formData: FormData) {
-  const id = String(formData.get("assignmentId"));
-  const path = String(formData.get("revalidate") || "");
+  let id: string;
+  try {
+    id = requireId(formData.get("assignmentId"), "Assignment");
+  } catch {
+    return;
+  }
+  const path = str(formData.get("revalidate"));
   const a = await prisma.assignment.findUnique({ where: { id } });
   if (a) {
     await prisma.assignment.update({ where: { id }, data: { done: !a.done } });
@@ -407,29 +467,41 @@ export async function toggleAssignment(formData: FormData) {
 
 /** Remove an assignment. */
 export async function deleteAssignment(formData: FormData) {
-  const id = String(formData.get("assignmentId"));
-  const courseId = String(formData.get("courseId"));
+  let id: string;
+  let courseId: string;
+  try {
+    id = requireId(formData.get("assignmentId"), "Assignment");
+    courseId = requireId(formData.get("courseId"), "Course");
+  } catch {
+    return;
+  }
   await prisma.assignment.delete({ where: { id } });
   revalidatePath(`/courses/${courseId}`);
 }
 
 /** Record (or clear) a course's final grade (German scale 1.0–5.0). */
 export async function setGrade(formData: FormData) {
-  const id = String(formData.get("courseId"));
-  const raw = String(formData.get("grade") ?? "").trim().replace(",", ".");
-  let grade: number | null = null;
-  if (raw) {
-    const n = parseFloat(raw);
-    if (!Number.isNaN(n) && n >= 1 && n <= 5) grade = n;
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
   }
+  const grade = parseGrade(formData.get("grade"));
   await prisma.course.update({ where: { id }, data: { grade } });
   redirect(`/courses/${id}?msg=graded`);
 }
 
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
 export async function toggleTopic(formData: FormData) {
-  const id = String(formData.get("topicId"));
-  const courseId = String(formData.get("courseId"));
+  let id: string;
+  let courseId: string;
+  try {
+    id = requireId(formData.get("topicId"), "Topic");
+    courseId = requireId(formData.get("courseId"), "Course");
+  } catch {
+    return;
+  }
   const topic = await prisma.topic.findUnique({ where: { id } });
   if (topic) {
     await prisma.topic.update({ where: { id }, data: { done: !topic.done } });
