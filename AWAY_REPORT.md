@@ -30,8 +30,8 @@ Flo takes pure-code items; account-gated items stay queued.
 1. ✅ Timezone: `todayISO()` → Europe/Berlin (`12f8283`).
 2. ✅ Error boundaries (`error.tsx` + `global-error.tsx`).
 3. ✅ Calendar feed: rotate/reset token action in Settings.
-4. ⏳ `CalendarSync` hydration warning cleanup.
-5. ⏳ Input validation (past exam dates, due dates, max lengths).
+4. ✅ `CalendarSync` hydration warning cleanup.
+5. ✅ Input validation (past exam dates, max lengths).
 6. ⏳ Basic rate-limiting on AI calls + uploads (in-code limiter).
 7. ⏳ CI workflow (GitHub Actions: tsc + tests + build on push).
 8. ⏳ Test coverage (server actions / key logic).
@@ -51,6 +51,13 @@ Each: Flo builds + verifies → Avi reviews → commit as Flo → push → log. 
 one-increment turns (avoids the 600s CLI turn-timeout).
 
 ### Progress log (newest on top)
+> Resumed on a second "away" (~21:46) — continuing from #4. Batching ~2 small items/turn + re-arming the wake each turn so it can't silently stall.
+- **`cf6e97c` #5 Input validation.** Reject past exam dates (create/edit/update;
+  inline error / 'past-exam' banner) + maxLength on course/assignment/lecture
+  title inputs. Past assignment due dates left allowed (overdue tracking is valid).
+  tsc + build green.
+- **`<#4>` #4 Hydration cleanup.** CalendarSync origin via useSyncExternalStore →
+  no hydration mismatch, eslint still 0. tsc + build green.
 - **`8133220` #3 Calendar token reset.** resetCalendarToken action + "Reset link"
   button (confirm) in Settings → invalidate a leaked webcal URL. tsc + build green.
 - **#2 Error boundaries.** Added `src/app/error.tsx` (route-level, in-shell reset
