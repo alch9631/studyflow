@@ -16,6 +16,8 @@ export const GLOBAL_DAILY_MINUTES = 180; // ~3h
 /** Cap on one topic's time in a single day, so days stay interleaved/realistic. */
 const MAX_TOPIC_MINUTES_PER_DAY = 60;
 const MAX_SCHEDULE_DAYS = 400;
+/** Even on a heavy lecture day, still allow at least this much study time. */
+const MIN_DAILY_AFTER_LECTURES = 30;
 
 /** Today as an ISO date (YYYY-MM-DD), local time. */
 export function todayISO(): string {
@@ -139,6 +141,17 @@ export async function rebuildSchedule(
     include: { topics: { orderBy: { order: "asc" } }, blocks: true },
   });
 
+  // Timetable awareness: total lecture minutes per weekday, so a day busy with
+  // classes gets a smaller study budget (no over-scheduling on heavy class days).
+  const lectures = await prisma.lecture.findMany({
+    where: { userId },
+    select: { weekday: true, startMin: true, endMin: true },
+  });
+  const lectureMinByDow = [0, 0, 0, 0, 0, 0, 0];
+  for (const l of lectures) {
+    lectureMinByDow[l.weekday] += Math.max(0, l.endMin - l.startMin);
+  }
+
   const pool: Work[] = [];
   for (const c of courses) {
     const folded = foldCompletedSessions(c); // effort reduced by completed work
@@ -164,7 +177,9 @@ export async function rebuildSchedule(
   let day = todayISO();
   for (let d = 0; d < MAX_SCHEDULE_DAYS && pool.some((w) => w.rem > 0); d++) {
     const dow = new Date(day + "T00:00:00Z").getUTCDay();
-    let budget = GLOBAL_DAILY_MINUTES;
+    // Subtract the day's lecture load from the study budget (floored), so study
+    // is planned around real classes rather than on top of them.
+    let budget = Math.max(MIN_DAILY_AFTER_LECTURES, GLOBAL_DAILY_MINUTES - lectureMinByDow[dow]);
     const perTopicToday: Record<string, number> = {};
     while (budget > 0) {
       const elig = pool.filter(
