@@ -20,7 +20,7 @@ export default function ImportPage() {
   const enabled = isSyllabusAIEnabled();
 
   return (
-    <main className="mx-auto max-w-xl p-8">
+    <main className="mx-auto max-w-xl p-4 sm:p-8">
       <Link href="/courses" className="text-sm text-gray-500 hover:underline">
         ← Back to courses
       </Link>

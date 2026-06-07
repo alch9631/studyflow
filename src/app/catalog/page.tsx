@@ -36,22 +36,18 @@ export default async function CatalogPage({
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <div className="mb-4 flex items-center justify-between">
+    <main className="mx-auto max-w-2xl p-4 sm:p-8">
+      <div className="mb-4 flex items-center gap-3">
         <Link
           href="/"
-          className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          aria-label="Choose a different Studiengang"
+          title="Choose a different Studiengang"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 text-lg text-gray-700 hover:bg-gray-50"
         >
-          ← Choose a different Studiengang
+          ←
         </Link>
-        <Link
-          href="/courses"
-          className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Skip →
-        </Link>
+        <h1 className="truncate text-2xl font-bold">{program.name} 🎓</h1>
       </div>
-      <h1 className="mb-1 text-2xl font-bold">{program.name} 🎓</h1>
 
       {allModules.length === 0 ? (
         <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800">
@@ -113,13 +109,19 @@ export default async function CatalogPage({
               </section>
             ))}
 
-            <div className="sticky bottom-4">
+            <div className="sticky bottom-4 flex gap-2 rounded-full bg-white/90 p-1 shadow-lg ring-1 ring-gray-200 backdrop-blur">
               <button
                 type="submit"
-                className="w-full rounded-full bg-brand px-5 py-3 font-medium text-white shadow-lg hover:bg-brand-dark"
+                className="flex-1 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white hover:bg-brand-dark"
               >
-                Add selected modules to my courses →
+                Add selected →
               </button>
+              <Link
+                href="/courses"
+                className="rounded-full border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Skip
+              </Link>
             </div>
           </form>
         </>

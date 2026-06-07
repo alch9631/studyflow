@@ -80,7 +80,7 @@ export default async function CoursePage({
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
+    <main className="mx-auto max-w-3xl p-4 sm:p-8">
       <Link href="/courses" className="text-sm text-gray-500 hover:underline">
         ← All courses
       </Link>
@@ -97,8 +97,8 @@ export default async function CoursePage({
         </div>
       )}
 
-      <div className="mb-6 mt-2 flex items-end justify-between">
-        <div>
+      <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">
             {course.name}
             {course.aiOptimized && (
@@ -113,7 +113,7 @@ export default async function CoursePage({
             {course.topics.length} topics done
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
           {isSyllabusAIEnabled() && (
             <form action={reoptimizeCourse}>
               <input type="hidden" name="courseId" value={course.id} />
