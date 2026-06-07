@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 
 const TABS = [
-  { href: "/courses", label: "Courses", icon: "📚" },
   { href: "/today", label: "Today", icon: "🗓️" },
+  { href: "/courses", label: "Courses", icon: "📚" },
   { href: "/catalog", label: "Modules", icon: "🎓" },
 ];
 

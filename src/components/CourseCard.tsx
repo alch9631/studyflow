@@ -97,10 +97,12 @@ export default function CourseCard({ course }: { course: CardCourse }) {
           Open →
         </Link>
         <button
+          type="button"
+          aria-expanded={editing}
           onClick={() => setEditing((e) => !e)}
           className="rounded-full border border-gray-300 dark:border-gray-700 px-4 py-1.5 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
         >
-          ✏️ Edit
+          {editing ? "✕ Close" : "✏️ Edit"}
         </button>
       </div>
 
