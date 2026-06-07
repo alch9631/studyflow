@@ -21,6 +21,34 @@ Going to production (Supabase + Vercel): **PRODUCTION.md**.
 
 ---
 
+## 🛠️ Away session — 2026-06-07 ~20:47 (Avi directing Flo) — audit fixes
+
+Mohaboss said **away** + "let Flo work on them all" — the repairable-issues audit.
+Flo takes pure-code items; account-gated items stay queued.
+
+**Queue (pure code — Flo does these):**
+1. ⏳ Timezone: `todayISO()` → Europe/Berlin (fixes late-night off-by-one).
+2. ⏳ Error boundaries (`error.tsx` + `global-error.tsx`).
+3. ⏳ Calendar feed: rotate/reset token action in Settings.
+4. ⏳ `CalendarSync` hydration warning cleanup.
+5. ⏳ Input validation (past exam dates, due dates, max lengths).
+6. ⏳ Basic rate-limiting on AI calls + uploads (in-code limiter).
+7. ⏳ CI workflow (GitHub Actions: tsc + tests + build on push).
+8. ⏳ Test coverage (server actions / key logic).
+9. ⏳ Accessibility pass (aria-live banners, focus states).
+10. ⏳ SEO/social: Open Graph + Twitter card metadata.
+
+**⏸️ Queued for Mohaboss (account-gated, NOT auto-done):** real auth/multi-user
+(Supabase), error monitoring (Sentry). These are the "make it real" track.
+
+Each: Flo builds + verifies → Avi reviews → commit as Flo → push → log. Compact
+one-increment turns (avoids the 600s CLI turn-timeout).
+
+### Progress log (newest on top)
+<!-- entries appended as items ship -->
+
+---
+
 ## 🛠️ Away session — 2026-06-07 ~18:52 (Avi directing Flo)
 
 Mohaboss said **away** and explicitly authorised Flo to work the buildable backlog
