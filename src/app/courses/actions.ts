@@ -29,6 +29,9 @@ export async function createCourse(formData: FormData) {
   if (!name || !examDate) {
     throw new Error("Name and exam date are required");
   }
+  if (Number.isNaN(new Date(examDate + "T00:00:00Z").getTime())) {
+    throw new Error("Invalid exam date.");
+  }
   if (examDate < todayISO()) {
     throw new Error("Exam date can't be in the past.");
   }
@@ -348,7 +351,9 @@ export async function healCourse(formData: FormData) {
 /** Log a finished focus session (Pomodoro) against a block — feeds adaptive pacing. */
 export async function logFocus(formData: FormData) {
   const id = String(formData.get("blockId"));
-  const minutes = parseInt(String(formData.get("minutes") ?? "25"), 10) || 25;
+  // Clamp to a sane session length so a bad/negative value can't corrupt the
+  // adaptive pacing estimates (actualMinutes feeds the calibration factor).
+  const minutes = Math.min(600, Math.max(1, parseInt(String(formData.get("minutes") ?? "25"), 10) || 25));
   const path = String(formData.get("revalidate") || "/today");
   const block = await prisma.studyBlock.findUnique({ where: { id } });
   if (block) {
@@ -380,9 +385,10 @@ export async function addAssignment(formData: FormData) {
   const courseId = String(formData.get("courseId"));
   const title = String(formData.get("title") ?? "").trim();
   const dueDate = String(formData.get("dueDate") ?? "");
-  if (title && dueDate) {
+  const due = new Date(dueDate + "T00:00:00Z");
+  if (title && dueDate && !Number.isNaN(due.getTime())) {
     await prisma.assignment.create({
-      data: { courseId, title, dueDate: new Date(dueDate + "T00:00:00Z") },
+      data: { courseId, title, dueDate: due },
     });
   }
   revalidatePath(`/courses/${courseId}`);
