@@ -19,9 +19,13 @@ const MAX_SCHEDULE_DAYS = 400;
 /** Even on a heavy lecture day, still allow at least this much study time. */
 const MIN_DAILY_AFTER_LECTURES = 30;
 
-/** Today as an ISO date (YYYY-MM-DD), local time. */
+/**
+ * Today as an ISO date (YYYY-MM-DD) in the student's timezone (Europe/Berlin).
+ * Using UTC here caused a late-night off-by-one (after midnight local but still
+ * "yesterday" in UTC), shifting Today + the schedule by a day.
+ */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
 }
 
 type DbCourseWithTopics = {
