@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
+import { daysUntil, examCountdownLabel } from "@/lib/dates";
 import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 
@@ -96,6 +97,13 @@ export default async function TodayPage() {
     }
   }
 
+  // Nearest upcoming exam, for a motivating header line.
+  const nextExam = await prisma.course.findFirst({
+    where: { userId, examDate: { gte: start } },
+    orderBy: { examDate: "asc" },
+    select: { id: true, name: true, examDate: true },
+  });
+
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const courseCount = new Set(blocks.map((b) => b.course.id)).size;
@@ -130,12 +138,22 @@ export default async function TodayPage() {
           </a>
         </div>
       </div>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         {today}
         {blocks.length > 0
           ? ` · ${doneMin}/${totalMin} min done · ${courseCountLabel(courseCount)}`
           : ""}
       </p>
+      {nextExam && (
+        <Link
+          href={`/courses/${nextExam.id}`}
+          className="mb-6 mt-1 inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
+        >
+          ⏳ Next exam: <span className="font-medium text-gray-700 dark:text-gray-200">{nextExam.name}</span>{" "}
+          — {examCountdownLabel(daysUntil(nextExam.examDate, today))}
+        </Link>
+      )}
+      {!nextExam && <div className="mb-6" />}
 
       <PomodoroTimer />
 
