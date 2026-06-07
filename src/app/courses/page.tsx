@@ -5,6 +5,7 @@ import { appleFor } from "@/lib/apple";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
 import CourseCard from "@/components/CourseCard";
+import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My Courses" };
@@ -23,10 +24,7 @@ export default async function CoursesPage() {
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">My Courses</h1>
-        <Link
-          href="/courses/new"
-          className="shrink-0 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
+        <Link href="/courses/new" className={buttonClasses("primary", "md", "shrink-0")}>
           + New course
         </Link>
       </div>
@@ -39,13 +37,13 @@ export default async function CoursesPage() {
             Pick how you want to start — StudyFlow builds the plan for you.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link href="/catalog" className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark">
+            <Link href="/catalog" className={buttonClasses("primary")}>
               🎓 Browse TUHH modules
             </Link>
-            <Link href="/courses/import" className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+            <Link href="/courses/import" className={buttonClasses("secondary")}>
               ✨ Import a syllabus
             </Link>
-            <Link href="/courses/new" className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800">
+            <Link href="/courses/new" className={buttonClasses("secondary")}>
               ✍️ Add manually
             </Link>
           </div>

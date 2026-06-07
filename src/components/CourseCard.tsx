@@ -60,7 +60,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
   const days = course.studyDays.split(",");
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm transition-shadow hover:shadow-md">
       {/* Header: priority + name, exam date */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">

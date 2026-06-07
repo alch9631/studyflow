@@ -2,6 +2,7 @@ import Link from "next/link";
 import { importSyllabus } from "../actions";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import FilePicker from "@/components/FilePicker";
+import { buttonClasses } from "@/components/ui";
 
 // Render per-request so the AI-key gating reflects the current env (not build time).
 export const dynamic = "force-dynamic";
@@ -78,11 +79,7 @@ export default function ImportPage() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={!enabled}
-          className="rounded-full bg-brand px-5 py-2.5 font-medium text-white hover:bg-brand-dark disabled:opacity-40"
-        >
+        <button type="submit" disabled={!enabled} className={buttonClasses("primary", "lg")}>
           ✨ Extract & build my plan
         </button>
       </form>
