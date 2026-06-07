@@ -14,7 +14,7 @@ export const PROGRAMS: Program[] = [
   { code: "BUI", name: "Bau- und Umweltingenieurwesen", seeded: false },
   { code: "GTW", name: "Berufsschullehramt Gewerblich-Technische Wissenschaften", seeded: false },
   { code: "CBI", name: "Chemie- und Bioingenieurwesen", seeded: false },
-  { code: "CS", name: "Computer Science", seeded: false },
+  { code: "CS", name: "Computer Science", seeded: true },
   { code: "DS", name: "Data Science", seeded: false },
   { code: "ET", name: "Elektrotechnik und Informationstechnik", seeded: false },
   { code: "ES", name: "Engineering Science", seeded: false },

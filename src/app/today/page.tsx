@@ -97,12 +97,14 @@ export default async function TodayPage() {
     }
   }
 
-  // Nearest upcoming exam, for a motivating header line.
+  // Nearest upcoming exam, for a motivating header line / focus banner.
   const nextExam = await prisma.course.findFirst({
     where: { userId, examDate: { gte: start } },
     orderBy: { examDate: "asc" },
     select: { id: true, name: true, examDate: true },
   });
+  const nextExamDays = nextExam ? daysUntil(nextExam.examDate, today) : null;
+  const examWeek = nextExamDays !== null && nextExamDays <= 7; // focus mode
 
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
@@ -144,13 +146,23 @@ export default async function TodayPage() {
           ? ` · ${doneMin}/${totalMin} min done · ${courseCountLabel(courseCount)}`
           : ""}
       </p>
-      {nextExam && (
+      {nextExam && !examWeek && (
         <Link
           href={`/courses/${nextExam.id}`}
           className="mb-6 mt-1 inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
         >
           ⏳ Next exam: <span className="font-medium text-gray-700 dark:text-gray-200">{nextExam.name}</span>{" "}
-          — {examCountdownLabel(daysUntil(nextExam.examDate, today))}
+          — {examCountdownLabel(nextExamDays!)}
+        </Link>
+      )}
+      {nextExam && examWeek && (
+        <Link
+          href={`/courses/${nextExam.id}`}
+          className="mb-6 mt-2 block rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 hover:border-red-400 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+        >
+          <span className="font-semibold">🎯 Focus mode — exam week.</span>{" "}
+          <span className="font-medium">{nextExam.name}</span> {examCountdownLabel(nextExamDays!)}.
+          Prioritise its sessions today; tap to open the course →
         </Link>
       )}
       {!nextExam && <div className="mb-6" />}

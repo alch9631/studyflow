@@ -1,7 +1,8 @@
 /**
  * Seed the shared module catalog from official university module handbooks.
- * Currently: TUHH Informatik-Ingenieurwesen (IIW), B.Sc. — 41 modules parsed
- * from the public Modulhandbuch (studienplaene.tuhh.de).
+ * TUHH (studienplaene.tuhh.de):
+ *   - IIW Informatik-Ingenieurwesen, B.Sc. — 41 modules (full handbook text)
+ *   - CS  Computer Science, B.Sc.          — 20 core modules (126 LP)
  *
  * Run: DATABASE_URL="file:./dev.db" npx tsx prisma/seedCatalog.ts  (npm run db:seed:catalog)
  * Idempotent — upserts by (university, program, code).
@@ -21,45 +22,42 @@ type RawModule = {
 };
 
 const UNIVERSITY = "TUHH";
-const PROGRAM = "IIW";
 
-async function main() {
-  const file = join(process.cwd(), "prisma", "data", "iiw-modules.json");
-  const modules = JSON.parse(readFileSync(file, "utf-8")) as RawModule[];
+// Program code -> handbook data file. Add a line here to seed another program.
+const SOURCES: { program: string; file: string }[] = [
+  { program: "IIW", file: "iiw-modules.json" },
+  { program: "CS", file: "csbs-modules.json" },
+];
+
+async function seedProgram(program: string, file: string): Promise<number> {
+  const path = join(process.cwd(), "prisma", "data", file);
+  const modules = JSON.parse(readFileSync(path, "utf-8")) as RawModule[];
 
   let count = 0;
   for (const m of modules) {
+    const data = {
+      name: m.name,
+      section: m.section,
+      ects: m.ects,
+      content: m.content,
+      examDate: m.examDate ? new Date(m.examDate + "T00:00:00Z") : null,
+      examSemester: m.examSemester ?? null,
+    };
     await prisma.moduleTemplate.upsert({
-      where: {
-        university_program_code: {
-          university: UNIVERSITY,
-          program: PROGRAM,
-          code: m.code,
-        },
-      },
-      update: {
-        name: m.name,
-        section: m.section,
-        ects: m.ects,
-        content: m.content,
-        examDate: m.examDate ? new Date(m.examDate + "T00:00:00Z") : null,
-        examSemester: m.examSemester ?? null,
-      },
-      create: {
-        university: UNIVERSITY,
-        program: PROGRAM,
-        code: m.code,
-        name: m.name,
-        section: m.section,
-        ects: m.ects,
-        content: m.content,
-        examDate: m.examDate ? new Date(m.examDate + "T00:00:00Z") : null,
-        examSemester: m.examSemester ?? null,
-      },
+      where: { university_program_code: { university: UNIVERSITY, program, code: m.code } },
+      update: data,
+      create: { university: UNIVERSITY, program, code: m.code, ...data },
     });
     count++;
   }
-  console.log(`✅ Seeded ${count} ${UNIVERSITY} ${PROGRAM} modules into the catalog.`);
+  return count;
+}
+
+async function main() {
+  for (const { program, file } of SOURCES) {
+    const n = await seedProgram(program, file);
+    console.log(`✅ Seeded ${n} ${UNIVERSITY} ${program} modules into the catalog.`);
+  }
 }
 
 main()

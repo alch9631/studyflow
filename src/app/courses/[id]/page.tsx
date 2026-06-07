@@ -129,23 +129,23 @@ export default async function CoursePage({
             </span>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-end">
           {isSyllabusAIEnabled() && (
-            <form action={reoptimizeCourse}>
+            <form action={reoptimizeCourse} className="w-full sm:w-auto">
               <input type="hidden" name="courseId" value={course.id} />
               <button
                 type="submit"
-                className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+                className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
               >
                 ✨ Optimize with AI
               </button>
             </form>
           )}
-          <form action={healCourse}>
+          <form action={healCourse} className="w-full sm:w-auto">
             <input type="hidden" name="courseId" value={course.id} />
             <button
               type="submit"
-              className="rounded-full border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
+              className="w-full rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 sm:w-auto"
             >
               😵‍💫 I fell behind — replan
             </button>
@@ -191,7 +191,7 @@ export default async function CoursePage({
           </div>
           <button
             type="submit"
-            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+            className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
           >
             Save & rebuild plan
           </button>
@@ -235,7 +235,7 @@ export default async function CoursePage({
             />
             <button
               type="submit"
-              className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
             >
               ✨ Apply & rebuild plan
             </button>
@@ -256,7 +256,7 @@ export default async function CoursePage({
             <FilePicker />
             <button
               type="submit"
-              className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
             >
               ✨ Analyze file &amp; rebuild plan from its content
             </button>
