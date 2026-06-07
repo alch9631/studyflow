@@ -21,6 +21,26 @@ Going to production (Supabase + Vercel): **PRODUCTION.md**.
 
 ---
 
+## 🛠️ Away session — 2026-06-07 ~18:52 (Avi directing Flo)
+
+Mohaboss said **away** and explicitly authorised Flo to work the buildable backlog
++ the minor cleanup. Account-gated items (Supabase/Vercel/login, CS exam dates)
+stay queued — not touched.
+
+**Queue (priority order):**
+1. ⏳ Batch 3a — Live calendar **subscribe URL** (tokenised .ics feed, auto-updates in Apple/Google Calendar).
+2. ⏳ Batch 3b — **Reminders foundation** (web-push plumbing; gated, fully fires only on https/deploy).
+3. ⏳ **Timetable → planner integration** (schedule study around real class times).
+4. ⏳ **Seed more Studiengänge** (more TUHH programs into the catalog).
+5. ⏳ Minor — fix the Pomodoro `set-state-in-effect` lint warning (last lint nit).
+
+Each item: Flo builds + verifies (tsc/build/live), Avi reviews → commit as Flo → push → log here.
+
+### Progress log (newest on top)
+<!-- Flo/Avi entries appended below as items ship -->
+
+---
+
 ## 🌙 Away session — 2026-06-07 (Avi, handled directly)
 
 **Done & pushed:**
