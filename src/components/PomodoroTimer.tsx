@@ -32,28 +32,37 @@ export default function PomodoroTimer() {
   const [running, setRunning] = useState(false);
   const [cycles, setCycles] = useState(0);
   const [showCfg, setShowCfg] = useState(false);
-  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Latest values for the interval to read without re-subscribing each tick.
+  const leftRef = useRef(left);
+  const modeRef = useRef(mode);
+  const focusRef = useRef(focusMin);
+  const breakRef = useRef(breakMin);
+  useEffect(() => {
+    leftRef.current = left;
+    modeRef.current = mode;
+    focusRef.current = focusMin;
+    breakRef.current = breakMin;
+  });
 
   useEffect(() => {
     if (!running) return;
-    tick.current = setInterval(() => setLeft((l) => l - 1), 1000);
-    return () => {
-      if (tick.current) clearInterval(tick.current);
-    };
+    const id = setInterval(() => {
+      // All setState here runs in the interval callback (not the effect body),
+      // and each runs once per tick — so no nested-updater double-counting.
+      if (leftRef.current > 1) {
+        setLeft(leftRef.current - 1);
+      } else if (modeRef.current === "focus") {
+        setCycles((c) => c + 1);
+        setMode("break");
+        setLeft(breakRef.current * 60);
+      } else {
+        setMode("focus");
+        setLeft(focusRef.current * 60);
+      }
+    }, 1000);
+    return () => clearInterval(id);
   }, [running]);
-
-  useEffect(() => {
-    if (left > 0) return;
-    // Switch phase when the timer hits zero.
-    if (mode === "focus") {
-      setCycles((c) => c + 1);
-      setMode("break");
-      setLeft(breakMin * 60);
-    } else {
-      setMode("focus");
-      setLeft(focusMin * 60);
-    }
-  }, [left, mode, focusMin, breakMin]);
 
   const mm = String(Math.floor(Math.max(left, 0) / 60)).padStart(2, "0");
   const ss = String(Math.max(left, 0) % 60).padStart(2, "0");
