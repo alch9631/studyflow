@@ -12,6 +12,7 @@ import {
   analyzeModuleContent,
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
+import { rateLimit } from "@/lib/rateLimit";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
@@ -133,6 +134,9 @@ async function extractTextFromFile(file: File): Promise<string> {
  */
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
+  if (!rateLimit(`ai:${userId}`)) {
+    throw new Error("You're importing a lot quickly — give it a minute and try again.");
+  }
   let text = String(formData.get("syllabus") ?? "").trim();
   const studyDays = formData.getAll("studyDays").map(String).join(",") || "1,2,3,4,5";
 
@@ -176,6 +180,7 @@ export async function importSyllabus(formData: FormData) {
 /** Re-run the AI optimizer (difficulty / order / spaced review) on demand. */
 export async function reoptimizeCourse(formData: FormData) {
   const id = String(formData.get("courseId"));
+  if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
   let ok = false;
   try {
     ok = await aiOptimizeCourse(id);
@@ -192,6 +197,7 @@ export async function reoptimizeCourse(formData: FormData) {
  */
 export async function analyzeModuleUpload(formData: FormData) {
   const courseId = String(formData.get("courseId"));
+  if (!rateLimit(`ai:${courseId}`)) redirect(`/courses/${courseId}?msg=rate-limited`);
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
@@ -254,6 +260,7 @@ export async function applyProgress(formData: FormData) {
   const id = String(formData.get("courseId"));
   const status = String(formData.get("status") ?? "").trim();
   if (!status) return;
+  if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
 
   const course = await prisma.course.findUnique({ where: { id }, include: { topics: true } });
   if (!course) return;
