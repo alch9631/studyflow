@@ -97,27 +97,45 @@ export default async function CatalogPage({
                   </span>
                 </summary>
                 <ul className="space-y-1.5 p-2.5">
-                  {mods.map((m) => (
-                    <li key={m.id}>
-                      <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
-                        <input
-                          type="checkbox"
-                          name="moduleId"
-                          value={m.id}
-                          className="mt-0.5 h-4 w-4 shrink-0"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-medium leading-snug">{m.name}</span>
-                          <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
-                            {m.code} · {m.ects} LP
-                            {m.examDate
-                              ? ` · exam ${m.examDate.toISOString().slice(0, 10)}`
-                              : ""}
-                          </span>
-                        </span>
-                      </label>
-                    </li>
-                  ))}
+                  {mods.map((m) => {
+                    const snippet = (m.content ?? "")
+                      .replace(/\s+/g, " ")
+                      .trim()
+                      .slice(0, 240);
+                    return (
+                      <li key={m.id}>
+                        <div className="rounded-lg border border-gray-200 p-3 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
+                          <label className="flex cursor-pointer items-start gap-3">
+                            <input
+                              type="checkbox"
+                              name="moduleId"
+                              value={m.id}
+                              className="mt-0.5 h-4 w-4 shrink-0"
+                            />
+                            <span className="min-w-0 flex-1 font-medium leading-snug">{m.name}</span>
+                          </label>
+                          {/* Module details behind a small "?" info toggle */}
+                          <details className="ml-7 mt-1.5">
+                            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-gray-400 hover:text-brand dark:text-gray-500">
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-bold">
+                                ?
+                              </span>
+                              Details
+                            </summary>
+                            <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
+                              <div className="font-medium text-gray-700 dark:text-gray-200">
+                                {m.code} · {m.ects} LP
+                                {m.examDate ? ` · exam ${m.examDate.toISOString().slice(0, 10)}` : ""}
+                              </div>
+                              {snippet && (
+                                <p className="mt-1.5 leading-relaxed">{snippet}…</p>
+                              )}
+                            </div>
+                          </details>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </details>
             ))}

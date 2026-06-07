@@ -2,15 +2,36 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const FOCUS = 25 * 60;
-const BREAK = 5 * 60;
+const FOCUS_KEY = "sf-focus-min";
+const BREAK_KEY = "sf-break-min";
+const DEFAULT_FOCUS = 25;
+const DEFAULT_BREAK = 5;
 
-/** A simple Pomodoro focus timer (25 min focus / 5 min break) with a cycle count. */
+/** Read a persisted minute setting (1–180), guarded for SSR. */
+function readMin(key: string, def: number): number {
+  if (typeof window === "undefined") return def;
+  try {
+    const v = parseInt(localStorage.getItem(key) ?? "", 10);
+    if (!Number.isNaN(v) && v >= 1 && v <= 180) return v;
+  } catch {}
+  return def;
+}
+
+const PRESETS = [
+  { f: 25, b: 5, label: "25 / 5" },
+  { f: 50, b: 10, label: "50 / 10" },
+  { f: 15, b: 3, label: "15 / 3" },
+];
+
+/** Pomodoro focus timer with editable, persisted focus/break durations. */
 export default function PomodoroTimer() {
+  const [focusMin, setFocusMin] = useState(() => readMin(FOCUS_KEY, DEFAULT_FOCUS));
+  const [breakMin, setBreakMin] = useState(() => readMin(BREAK_KEY, DEFAULT_BREAK));
   const [mode, setMode] = useState<"focus" | "break">("focus");
-  const [left, setLeft] = useState(FOCUS);
+  const [left, setLeft] = useState(() => readMin(FOCUS_KEY, DEFAULT_FOCUS) * 60);
   const [running, setRunning] = useState(false);
   const [cycles, setCycles] = useState(0);
+  const [showCfg, setShowCfg] = useState(false);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -27,26 +48,43 @@ export default function PomodoroTimer() {
     if (mode === "focus") {
       setCycles((c) => c + 1);
       setMode("break");
-      setLeft(BREAK);
+      setLeft(breakMin * 60);
     } else {
       setMode("focus");
-      setLeft(FOCUS);
+      setLeft(focusMin * 60);
     }
-  }, [left, mode]);
+  }, [left, mode, focusMin, breakMin]);
 
   const mm = String(Math.floor(Math.max(left, 0) / 60)).padStart(2, "0");
   const ss = String(Math.max(left, 0) % 60).padStart(2, "0");
 
+  function persist(key: string, val: number) {
+    try {
+      localStorage.setItem(key, String(val));
+    } catch {}
+  }
+
+  /** Apply new durations; if idle, reflect the current phase's new length. */
+  function applyDurations(f: number, b: number) {
+    const nf = Math.min(180, Math.max(1, f || DEFAULT_FOCUS));
+    const nb = Math.min(180, Math.max(1, b || DEFAULT_BREAK));
+    setFocusMin(nf);
+    setBreakMin(nb);
+    persist(FOCUS_KEY, nf);
+    persist(BREAK_KEY, nb);
+    if (!running) setLeft((mode === "focus" ? nf : nb) * 60);
+  }
+
   function reset() {
     setRunning(false);
     setMode("focus");
-    setLeft(FOCUS);
+    setLeft(focusMin * 60);
   }
 
   return (
     <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center gap-4">
-        <div className="shrink-0 text-3xl font-bold tabular-nums">
+        <div suppressHydrationWarning className="shrink-0 text-3xl font-bold tabular-nums">
           {mm}:{ss}
         </div>
         <div className="min-w-0 flex-1">
@@ -58,7 +96,7 @@ export default function PomodoroTimer() {
           </div>
         </div>
         {/* Controls inline on wider screens */}
-        <div className="hidden shrink-0 gap-2 sm:flex">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
           <button
             onClick={() => setRunning((r) => !r)}
             className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
@@ -71,8 +109,17 @@ export default function PomodoroTimer() {
           >
             Reset
           </button>
+          <button
+            onClick={() => setShowCfg((s) => !s)}
+            aria-label="Timer settings"
+            aria-expanded={showCfg}
+            className="rounded-full border border-gray-300 px-2.5 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          >
+            ⚙︎
+          </button>
         </div>
       </div>
+
       {/* On mobile the controls drop to a full-width row so the label isn't squeezed */}
       <div className="mt-3 flex gap-2 sm:hidden">
         <button
@@ -87,7 +134,67 @@ export default function PomodoroTimer() {
         >
           Reset
         </button>
+        <button
+          onClick={() => setShowCfg((s) => !s)}
+          aria-label="Timer settings"
+          aria-expanded={showCfg}
+          className="rounded-full border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+        >
+          ⚙︎
+        </button>
       </div>
+
+      {/* Duration settings */}
+      {showCfg && (
+        <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="text-sm">
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Focus (min)
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={focusMin}
+                onChange={(e) => applyDurations(parseInt(e.target.value, 10), breakMin)}
+                className="mt-1 w-20 rounded-lg border border-gray-300 px-3 py-1.5 dark:border-gray-700"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Break (min)
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={breakMin}
+                onChange={(e) => applyDurations(focusMin, parseInt(e.target.value, 10))}
+                className="mt-1 w-20 rounded-lg border border-gray-300 px-3 py-1.5 dark:border-gray-700"
+              />
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => applyDurations(p.f, p.b)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    focusMin === p.f && breakMin === p.b
+                      ? "border-brand bg-brand text-white"
+                      : "border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+            Saved on this device. Changes apply when the timer is idle.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

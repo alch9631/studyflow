@@ -278,18 +278,21 @@ export default async function TodayPage() {
             Nothing scheduled today — it&apos;s not a study day. 😎
           </div>
           {nextBlocks.length > 0 && (
-            <div className="mt-6">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Next up · {nextDate}
-              </h2>
-              <ul className="space-y-2">
+            <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <span>Next up · {nextDate}</span>
+                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  {nextBlocks.length}
+                </span>
+              </summary>
+              <ul className="space-y-2 px-3 pb-3">
                 {nextBlocks.map((b) => (
                   <li key={b.id}>
                     <BlockRow b={b} />
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           )}
         </div>
       )}

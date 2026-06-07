@@ -10,7 +10,7 @@ const TABS: Tab[] = [
   { href: "/courses", label: "My Courses", icon: "📚" },
   { href: "/catalog", label: "Modules", icon: "🎓" },
   { href: "/insights", label: "Insights", icon: "📊" },
-  { href: "/api/calendar", label: "Calendar", icon: "📅", external: true },
+  // Calendar export route (/api/calendar) is kept but hidden from nav for now.
 ];
 
 function isActive(pathname: string, t: Tab) {
@@ -82,14 +82,14 @@ export default function Nav() {
         <div className="mx-auto flex max-w-3xl items-stretch justify-around">
           {TABS.map((t) => {
             const active = isActive(pathname, t);
-            const cls = `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium leading-tight transition-colors ${
+            const cls = `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-medium leading-tight transition-colors ${
               active
                 ? "text-brand"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             }`;
             const inner = (
               <>
-                <span className="text-base leading-none">{t.icon}</span>
+                <span className="text-lg leading-none">{t.icon}</span>
                 <span className="whitespace-nowrap">{t.label}</span>
               </>
             );

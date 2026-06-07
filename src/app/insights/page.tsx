@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
+import { appleFor } from "@/lib/apple";
+import { daysUntil, examCountdownLabel } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Insights" };
@@ -24,7 +26,14 @@ export default async function InsightsPage() {
   const [blocks, courses] = await Promise.all([
     prisma.studyBlock.findMany({
       where: { course: { userId } },
-      select: { date: true, minutes: true, completed: true, actualMinutes: true, courseId: true },
+      select: {
+        date: true,
+        minutes: true,
+        completed: true,
+        actualMinutes: true,
+        kind: true,
+        courseId: true,
+      },
     }),
     prisma.course.findMany({
       where: { userId },
@@ -33,6 +42,8 @@ export default async function InsightsPage() {
         name: true,
         grade: true,
         ects: true,
+        examDate: true,
+        intense: true,
         topics: { select: { done: true } },
       },
       orderBy: { examDate: "asc" },
@@ -105,6 +116,48 @@ export default async function InsightsPage() {
   // LP earned = graded courses with a passing grade (<= 4.0).
   const lpEarned = graded.filter((c) => (c.grade as number) <= 4.0).reduce((s, c) => s + lpOf(c), 0);
 
+  // Completed modules (every topic done).
+  const completedModules = courses.filter(
+    (c) => c.topics.length > 0 && c.topics.every((t) => t.done)
+  ).length;
+
+  // Upcoming workload — uncompleted study/review minutes scheduled in next 7 days.
+  const weekAhead = new Date(today.getTime() + 7 * 86400_000);
+  const upcomingWorkload = blocks
+    .filter((b) => !b.completed && b.date >= today && b.date < weekAhead)
+    .reduce((s, b) => s + b.minutes, 0);
+
+  // Consistency — share of the last 14 days with at least one completed block.
+  let activeDays = 0;
+  for (let i = 0; i < 14; i++) {
+    if (completedDays.has(dayKey(new Date(today.getTime() - i * 86400_000)))) activeDays++;
+  }
+  const consistency = Math.round((activeDays / 14) * 100);
+
+  // Needs attention — unfinished courses, most urgent first (apple priority).
+  const remainingByCourse = new Map<string, number>();
+  for (const b of blocks) {
+    if (!b.completed && b.kind === "study") {
+      remainingByCourse.set(b.courseId, (remainingByCourse.get(b.courseId) ?? 0) + b.minutes);
+    }
+  }
+  const RANK: Record<string, number> = { High: 0, Medium: 1, "On track": 2 };
+  const attention = courses
+    .map((c) => {
+      const total = c.topics.length;
+      const done = c.topics.filter((t) => t.done).length;
+      const apple = appleFor({
+        examDate: c.examDate,
+        intense: c.intense,
+        remainingMinutes: remainingByCourse.get(c.id) ?? 0,
+      });
+      return { c, total, done, apple, days: daysUntil(c.examDate, todayISO()) };
+    })
+    .filter((x) => x.total === 0 || x.done < x.total) // not finished
+    .filter((x) => x.days >= 0) // exam not past
+    .sort((a, b) => (RANK[a.apple.label] ?? 3) - (RANK[b.apple.label] ?? 3) || a.days - b.days)
+    .slice(0, 3);
+
   const hasData = blocks.length > 0;
 
   return (
@@ -127,7 +180,39 @@ export default async function InsightsPage() {
             <Stat label="🔥 Streak" value={`${streak} ${streak === 1 ? "day" : "days"}`} />
             <Stat label="✅ Done when due" value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
             <Stat label="⏱️ Focus logged" value={fmtMin(loggedMinutes)} />
+            <Stat label="📅 Consistency" value={`${consistency}%`} sub={`${activeDays}/14 days active`} />
+            <Stat label="📚 Next 7 days" value={fmtMin(upcomingWorkload)} sub="study planned" />
+            <Stat label="🎓 Modules done" value={`${completedModules}`} sub={`of ${courses.length}`} />
           </div>
+
+          {/* Needs attention — what to focus on next */}
+          {attention.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-3 font-semibold">Needs attention</h2>
+              <ul className="space-y-2">
+                {attention.map(({ c, total, done, apple, days }) => (
+                  <li key={c.id}>
+                    <Link
+                      href={`/courses/${c.id}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{c.name}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {done}/{total} topics · {examCountdownLabel(days)}
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${apple.cls}`}
+                      >
+                        {apple.emoji} {apple.label}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {/* Grades — Notenschnitt over graded courses */}
           {graded.length > 0 && (
