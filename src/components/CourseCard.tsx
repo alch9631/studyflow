@@ -132,6 +132,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
                 <input
                   name="name"
                   defaultValue={course.name}
+                  maxLength={100}
                   className="mt-0.5 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5"
                 />
               </label>

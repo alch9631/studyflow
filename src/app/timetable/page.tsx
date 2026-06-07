@@ -56,6 +56,7 @@ export default async function TimetablePage() {
             <input
               name="title"
               required
+              maxLength={120}
               placeholder="e.g. Analysis I — Vorlesung"
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
             />

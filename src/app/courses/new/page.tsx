@@ -27,6 +27,7 @@ export default function NewCoursePage() {
           <input
             name="name"
             required
+            maxLength={100}
             placeholder="e.g. Algorithms"
             className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
           />

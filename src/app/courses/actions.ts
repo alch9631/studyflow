@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { regeneratePlan, healCoursePlan, aiOptimizeCourse } from "@/lib/planService";
+import { regeneratePlan, healCoursePlan, aiOptimizeCourse, todayISO } from "@/lib/planService";
 import {
   extractSyllabus,
   isSyllabusAIEnabled,
@@ -27,6 +27,9 @@ export async function createCourse(formData: FormData) {
 
   if (!name || !examDate) {
     throw new Error("Name and exam date are required");
+  }
+  if (examDate < todayISO()) {
+    throw new Error("Exam date can't be in the past.");
   }
 
   const course = await prisma.course.create({
@@ -292,6 +295,7 @@ export async function editCourse(_prev: EditState, formData: FormData): Promise<
   if (!examDate) return { ok: false, error: "Exam date is required." };
   const exam = new Date(examDate + "T00:00:00Z");
   if (Number.isNaN(exam.getTime())) return { ok: false, error: "Invalid exam date." };
+  if (examDate < todayISO()) return { ok: false, error: "Exam date can't be in the past." };
 
   try {
     await prisma.course.update({
@@ -311,6 +315,10 @@ export async function updateCourse(formData: FormData) {
   const id = String(formData.get("courseId"));
   const examDate = String(formData.get("examDate") ?? "");
   const studyDays = formData.getAll("studyDays").map(String).join(",");
+
+  if (examDate && examDate < todayISO()) {
+    redirect(`/courses/${id}?msg=past-exam`);
+  }
 
   await prisma.course.update({
     where: { id },
