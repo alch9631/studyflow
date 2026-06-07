@@ -29,7 +29,7 @@ stay queued — not touched.
 
 **Queue (priority order):**
 1. ✅ Batch 3a — Live calendar **subscribe URL** (`f25b3c8`).
-2. ⏳ Batch 3b — **Reminders foundation** (web-push plumbing; gated, fully fires only on https/deploy).
+2. ✅ Batch 3b — **Reminders foundation** (`66305eb`). ⏸️ Activation needs you (see below).
 3. ⏳ **Timetable → planner integration** (schedule study around real class times).
 4. ⏳ **Seed more Studiengänge** (more TUHH programs into the catalog).
 5. ⏳ Minor — fix the Pomodoro `set-state-in-effect` lint warning (last lint nit).
@@ -37,6 +37,14 @@ stay queued — not touched.
 Each item: Flo builds + verifies (tsc/build/live), Avi reviews → commit as Flo → push → log here.
 
 ### Progress log (newest on top)
+- **`66305eb` — Batch 3b: reminders foundation.** Flo (built directly by Avi after
+  the first attempt hit a 600s CLI turn-timeout — now running compact one-increment
+  turns). PushSubscription model, sw.js push/notificationclick handlers,
+  /api/push/{subscribe,unsubscribe}, PushReminders + Settings section (gated →
+  "coming soon" without VAPID/https). tsc + build green; routes 200/400, settings
+  renders. **⏸️ To ACTIVATE (needs you):** generate a VAPID keypair, set
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` in env, add a server send
+  fn (`web-push`) + a cron trigger — all deploy/secret-gated.
 - **`f25b3c8` — Batch 3a: calendar subscribe URL.** Flo: `User.calendarToken`,
   shared `lib/ics.ts`, new `/api/calendar/[token]` feed, Settings "Calendar sync"
   card (webcal:// + copy). Avi review: refactor clean, ics byte-identical, tsc +
