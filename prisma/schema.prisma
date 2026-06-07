@@ -22,6 +22,22 @@ model User {
   calendarToken String?   @unique
   courses       Course[]
   lectures      Lecture[]
+  pushSubscriptions PushSubscription[]
+}
+
+// A browser web-push subscription (for study reminders). Sending is deploy-gated
+// (needs VAPID keys); this just stores the subscription for later.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
 }
 
 // A recurring weekly class slot (lecture, tutorial, lab). Used to show the

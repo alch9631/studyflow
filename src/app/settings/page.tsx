@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ThemeSetting from "@/components/ThemeSetting";
 import CalendarSync from "@/components/CalendarSync";
+import PushReminders from "@/components/PushReminders";
 import { getCalendarToken } from "@/lib/devUser";
 
 export const metadata: Metadata = { title: "Settings · StudyFlow" };
@@ -46,6 +47,15 @@ export default async function SettingsPage() {
           one-time export, this feed auto-updates whenever your plan changes.
         </p>
         <CalendarSync token={calendarToken} />
+      </section>
+
+      {/* Reminders — web-push opt-in (activates once deployed over https) */}
+      <section className="mb-5 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+        <h2 className="font-semibold">🔔 Reminders</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Get a nudge for the day&apos;s plan and upcoming exams.
+        </p>
+        <PushReminders />
       </section>
 
       {/* Account — placeholder for future login-based personalization */}
