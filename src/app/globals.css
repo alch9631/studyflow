@@ -53,3 +53,16 @@ body {
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* Branded text selection — a small cohesive touch. */
+::selection {
+  background-color: #00509b;
+  color: #ffffff;
+}
+
+/* Smooth in-page anchor scrolling, but respect reduced-motion preferences. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

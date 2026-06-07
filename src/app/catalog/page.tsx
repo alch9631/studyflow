@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
+import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Modules" };
@@ -55,7 +56,7 @@ export default async function CatalogPage({
             syllabus and let AI extract the topics.
           </p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <Link href="/courses/new" className="rounded-full bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark">
+            <Link href="/courses/new" className={buttonClasses("primary")}>
               + Add a course
             </Link>
             <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">
@@ -66,7 +67,7 @@ export default async function CatalogPage({
       ) : modules.length === 0 ? (
         <div className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800 p-5 text-sm text-gray-600 dark:text-gray-300">
           <p className="font-medium">You&apos;ve added every module in this program. 🎉</p>
-          <Link href="/courses" className="mt-3 inline-block rounded-full bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark">
+          <Link href="/courses" className={buttonClasses("primary", "md", "mt-3")}>
             Go to my courses →
           </Link>
         </div>

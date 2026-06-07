@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui";
 
 export const metadata = { title: "Offline" };
 
@@ -11,10 +12,7 @@ export default function OfflinePage() {
         StudyFlow can&apos;t reach the network right now. Pages you&apos;ve already
         opened may still work — reconnect to sync the latest.
       </p>
-      <Link
-        href="/today"
-        className="mt-2 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-      >
+      <Link href="/today" className={buttonClasses("primary", "md", "mt-2")}>
         Try Today again
       </Link>
     </main>
