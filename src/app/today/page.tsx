@@ -241,6 +241,7 @@ export default async function TodayPage() {
 
       {blocks.length > 0 && remainingMin > 0 && (
         <div
+          aria-live="polite"
           className={`mb-4 rounded-xl border p-4 text-sm ${
             achievable
               ? "border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"

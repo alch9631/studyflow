@@ -108,6 +108,7 @@ export default async function CoursePage({
 
       {banner && (
         <div
+          aria-live="polite"
           className={`mt-3 rounded-lg border p-3 text-sm ${
             ["progress-none", "progress-error", "optimize-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "rate-limited"].includes(msg ?? "")
               ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"

@@ -159,7 +159,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
                 </label>
               ))}
             </div>
-            <div className="flex items-center gap-3">
+            <div aria-live="polite" className="flex items-center gap-3">
               <SaveButton />
               {state?.ok && <span className="text-sm text-green-600">✓ Saved</span>}
               {state?.error && <span className="text-sm text-red-600">{state.error}</span>}
