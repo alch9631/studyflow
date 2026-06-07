@@ -37,21 +37,11 @@ export default async function CatalogPage({
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <div className="mb-5 flex items-start gap-3">
-        <Link
-          href="/"
-          aria-label="Choose a different Studiengang"
-          title="Choose a different Studiengang"
-          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 dark:border-gray-700 text-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-        >
-          ←
-        </Link>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            🎓 Modules · {program.code}
-          </p>
-          <h1 className="text-xl font-bold leading-tight sm:text-2xl">{program.name}</h1>
-        </div>
+      <div className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          🎓 Modules · {program.code}
+        </p>
+        <h1 className="text-xl font-bold leading-tight sm:text-2xl">{program.name}</h1>
       </div>
 
       {allModules.length === 0 ? (
@@ -131,17 +121,11 @@ export default async function CatalogPage({
               </details>
             ))}
 
-            {/* One unified action area: Skip (secondary) + Add selected (primary) */}
-            <div className="sticky bottom-20 z-10 mt-4 flex items-center gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:bottom-4 dark:border-gray-800 dark:bg-gray-900/95">
-              <Link
-                href="/courses"
-                className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-              >
-                Skip
-              </Link>
+            {/* Single sticky primary action, sitting just above the bottom nav */}
+            <div className="sticky bottom-20 z-10 mt-4 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:bottom-4 dark:border-gray-800 dark:bg-gray-900/95">
               <button
                 type="submit"
-                className="flex-1 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
+                className="w-full rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
               >
                 Add selected →
               </button>

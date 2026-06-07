@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import ThemeToggle from "./ThemeToggle";
 
 const TABS = [
   { href: "/today", label: "Today", icon: "🗓️" },
-  { href: "/courses", label: "Courses", icon: "📚" },
+  { href: "/courses", label: "My Courses", icon: "📚" },
   { href: "/catalog", label: "Modules", icon: "🎓" },
 ];
 
@@ -52,8 +51,8 @@ export default function Nav() {
               );
             })}
           </div>
-
-          <ThemeToggle />
+          {/* Theme toggle moved to a future Settings page; dark mode still
+              follows the device's system preference automatically. */}
         </nav>
       </header>
 

@@ -17,7 +17,7 @@ export default async function CoursesPage() {
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Your courses</h1>
+        <h1 className="text-2xl font-bold">My Courses</h1>
         <Link
           href="/courses/new"
           className="shrink-0 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"

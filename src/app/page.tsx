@@ -48,14 +48,17 @@ export default function Home() {
         </div>
       </div>
 
-      {/* My courses — card-style box (was a plain text link) */}
+      {/* My Courses — card-style box (was a plain text link) */}
       <Link
         href="/courses"
-        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-left hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
+        className="flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
       >
-        <span>
-          <span className="block font-semibold">📚 My courses</span>
-          <span className="block text-xs text-gray-500 dark:text-gray-400">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-xl">
+          📚
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">My Courses</span>
+          <span className="block text-sm text-gray-500 dark:text-gray-400">
             Jump back into your study plan
           </span>
         </span>
