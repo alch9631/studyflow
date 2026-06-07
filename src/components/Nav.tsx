@@ -51,8 +51,20 @@ export default function Nav() {
               );
             })}
           </div>
-          {/* Theme toggle moved to a future Settings page; dark mode still
-              follows the device's system preference automatically. */}
+
+          {/* Settings (theme + future prefs live here) */}
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            aria-current={isActive(pathname, "/settings") ? "page" : undefined}
+            className={`ml-1 rounded-full px-2.5 py-1.5 text-base transition-colors ${
+              isActive(pathname, "/settings")
+                ? "bg-brand text-white"
+                : "hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            ⚙️
+          </Link>
         </nav>
       </header>
 
