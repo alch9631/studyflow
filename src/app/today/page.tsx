@@ -38,7 +38,7 @@ function BlockRow({ b }: { b: Row }) {
           {b.completed ? "✓" : ""}
         </button>
       </form>
-      <span className="flex-1">
+      <span className="min-w-0 flex-1">
         <span className={b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}>
           {isReview ? "🔁 " : ""}
           {b.topicTitle}
@@ -48,17 +48,17 @@ function BlockRow({ b }: { b: Row }) {
           {b.course.name}
         </span>
       </span>
-      <span className="text-sm text-gray-400 dark:text-gray-500">
+      <span className="shrink-0 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
         {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
       </span>
-      <form action={logFocus}>
+      <form action={logFocus} className="shrink-0">
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="minutes" value="25" />
         <input type="hidden" name="revalidate" value="/today" />
         <button
           type="submit"
           title="Log a 25-min focus session"
-          className="rounded-full border border-gray-300 dark:border-gray-700 px-2.5 py-1 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="whitespace-nowrap rounded-full border border-gray-300 px-2.5 py-1 text-xs font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
         >
           🍅 +25m
         </button>
