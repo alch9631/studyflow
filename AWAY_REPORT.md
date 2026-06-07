@@ -27,8 +27,8 @@ Mohaboss said **away** + "let Flo work on them all" — the repairable-issues au
 Flo takes pure-code items; account-gated items stay queued.
 
 **Queue (pure code — Flo does these):**
-1. ⏳ Timezone: `todayISO()` → Europe/Berlin (fixes late-night off-by-one).
-2. ⏳ Error boundaries (`error.tsx` + `global-error.tsx`).
+1. ✅ Timezone: `todayISO()` → Europe/Berlin (`12f8283`).
+2. ✅ Error boundaries (`error.tsx` + `global-error.tsx`).
 3. ⏳ Calendar feed: rotate/reset token action in Settings.
 4. ⏳ `CalendarSync` hydration warning cleanup.
 5. ⏳ Input validation (past exam dates, due dates, max lengths).
@@ -45,7 +45,10 @@ Each: Flo builds + verifies → Avi reviews → commit as Flo → push → log. 
 one-increment turns (avoids the 600s CLI turn-timeout).
 
 ### Progress log (newest on top)
-<!-- entries appended as items ship -->
+- **#2 Error boundaries.** Added `src/app/error.tsx` (route-level, in-shell reset
+  boundary) + `src/app/global-error.tsx` (last-resort, self-contained html/body).
+  On-brand, dark. tsc + build green.
+- **`12f8283` #1 Timezone.** todayISO → Europe/Berlin; engine 15/15, service 16/16.
 
 ---
 
