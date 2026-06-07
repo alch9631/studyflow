@@ -28,7 +28,13 @@ export default async function InsightsPage() {
     }),
     prisma.course.findMany({
       where: { userId },
-      select: { id: true, name: true, topics: { select: { done: true } } },
+      select: {
+        id: true,
+        name: true,
+        grade: true,
+        ects: true,
+        topics: { select: { done: true } },
+      },
       orderBy: { examDate: "asc" },
     }),
   ]);
@@ -89,6 +95,16 @@ export default async function InsightsPage() {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
 
+  // Notenschnitt — LP-weighted average over graded courses (German 1.0–5.0).
+  const graded = courses.filter((c) => c.grade != null);
+  const lpOf = (c: { ects: number | null }) => c.ects ?? 6;
+  const gradedLp = graded.reduce((s, c) => s + lpOf(c), 0);
+  const gpa = gradedLp
+    ? graded.reduce((s, c) => s + (c.grade as number) * lpOf(c), 0) / gradedLp
+    : null;
+  // LP earned = graded courses with a passing grade (<= 4.0).
+  const lpEarned = graded.filter((c) => (c.grade as number) <= 4.0).reduce((s, c) => s + lpOf(c), 0);
+
   const hasData = blocks.length > 0;
 
   return (
@@ -112,6 +128,40 @@ export default async function InsightsPage() {
             <Stat label="✅ Done when due" value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
             <Stat label="⏱️ Focus logged" value={fmtMin(loggedMinutes)} />
           </div>
+
+          {/* Grades — Notenschnitt over graded courses */}
+          {graded.length > 0 && (
+            <section className="mt-6 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-semibold">🎓 Grades</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {graded.length} graded
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-8">
+                <div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Notenschnitt</div>
+                  <div className="text-2xl font-bold tabular-nums">{gpa!.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">LP earned</div>
+                  <div className="text-2xl font-bold tabular-nums">{lpEarned}</div>
+                </div>
+              </div>
+              <ul className="mt-4 space-y-1.5">
+                {graded.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 text-sm">
+                    <Link href={`/courses/${c.id}`} className="truncate hover:underline">
+                      {c.name}
+                    </Link>
+                    <span className="shrink-0 tabular-nums text-gray-500 dark:text-gray-400">
+                      {(c.grade as number).toFixed(1)} · {lpOf(c)} LP
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {/* This week */}
           <section className="mt-6 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">

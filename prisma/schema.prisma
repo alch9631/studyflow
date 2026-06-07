@@ -34,14 +34,32 @@ model Course {
   sourceCode    String?
   aiOptimized   Boolean      @default(false) // AI tuned topic difficulty/order/review
   intense       Boolean      @default(false) // global scheduler couldn't fit all work before the exam
+  // German final grade once the exam is taken (1.0 best … 5.0 fail). null = not graded yet.
+  grade         Float?
 
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  topics    Topic[]
-  blocks    StudyBlock[]
-  files     ModuleFile[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  topics      Topic[]
+  blocks      StudyBlock[]
+  files       ModuleFile[]
+  assignments Assignment[]
 
   @@index([userId])
+}
+
+// A dated deliverable that isn't the exam: homework sheet (Übungsblatt), lab
+// report, project hand-in. Surfaced on Today with a due-date countdown.
+model Assignment {
+  id        String   @id @default(cuid())
+  title     String
+  dueDate   DateTime
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId String
+
+  @@index([courseId, dueDate])
 }
 
 // An uploaded module file (lecture script, notes) + its AI content analysis.

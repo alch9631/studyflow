@@ -16,3 +16,12 @@ export function examCountdownLabel(days: number): string {
   const weeks = Math.round(days / 7);
   return `${weeks} weeks to exam`;
 }
+
+/** Short countdown for an assignment / deadline due date. */
+export function dueLabel(days: number): string {
+  if (days < 0) return "overdue";
+  if (days === 0) return "due today";
+  if (days === 1) return "due tomorrow";
+  if (days <= 14) return `${days} days left`;
+  return `${Math.round(days / 7)} weeks left`;
+}

@@ -360,6 +360,51 @@ export async function toggleBlock(formData: FormData) {
   revalidatePath(path);
 }
 
+/** Add a dated deliverable (homework, lab report, project) to a course. */
+export async function addAssignment(formData: FormData) {
+  const courseId = String(formData.get("courseId"));
+  const title = String(formData.get("title") ?? "").trim();
+  const dueDate = String(formData.get("dueDate") ?? "");
+  if (title && dueDate) {
+    await prisma.assignment.create({
+      data: { courseId, title, dueDate: new Date(dueDate + "T00:00:00Z") },
+    });
+  }
+  revalidatePath(`/courses/${courseId}`);
+}
+
+/** Tick an assignment done/undone. */
+export async function toggleAssignment(formData: FormData) {
+  const id = String(formData.get("assignmentId"));
+  const path = String(formData.get("revalidate") || "");
+  const a = await prisma.assignment.findUnique({ where: { id } });
+  if (a) {
+    await prisma.assignment.update({ where: { id }, data: { done: !a.done } });
+  }
+  revalidatePath(path || `/courses/${a?.courseId ?? ""}`);
+}
+
+/** Remove an assignment. */
+export async function deleteAssignment(formData: FormData) {
+  const id = String(formData.get("assignmentId"));
+  const courseId = String(formData.get("courseId"));
+  await prisma.assignment.delete({ where: { id } });
+  revalidatePath(`/courses/${courseId}`);
+}
+
+/** Record (or clear) a course's final grade (German scale 1.0–5.0). */
+export async function setGrade(formData: FormData) {
+  const id = String(formData.get("courseId"));
+  const raw = String(formData.get("grade") ?? "").trim().replace(",", ".");
+  let grade: number | null = null;
+  if (raw) {
+    const n = parseFloat(raw);
+    if (!Number.isNaN(n) && n >= 1 && n <= 5) grade = n;
+  }
+  await prisma.course.update({ where: { id }, data: { grade } });
+  redirect(`/courses/${id}?msg=graded`);
+}
+
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
 export async function toggleTopic(formData: FormData) {
   const id = String(formData.get("topicId"));

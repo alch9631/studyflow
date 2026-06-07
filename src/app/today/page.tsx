@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
-import { daysUntil, examCountdownLabel } from "@/lib/dates";
+import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
 import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 
@@ -107,6 +107,18 @@ export default async function TodayPage() {
   const nextExamDays = nextExam ? daysUntil(nextExam.examDate, today) : null;
   const examWeek = nextExamDays !== null && nextExamDays <= 7; // focus mode
 
+  // Open deadlines due within the next 2 weeks, soonest first.
+  const upcomingDeadlines = await prisma.assignment.findMany({
+    where: {
+      done: false,
+      course: { userId },
+      dueDate: { lt: new Date(start.getTime() + 14 * 86400_000) },
+    },
+    orderBy: { dueDate: "asc" },
+    take: 6,
+    include: { course: { select: { name: true, id: true } } },
+  });
+
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const courseCount = new Set(blocks.map((b) => b.course.id)).size;
@@ -169,6 +181,40 @@ export default async function TodayPage() {
       {!nextExam && <div className="mb-6" />}
 
       <PomodoroTimer />
+
+      {upcomingDeadlines.length > 0 && (
+        <section className="mb-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            📝 Deadlines
+          </h2>
+          <ul className="space-y-2">
+            {upcomingDeadlines.map((a) => {
+              const days = daysUntil(a.dueDate, today);
+              const urgent = days <= 3;
+              return (
+                <li key={a.id}>
+                  <Link
+                    href={`/courses/${a.course.id}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{a.title}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{a.course.name}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 whitespace-nowrap text-xs font-medium ${
+                        urgent ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
+                      }`}
+                    >
+                      {dueLabel(days)}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {blocks.length > 0 && remainingMin > 0 && (
         <div

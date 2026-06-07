@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
-import { daysUntil, examCountdownLabel } from "@/lib/dates";
+import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
 import {
   healCourse,
   toggleTopic,
@@ -13,6 +13,10 @@ import {
   deleteCourse,
   reoptimizeCourse,
   analyzeModuleUpload,
+  addAssignment,
+  toggleAssignment,
+  deleteAssignment,
+  setGrade,
 } from "../actions";
 import FilePicker from "@/components/FilePicker";
 
@@ -52,6 +56,7 @@ const BANNERS: Record<string, string> = {
   "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
   "analyze-unsupported": "PPTX isn't supported yet — export the slides to PDF and upload that.",
   "analyze-nofile": "Choose a file first.",
+  graded: "✓ Grade saved.",
 };
 
 export default async function CoursePage({
@@ -70,6 +75,7 @@ export default async function CoursePage({
       topics: { orderBy: { order: "asc" } },
       blocks: { orderBy: { date: "asc" } },
       files: { orderBy: { createdAt: "desc" } },
+      assignments: { orderBy: { dueDate: "asc" } },
     },
   });
   if (!course) notFound();
@@ -208,6 +214,32 @@ export default async function CoursePage({
           </button>
         </form>
 
+        <form action={setGrade} className="mt-4 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+          <input type="hidden" name="courseId" value={course.id} />
+          <label className="text-sm">
+            <span className="block font-medium">Final grade (1.0–5.0)</span>
+            <input
+              type="number"
+              name="grade"
+              step="0.1"
+              min="1"
+              max="5"
+              defaultValue={course.grade ?? ""}
+              placeholder="e.g. 1.7"
+              className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          >
+            Save grade
+          </button>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            Leave empty to clear. Counts toward your Notenschnitt in Insights.
+          </span>
+        </form>
+
         <form action={deleteCourse} className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
           <input type="hidden" name="courseId" value={course.id} />
           <button
@@ -295,6 +327,101 @@ export default async function CoursePage({
               </p>
             )}
           </div>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-lg font-semibold">📝 Deadlines</h2>
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+          Homework, lab reports, hand-ins — anything due before the exam.
+        </p>
+        <form action={addAssignment} className="mb-3 flex flex-wrap items-end gap-2">
+          <input type="hidden" name="courseId" value={course.id} />
+          <label className="min-w-0 flex-1 text-sm">
+            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Title</span>
+            <input
+              name="title"
+              required
+              placeholder="e.g. Übungsblatt 5"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Due</span>
+            <input
+              type="date"
+              name="dueDate"
+              required
+              className="mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            Add
+          </button>
+        </form>
+        {course.assignments.length === 0 ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500">No deadlines yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {course.assignments.map((a) => {
+              const days = daysUntil(a.dueDate, todayISO());
+              const due = a.dueDate.toISOString().slice(0, 10);
+              const urgent = !a.done && days <= 3;
+              return (
+                <li
+                  key={a.id}
+                  className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                >
+                  <form action={toggleAssignment}>
+                    <input type="hidden" name="assignmentId" value={a.id} />
+                    <input type="hidden" name="revalidate" value={`/courses/${course.id}`} />
+                    <button
+                      type="submit"
+                      aria-label={a.done ? "Mark not done" : "Mark done"}
+                      className={`flex h-5 w-5 items-center justify-center rounded border ${
+                        a.done
+                          ? "border-green-500 bg-green-500 text-white"
+                          : "border-gray-300 dark:border-gray-700"
+                      }`}
+                    >
+                      {a.done ? "✓" : ""}
+                    </button>
+                  </form>
+                  <span className="min-w-0 flex-1">
+                    <span className={a.done ? "text-gray-400 line-through dark:text-gray-500" : "font-medium"}>
+                      {a.title}
+                    </span>
+                    <span
+                      className={`ml-2 text-xs ${
+                        a.done
+                          ? "text-gray-400 dark:text-gray-500"
+                          : urgent
+                            ? "font-medium text-red-600 dark:text-red-400"
+                            : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    >
+                      due {due}
+                      {!a.done && ` · ${dueLabel(days)}`}
+                    </span>
+                  </span>
+                  <form action={deleteAssignment} className="shrink-0">
+                    <input type="hidden" name="assignmentId" value={a.id} />
+                    <input type="hidden" name="courseId" value={course.id} />
+                    <button
+                      type="submit"
+                      aria-label="Delete deadline"
+                      className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                    >
+                      ✕
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
