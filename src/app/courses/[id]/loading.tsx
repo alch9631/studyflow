@@ -1,7 +1,7 @@
 export default function Loading() {
   return (
-    <main className="mx-auto max-w-3xl animate-pulse p-8">
-      <div className="mb-6 h-8 w-56 rounded bg-gray-200" />
+    <main className="mx-auto max-w-3xl animate-pulse p-4 sm:p-8">
+      <div className="mb-6 h-8 w-56 rounded bg-gray-200 dark:bg-gray-800" />
       <div className="mb-6 h-16 rounded-xl bg-gray-100 dark:bg-gray-800" />
       <div className="space-y-2">
         {[0, 1, 2, 3].map((i) => (
