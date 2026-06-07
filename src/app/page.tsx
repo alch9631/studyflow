@@ -12,7 +12,7 @@ export default function Home() {
         >
           TUHH
         </div>
-        <span className="text-xs uppercase tracking-widest text-gray-400">
+        <span className="text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">
           Technische Universität Hamburg
         </span>
       </div>
@@ -21,13 +21,13 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           StudyFlow ⚡
         </h1>
-        <p className="mt-2 text-gray-500">
+        <p className="mt-2 text-gray-500 dark:text-gray-400">
           The study plan that builds itself — and heals itself when you fall behind.
         </p>
       </div>
 
       <div className="w-full">
-        <p className="mb-3 text-sm font-medium text-gray-700">
+        <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-200">
           Choose your Studiengang
         </p>
         <div className="grid gap-2">
@@ -35,13 +35,13 @@ export default function Home() {
             <Link
               key={p.code}
               href={`/catalog?program=${p.code}`}
-              className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-gray-400"
+              className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-left hover:border-gray-400 dark:hover:border-gray-600"
             >
               <span>
                 <span className="font-medium">{p.name}</span>
-                <span className="ml-2 text-xs text-gray-400">{p.code}</span>
+                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{p.code}</span>
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 dark:text-gray-500">
                 {p.seeded ? "modules ready →" : "manual →"}
               </span>
             </Link>
@@ -49,7 +49,7 @@ export default function Home() {
         </div>
       </div>
 
-      <Link href="/courses" className="text-sm text-gray-500 hover:underline">
+      <Link href="/courses" className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
         or go to my courses →
       </Link>
     </main>

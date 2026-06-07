@@ -42,7 +42,7 @@ export default async function CatalogPage({
           href="/"
           aria-label="Choose a different Studiengang"
           title="Choose a different Studiengang"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 text-lg text-gray-700 hover:bg-gray-50"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 dark:border-gray-700 text-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           ←
         </Link>
@@ -68,7 +68,7 @@ export default async function CatalogPage({
           </div>
         </div>
       ) : modules.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-gray-200 p-5 text-sm text-gray-600">
+        <div className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800 p-5 text-sm text-gray-600 dark:text-gray-300">
           <p className="font-medium">You&apos;ve added every module in this program. 🎉</p>
           <Link href="/courses" className="mt-3 inline-block rounded-full bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark">
             Go to my courses →
@@ -76,7 +76,7 @@ export default async function CatalogPage({
         </div>
       ) : (
         <>
-          <p className="mb-6 text-sm text-gray-500">
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
             {modules.length} modules from the official handbook. Tick the ones
             you&apos;re taking and StudyFlow builds a plan for each. (Set the real
             exam date per course afterwards — see ⚙️ Course settings.)
@@ -85,17 +85,17 @@ export default async function CatalogPage({
           <form action={addFromCatalog} className="space-y-6">
             {[...bySection.entries()].map(([section, mods]) => (
               <section key={section}>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   {section.replace(/^Fachmodule der /, "")}
                 </h2>
                 <ul className="space-y-1.5">
                   {mods.map((m) => (
                     <li key={m.id}>
-                      <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 p-2.5 hover:border-gray-400">
+                      <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 dark:border-gray-800 p-2.5 hover:border-gray-400 dark:hover:border-gray-600">
                         <input type="checkbox" name="moduleId" value={m.id} className="mt-1" />
                         <span className="flex-1">
                           <span className="font-medium">{m.name}</span>
-                          <span className="ml-2 text-xs text-gray-400">
+                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
                             {m.code} · {m.ects} LP
                             {m.examDate
                               ? ` · exam ${m.examDate.toISOString().slice(0, 10)}`
@@ -118,7 +118,7 @@ export default async function CatalogPage({
               </button>
               <Link
                 href="/courses"
-                className="rounded-full border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-full border border-gray-300 dark:border-gray-700 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Skip
               </Link>

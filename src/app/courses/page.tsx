@@ -27,7 +27,7 @@ export default async function CoursesPage() {
       </div>
 
       {courses.length === 0 ? (
-        <p className="text-gray-500">
+        <p className="text-gray-500 dark:text-gray-400">
           No courses yet. Add one and StudyFlow builds the plan for you.
         </p>
       ) : (
@@ -62,8 +62,8 @@ export default async function CoursesPage() {
       )}
 
       {/* Explanation moved to the bottom */}
-      <details className="mt-8 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-        <summary className="cursor-pointer font-medium text-gray-700">
+      <details className="mt-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 text-sm text-gray-600 dark:text-gray-300">
+        <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
           ℹ️ How StudyFlow plans your studying
         </summary>
         <ol className="mt-2 list-decimal space-y-1 pl-5">
@@ -86,7 +86,7 @@ export default async function CoursesPage() {
             exactly what to study; tell it your progress and it re-plans around you.
           </li>
         </ol>
-        <p className="mt-3 border-t border-gray-200 pt-2">
+        <p className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-2">
           <strong>🍎 Apple priority:</strong> each course is rated by urgency (exam soon) and
           workload — <span className="font-medium text-green-700">🍏 On track</span>,
           <span className="font-medium text-yellow-800"> 🟡 Medium</span>,

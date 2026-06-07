@@ -19,7 +19,7 @@ type Row = {
 function BlockRow({ b }: { b: Row }) {
   const isReview = b.kind === "review";
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">
+    <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
       <form action={toggleBlock}>
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="revalidate" value="/today" />
@@ -28,7 +28,7 @@ function BlockRow({ b }: { b: Row }) {
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border ${
             b.completed
               ? "border-green-500 bg-green-500 text-white"
-              : "border-gray-300 hover:border-gray-500"
+              : "border-gray-300 dark:border-gray-700 hover:border-gray-500"
           }`}
           aria-label={b.completed ? "Mark not done" : "Mark done"}
         >
@@ -36,16 +36,16 @@ function BlockRow({ b }: { b: Row }) {
         </button>
       </form>
       <span className="flex-1">
-        <span className={b.completed ? "text-gray-400 line-through" : "font-medium"}>
+        <span className={b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}>
           {isReview ? "🔁 " : ""}
           {b.topicTitle}
         </span>
-        <span className="ml-2 text-xs text-gray-400">
+        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
           {isReview ? "review · " : ""}
           {b.course.name}
         </span>
       </span>
-      <span className="text-sm text-gray-400">
+      <span className="text-sm text-gray-400 dark:text-gray-500">
         {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
       </span>
       <form action={logFocus}>
@@ -55,7 +55,7 @@ function BlockRow({ b }: { b: Row }) {
         <button
           type="submit"
           title="Log a 25-min focus session"
-          className="rounded-full border border-gray-300 px-2.5 py-1 text-xs font-medium hover:bg-gray-50"
+          className="rounded-full border border-gray-300 dark:border-gray-700 px-2.5 py-1 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           🍅 +25m
         </button>
@@ -111,7 +111,7 @@ export default async function TodayPage() {
           📅 Export to calendar
         </a>
       </div>
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
         {today}
         {blocks.length > 0
           ? ` · ${doneMin}/${totalMin} min done · ${courseCountLabel(courseCount)}`
@@ -137,12 +137,12 @@ export default async function TodayPage() {
         </ul>
       ) : (
         <div>
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-center text-sm text-gray-500">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-5 text-center text-sm text-gray-500 dark:text-gray-400">
             Nothing scheduled today — it&apos;s not a study day. 😎
           </div>
           {nextBlocks.length > 0 && (
             <div className="mt-6">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Next up · {nextDate}
               </h2>
               <ul className="space-y-2">

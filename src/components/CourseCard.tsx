@@ -58,7 +58,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
   const days = course.studyDays.split(",");
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm">
       {/* Header: priority + name, exam date */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
@@ -75,16 +75,16 @@ export default function CourseCard({ course }: { course: CardCourse }) {
             {course.name}
           </Link>
         </div>
-        <span className="shrink-0 text-xs text-gray-500">
+        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
           exam {course.examDate}
         </span>
       </div>
 
       {/* Progress */}
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
         <div className="h-full rounded-full bg-green-500" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-1 text-xs text-gray-500">
+      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         {course.done}/{course.total} topics done
       </div>
 
@@ -98,7 +98,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
         </Link>
         <button
           onClick={() => setEditing((e) => !e)}
-          className="rounded-full border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50"
+          className="rounded-full border border-gray-300 dark:border-gray-700 px-4 py-1.5 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           ✏️ Edit
         </button>
@@ -107,24 +107,24 @@ export default function CourseCard({ course }: { course: CardCourse }) {
       {/* Inline edit (inside the card) */}
       {editing && (
         <>
-          <form action={action} className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+          <form action={action} className="mt-3 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-3">
             <input type="hidden" name="courseId" value={course.id} />
             <div className="flex flex-wrap gap-3">
               <label className="flex-1 text-sm">
-                <span className="block text-xs font-medium text-gray-500">Name</span>
+                <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Name</span>
                 <input
                   name="name"
                   defaultValue={course.name}
-                  className="mt-0.5 w-full rounded-lg border border-gray-300 px-2 py-1.5"
+                  className="mt-0.5 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5"
                 />
               </label>
               <label className="text-sm">
-                <span className="block text-xs font-medium text-gray-500">Exam date</span>
+                <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Exam date</span>
                 <input
                   type="date"
                   name="examDate"
                   defaultValue={course.examDate}
-                  className="mt-0.5 rounded-lg border border-gray-300 px-2 py-1.5"
+                  className="mt-0.5 rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5"
                 />
               </label>
             </div>

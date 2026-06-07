@@ -4,7 +4,7 @@ export default function Loading() {
       <div className="mb-6 h-8 w-64 rounded bg-gray-200" />
       <div className="space-y-2">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-12 rounded-lg bg-gray-100" />
+          <div key={i} className="h-12 rounded-lg bg-gray-100 dark:bg-gray-800" />
         ))}
       </div>
     </main>

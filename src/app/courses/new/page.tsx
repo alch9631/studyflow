@@ -14,7 +14,7 @@ const DAYS = [
 export default function NewCoursePage() {
   return (
     <main className="mx-auto max-w-xl p-4 sm:p-8">
-      <Link href="/courses" className="text-sm text-gray-500 hover:underline">
+      <Link href="/courses" className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
         ← Back to courses
       </Link>
       <h1 className="mb-6 mt-2 text-2xl font-bold">New course</h1>
@@ -26,7 +26,7 @@ export default function NewCoursePage() {
             name="name"
             required
             placeholder="e.g. Algorithms"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
           />
         </div>
 
@@ -36,7 +36,7 @@ export default function NewCoursePage() {
             type="date"
             name="examDate"
             required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
           />
         </div>
 
@@ -48,7 +48,7 @@ export default function NewCoursePage() {
             name="topics"
             rows={6}
             placeholder={"Sorting\nGraphs\nDynamic programming"}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
+            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 font-mono text-sm"
           />
         </div>
 
@@ -69,7 +69,7 @@ export default function NewCoursePage() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-400 dark:text-gray-500">
           StudyFlow works out how much to study each day to finish before your
           exam — you don&apos;t set the hours.
         </p>

@@ -21,6 +21,24 @@ Going to production (Supabase + Vercel): **PRODUCTION.md**.
 
 ---
 
+## 🌙 Away session — 2026-06-07 (Avi, handled directly)
+
+**Done & pushed:**
+- **Night mode** 🌙 — class-based dark theme (`@custom-variant dark` + dark CSS vars),
+  a **theme toggle** in the nav (persists to localStorage, respects system pref), a
+  **no-flash** init script in `layout.tsx`, and `dark:` variants applied across all
+  pages/components. Verified: toggle renders, init script present, dark utilities
+  compile; `tsc` + `next build` green.
+
+**Not started (per delegate rules — these are new features needing your go-ahead):**
+- The pasted **"AI Study Planner" idea** is ~95% already built (module mgmt, AI weekly
+  plan, prioritization, progress tracking, adaptive rescheduling). The only genuinely
+  new MVP items are a **basic analytics dashboard** ("procrastination patterns /
+  planned-vs-completed insights") and deeper **calendar integration** (we have .ics
+  export). Queued for when you're back — say the word and I'll build the analytics dash.
+
+---
+
 ## ⏸️ Needs you (queued — not acted on)
 
 - **Supabase account + `DATABASE_URL`** — real Postgres for production. Local dev runs on SQLite, so this is *not* blocking; swap when ready.

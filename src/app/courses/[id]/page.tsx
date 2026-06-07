@@ -81,7 +81,7 @@ export default async function CoursePage({
 
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
-      <Link href="/courses" className="text-sm text-gray-500 hover:underline">
+      <Link href="/courses" className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
         ← All courses
       </Link>
 
@@ -107,7 +107,7 @@ export default async function CoursePage({
               </span>
             )}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Exam {course.examDate.toISOString().slice(0, 10)} · ~
             {course.minutesPerDay} min/day to finish · {doneCount}/
             {course.topics.length} topics done
@@ -129,7 +129,7 @@ export default async function CoursePage({
             <input type="hidden" name="courseId" value={course.id} />
             <button
               type="submit"
-              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className="rounded-full border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               😵‍💫 I fell behind — replan
             </button>
@@ -137,8 +137,8 @@ export default async function CoursePage({
         </div>
       </div>
 
-      <details className="mb-6 rounded-xl border border-gray-200 p-4">
-        <summary className="cursor-pointer text-sm font-medium text-gray-700">
+      <details className="mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+        <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200">
           ⚙️ Course settings (exam date, study time)
         </summary>
         <form action={updateCourse} className="mt-4 space-y-4">
@@ -150,10 +150,10 @@ export default async function CoursePage({
                 type="date"
                 name="examDate"
                 defaultValue={course.examDate.toISOString().slice(0, 10)}
-                className="mt-1 rounded-lg border border-gray-300 px-3 py-2"
+                className="mt-1 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
               />
             </label>
-            <p className="self-end text-xs text-gray-400">
+            <p className="self-end text-xs text-gray-400 dark:text-gray-500">
               Daily pace is computed automatically (~{course.minutesPerDay} min/day).
             </p>
           </div>
@@ -181,7 +181,7 @@ export default async function CoursePage({
           </button>
         </form>
 
-        <form action={deleteCourse} className="mt-4 border-t border-gray-100 pt-4">
+        <form action={deleteCourse} className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
           <input type="hidden" name="courseId" value={course.id} />
           <button
             type="submit"
@@ -215,7 +215,7 @@ export default async function CoursePage({
               rows={2}
               required
               placeholder="In your own words — e.g. 'done with sorting and graphs, still shaky on dynamic programming'"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
             />
             <button
               type="submit"
@@ -225,7 +225,7 @@ export default async function CoursePage({
             </button>
           </form>
         ) : (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-400 dark:text-gray-500">
             Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to
             update progress in plain language. For now, tick topics below.
           </p>
@@ -246,24 +246,24 @@ export default async function CoursePage({
             </button>
           </form>
         ) : (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-400 dark:text-gray-500">
             Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to analyze
             uploaded materials.
           </p>
         )}
         {latestFile && (
-          <div className="mt-3 rounded-lg border border-gray-200 p-3 text-sm">
+          <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-sm">
             <div className="font-medium">📄 {latestFile.filename}</div>
             {fileAnalysis?.summary && (
-              <p className="mt-1 text-gray-600">{fileAnalysis.summary}</p>
+              <p className="mt-1 text-gray-600 dark:text-gray-300">{fileAnalysis.summary}</p>
             )}
             {fileAnalysis?.concepts && fileAnalysis.concepts.length > 0 && (
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Concepts: {fileAnalysis.concepts.slice(0, 8).join(", ")}
               </p>
             )}
             {fileAnalysis?.prerequisites && fileAnalysis.prerequisites.length > 0 && (
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                 Prerequisites: {fileAnalysis.prerequisites.join(", ")}
               </p>
             )}
@@ -289,13 +289,13 @@ export default async function CoursePage({
                     className={`flex h-5 w-5 items-center justify-center rounded border ${
                       t.done
                         ? "border-green-500 bg-green-500 text-white"
-                        : "border-gray-300"
+                        : "border-gray-300 dark:border-gray-700"
                     }`}
                     aria-label={t.done ? "Mark not done" : "Mark done"}
                   >
                     {t.done ? "✓" : ""}
                   </button>
-                  <span className={t.done ? "text-gray-400 line-through" : ""}>
+                  <span className={t.done ? "text-gray-400 dark:text-gray-500 line-through" : ""}>
                     {t.title}
                   </span>
                 </form>
@@ -304,7 +304,7 @@ export default async function CoursePage({
                     <summary className="cursor-pointer text-xs text-brand">
                       🧠 Self-test ({questions.length})
                     </summary>
-                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
                       {questions.map((q, i) => (
                         <li key={i}>{q}</li>
                       ))}
@@ -315,7 +315,7 @@ export default async function CoursePage({
             );
           })}
           {course.topics.length === 0 && (
-            <li className="text-sm text-gray-500">No topics added.</li>
+            <li className="text-sm text-gray-500 dark:text-gray-400">No topics added.</li>
           )}
         </ul>
       </section>
@@ -323,7 +323,7 @@ export default async function CoursePage({
       <section>
         <h2 className="mb-3 text-lg font-semibold">Study plan</h2>
         {byDate.size === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Nothing scheduled — all topics done, or no study days before the
             exam. 🎉
           </p>
@@ -332,18 +332,18 @@ export default async function CoursePage({
             {[...byDate.entries()].map(([date, blocks]) => {
               const d = new Date(date + "T00:00:00Z");
               return (
-                <div key={date} className="rounded-xl border border-gray-200 p-4">
-                  <div className="mb-2 text-sm font-medium text-gray-700">
+                <div key={date} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                  <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                     {WEEKDAY[d.getUTCDay()]} · {date}
                   </div>
                   <ul className="space-y-1">
                     {blocks.map((b) => (
                       <li
                         key={b.id}
-                        className="flex justify-between text-sm text-gray-600"
+                        className="flex justify-between text-sm text-gray-600 dark:text-gray-300"
                       >
                         <span>{b.topicTitle}</span>
-                        <span className="text-gray-400">{b.minutes} min</span>
+                        <span className="text-gray-400 dark:text-gray-500">{b.minutes} min</span>
                       </li>
                     ))}
                   </ul>

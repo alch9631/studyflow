@@ -12,7 +12,7 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
 
   return (
     <label
-      className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 p-6 text-center ${
+      className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 p-6 text-center ${
         disabled ? "opacity-50" : "cursor-pointer hover:border-brand"
       }`}
     >
@@ -24,7 +24,7 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
         className="sr-only"
         onChange={(e) => setName(e.target.files?.[0]?.name ?? "")}
       />
-      <span className="text-sm text-gray-500">
+      <span className="text-sm text-gray-500 dark:text-gray-400">
         {name ? `📄 ${name}` : "Tap to choose a file from Files — PDF, TXT, or MD"}
       </span>
       <span className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white">

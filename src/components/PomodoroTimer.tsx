@@ -44,7 +44,7 @@ export default function PomodoroTimer() {
   }
 
   return (
-    <div className="mb-6 flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">
+    <div className="mb-6 flex items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className="text-3xl font-bold tabular-nums">
         {mm}:{ss}
       </div>
@@ -52,7 +52,7 @@ export default function PomodoroTimer() {
         <div className="text-sm font-medium">
           {mode === "focus" ? "🍅 Focus" : "☕ Break"}
         </div>
-        <div className="text-xs text-gray-400">{cycles} focus sessions done</div>
+        <div className="text-xs text-gray-400 dark:text-gray-500">{cycles} focus sessions done</div>
       </div>
       <button
         onClick={() => setRunning((r) => !r)}
@@ -62,7 +62,7 @@ export default function PomodoroTimer() {
       </button>
       <button
         onClick={reset}
-        className="rounded-full border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50"
+        className="rounded-full border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
       >
         Reset
       </button>
