@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
@@ -118,14 +119,16 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-        <a
-          href="/api/calendar"
-          className="text-sm font-medium text-brand hover:underline"
-        >
-          📅 Export to calendar
-        </a>
+        <div className="flex shrink-0 items-center gap-3 text-sm font-medium">
+          <Link href="/insights" className="text-brand hover:underline">
+            📊 Insights
+          </Link>
+          <a href="/api/calendar" className="text-brand hover:underline">
+            📅 Calendar
+          </a>
+        </div>
       </div>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
         {today}
