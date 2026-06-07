@@ -20,6 +20,17 @@ export const metadata: Metadata = {
   applicationName: "StudyFlow",
   appleWebApp: { capable: true, title: "StudyFlow", statusBarStyle: "default" },
   icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  openGraph: {
+    title: "StudyFlow",
+    description: "The study plan that builds itself — and heals itself when you fall behind.",
+    siteName: "StudyFlow",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "StudyFlow",
+    description: "The study plan that builds itself — and heals itself when you fall behind.",
+  },
 };
 
 export const viewport: Viewport = {
