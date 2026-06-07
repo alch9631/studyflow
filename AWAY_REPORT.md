@@ -41,6 +41,12 @@ Flo takes pure-code items; account-gated items stay queued.
 **⏸️ Queued for Mohaboss (account-gated, NOT auto-done):** real auth/multi-user
 (Supabase), error monitoring (Sentry). These are the "make it real" track.
 
+## 🔵 BACK 2026-06-07 ~21:42 — partial cycle. Shipped #1–#3 (timezone, error
+boundaries, calendar-token reset). The self-paced wake loop stalled after #3
+(scheduled wake didn't re-fire — session idle/rate-limit), so **#4–#10 are still
+pending** (hydration cleanup, input validation, rate-limit, CI, tests, a11y, OG).
+Nothing broken; tree clean. Resume on next "away" or on request. **🧱 Blocked:** none.
+
 Each: Flo builds + verifies → Avi reviews → commit as Flo → push → log. Compact
 one-increment turns (avoids the 600s CLI turn-timeout).
 
