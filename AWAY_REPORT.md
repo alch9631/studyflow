@@ -30,13 +30,18 @@ stay queued — not touched.
 **Queue (priority order):**
 1. ✅ Batch 3a — Live calendar **subscribe URL** (`f25b3c8`).
 2. ✅ Batch 3b — **Reminders foundation** (`66305eb`). ⏸️ Activation needs you (see below).
-3. ⏳ **Timetable → planner integration** (schedule study around real class times).
+3. ✅ **Timetable → planner integration** (`3c0a8cf`).
 4. ⏳ **Seed more Studiengänge** (more TUHH programs into the catalog).
 5. ✅ Minor — Pomodoro lint warning fixed (`2b768c1`); **eslint now 0 problems**.
 
 Each item: Flo builds + verifies (tsc/build/live), Avi reviews → commit as Flo → push → log here.
 
 ### Progress log (newest on top)
+- **`3c0a8cf` — Timetable-aware scheduling.** rebuildSchedule subtracts each
+  weekday's lecture minutes from that day's study budget (floor 30), so study is
+  planned around classes, not on top. Backward-compatible. Verified: engine 15/15,
+  service 16/16, tsc + build green. (Build was SIGKILLed once when a turn got cut —
+  re-ran clean; not a code issue.)
 - **`2b768c1` — Pomodoro lint fix.** Moved the phase-switch out of an effect into
   the tick interval (refs for latest mode/durations); behaviour identical. eslint
   is now fully clean (0 problems) across the project. tsc + build green.
