@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
+
+// Read window origin without a hydration mismatch: server snapshot is "" so SSR
+// and the first client render agree, then it syncs to the real origin.
+const subscribeNoop = () => () => {};
 
 /**
  * Shows the live calendar subscribe URL for the user's plan, with Copy and
@@ -11,8 +15,11 @@ import { resetCalendarToken } from "@/app/settings/actions";
 export default function CalendarSync({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
 
-  // window.location is unavailable during SSR; fall back to a placeholder host.
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const origin = useSyncExternalStore(
+    subscribeNoop,
+    () => window.location.origin,
+    () => "",
+  );
   const host = origin.replace(/^https?:\/\//, "");
   const path = `/api/calendar/${token}`;
   const webcalUrl = host ? `webcal://${host}${path}` : "";
