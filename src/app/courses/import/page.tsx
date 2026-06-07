@@ -22,7 +22,7 @@ export default function ImportPage() {
   return (
     <main className="mx-auto max-w-xl p-4 sm:p-8">
       <Link href="/courses" className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
-        ← Back to courses
+        ← My Courses
       </Link>
       <h1 className="mb-1 mt-2 text-2xl font-bold">Import from material ✨</h1>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
@@ -32,7 +32,7 @@ export default function ImportPage() {
       </p>
 
       {!enabled && (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           ⚠️ AI import is off — set <code>OPENAI_API_KEY</code> or{" "}
           <code>ANTHROPIC_API_KEY</code> in your{" "}
           <code>.env</code> to enable it. You can still add courses manually.
@@ -56,7 +56,7 @@ export default function ImportPage() {
             rows={8}
             disabled={!enabled}
             placeholder="Paste the whole syllabus here — weeks, chapters, exam dates, anything."
-            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 font-mono text-xs disabled:bg-gray-100"
+            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 font-mono text-xs disabled:bg-gray-100 dark:disabled:bg-gray-800"
           />
         </div>
 

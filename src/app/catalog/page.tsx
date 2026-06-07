@@ -45,7 +45,7 @@ export default async function CatalogPage({
       </div>
 
       {allModules.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800">
+        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           <p className="font-medium">
             The module catalog for {program.name} ({program.code}) isn&apos;t imported yet.
           </p>
@@ -53,11 +53,11 @@ export default async function CatalogPage({
             You can still build your plan — add courses manually or paste a
             syllabus and let AI extract the topics.
           </p>
-          <div className="mt-3 flex gap-3">
+          <div className="mt-3 flex flex-wrap gap-3">
             <Link href="/courses/new" className="rounded-full bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark">
               + Add a course
             </Link>
-            <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium hover:bg-amber-100">
+            <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">
               ✨ Import a syllabus
             </Link>
           </div>

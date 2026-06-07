@@ -29,7 +29,7 @@ const DAY_OPTS = [
 
 const BANNERS: Record<string, string> = {
   healed: "✓ Plan rebuilt around the days you have left.",
-  "healed-over": "✓ Plan rebuilt — but there's more work than time. Trim topics or add study days.",
+  "healed-over": "✓ Plan rebuilt — it's tight, though. Adding study days or starting earlier will help it all fit.",
   saved: "✓ Course updated and plan rebuilt.",
   progress: "✓ Progress applied — your plan adjusted.",
   "progress-none": "No matching topics found in that update — try naming them as they appear below.",
@@ -82,15 +82,15 @@ export default async function CoursePage({
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
       <Link href="/courses" className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
-        ← All courses
+        ← My Courses
       </Link>
 
       {banner && (
         <div
           className={`mt-3 rounded-lg border p-3 text-sm ${
             ["progress-none", "progress-error", "optimize-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile"].includes(msg ?? "")
-              ? "border-amber-300 bg-amber-50 text-amber-800"
-              : "border-green-300 bg-green-50 text-green-800"
+              ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+              : "border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
           }`}
         >
           {banner}
@@ -102,7 +102,7 @@ export default async function CoursePage({
           <h1 className="text-2xl font-bold">
             {course.name}
             {course.aiOptimized && (
-              <span className="ml-2 align-middle rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-brand">
+              <span className="ml-2 align-middle rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-brand dark:bg-blue-950/50">
                 ✨ AI-optimized
               </span>
             )}
@@ -185,7 +185,7 @@ export default async function CoursePage({
           <input type="hidden" name="courseId" value={course.id} />
           <button
             type="submit"
-            className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
           >
             🗑 Delete this course
           </button>
@@ -193,13 +193,13 @@ export default async function CoursePage({
       </details>
 
       {overloaded ? (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           ⏰ Even at a realistic ~3 h/day across all your courses, there isn&apos;t
           quite enough time to finish this one before the exam. Starting earlier,
           adding study days, or easing your other modules will help.
         </div>
       ) : (
-        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
           📅 Planned at about {course.minutesPerDay} min/day for this course —
           balanced within your ~3 h/day total across all modules.
         </div>
