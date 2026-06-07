@@ -23,4 +23,5 @@ jobs:
       - run: npm run test:service
       - run: npm run test:dates
       - run: npm run test:ics
+      - run: npm run test:stats
       - run: npm run build
