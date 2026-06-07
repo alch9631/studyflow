@@ -63,6 +63,20 @@ export default async function InsightsPage() {
   const weekPct = weekPlanned ? Math.round((weekDone / weekPlanned) * 100) : 0;
   const duePct = dueTotal ? Math.round((dueDone / dueTotal) * 100) : 0;
 
+  // Last 7 days of completed study minutes (for a small activity chart).
+  const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today.getTime() - (6 - i) * 86400_000);
+    return { key: dayKey(d), label: DOW[d.getUTCDay()], min: 0 };
+  });
+  const last7Map = new Map(last7.map((x) => [x.key, x]));
+  for (const b of blocks) {
+    if (!b.completed) continue;
+    const slot = last7Map.get(dayKey(b.date));
+    if (slot) slot.min += b.minutes;
+  }
+  const maxDay = Math.max(60, ...last7.map((x) => x.min));
+
   // Streak: consecutive days (ending today or yesterday) with ≥1 completed block.
   let streak = 0;
   const cursor = new Date(today);
@@ -120,6 +134,26 @@ export default async function InsightsPage() {
                   ? "You're on top of this week. 🎉"
                   : `${weekPct}% of this week's plan done.`}
             </p>
+          </section>
+
+          {/* Last 7 days activity */}
+          <section className="mt-6 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+            <h2 className="mb-3 font-semibold">Last 7 days</h2>
+            <div className="flex items-end justify-between gap-2" style={{ height: "96px" }}>
+              {last7.map((d) => (
+                <div key={d.key} className="flex flex-1 flex-col items-center justify-end gap-1">
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    {d.min > 0 ? fmtMin(d.min) : ""}
+                  </span>
+                  <div
+                    className={`w-full rounded-t ${d.min > 0 ? "bg-brand" : "bg-gray-100 dark:bg-gray-800"}`}
+                    style={{ height: `${Math.max(4, Math.round((d.min / maxDay) * 72))}px` }}
+                    title={`${d.label}: ${fmtMin(d.min)}`}
+                  />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{d.label}</span>
+                </div>
+              ))}
+            </div>
           </section>
 
           {/* Per-course progress */}
