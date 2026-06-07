@@ -83,7 +83,7 @@ export default async function CatalogPage({
             </span>
           </div>
 
-          <form action={addFromCatalog} className="space-y-3">
+          <form action={addFromCatalog} className="space-y-3 pb-28">
             {[...bySection.entries()].map(([section, mods]) => (
               <details
                 key={section}
@@ -122,8 +122,9 @@ export default async function CatalogPage({
               </details>
             ))}
 
-            {/* Single sticky primary action, sitting just above the bottom nav */}
-            <div className="sticky bottom-20 z-10 mt-4 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:bottom-4 dark:border-gray-800 dark:bg-gray-900/95">
+            {/* Single sticky primary action, sitting just above the bottom nav.
+                Solid background so module cards scrolling behind it stay legible. */}
+            <div className="sticky bottom-20 z-10 mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg sm:bottom-4 dark:border-gray-800 dark:bg-gray-900">
               <button
                 type="submit"
                 className="w-full rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"

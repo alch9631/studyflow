@@ -44,28 +44,50 @@ export default function PomodoroTimer() {
   }
 
   return (
-    <div className="mb-6 flex items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-      <div className="text-3xl font-bold tabular-nums">
-        {mm}:{ss}
-      </div>
-      <div className="flex-1">
-        <div className="text-sm font-medium">
-          {mode === "focus" ? "🍅 Focus" : "☕ Break"}
+    <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center gap-4">
+        <div className="shrink-0 text-3xl font-bold tabular-nums">
+          {mm}:{ss}
         </div>
-        <div className="text-xs text-gray-400 dark:text-gray-500">{cycles} focus sessions done</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">
+            {mode === "focus" ? "🍅 Focus" : "☕ Break"}
+          </div>
+          <div className="truncate text-xs text-gray-400 dark:text-gray-500">
+            {cycles} focus sessions done
+          </div>
+        </div>
+        {/* Controls inline on wider screens */}
+        <div className="hidden shrink-0 gap-2 sm:flex">
+          <button
+            onClick={() => setRunning((r) => !r)}
+            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            {running ? "Pause" : "Start"}
+          </button>
+          <button
+            onClick={reset}
+            className="rounded-full border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          >
+            Reset
+          </button>
+        </div>
       </div>
-      <button
-        onClick={() => setRunning((r) => !r)}
-        className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-      >
-        {running ? "Pause" : "Start"}
-      </button>
-      <button
-        onClick={reset}
-        className="rounded-full border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
-      >
-        Reset
-      </button>
+      {/* On mobile the controls drop to a full-width row so the label isn't squeezed */}
+      <div className="mt-3 flex gap-2 sm:hidden">
+        <button
+          onClick={() => setRunning((r) => !r)}
+          className="flex-1 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+        >
+          {running ? "Pause" : "Start"}
+        </button>
+        <button
+          onClick={reset}
+          className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 }
