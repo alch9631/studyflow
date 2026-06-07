@@ -142,17 +142,7 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-        <div className="flex shrink-0 items-center gap-3 text-sm font-medium">
-          <Link href="/insights" className="text-brand hover:underline">
-            📊 Insights
-          </Link>
-          <a href="/api/calendar" className="text-brand hover:underline">
-            📅 Calendar
-          </a>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">Today</h1>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         {today}
         {blocks.length > 0

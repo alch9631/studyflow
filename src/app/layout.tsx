@@ -46,8 +46,8 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <Nav />
-        {/* pb on mobile clears the fixed bottom tab bar */}
-        <div className="flex-1 pb-20 sm:pb-0">{children}</div>
+        {/* pb clears the fixed bottom tab bar (shown below lg) */}
+        <div className="flex-1 pb-20 lg:pb-0">{children}</div>
       </body>
     </html>
   );
