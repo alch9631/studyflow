@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buttonClasses } from "./ui";
+import { Button } from "./ui/button";
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -103,14 +103,14 @@ export default function PushReminders() {
 
   return (
     <div className="mt-3">
-      <button
+      <Button
         type="button"
         onClick={subscribed ? disable : enable}
         disabled={busy}
-        className={buttonClasses(subscribed ? "secondary" : "primary", "md")}
+        variant={subscribed ? "secondary" : "primary"}
       >
         {busy ? "Working…" : subscribed ? "Turn off reminders" : "🔔 Enable reminders"}
-      </button>
+      </Button>
       {error && (
         <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
           {error}

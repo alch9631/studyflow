@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { buttonClasses, mutedCardClass, type ButtonVariant } from "./ui";
+import { mutedCardClass, type ButtonVariant } from "./ui";
+import { Button } from "./ui/button";
 
 /**
  * The standard "you have no data yet" panel. One friendly headline, one line of
@@ -38,13 +39,13 @@ export default function EmptyState({
       {actions.length > 0 && (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {actions.map((a, i) => (
-            <Link
+            <Button
               key={a.href + i}
-              href={a.href}
-              className={buttonClasses(a.variant ?? (i === 0 ? "primary" : "secondary"))}
+              asChild
+              variant={a.variant ?? (i === 0 ? "primary" : "secondary")}
             >
-              {a.label}
-            </Link>
+              <Link href={a.href}>{a.label}</Link>
+            </Button>
           ))}
         </div>
       )}

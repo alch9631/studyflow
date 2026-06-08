@@ -7,7 +7,7 @@ import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
 import CourseCard from "@/components/CourseCard";
 import EmptyState from "@/components/EmptyState";
-import { buttonClasses } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -39,9 +39,9 @@ export default async function CoursesPage() {
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">My Courses</h1>
-        <Link href="/courses/new" className={buttonClasses("primary", "md", "shrink-0")}>
-          + New course
-        </Link>
+        <Button asChild className="shrink-0">
+          <Link href="/courses/new">+ New course</Link>
+        </Button>
       </div>
 
       {courses.length === 0 ? (

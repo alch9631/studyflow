@@ -20,6 +20,28 @@
   --chart-track: #e5e7eb;
   --chart-axis: #6b7280;
   --chart-grid: #f3f4f6;
+
+  /* shadcn/ui theme tokens — mapped onto StudyFlow's existing palette so the
+     shadcn primitives (and any future ones) inherit our look with no visual
+     regression. Light theme. */
+  --radius: 0.5rem;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --primary: #00509b; /* TUHH brand blue */
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6; /* gray-100 */
+  --secondary-foreground: #111827; /* gray-900 */
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280; /* gray-500 */
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
+  --destructive: #dc2626; /* red-600 */
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb; /* gray-200 */
+  --input: #d1d5db; /* gray-300 */
+  --ring: var(--focus-ring);
 }
 
 .dark {
@@ -35,6 +57,27 @@
   --chart-track: #1f2937;
   --chart-axis: #9ca3af;
   --chart-grid: #1f2937;
+
+  /* shadcn/ui theme tokens — dark theme. Surfaces follow our existing dark
+     card/border palette (gray-900/800); primary stays the brand blue (used as
+     bg-brand text-white in both themes). */
+  --card: #111827; /* gray-900 */
+  --card-foreground: var(--foreground);
+  --popover: #111827;
+  --popover-foreground: var(--foreground);
+  --primary: #00509b;
+  --primary-foreground: #ffffff;
+  --secondary: #1f2937; /* gray-800 */
+  --secondary-foreground: #e5e7eb;
+  --muted: #1f2937;
+  --muted-foreground: #9ca3af; /* gray-400 */
+  --accent: #1f2937;
+  --accent-foreground: #e5e7eb;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #1f2937; /* gray-800 */
+  --input: #374151; /* gray-700 */
+  --ring: var(--focus-ring);
 }
 
 @theme inline {
@@ -45,6 +88,30 @@
   /* TUHH brand blue — primary actions, active nav. */
   --color-brand: #00509b;
   --color-brand-dark: #003d75;
+
+  /* shadcn/ui token → Tailwind utility bridge (enables bg-primary, text-muted-
+     foreground, border-border, etc. for shadcn-style components). */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
 body {

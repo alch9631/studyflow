@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import ToastForm from "./ToastForm";
 import SubmitButton from "./SubmitButton";
 import { buttonClasses, cardClass, type ButtonSize, type ButtonVariant } from "./ui";
+import { Button } from "./ui/button";
 
 /**
  * A destructive-action button that asks for confirmation before it fires.
@@ -228,15 +229,16 @@ function ConfirmModal({
           {message}
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
+          <Button
             ref={cancelRef}
             type="button"
+            variant="secondary"
             onClick={onRequestClose}
             disabled={pending}
-            className={buttonClasses("secondary", "md", "w-full sm:w-auto")}
+            className="w-full sm:w-auto"
           >
             {cancelLabel}
-          </button>
+          </Button>
           <SubmitButton
             variant="danger-solid"
             size="md"
