@@ -49,12 +49,12 @@ function BlockRow({ b }: { b: Row }) {
         </SubmitButton>
       </ToastForm>
       <span className="min-w-0 flex-1">
-        <span className={`block break-words ${b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}`}>
+        <span className={`block break-words ${b.completed ? "text-gray-500 dark:text-gray-400 line-through" : "font-medium"}`}>
           {b.topicTitle}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
           {isReview && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
               🔁 Review
             </span>
           )}
@@ -63,7 +63,7 @@ function BlockRow({ b }: { b: Row }) {
           </span>
         </span>
       </span>
-      <span className="shrink-0 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
+      <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
         {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
       </span>
       <ToastForm
@@ -251,7 +251,7 @@ export default async function TodayPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{l.title}</span>
                   {l.location && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">📍 {l.location}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">📍 {l.location}</span>
                   )}
                 </span>
               </li>
@@ -279,7 +279,7 @@ export default async function TodayPage() {
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{a.title}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{a.course.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{a.course.name}</span>
                     </span>
                     <span
                       className={`shrink-0 whitespace-nowrap text-xs font-medium ${
@@ -356,7 +356,7 @@ export default async function TodayPage() {
             <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 <span>Next up · {nextDate}</span>
-                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                   {nextBlocks.length}
                 </span>
               </summary>

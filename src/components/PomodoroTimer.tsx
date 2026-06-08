@@ -97,7 +97,7 @@ export default function PomodoroTimer() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           🍅 Focus Timer
         </h2>
-        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
           Study in focused sprints, then take a short break. Press <strong>Start</strong> when you
           sit down; it counts down and rolls into a break automatically.
         </p>
@@ -110,7 +110,7 @@ export default function PomodoroTimer() {
           <div className="text-sm font-medium">
             {mode === "focus" ? "🍅 Focus" : "☕ Break"}
           </div>
-          <div className="truncate text-xs text-gray-400 dark:text-gray-500">
+          <div className="truncate text-xs text-gray-500 dark:text-gray-400">
             {cycles} focus sessions done
           </div>
         </div>
@@ -199,7 +199,7 @@ export default function PomodoroTimer() {
               ))}
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Saved on this device. Changes apply when the timer is idle.
           </p>
         </div>

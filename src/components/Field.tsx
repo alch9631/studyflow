@@ -99,7 +99,7 @@ export function Field({
         )}
       </label>
       {hint && (
-        <p id={hintId} className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+        <p id={hintId} className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
           {hint}
         </p>
       )}

@@ -44,17 +44,17 @@ export default function CourseCard({ course }: { course: CardCourse }) {
           <span
             className={`block text-xs font-semibold ${
               course.examInDays < 0
-                ? "text-gray-400 dark:text-gray-500"
+                ? "text-gray-500 dark:text-gray-400"
                 : course.examInDays <= 7
                   ? "text-red-600 dark:text-red-400"
                   : course.examInDays <= 21
-                    ? "text-amber-600 dark:text-amber-400"
+                    ? "text-amber-700 dark:text-amber-400"
                     : "text-gray-600 dark:text-gray-300"
             }`}
           >
             ⏳ {examCountdownLabel(course.examInDays)}
           </span>
-          <span className="block text-xs text-gray-400 dark:text-gray-500">{course.examDate}</span>
+          <span className="block text-xs text-gray-500 dark:text-gray-400">{course.examDate}</span>
         </span>
       </div>
 

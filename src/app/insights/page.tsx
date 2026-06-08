@@ -92,7 +92,7 @@ export default async function InsightsPage() {
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{name}</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {topicsDone}/{topicsTotal} topics · {examCountdownLabel(days)}
                         </span>
                       </span>
@@ -171,7 +171,7 @@ export default async function InsightsPage() {
             <div className="flex items-end justify-between gap-2" style={{ height: "96px" }}>
               {last7.map((d) => (
                 <div key={d.key} className="flex flex-1 flex-col items-center justify-end gap-1">
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
                     {d.min > 0 ? fmtMin(d.min) : ""}
                   </span>
                   <div
@@ -231,7 +231,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
     <div className={`${panelClass} p-4`}>
       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</div>
       <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{sub}</div>}
+      {sub && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{sub}</div>}
     </div>
   );
 }

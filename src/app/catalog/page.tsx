@@ -55,7 +55,7 @@ export default async function CatalogPage({
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           🎓 Modules · {program.code}
         </p>
         <h1 className="text-xl font-bold leading-tight sm:text-2xl">{program.name}</h1>
@@ -94,7 +94,7 @@ export default async function CatalogPage({
             </strong>{" "}
             from the official handbook. Tick the ones you&apos;re taking and
             StudyFlow builds a plan for each.
-            <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
               You can set the real exam date per course afterwards in ⚙️ Course settings.
             </span>
           </div>
@@ -132,7 +132,7 @@ export default async function CatalogPage({
                           </label>
                           {/* Module details behind a small "?" info toggle */}
                           <details className="ml-7 mt-1.5">
-                            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-gray-400 hover:text-brand dark:text-gray-500">
+                            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-gray-500 hover:text-brand dark:text-gray-400">
                               <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-bold">
                                 ?
                               </span>

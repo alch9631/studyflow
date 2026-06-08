@@ -161,11 +161,11 @@ export default async function CoursePage({
             <span
               className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                 examInDays < 0
-                  ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                   : examInDays <= 7
                     ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
                     : examInDays <= 21
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
                       : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
               }`}
             >
@@ -224,7 +224,7 @@ export default async function CoursePage({
                 className="mt-1 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
               />
             </div>
-            <p className="self-end text-xs text-gray-400 dark:text-gray-500">
+            <p className="self-end text-xs text-gray-500 dark:text-gray-400">
               Daily pace is computed automatically (~{course.minutesPerDay} min/day).
             </p>
           </div>
@@ -275,7 +275,7 @@ export default async function CoursePage({
           <SubmitButton variant="secondary" size="md" pendingLabel="Saving…">
             Save grade
           </SubmitButton>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             Leave empty to clear. Counts toward your Notenschnitt in Insights.
           </span>
         </form>
@@ -317,7 +317,7 @@ export default async function CoursePage({
         {isSyllabusAIEnabled() ? (
           <ProgressForm courseId={course.id} />
         ) : (
-          <p className="text-sm text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to
             update progress in plain language. For now, tick topics below.
           </p>
@@ -340,7 +340,7 @@ export default async function CoursePage({
             </SubmitButton>
           </form>
         ) : (
-          <p className="text-sm text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to analyze
             uploaded materials.
           </p>
@@ -372,7 +372,7 @@ export default async function CoursePage({
         </p>
         <AddDeadlineForm courseId={course.id} />
         {course.assignments.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500">No deadlines yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No deadlines yet.</p>
         ) : (
           <ul className="space-y-2">
             {course.assignments.map((a) => {
@@ -403,16 +403,16 @@ export default async function CoursePage({
                     </SubmitButton>
                   </ToastForm>
                   <span className="min-w-0 flex-1">
-                    <span className={`break-words ${a.done ? "text-gray-400 line-through dark:text-gray-500" : "font-medium"}`}>
+                    <span className={`break-words ${a.done ? "text-gray-500 line-through dark:text-gray-400" : "font-medium"}`}>
                       {a.title}
                     </span>
                     <span
                       className={`ml-2 text-xs ${
                         a.done
-                          ? "text-gray-400 dark:text-gray-500"
+                          ? "text-gray-500 dark:text-gray-400"
                           : urgent
                             ? "font-medium text-red-600 dark:text-red-400"
-                            : "text-gray-400 dark:text-gray-500"
+                            : "text-gray-500 dark:text-gray-400"
                       }`}
                     >
                       due {due}
@@ -428,7 +428,7 @@ export default async function CoursePage({
                     triggerLabel="✕"
                     triggerAriaLabel={`Delete deadline: ${a.title}`}
                     triggerClassName={iconButtonClass(
-                      "inline-flex text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800",
+                      "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
                     )}
                     title="Delete this deadline?"
                     message={
@@ -475,7 +475,7 @@ export default async function CoursePage({
                   >
                     {t.done ? "✓" : ""}
                   </SubmitButton>
-                  <span className={`min-w-0 break-words ${t.done ? "text-gray-400 dark:text-gray-500 line-through" : ""}`}>
+                  <span className={`min-w-0 break-words ${t.done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
                     {t.title}
                   </span>
                 </ToastForm>
@@ -523,7 +523,7 @@ export default async function CoursePage({
                         className="flex justify-between gap-3 text-sm text-gray-600 dark:text-gray-300"
                       >
                         <span className="min-w-0 break-words">{b.topicTitle}</span>
-                        <span className="shrink-0 whitespace-nowrap text-gray-400 dark:text-gray-500">{b.minutes} min</span>
+                        <span className="shrink-0 whitespace-nowrap text-gray-500 dark:text-gray-400">{b.minutes} min</span>
                       </li>
                     ))}
                   </ul>

@@ -73,7 +73,7 @@ export default function NewCourseForm() {
         </div>
       </fieldset>
 
-      <p className="text-xs text-gray-400 dark:text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         StudyFlow works out how much to study each day to finish before your
         exam — you don&apos;t set the hours.
       </p>
