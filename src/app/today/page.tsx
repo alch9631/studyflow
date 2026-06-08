@@ -6,6 +6,7 @@ import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
 import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
+import ToastForm from "@/components/ToastForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Today" };
@@ -24,7 +25,11 @@ function BlockRow({ b }: { b: Row }) {
   const isReview = b.kind === "review";
   return (
     <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
-      <form action={toggleBlock}>
+      <ToastForm
+        action={toggleBlock}
+        successMessage={b.completed ? "Session marked not done." : "Nice — session done! ✓"}
+        errorMessage="Couldn't update that session — please try again."
+      >
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="revalidate" value="/today" />
         <button
@@ -38,7 +43,7 @@ function BlockRow({ b }: { b: Row }) {
         >
           {b.completed ? "✓" : ""}
         </button>
-      </form>
+      </ToastForm>
       <span className="min-w-0 flex-1">
         <span className={`break-words ${b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}`}>
           {isReview ? "🔁 " : ""}
@@ -52,7 +57,12 @@ function BlockRow({ b }: { b: Row }) {
       <span className="shrink-0 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
         {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
       </span>
-      <form action={logFocus} className="shrink-0">
+      <ToastForm
+        action={logFocus}
+        successMessage="Logged a 25-min focus session. 🍅"
+        errorMessage="Couldn't log that focus session — please try again."
+        className="shrink-0"
+      >
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="minutes" value="25" />
         <input type="hidden" name="revalidate" value="/today" />
@@ -63,7 +73,7 @@ function BlockRow({ b }: { b: Row }) {
         >
           🍅 +25m
         </button>
-      </form>
+      </ToastForm>
     </div>
   );
 }

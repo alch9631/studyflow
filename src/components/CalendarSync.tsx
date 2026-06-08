@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
+import ToastForm from "./ToastForm";
 
 // Read window origin without a hydration mismatch: server snapshot is "" so SSR
 // and the first client render agree, then it syncs to the real origin.
@@ -56,8 +57,10 @@ export default function CalendarSync({ token }: { token: string }) {
         >
           Add to calendar
         </a>
-        <form
+        <ToastForm
           action={resetCalendarToken}
+          successMessage="Calendar link reset — the old link no longer updates."
+          errorMessage="Couldn't reset the calendar link — please try again."
           onSubmit={(e) => {
             if (!confirm("Reset the calendar link? Anyone using the old link will stop getting updates.")) {
               e.preventDefault();
@@ -70,7 +73,7 @@ export default function CalendarSync({ token }: { token: string }) {
           >
             Reset link
           </button>
-        </form>
+        </ToastForm>
       </div>
     </div>
   );
