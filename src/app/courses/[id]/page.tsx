@@ -19,6 +19,7 @@ import {
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
 import SubmitButton from "@/components/SubmitButton";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
 
@@ -273,12 +274,23 @@ export default async function CoursePage({
           </span>
         </form>
 
-        <form action={deleteCourse} className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
-          <input type="hidden" name="courseId" value={course.id} />
-          <SubmitButton variant="danger" size="md" pendingLabel="Deleting…">
-            🗑 Delete this course
-          </SubmitButton>
-        </form>
+        <ConfirmDialog
+          action={deleteCourse}
+          fields={{ courseId: course.id }}
+          className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800"
+          triggerLabel="🗑 Delete this course"
+          triggerVariant="danger"
+          triggerSize="md"
+          title="Delete this course?"
+          message={
+            <>
+              Deleting <strong>{course.name}</strong> also removes its topics,
+              deadlines, files, and study plan. This can&apos;t be undone.
+            </>
+          }
+          confirmLabel="Delete course"
+          errorMessage="Couldn't delete that course — please try again."
+        />
       </details>
 
       {overloaded ? (
@@ -401,21 +413,25 @@ export default async function CoursePage({
                       {!a.done && ` · ${dueLabel(days)}`}
                     </span>
                   </span>
-                  <ToastForm
+                  <ConfirmDialog
                     action={deleteAssignment}
+                    fields={{ assignmentId: a.id, courseId: course.id }}
                     successMessage="Deadline removed."
                     errorMessage="Couldn't remove that deadline — please try again."
                     className="shrink-0"
-                  >
-                    <input type="hidden" name="assignmentId" value={a.id} />
-                    <input type="hidden" name="courseId" value={course.id} />
-                    <SubmitButton
-                      aria-label="Delete deadline"
-                      className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-gray-800"
-                    >
-                      ✕
-                    </SubmitButton>
-                  </ToastForm>
+                    triggerLabel="✕"
+                    triggerAriaLabel={`Delete deadline: ${a.title}`}
+                    triggerClassName="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                    title="Delete this deadline?"
+                    message={
+                      <>
+                        Remove <strong>{a.title}</strong> from this course? This
+                        can&apos;t be undone.
+                      </>
+                    }
+                    confirmLabel="Delete deadline"
+                    pendingLabel="Removing…"
+                  />
                 </li>
               );
             })}

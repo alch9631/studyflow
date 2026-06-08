@@ -5,6 +5,7 @@ import Link from "next/link";
 import { editCourse, deleteCourse, type EditState } from "@/app/courses/actions";
 import { examCountdownLabel } from "@/lib/dates";
 import SubmitButton from "./SubmitButton";
+import ConfirmDialog from "./ConfirmDialog";
 import { buttonClasses, cardClass } from "./ui";
 
 const DAYS = [
@@ -139,18 +140,23 @@ export default function CourseCard({ course }: { course: CardCourse }) {
               {state?.error && <span className="text-sm text-red-600 dark:text-red-400">{state.error}</span>}
             </div>
           </form>
-          <form
+          <ConfirmDialog
             action={deleteCourse}
-            onSubmit={(e) => {
-              if (!confirm(`Delete "${course.name}"? This can't be undone.`)) e.preventDefault();
-            }}
+            fields={{ courseId: course.id }}
             className="mt-2"
-          >
-            <input type="hidden" name="courseId" value={course.id} />
-            <SubmitButton variant="danger" size="md" pendingLabel="Deleting…">
-              🗑 Delete
-            </SubmitButton>
-          </form>
+            triggerLabel="🗑 Delete"
+            triggerVariant="danger"
+            triggerSize="md"
+            title="Delete this course?"
+            message={
+              <>
+                Deleting <strong>{course.name}</strong> also removes its topics,
+                deadlines, and study plan. This can&apos;t be undone.
+              </>
+            }
+            confirmLabel="Delete course"
+            errorMessage="Couldn't delete that course — please try again."
+          />
         </>
       )}
     </div>

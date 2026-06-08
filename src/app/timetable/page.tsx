@@ -3,8 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { deleteLecture } from "./actions";
 import EmptyState from "@/components/EmptyState";
-import ToastForm from "@/components/ToastForm";
-import SubmitButton from "@/components/SubmitButton";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import AddLectureForm from "./AddLectureForm";
 
 export const dynamic = "force-dynamic";
@@ -82,20 +81,25 @@ export default async function TimetablePage() {
                         <span className="text-xs text-gray-400 dark:text-gray-500">📍 {l.location}</span>
                       )}
                     </span>
-                    <ToastForm
+                    <ConfirmDialog
                       action={deleteLecture}
+                      fields={{ lectureId: l.id }}
                       successMessage="Class removed from your timetable."
                       errorMessage="Couldn't remove that class — please try again."
                       className="shrink-0"
-                    >
-                      <input type="hidden" name="lectureId" value={l.id} />
-                      <SubmitButton
-                        aria-label="Delete class"
-                        className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-gray-800"
-                      >
-                        ✕
-                      </SubmitButton>
-                    </ToastForm>
+                      triggerLabel="✕"
+                      triggerAriaLabel={`Delete class: ${l.title}`}
+                      triggerClassName="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                      title="Delete this class?"
+                      message={
+                        <>
+                          Remove <strong>{l.title}</strong> from your weekly
+                          timetable? This can&apos;t be undone.
+                        </>
+                      }
+                      confirmLabel="Delete class"
+                      pendingLabel="Removing…"
+                    />
                   </li>
                 ))}
               </ul>
