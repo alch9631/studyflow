@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { buttonClasses } from "./ui";
+import { buttonClasses, inputClass } from "./ui";
 
 const FOCUS_KEY = "sf-focus-min";
 const BREAK_KEY = "sf-break-min";
@@ -93,6 +93,15 @@ export default function PomodoroTimer() {
 
   return (
     <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          🍅 Focus Timer
+        </h2>
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+          Study in focused sprints, then take a short break. Press <strong>Start</strong> when you
+          sit down; it counts down and rolls into a break automatically.
+        </p>
+      </div>
       <div className="flex items-center gap-4">
         <div suppressHydrationWarning className="shrink-0 text-3xl font-bold tabular-nums">
           {mm}:{ss}
@@ -117,7 +126,7 @@ export default function PomodoroTimer() {
             onClick={() => setShowCfg((s) => !s)}
             aria-label="Timer settings"
             aria-expanded={showCfg}
-            className="rounded-full border border-gray-300 px-2.5 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             ⚙︎
           </button>
@@ -136,7 +145,7 @@ export default function PomodoroTimer() {
           onClick={() => setShowCfg((s) => !s)}
           aria-label="Timer settings"
           aria-expanded={showCfg}
-          className="rounded-full border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
         >
           ⚙︎
         </button>
@@ -156,7 +165,7 @@ export default function PomodoroTimer() {
                 max={180}
                 value={focusMin}
                 onChange={(e) => applyDurations(parseInt(e.target.value, 10), breakMin)}
-                className="mt-1 w-20 rounded-lg border border-gray-300 px-3 py-1.5 dark:border-gray-700"
+                className={`${inputClass} mt-1 w-20`}
               />
             </label>
             <label className="text-sm">
@@ -169,7 +178,7 @@ export default function PomodoroTimer() {
                 max={180}
                 value={breakMin}
                 onChange={(e) => applyDurations(focusMin, parseInt(e.target.value, 10))}
-                className="mt-1 w-20 rounded-lg border border-gray-300 px-3 py-1.5 dark:border-gray-700"
+                className={`${inputClass} mt-1 w-20`}
               />
             </label>
             <div className="flex flex-wrap gap-1.5">

@@ -34,10 +34,12 @@ const VARIANTS: Record<ButtonVariant, string> = {
   ghost: "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
 };
 
+// `md`/`lg` carry a 44px min height so primary tap targets clear the mobile
+// touch-target floor; `sm` stays compact for dense, inline secondary actions.
 const SIZES: Record<ButtonSize, string> = {
   sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
-  lg: "px-5 py-2.5 text-sm sm:text-base",
+  md: "min-h-11 px-4 py-2 text-sm",
+  lg: "min-h-11 px-5 py-2.5 text-sm sm:text-base",
 };
 
 /** Compose the Tailwind classes for a button-styled element (button or link). */
@@ -64,3 +66,12 @@ export const panelClass = "rounded-2xl border border-gray-200 dark:border-gray-8
 
 export const mutedCardClass =
   "rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900";
+
+/**
+ * Text / number / date input surfaces — one border, radius, fill, and hover
+ * treatment so every field matches. Width is intentionally left to the callsite
+ * (`w-full`, `w-20`, …); the visible focus ring is defined globally in
+ * globals.css. Compose: `className={`${inputClass} w-full`}`.
+ */
+export const inputClass =
+  "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600";
