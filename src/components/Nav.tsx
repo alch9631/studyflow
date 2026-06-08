@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { iconButtonClass } from "./ui";
 
 type Tab = { href: string; label: string; icon: string; external?: boolean };
 
@@ -152,13 +153,15 @@ export default function Nav() {
             href={SETTINGS.href}
             aria-label="Settings"
             aria-current={pathname.startsWith(SETTINGS.href) ? "page" : undefined}
-            className={`ml-1 hidden rounded-full px-2.5 py-1.5 text-base transition-colors lg:inline-block ${
-              pathname.startsWith(SETTINGS.href)
-                ? "bg-brand text-white"
-                : "hover:bg-gray-100 dark:hover:bg-gray-800"
-            }`}
+            className={iconButtonClass(
+              `ml-1 hidden lg:inline-flex ${
+                pathname.startsWith(SETTINGS.href)
+                  ? "bg-brand text-white"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`,
+            )}
           >
-            {SETTINGS.icon}
+            <span aria-hidden="true">{SETTINGS.icon}</span>
           </Link>
 
           {/* Mobile menu toggle */}
@@ -169,7 +172,9 @@ export default function Nav() {
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="mobile-nav-drawer"
-            className="ml-1 rounded-full px-2.5 py-1.5 text-gray-600 transition-colors hover:bg-gray-100 lg:hidden dark:text-gray-300 dark:hover:bg-gray-800"
+            className={iconButtonClass(
+              "ml-1 inline-flex text-gray-600 hover:bg-gray-100 lg:hidden dark:text-gray-300 dark:hover:bg-gray-800",
+            )}
           >
             <HamburgerIcon />
           </button>
@@ -205,7 +210,9 @@ export default function Nav() {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close menu"
-              className="rounded-full px-2.5 py-1.5 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              className={iconButtonClass(
+                "inline-flex text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+              )}
             >
               <CloseIcon />
             </button>
@@ -221,7 +228,9 @@ export default function Nav() {
               }`;
               const inner = (
                 <>
-                  <span className="text-lg leading-none">{t.icon}</span>
+                  <span className="text-lg leading-none" aria-hidden="true">
+                    {t.icon}
+                  </span>
                   <span>{t.label}</span>
                 </>
               );

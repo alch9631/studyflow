@@ -52,6 +52,20 @@ export function buttonClasses(
 }
 
 /**
+ * Icon-only buttons — nav toggles, the theme switch, the Pomodoro settings cog,
+ * inline delete affordances. One square 44px tap target (the same touch floor
+ * `md`/`lg` text buttons clear), shared radius, focus-friendly transition, and
+ * press feel, so every icon button matches instead of each re-rolling its own
+ * padding. The caller supplies the display utility (`inline-flex`, or
+ * `hidden lg:inline-flex` for responsive ones) plus its own color/hover
+ * treatment via `extra`. Pair with an `aria-label` and mark the glyph
+ * `aria-hidden`.
+ */
+export function iconButtonClass(extra = ""): string {
+  return `min-h-11 min-w-11 items-center justify-center rounded-full text-base leading-none transition active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-50 ${extra}`.trim();
+}
+
+/**
  * Card / panel surfaces — one radius (rounded-2xl) and border treatment across
  * the app. Pick by fill:
  *   cardClass       — elevated surface, white fill (sits above the page).

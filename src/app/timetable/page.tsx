@@ -5,6 +5,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { deleteLecture } from "./actions";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { iconButtonClass } from "@/components/ui";
 import AddLectureForm from "./AddLectureForm";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +94,9 @@ export default async function TimetablePage() {
                       className="shrink-0"
                       triggerLabel="✕"
                       triggerAriaLabel={`Delete class: ${l.title}`}
-                      triggerClassName="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                      triggerClassName={iconButtonClass(
+                        "inline-flex text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800",
+                      )}
                       title="Delete this class?"
                       message={
                         <>
