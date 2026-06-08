@@ -9,7 +9,7 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (security/re
 - [x] Performance: eliminate N+1 Prisma queries on /insights and /today — PR #17
 - [x] Data export endpoint: JSON + CSV of courses, topics, progress — PR #18
 - [x] Streak + study-time aggregation helpers with tests (if not covered by stats.ts) — PR #21
-- [ ] Defensive limits: max courses/topics per user, payload size guards
+- [x] Defensive limits: max courses/topics per user, payload size guards — PR #23
 - [ ] Audit + tidy Prisma queries (select only needed fields)
 - [ ] Apply rate limiting (reuse rateLimit.ts) consistently to all mutating routes/actions
 - [ ] Validation coverage audit: ensure every API route + server action uses validate.ts

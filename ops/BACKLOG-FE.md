@@ -9,7 +9,7 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (research) a
 - [x] Full mobile-responsive pass across every page (test at 375px width) — PR #16
 - [x] User feedback on server actions: toast/inline success + error states — PR #19
 - [x] Dark-mode audit + consistency across all components — PR #20
-- [ ] Landing page polish: hero, feature grid, social proof, strong CTA
+- [x] Landing page polish: hero, feature grid, social proof, strong CTA — PR #22
 - [ ] Accessible forms: labels, inline validation errors, focus management
 - [ ] Consistent design tokens (buttons, cards, spacing, type scale) on remaining pages
 - [ ] Settings page polish + clearer copy
