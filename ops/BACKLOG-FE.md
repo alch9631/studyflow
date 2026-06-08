@@ -7,7 +7,7 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (research) a
 - [x] Skeleton loading states for the remaining routes: /today, /courses, /courses/[id], /catalog — PR #12
 - [x] Empty states with clear CTAs (no courses yet, no plan yet, no exams) — PR #14
 - [x] Full mobile-responsive pass across every page (test at 375px width) — PR #16
-- [ ] User feedback on server actions: toast/inline success + error states
+- [x] User feedback on server actions: toast/inline success + error states — PR #19
 - [ ] Dark-mode audit + consistency across all components
 - [ ] Landing page polish: hero, feature grid, social proof, strong CTA
 - [ ] Accessible forms: labels, inline validation errors, focus management
