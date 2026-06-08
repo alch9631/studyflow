@@ -74,7 +74,7 @@ process_track(){
   git -C "$wt" reset --hard -q 2>/dev/null
   git -C "$wt" fetch origin -q 2>/dev/null
   git -C "$wt" checkout -B "$nb" origin/main -q 2>/dev/null
-  setf "s.tracks.$track.branch='$nb';s.tracks.$track.cycle=$nc;s.tracks.$track.inflight=\`$item\`"
+  node -e "const fs=require('fs');const s=require('$STATE');const t='$track';s.tracks[t].branch=process.argv[1];s.tracks[t].cycle=+process.argv[2];s.tracks[t].inflight=process.argv[3];fs.writeFileSync('$STATE',JSON.stringify(s,null,2))" "$nb" "$nc" "$item"
   echo "SPAWN|$track|$nb|$item"
 }
 
