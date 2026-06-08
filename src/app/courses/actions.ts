@@ -26,6 +26,7 @@ import {
   clampInt,
   parseGrade,
 } from "@/lib/validate";
+import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
@@ -37,7 +38,11 @@ export async function createCourse(formData: FormData) {
   const topicLines = longText(formData.get("topics"))
     .split("\n")
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
+
+  // Defensive caps: don't let a user create unbounded courses/topics.
+  guardCount(await prisma.course.count({ where: { userId } }), LIMITS.MAX_COURSES_PER_USER, "courses");
 
   const course = await prisma.course.create({
     data: {
@@ -72,10 +77,18 @@ export async function addFromCatalog(formData: FormData) {
     .getAll("moduleId")
     .map(String)
     .filter((s) => s.length > 0 && s.length <= 200)
-    .slice(0, 100);
+    .slice(0, LIMITS.MAX_CATALOG_ADD_BATCH);
   if (ids.length === 0) redirect("/catalog");
 
   const templates = await prisma.moduleTemplate.findMany({ where: { id: { in: ids } } });
+
+  // Don't let a bulk catalog add push the user past the course cap.
+  guardCountBy(
+    await prisma.course.count({ where: { userId } }),
+    templates.length,
+    LIMITS.MAX_COURSES_PER_USER,
+    "courses",
+  );
   const aiOn = isSyllabusAIEnabled();
   // Fallback when a module has no published exam date (seminars, labs, electives).
   const defaultExam = new Date(Date.now() + 84 * 86400_000);
@@ -158,12 +171,18 @@ export async function importSyllabus(formData: FormData) {
   }
   if (!text) throw new Error("Paste text or upload a study material first");
 
+  // Defensive cap before the AI call + write: don't exceed the course limit.
+  guardCount(await prisma.course.count({ where: { userId } }), LIMITS.MAX_COURSES_PER_USER, "courses");
+
   const extracted = await extractSyllabus(text);
 
   // Fall back to ~4 weeks out if the syllabus didn't state an exam date.
   const examDate = extracted.examDate
     ? new Date(extracted.examDate + "T00:00:00Z")
     : new Date(Date.now() + 28 * 86400_000);
+
+  // Bound AI-extracted topics so a huge syllabus can't create unbounded rows.
+  const topics = extracted.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
 
   const course = await prisma.course.create({
     data: {
@@ -172,7 +191,7 @@ export async function importSyllabus(formData: FormData) {
       studyDays,
       userId,
       topics: {
-        create: extracted.topics.map((t, i) => ({
+        create: topics.map((t, i) => ({
           title: t.title,
           effort: t.effort,
           order: i,
@@ -233,17 +252,19 @@ export async function analyzeModuleUpload(formData: FormData) {
     if (!text.trim()) throw new Error("No readable text in that file");
     const analysis = await analyzeModuleContent(course.name, text);
     if (analysis.topics.length > 0) {
+      // Bound the content-derived topics to the per-course cap before writing.
+      const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
       // Replace topics with the content-derived ones (effort from estimated time).
       await prisma.topic.deleteMany({ where: { courseId } });
       await prisma.topic.createMany({
-        data: analysis.topics.map((t, i) => ({
+        data: newTopics.map((t, i) => ({
           courseId,
           title: t.title,
           effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
           order: i,
         })),
       });
-      n = analysis.topics.length;
+      n = newTopics.length;
       await prisma.moduleFile.create({
         data: {
           courseId,
@@ -442,6 +463,16 @@ export async function addAssignment(formData: FormData) {
     dueDate = requireDate(formData.get("dueDate"), "Due date", todayISO(), { allowPast: true });
   } catch {
     return;
+  }
+  // Defensive cap: don't let a course accumulate unbounded assignments.
+  try {
+    guardCount(
+      await prisma.assignment.count({ where: { courseId } }),
+      LIMITS.MAX_ASSIGNMENTS_PER_COURSE,
+      "assignments",
+    );
+  } catch {
+    redirect(`/courses/${courseId}?msg=limit-assignments`);
   }
   await prisma.assignment.create({
     data: { courseId, title, dueDate: toUTCDate(dueDate) },

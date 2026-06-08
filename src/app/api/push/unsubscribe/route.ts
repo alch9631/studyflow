@@ -1,17 +1,18 @@
 import { prisma } from "@/lib/db";
 import { badRequest, handleApiError } from "@/lib/apiError";
+import { readJsonBody } from "@/lib/validate";
+import { LIMITS } from "@/lib/limits";
 
 export const dynamic = "force-dynamic";
 
 /** Remove a browser push subscription by endpoint. */
 export async function POST(req: Request) {
   try {
-    let body: { endpoint?: string };
-    try {
-      body = await req.json();
-    } catch {
-      return badRequest("Invalid JSON body.");
-    }
+    // Size-guarded JSON read: rejects oversized bodies / bad JSON (400).
+    const body = await readJsonBody<{ endpoint?: string }>(
+      req,
+      LIMITS.MAX_REQUEST_BODY_BYTES,
+    );
     if (!body.endpoint) {
       return badRequest("Missing endpoint.");
     }

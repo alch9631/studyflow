@@ -12,6 +12,7 @@ import {
   optionalId,
   requireId,
 } from "@/lib/validate";
+import { LIMITS, guardCount } from "@/lib/limits";
 
 /** Add a recurring weekly class slot. */
 export async function addLecture(formData: FormData) {
@@ -30,6 +31,16 @@ export async function addLecture(formData: FormData) {
   const courseId = optionalId(formData.get("courseId"));
 
   if (startMin != null && endMin != null && endMin > startMin) {
+    // Defensive cap: don't let a user create unbounded class slots.
+    try {
+      guardCount(
+        await prisma.lecture.count({ where: { userId } }),
+        LIMITS.MAX_LECTURES_PER_USER,
+        "class slots",
+      );
+    } catch {
+      return;
+    }
     await prisma.lecture.create({
       data: { userId, title, weekday, startMin, endMin, location, courseId },
     });

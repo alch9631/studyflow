@@ -16,6 +16,7 @@
     "test:stats": "tsx src/lib/stats.test.ts",
     "test:studytime": "tsx src/lib/studyTime.test.ts",
     "test:validate": "tsx src/lib/validate.test.ts",
+    "test:limits": "tsx src/lib/limits.test.ts",
     "test:apierror": "tsx src/lib/apiError.test.ts",
     "test:export": "tsx src/lib/export.test.ts",
     "test:today-fetch": "tsx src/lib/todayFetch.test.ts",

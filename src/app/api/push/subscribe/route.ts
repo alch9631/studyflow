@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { badRequest, handleApiError } from "@/lib/apiError";
+import { readJsonBody } from "@/lib/validate";
+import { LIMITS, guardCount } from "@/lib/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -8,12 +10,11 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const userId = await getCurrentUserId();
-    let body: { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-    try {
-      body = await req.json();
-    } catch {
-      return badRequest("Invalid JSON body.");
-    }
+    // Size-guarded JSON read: rejects oversized bodies / bad JSON (400).
+    const body = await readJsonBody<{
+      endpoint?: string;
+      keys?: { p256dh?: string; auth?: string };
+    }>(req, LIMITS.MAX_REQUEST_BODY_BYTES);
     const endpoint = body.endpoint;
     const p256dh = body.keys?.p256dh;
     const auth = body.keys?.auth;
@@ -23,6 +24,16 @@ export async function POST(req: Request) {
     // Bound the fields so an oversized payload can't reach the DB write.
     if (endpoint.length > 2000 || p256dh.length > 500 || auth.length > 500) {
       return badRequest("Field too long.");
+    }
+    // Cap subscriptions per user, but only when this endpoint is new (an upsert
+    // of an existing endpoint must still be allowed to refresh its keys).
+    const existing = await prisma.pushSubscription.findUnique({ where: { endpoint } });
+    if (!existing) {
+      guardCount(
+        await prisma.pushSubscription.count({ where: { userId } }),
+        LIMITS.MAX_PUSH_SUBSCRIPTIONS_PER_USER,
+        "push subscriptions",
+      );
     }
     await prisma.pushSubscription.upsert({
       where: { endpoint },

@@ -18,6 +18,10 @@ import {
   sanitizeStudyDays,
   clampInt,
   parseGrade,
+  guardContentLength,
+  guardTextSize,
+  readJsonBody,
+  requireBodyString,
 } from "./validate";
 
 let passed = 0;
@@ -126,5 +130,74 @@ check("blank = null", parseGrade("") === null);
 check("out of range = null", parseGrade("6") === null);
 check("below range = null", parseGrade("0.5") === null);
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+// ── payload size guards ──────────────────────────────────────────────────────
+
+/** True if `fn` throws a ValidationError (async-aware). */
+async function throwsAsync(fn: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await fn();
+    return false;
+  } catch (e) {
+    return e instanceof ValidationError;
+  }
+}
+
+// guardContentLength — header-based early reject.
+check(
+  "guardContentLength allows small body",
+  !throws(() =>
+    guardContentLength(new Request("http://x", { headers: { "content-length": "10" } }), 100),
+  ),
+);
+check(
+  "guardContentLength rejects oversized header",
+  throws(() =>
+    guardContentLength(new Request("http://x", { headers: { "content-length": "999" } }), 100),
+  ),
+);
+check(
+  "guardContentLength tolerates missing header",
+  !throws(() => guardContentLength(new Request("http://x"), 100)),
+);
+
+// guardTextSize — decoded byte length.
+check("guardTextSize allows under cap", !throws(() => guardTextSize("hello", 100)));
+check("guardTextSize rejects over cap", throws(() => guardTextSize("x".repeat(101), 100)));
+check(
+  "guardTextSize counts utf-8 bytes not chars",
+  throws(() => guardTextSize("é".repeat(3), 5)), // 'é' = 2 bytes -> 6 > 5
+);
+
+// requireBodyString — JSON-body counterpart to requireText.
+check("requireBodyString returns value", requireBodyString("Algebra", "Name", 100) === "Algebra");
+check("requireBodyString rejects empty", throws(() => requireBodyString("", "Name", 100)));
+check("requireBodyString rejects non-string", throws(() => requireBodyString(42, "Name", 100)));
+check("requireBodyString rejects too long", throws(() => requireBodyString("xx", "Name", 1)));
+
+// Async tests run last; they own the final summary so the process exits correctly.
+(async () => {
+  // readJsonBody — parses valid JSON, rejects oversized + malformed.
+  const okBody = await readJsonBody<{ a: number }>(
+    new Request("http://x", { method: "POST", body: JSON.stringify({ a: 1 }) }),
+    1000,
+  );
+  check("readJsonBody parses valid JSON", okBody.a === 1);
+  check(
+    "readJsonBody rejects oversized body",
+    await throwsAsync(() =>
+      readJsonBody(
+        new Request("http://x", { method: "POST", body: "x".repeat(101) }),
+        100,
+      ),
+    ),
+  );
+  check(
+    "readJsonBody rejects malformed JSON",
+    await throwsAsync(() =>
+      readJsonBody(new Request("http://x", { method: "POST", body: "{not json" }), 1000),
+    ),
+  );
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exit(1);
+})();
