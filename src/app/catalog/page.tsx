@@ -5,7 +5,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
 import SubmitButton from "@/components/SubmitButton";
-import { buttonClasses } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -71,9 +71,9 @@ export default async function CatalogPage({
             syllabus and let AI extract the topics.
           </p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <Link href="/courses/new" className={buttonClasses("primary")}>
-              + Add a course
-            </Link>
+            <Button asChild>
+              <Link href="/courses/new">+ Add a course</Link>
+            </Button>
             <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium transition-colors hover:bg-amber-100 active:scale-[.97] dark:border-amber-700 dark:hover:bg-amber-900/40">
               ✨ Import a syllabus
             </Link>
@@ -82,9 +82,9 @@ export default async function CatalogPage({
       ) : modules.length === 0 ? (
         <div className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800 p-5 text-sm text-gray-600 dark:text-gray-300">
           <p className="font-medium">You&apos;ve added every module in this program. 🎉</p>
-          <Link href="/courses" className={buttonClasses("primary", "md", "mt-3")}>
-            Go to my courses →
-          </Link>
+          <Button asChild className="mt-3">
+            <Link href="/courses">Go to my courses →</Link>
+          </Button>
         </div>
       ) : (
         <>

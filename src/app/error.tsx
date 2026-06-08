@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { buttonClasses } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 /** Route-level error boundary — renders inside the app shell (nav + styles). */
 export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -13,12 +13,10 @@ export default function Error({ reset }: { error: Error & { digest?: string }; r
         StudyFlow hit an unexpected error — your data is safe. Try again, or head back to Today.
       </p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
-        <button onClick={reset} className={buttonClasses("primary")}>
-          Try again
-        </button>
-        <Link href="/today" className={buttonClasses("secondary")}>
-          🗓️ Go to Today
-        </Link>
+        <Button onClick={reset}>Try again</Button>
+        <Button asChild variant="secondary">
+          <Link href="/today">🗓️ Go to Today</Link>
+        </Button>
       </div>
     </main>
   );

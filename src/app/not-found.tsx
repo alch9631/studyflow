@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { buttonClasses } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Not found" };
 
@@ -17,12 +17,12 @@ export default function NotFound() {
         That page isn&apos;t in your study plan. Let&apos;s get you back on track.
       </p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
-        <Link href="/today" className={buttonClasses("primary")}>
-          🗓️ Go to Today
-        </Link>
-        <Link href="/courses" className={buttonClasses("secondary")}>
-          📚 My Courses
-        </Link>
+        <Button asChild>
+          <Link href="/today">🗓️ Go to Today</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/courses">📚 My Courses</Link>
+        </Button>
       </div>
     </main>
   );

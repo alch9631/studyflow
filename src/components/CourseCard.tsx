@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { examCountdownLabel } from "@/lib/dates";
-import { buttonClasses, cardClass } from "./ui";
+import { buttonClasses } from "./ui";
+import { Card } from "./ui/card";
 
 export type CardCourse = {
   id: string;
@@ -22,12 +23,15 @@ export default function CourseCard({ course }: { course: CardCourse }) {
   const pct = course.total ? Math.round((course.done / course.total) * 100) : 0;
 
   return (
-    <Link
-      href={`/courses/${course.id}`}
-      aria-label={`${course.name} — open to update progress`}
-      className={`group block ${cardClass} p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:shadow-md`}
+    <Card
+      asChild
+      className="group block p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:shadow-md"
     >
-      {/* Header: priority + name, exam date */}
+      <Link
+        href={`/courses/${course.id}`}
+        aria-label={`${course.name} — open to update progress`}
+      >
+        {/* Header: priority + name, exam date */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <span
@@ -72,6 +76,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
           Update progress →
         </span>
       </div>
-    </Link>
+      </Link>
+    </Card>
   );
 }

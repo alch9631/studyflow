@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonClasses } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Offline",
@@ -16,9 +16,9 @@ export default function OfflinePage() {
         StudyFlow can&apos;t reach the network right now. Pages you&apos;ve already
         opened may still work — reconnect to sync the latest.
       </p>
-      <Link href="/today" className={buttonClasses("primary", "md", "mt-2")}>
-        Try Today again
-      </Link>
+      <Button asChild className="mt-2">
+        <Link href="/today">Try Today again</Link>
+      </Button>
     </main>
   );
 }

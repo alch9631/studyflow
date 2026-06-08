@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PROGRAMS } from "@/lib/programs";
-import { buttonClasses, cardClass } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 // Feature grid — every claim maps to a shipped feature:
 //  • Builds itself  → plan generated backward from exam dates (planService)
@@ -95,26 +96,20 @@ export default function Home() {
         </div>
 
         <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <Link
-            href="#programs"
-            className={buttonClasses("primary", "lg", "w-full sm:w-auto")}
-          >
-            Build my plan
-          </Link>
-          <Link
-            href="/courses"
-            className={buttonClasses("secondary", "lg", "w-full sm:w-auto")}
-          >
-            I already have a plan
-          </Link>
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="#programs">Build my plan</Link>
+          </Button>
+          <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
+            <Link href="/courses">I already have a plan</Link>
+          </Button>
         </div>
 
         {/* Generic, designed-to-deliver stat strip */}
         <dl className="mt-2 grid w-full grid-cols-3 gap-3 sm:max-w-lg">
           {STATS.map((s) => (
-            <div
+            <Card
               key={s.label}
-              className={`${cardClass} flex flex-col items-center gap-0.5 px-2 py-3 text-center`}
+              className="flex flex-col items-center gap-0.5 px-2 py-3 text-center"
             >
               <dt className="sr-only">{s.label}</dt>
               <dd className="text-lg font-bold tracking-tight sm:text-xl">
@@ -123,7 +118,7 @@ export default function Home() {
               <span className="text-[11px] leading-tight text-gray-500 dark:text-gray-400">
                 {s.label}
               </span>
-            </div>
+            </Card>
           ))}
         </dl>
       </section>
@@ -141,9 +136,9 @@ export default function Home() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {FEATURES.map((f) => (
-            <div
+            <Card
               key={f.title}
-              className={`${cardClass} p-5 text-left transition-colors hover:border-gray-300 dark:hover:border-gray-700`}
+              className="p-5 text-left transition-colors hover:border-gray-300 dark:hover:border-gray-700"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-2xl">
                 {f.icon}
@@ -152,7 +147,7 @@ export default function Home() {
               <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 {f.body}
               </p>
-            </div>
+            </Card>
           ))}
         </div>
       </section>
@@ -170,13 +165,11 @@ export default function Home() {
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {TESTIMONIALS.map((t) => (
-            <figure
-              key={t.quote}
-              className={`${cardClass} flex flex-col gap-3 p-5`}
-            >
-              <div aria-hidden className="text-sm text-amber-400">
-                ★★★★★
-              </div>
+            <Card asChild key={t.quote} className="flex flex-col gap-3 p-5">
+              <figure>
+                <div aria-hidden className="text-sm text-amber-400">
+                  ★★★★★
+                </div>
               <blockquote className="text-pretty text-sm leading-relaxed text-gray-700 dark:text-gray-200">
                 “{t.quote}”
               </blockquote>
@@ -186,7 +179,8 @@ export default function Home() {
                 </span>
                 <span className="block">{t.detail}</span>
               </figcaption>
-            </figure>
+              </figure>
+            </Card>
           ))}
         </div>
         <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
@@ -245,12 +239,9 @@ export default function Home() {
           </span>
         </Link>
 
-        <Link
-          href="/courses/import"
-          className={buttonClasses("secondary", "md", "w-full")}
-        >
-          ✨ Import a syllabus instead
-        </Link>
+        <Button asChild variant="secondary" className="w-full">
+          <Link href="/courses/import">✨ Import a syllabus instead</Link>
+        </Button>
       </section>
 
       {/* ── Closing CTA ────────────────────────────────────────────────── */}
@@ -263,18 +254,12 @@ export default function Home() {
           morning.
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Link
-            href="#programs"
-            className={buttonClasses("primary", "lg", "w-full sm:w-auto")}
-          >
-            Build my plan
-          </Link>
-          <Link
-            href="/today"
-            className={buttonClasses("ghost", "lg", "w-full sm:w-auto")}
-          >
-            See today’s plan
-          </Link>
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="#programs">Build my plan</Link>
+          </Button>
+          <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
+            <Link href="/today">See today’s plan</Link>
+          </Button>
         </div>
       </section>
     </main>

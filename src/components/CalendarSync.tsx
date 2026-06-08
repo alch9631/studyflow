@@ -4,7 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
 import ToastForm from "./ToastForm";
 import SubmitButton from "./SubmitButton";
-import { buttonClasses } from "./ui";
+import { Button } from "./ui/button";
 
 // Read window origin without a hydration mismatch: server snapshot is "" so SSR
 // and the first client render agree, then it syncs to the real origin.
@@ -45,17 +45,12 @@ export default function CalendarSync({ token }: { token: string }) {
         {displayUrl}
       </code>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={copy}
-          disabled={!webcalUrl}
-          className={buttonClasses("primary", "sm")}
-        >
+        <Button type="button" onClick={copy} disabled={!webcalUrl} size="sm">
           {copied ? "Copied ✓" : "Copy"}
-        </button>
-        <a href={webcalUrl || undefined} className={buttonClasses("secondary", "sm")}>
-          Add to calendar
-        </a>
+        </Button>
+        <Button asChild variant="secondary" size="sm">
+          <a href={webcalUrl || undefined}>Add to calendar</a>
+        </Button>
         <ToastForm
           action={resetCalendarToken}
           successMessage="Calendar link reset — the old link no longer updates."
