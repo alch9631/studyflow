@@ -18,6 +18,7 @@ import {
 } from "../actions";
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
+import OptimisticToggleForm from "@/components/OptimisticToggleForm";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { iconButtonClass } from "@/components/ui";
@@ -457,28 +458,36 @@ export default async function CoursePage({
             } catch {}
             return (
               <li key={t.id}>
-                <ToastForm
+                <OptimisticToggleForm
                   action={toggleTopic}
-                  successMessage={t.done ? "Topic reopened — plan updated." : "Topic done — plan updated. ✓"}
+                  done={t.done}
+                  doneMessage="Topic done — plan updated. ✓"
+                  undoneMessage="Topic reopened — plan updated."
                   errorMessage="Couldn't update that topic — please try again."
                   className="flex items-start gap-2"
                 >
-                  <input type="hidden" name="topicId" value={t.id} />
-                  <input type="hidden" name="courseId" value={course.id} />
-                  <SubmitButton
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                      t.done
-                        ? "border-green-500 bg-green-500 text-white"
-                        : "border-gray-300 dark:border-gray-700"
-                    }`}
-                    aria-label={t.done ? "Mark not done" : "Mark done"}
-                  >
-                    {t.done ? "✓" : ""}
-                  </SubmitButton>
-                  <span className={`min-w-0 break-words ${t.done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
-                    {t.title}
-                  </span>
-                </ToastForm>
+                  {(done) => (
+                    <>
+                      <input type="hidden" name="topicId" value={t.id} />
+                      <input type="hidden" name="courseId" value={course.id} />
+                      <button
+                        type="submit"
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
+                          done
+                            ? "border-green-500 bg-green-500 text-white"
+                            : "border-gray-300 dark:border-gray-700"
+                        }`}
+                        aria-pressed={done}
+                        aria-label={done ? "Mark not done" : "Mark done"}
+                      >
+                        {done ? "✓" : ""}
+                      </button>
+                      <span className={`min-w-0 break-words ${done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
+                        {t.title}
+                      </span>
+                    </>
+                  )}
+                </OptimisticToggleForm>
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
                     <summary className="cursor-pointer text-xs text-brand">
