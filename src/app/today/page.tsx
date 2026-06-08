@@ -40,11 +40,11 @@ function BlockRow({ b }: { b: Row }) {
         </button>
       </form>
       <span className="min-w-0 flex-1">
-        <span className={b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}>
+        <span className={`break-words ${b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}`}>
           {isReview ? "🔁 " : ""}
           {b.topicTitle}
         </span>
-        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+        <span className="ml-2 break-words text-xs text-gray-400 dark:text-gray-500">
           {isReview ? "review · " : ""}
           {b.course.name}
         </span>
