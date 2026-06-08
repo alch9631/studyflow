@@ -7,7 +7,12 @@
  * server and client components.
  */
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "danger"
+  | "danger-solid"
+  | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
 // `transition` + `active:scale` give every button a subtle, consistent press feel.
@@ -19,8 +24,13 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-brand text-white shadow-sm hover:bg-brand-dark",
   secondary:
     "border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
+  // Quiet outline danger — for triggers that *open* a destructive flow.
   danger:
     "border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
+  // Solid danger — the dominant CTA that *commits* a destructive action
+  // (e.g. the confirm button inside a confirmation dialog).
+  "danger-solid":
+    "bg-red-600 text-white shadow-sm hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500",
   ghost: "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
 };
 
