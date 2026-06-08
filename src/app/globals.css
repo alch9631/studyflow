@@ -14,6 +14,12 @@
   --foreground: #171717;
   /* One keyboard focus ring for the whole app — TUHH brand blue on light. */
   --focus-ring: #00509b;
+  /* Data-viz palette (recharts on the Insights page). Brand blue for the active
+     series, neutral gray for empty/track, muted gray for axis ticks & gridlines. */
+  --chart-series: #00509b;
+  --chart-track: #e5e7eb;
+  --chart-axis: #6b7280;
+  --chart-grid: #f3f4f6;
 }
 
 .dark {
@@ -23,6 +29,12 @@
      against the near-black background (below the 3:1 WCAG non-text bar), so the
      ring would be hard to see. This lifts it comfortably past 3:1. */
   --focus-ring: #4d94d6;
+  /* Data-viz palette, dark theme — the deep brand blue muddies against the
+     near-black bg, so the active series lifts to the lighter focus-ring blue. */
+  --chart-series: #4d94d6;
+  --chart-track: #1f2937;
+  --chart-axis: #9ca3af;
+  --chart-grid: #1f2937;
 }
 
 @theme inline {
