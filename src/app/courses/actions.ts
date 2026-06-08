@@ -12,7 +12,11 @@ import {
   analyzeModuleContent,
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
-import { rateLimit } from "@/lib/rateLimit";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  type RateLimitCategory,
+} from "@/lib/rateLimitPolicy";
 import {
   ValidationError,
   str,
@@ -28,9 +32,25 @@ import {
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 
+/**
+ * Boolean wrapper around `enforceRateLimit` for the action style here: actions
+ * react to a breach by `redirect(...?msg=rate-limited)` rather than throwing,
+ * so this catches `RateLimitError` and returns false. Unexpected errors rethrow.
+ */
+function rateLimitOK(category: RateLimitCategory, key: string): boolean {
+  try {
+    enforceRateLimit(category, key);
+    return true;
+  } catch (e) {
+    if (e instanceof RateLimitError) return false;
+    throw e;
+  }
+}
+
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
   const userId = await getCurrentUserId();
+  if (!rateLimitOK("COURSE_WRITE", userId)) redirect("/courses?msg=rate-limited");
 
   const name = requireText(formData.get("name"), "Course name");
   const examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
@@ -72,6 +92,7 @@ export async function createCourse(formData: FormData) {
  */
 export async function addFromCatalog(formData: FormData) {
   const userId = await getCurrentUserId();
+  if (!rateLimitOK("COURSE_WRITE", userId)) redirect("/catalog?msg=rate-limited");
   // Bound the selection so junk/oversized ids can't reach Prisma.
   const ids = formData
     .getAll("moduleId")
@@ -161,7 +182,7 @@ async function extractTextFromFile(file: File): Promise<string> {
  */
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!rateLimit(`ai:${userId}`)) {
+  if (!rateLimitOK("AI", userId)) {
     throw new Error("You're importing a lot quickly — give it a minute and try again.");
   }
   let text = longText(formData.get("syllabus"));
@@ -218,7 +239,7 @@ export async function reoptimizeCourse(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
+  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
   let ok = false;
   try {
     ok = await aiOptimizeCourse(id);
@@ -240,7 +261,7 @@ export async function analyzeModuleUpload(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  if (!rateLimit(`ai:${courseId}`)) redirect(`/courses/${courseId}?msg=rate-limited`);
+  if (!rateLimitOK("AI", courseId)) redirect(`/courses/${courseId}?msg=rate-limited`);
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
@@ -298,6 +319,8 @@ export async function analyzeModuleUpload(formData: FormData) {
 
 /** Delete a course (cascades to its topics + study blocks). */
 export async function deleteCourse(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) redirect("/courses?msg=rate-limited");
   let id: string;
   try {
     id = requireId(formData.get("courseId"), "Course");
@@ -318,7 +341,7 @@ export async function applyProgress(formData: FormData) {
   } catch {
     return;
   }
-  if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
+  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
 
   const course = await prisma.course.findUnique({
     where: { id },
@@ -354,6 +377,10 @@ export type EditState = { ok: boolean; error?: string } | null;
  * reschedules, and returns a status the UI shows without navigating away.
  */
 export async function editCourse(_prev: EditState, formData: FormData): Promise<EditState> {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) {
+    return { ok: false, error: "Too many changes too fast — give it a minute and try again." };
+  }
   let id: string;
   let name: string;
   let examDate: string;
@@ -381,12 +408,14 @@ export async function editCourse(_prev: EditState, formData: FormData): Promise<
 
 /** Edit a course's exam date / capacity, then rebuild the plan around it. */
 export async function updateCourse(formData: FormData) {
+  const userId = await getCurrentUserId();
   let id: string;
   try {
     id = requireId(formData.get("courseId"), "Course");
   } catch {
     redirect("/courses");
   }
+  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   let examDate: string | null;
   try {
     examDate = optionalDate(formData.get("examDate"), "Exam date", todayISO());
@@ -408,18 +437,22 @@ export async function updateCourse(formData: FormData) {
 
 /** "I fell behind" — redistribute remaining work across the days left. */
 export async function healCourse(formData: FormData) {
+  const userId = await getCurrentUserId();
   let id: string;
   try {
     id = requireId(formData.get("courseId"), "Course");
   } catch {
     redirect("/courses");
   }
+  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   const { isOverloaded } = await healCoursePlan(id);
   redirect(`/courses/${id}?msg=${isOverloaded ? "healed-over" : "healed"}`);
 }
 
 /** Log a finished focus session (Pomodoro) against a block — feeds adaptive pacing. */
 export async function logFocus(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
   let id: string;
   try {
     id = requireId(formData.get("blockId"), "Block");
@@ -446,6 +479,8 @@ export async function logFocus(formData: FormData) {
 
 /** Check off (or uncheck) a single study block — "I did this session". */
 export async function toggleBlock(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
   let id: string;
   try {
     id = requireId(formData.get("blockId"), "Block");
@@ -468,6 +503,8 @@ export async function toggleBlock(formData: FormData) {
 
 /** Add a dated deliverable (homework, lab report, project) to a course. */
 export async function addAssignment(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
   let courseId: string;
   let title: string;
   let dueDate: string;
@@ -497,6 +534,8 @@ export async function addAssignment(formData: FormData) {
 
 /** Tick an assignment done/undone. */
 export async function toggleAssignment(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
   let id: string;
   try {
     id = requireId(formData.get("assignmentId"), "Assignment");
@@ -516,6 +555,8 @@ export async function toggleAssignment(formData: FormData) {
 
 /** Remove an assignment. */
 export async function deleteAssignment(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
   let id: string;
   let courseId: string;
   try {
@@ -530,12 +571,14 @@ export async function deleteAssignment(formData: FormData) {
 
 /** Record (or clear) a course's final grade (German scale 1.0–5.0). */
 export async function setGrade(formData: FormData) {
+  const userId = await getCurrentUserId();
   let id: string;
   try {
     id = requireId(formData.get("courseId"), "Course");
   } catch {
     redirect("/courses");
   }
+  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   const grade = parseGrade(formData.get("grade"));
   await prisma.course.update({ where: { id }, data: { grade } });
   redirect(`/courses/${id}?msg=graded`);
@@ -543,6 +586,8 @@ export async function setGrade(formData: FormData) {
 
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
 export async function toggleTopic(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
   let id: string;
   let courseId: string;
   try {
