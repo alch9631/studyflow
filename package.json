@@ -27,6 +27,7 @@
     "test:today-fetch": "tsx src/lib/todayFetch.test.ts",
     "test:pagination": "tsx src/lib/pagination.test.ts",
     "test:block-service": "tsx src/lib/blockService.test.ts",
+    "test:testdb": "tsx src/lib/testDb.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:catalog": "tsx prisma/seedCatalog.ts",

@@ -6,10 +6,11 @@
  * Imports the real route handlers (they're just `(Request) => Response` functions)
  * and the real policy, so this exercises the actual wiring — not a re-implementation.
  *
- * Runs against the real SQLite dev DB (getCurrentUserId upserts the dev user),
- * same style as todayFetch.test.ts.
- * Run: DATABASE_URL="file:./dev.db" npx tsx src/lib/pushRoutes.test.ts
+ * Runs against an isolated throwaway test DB (see ./testDb) so it never touches
+ * dev/prod data; getCurrentUserId upserts the dev user into that fresh DB.
+ * Run: npx tsx src/lib/pushRoutes.test.ts
  */
+import "./testDb"; // MUST be first: points ./db at the test DB before it loads.
 import { POST as subscribePOST } from "../app/api/push/subscribe/route";
 import { POST as unsubscribePOST } from "../app/api/push/unsubscribe/route";
 import { getCurrentUserId } from "./devUser";

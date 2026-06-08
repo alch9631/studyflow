@@ -10,9 +10,11 @@
  *  - results are scoped to the user (no cross-user leakage),
  *  - the envelope metadata (total, totalPages, hasMore) is correct.
  *
- * Runs against the real SQLite dev DB on an isolated user (same style as
- * todayFetch.test.ts). Run: DATABASE_URL="file:./dev.db" npx tsx src/lib/blockService.test.ts
+ * Runs against an isolated throwaway test DB (see ./testDb) on its own user, so
+ * it never touches dev/prod data.
+ * Run: npx tsx src/lib/blockService.test.ts
  */
+import "./testDb"; // MUST be first: points ./db at the test DB before it loads.
 import { prisma } from "./db";
 import { listStudyBlocks } from "./blockService";
 import {
