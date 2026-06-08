@@ -59,9 +59,19 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* First tab stop: lets keyboard/screen-reader users jump past the nav
+            straight to the page content. Visually hidden until focused. */}
+        <a
+          href="#main-content"
+          className="sr-only rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
+        >
+          Skip to content
+        </a>
         <ToastProvider>
           <Nav />
-          <div className="flex-1">{children}</div>
+          <div id="main-content" tabIndex={-1} className="flex-1">
+            {children}
+          </div>
         </ToastProvider>
         <ServiceWorkerRegister />
       </body>

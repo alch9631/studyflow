@@ -6,11 +6,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* One keyboard focus ring for the whole app — TUHH brand blue on light. */
+  --focus-ring: #00509b;
 }
 
 .dark {
   --background: #0b0f17;
   --foreground: #e5e7eb;
+  /* A lighter brand blue for dark mode: the deep #00509b only reaches ~2.4:1
+     against the near-black background (below the 3:1 WCAG non-text bar), so the
+     ring would be hard to see. This lifts it comfortably past 3:1. */
+  --focus-ring: #4d94d6;
 }
 
 @theme inline {
@@ -47,11 +53,21 @@ body {
   color: #6b7280;
 }
 
-/* Accessibility: a clear, consistent keyboard focus ring (TUHH blue). */
+/* Accessibility: one clear, consistent keyboard focus ring across the app.
+   The colour is a single token (--focus-ring) that adapts per theme. The 2px
+   offset lifts it off the control; we deliberately set NO border-radius here so
+   the outline follows each element's own shape (pill buttons get a pill ring,
+   cards a rounded-rect) instead of reshaping rounded controls on focus. */
 :focus-visible {
-  outline: 2px solid #00509b;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-  border-radius: 2px;
+}
+
+/* Skip-link target: a non-interactive layout container, focused only
+   programmatically when the "Skip to content" link is activated. Suppress its
+   ring there — the skip link itself shows a clear ring; this is not a control. */
+#main-content:focus {
+  outline: none;
 }
 
 /* Branded text selection — a small cohesive touch. */
