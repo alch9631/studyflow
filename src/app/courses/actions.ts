@@ -31,6 +31,16 @@ import {
   parseGrade,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
+import {
+  ownsCourse,
+  findOwnedCourse,
+  updateOwnedCourse,
+  deleteOwnedCourse,
+  findOwnedTopic,
+  findOwnedBlock,
+  findOwnedAssignment,
+  deleteOwnedAssignment,
+} from "@/lib/ownership";
 
 /**
  * Boolean wrapper around `enforceRateLimit` for the action style here: actions
@@ -233,6 +243,7 @@ export async function importSyllabus(formData: FormData) {
 
 /** Re-run the AI optimizer (difficulty / order / spaced review) on demand. */
 export async function reoptimizeCourse(formData: FormData) {
+  const userId = await getCurrentUserId();
   let id: string;
   try {
     id = requireId(formData.get("courseId"), "Course");
@@ -240,6 +251,8 @@ export async function reoptimizeCourse(formData: FormData) {
     redirect("/courses");
   }
   if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
+  // Don't let a non-owner trigger an (AI-spending) replan of someone else's course.
+  if (!(await ownsCourse(userId, id))) redirect("/courses");
   let ok = false;
   try {
     ok = await aiOptimizeCourse(id);
@@ -255,6 +268,7 @@ export async function reoptimizeCourse(formData: FormData) {
  * estimates), then reschedule. Stores the file's analysis for review.
  */
 export async function analyzeModuleUpload(formData: FormData) {
+  const userId = await getCurrentUserId();
   let courseId: string;
   try {
     courseId = requireId(formData.get("courseId"), "Course");
@@ -266,10 +280,8 @@ export async function analyzeModuleUpload(formData: FormData) {
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
   }
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    select: { name: true },
-  });
+  // Ownership-scoped: a non-owner (or bad id) gets bounced, never another user's course.
+  const course = await findOwnedCourse(userId, courseId);
   if (!course) redirect("/courses");
 
   let result = "analyze-error";
@@ -327,12 +339,14 @@ export async function deleteCourse(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  await prisma.course.delete({ where: { id } });
+  // Scoped delete: a non-owner's id is a no-op, never another user's course.
+  await deleteOwnedCourse(userId, id);
   redirect("/courses");
 }
 
 /** AI progress: read a plain-language status, mark matching topics done, replan. */
 export async function applyProgress(formData: FormData) {
+  const userId = await getCurrentUserId();
   let id: string;
   let status: string;
   try {
@@ -343,8 +357,9 @@ export async function applyProgress(formData: FormData) {
   }
   if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
 
-  const course = await prisma.course.findUnique({
-    where: { id },
+  // Ownership-scoped: only load (and later mutate) a course the current user owns.
+  const course = await prisma.course.findFirst({
+    where: { id, userId },
     select: { topics: { select: { id: true, title: true, done: true } } },
   });
   if (!course) return;
@@ -394,10 +409,12 @@ export async function editCourse(_prev: EditState, formData: FormData): Promise<
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
   try {
-    await prisma.course.update({
-      where: { id },
-      data: { name, examDate: toUTCDate(examDate), studyDays },
+    const owned = await updateOwnedCourse(userId, id, {
+      name,
+      examDate: toUTCDate(examDate),
+      studyDays,
     });
+    if (!owned) return { ok: false, error: "Course not found." };
     await regeneratePlan(id);
     revalidatePath("/courses");
     return { ok: true };
@@ -424,13 +441,11 @@ export async function updateCourse(formData: FormData) {
   }
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
-  await prisma.course.update({
-    where: { id },
-    data: {
-      ...(examDate ? { examDate: toUTCDate(examDate) } : {}),
-      studyDays,
-    },
+  const owned = await updateOwnedCourse(userId, id, {
+    ...(examDate ? { examDate: toUTCDate(examDate) } : {}),
+    studyDays,
   });
+  if (!owned) redirect("/courses");
   await regeneratePlan(id);
   redirect(`/courses/${id}?msg=saved`);
 }
@@ -445,6 +460,7 @@ export async function healCourse(formData: FormData) {
     redirect("/courses");
   }
   if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
+  if (!(await ownsCourse(userId, id))) redirect("/courses");
   const { isOverloaded } = await healCoursePlan(id);
   redirect(`/courses/${id}?msg=${isOverloaded ? "healed-over" : "healed"}`);
 }
@@ -463,10 +479,8 @@ export async function logFocus(formData: FormData) {
   // adaptive pacing estimates (actualMinutes feeds the calibration factor).
   const minutes = clampInt(formData.get("minutes"), 1, 600, 25);
   const path = str(formData.get("revalidate")) || "/today";
-  const block = await prisma.studyBlock.findUnique({
-    where: { id },
-    select: { actualMinutes: true, minutes: true, completed: true },
-  });
+  // Scoped: only a block whose course the current user owns is logged against.
+  const block = await findOwnedBlock(userId, id);
   if (block) {
     const actual = (block.actualMinutes ?? 0) + minutes;
     await prisma.studyBlock.update({
@@ -488,10 +502,8 @@ export async function toggleBlock(formData: FormData) {
     return;
   }
   const path = str(formData.get("revalidate")) || "/today";
-  const block = await prisma.studyBlock.findUnique({
-    where: { id },
-    select: { completed: true },
-  });
+  // Scoped: a non-owner toggling another user's block id is a silent no-op.
+  const block = await findOwnedBlock(userId, id);
   if (block) {
     await prisma.studyBlock.update({
       where: { id },
@@ -516,6 +528,8 @@ export async function addAssignment(formData: FormData) {
   } catch {
     return;
   }
+  // Ownership-scoped: never attach an assignment to another user's course.
+  if (!(await ownsCourse(userId, courseId))) return;
   // Defensive cap: don't let a course accumulate unbounded assignments.
   try {
     guardCount(
@@ -543,10 +557,8 @@ export async function toggleAssignment(formData: FormData) {
     return;
   }
   const path = str(formData.get("revalidate"));
-  const a = await prisma.assignment.findUnique({
-    where: { id },
-    select: { done: true, courseId: true },
-  });
+  // Scoped: a non-owner's assignment id resolves to null → no-op.
+  const a = await findOwnedAssignment(userId, id);
   if (a) {
     await prisma.assignment.update({ where: { id }, data: { done: !a.done } });
   }
@@ -565,7 +577,8 @@ export async function deleteAssignment(formData: FormData) {
   } catch {
     return;
   }
-  await prisma.assignment.delete({ where: { id } });
+  // Scoped delete: only removes the assignment if its course is owned.
+  await deleteOwnedAssignment(userId, id);
   revalidatePath(`/courses/${courseId}`);
 }
 
@@ -580,7 +593,7 @@ export async function setGrade(formData: FormData) {
   }
   if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   const grade = parseGrade(formData.get("grade"));
-  await prisma.course.update({ where: { id }, data: { grade } });
+  if (!(await updateOwnedCourse(userId, id, { grade }))) redirect("/courses");
   redirect(`/courses/${id}?msg=graded`);
 }
 
@@ -589,20 +602,19 @@ export async function toggleTopic(formData: FormData) {
   const userId = await getCurrentUserId();
   if (!rateLimitOK("MUTATION", userId)) return;
   let id: string;
-  let courseId: string;
   try {
     id = requireId(formData.get("topicId"), "Topic");
-    courseId = requireId(formData.get("courseId"), "Course");
+    requireId(formData.get("courseId"), "Course");
   } catch {
     return;
   }
-  const topic = await prisma.topic.findUnique({
-    where: { id },
-    select: { done: true },
-  });
+  // Scoped: only a topic whose course the current user owns can be toggled. The
+  // owning courseId is derived from the row (not trusted from the form), so the
+  // replan + revalidate always target the topic's real course.
+  const topic = await findOwnedTopic(userId, id);
   if (topic) {
     await prisma.topic.update({ where: { id }, data: { done: !topic.done } });
-    await regeneratePlan(courseId);
+    await regeneratePlan(topic.courseId);
+    revalidatePath(`/courses/${topic.courseId}`);
   }
-  revalidatePath(`/courses/${courseId}`);
 }
