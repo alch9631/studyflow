@@ -180,28 +180,6 @@ body {
   }
 }
 
-/* Confirmation-dialog entrance: backdrop fades in, panel rises + settles.
-   Both gated behind motion-safe at the callsite (see ConfirmDialog). */
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes dialog-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 /* Dropdown-menu entrance: a quick fade + settle from just above the trigger.
    Gated behind motion-safe at the callsite (see ui/dropdown-menu). */
 @keyframes menu-in {
