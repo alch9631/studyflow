@@ -72,7 +72,7 @@ export default function Home() {
           >
             TUHH
           </div>
-          <span className="text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500">
+          <span className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
             Technische Universität Hamburg
           </span>
         </div>
@@ -189,7 +189,7 @@ export default function Home() {
             </figure>
           ))}
         </div>
-        <p className="text-center text-[11px] text-gray-400 dark:text-gray-600">
+        <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
           Quotes are illustrative early-tester feedback.
         </p>
       </section>
@@ -200,7 +200,7 @@ export default function Home() {
           <h2 className="text-lg font-bold tracking-tight">
             Choose your Studiengang
           </h2>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {PROGRAMS.length} programs
           </span>
         </div>
@@ -213,7 +213,7 @@ export default function Home() {
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium">{p.name}</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {p.code}
                 </span>
               </span>
@@ -240,7 +240,7 @@ export default function Home() {
               Jump back into your study plan
             </span>
           </span>
-          <span className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5">
+          <span className="shrink-0 text-gray-500 transition-transform group-hover:translate-x-0.5 dark:text-gray-400">
             →
           </span>
         </Link>

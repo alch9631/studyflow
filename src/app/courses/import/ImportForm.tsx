@@ -30,7 +30,7 @@ export default function ImportForm({ enabled }: { enabled: boolean }) {
     >
       <div>
         <p className="mb-1 block text-sm font-medium">
-          Upload material <span className="text-gray-400 dark:text-gray-500">(PDF, txt, md)</span>
+          Upload material <span className="text-gray-500 dark:text-gray-400">(PDF, txt, md)</span>
         </p>
         <FilePicker disabled={!enabled} />
       </div>

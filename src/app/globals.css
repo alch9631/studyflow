@@ -3,6 +3,12 @@
 /* Class-based dark mode: toggling `.dark` on <html> flips the theme. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Muted text — WCAG AA convention (4.5:1 on the page background):
+   secondary  → text-gray-500 dark:text-gray-400  (4.83:1 light / 7.55:1 dark)
+   stronger   → text-gray-600 dark:text-gray-300  (also use -600 on tinted
+                bg-gray-100 pills, where -500 dips to ~4.3:1)
+   Do NOT use text-gray-400 in light mode: #9ca3af is only 2.54:1 on white. */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

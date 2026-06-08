@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 /** Small caps label that groups related settings sections. */
 function GroupLabel({ children }: { children: ReactNode }) {
   return (
-    <h2 className="mb-3 mt-8 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+    <h2 className="mb-3 mt-8 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
       {children}
     </h2>
   );
@@ -89,7 +89,7 @@ export default async function SettingsPage({
               Add your weekly lectures so your real week shows up on Today.
             </span>
           </span>
-          <span aria-hidden className="shrink-0 text-gray-400">
+          <span aria-hidden className="shrink-0 text-gray-500 dark:text-gray-400">
             →
           </span>
         </Link>
@@ -133,7 +133,7 @@ export default async function SettingsPage({
           title="Account"
           description="You're on a shared local profile for now. Personal login — so each student gets their own private courses and study plans — is coming soon."
         >
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
             🔒 Login coming soon
           </span>
         </Section>

@@ -83,7 +83,7 @@ export default async function TimetablePage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{l.title}</span>
                       {l.location && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">📍 {l.location}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">📍 {l.location}</span>
                       )}
                     </span>
                     <ConfirmDialog
@@ -95,7 +95,7 @@ export default async function TimetablePage() {
                       triggerLabel="✕"
                       triggerAriaLabel={`Delete class: ${l.title}`}
                       triggerClassName={iconButtonClass(
-                        "inline-flex text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800",
+                        "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
                       )}
                       title="Delete this class?"
                       message={
