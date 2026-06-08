@@ -100,9 +100,9 @@ export default async function CoursesPage() {
         </ol>
         <p className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-2">
           <strong>🍎 Apple priority:</strong> each course is rated by urgency (exam soon) and
-          workload — <span className="font-medium text-green-700">🍏 On track</span>,
-          <span className="font-medium text-yellow-800"> 🟡 Medium</span>,
-          <span className="font-medium text-red-700"> 🍎 High</span>. Red = focus here first.
+          workload — <span className="font-medium text-green-700 dark:text-green-400">🍏 On track</span>,
+          <span className="font-medium text-yellow-800 dark:text-yellow-300"> 🟡 Medium</span>,
+          <span className="font-medium text-red-700 dark:text-red-400"> 🍎 High</span>. Red = focus here first.
         </p>
       </details>
     </main>

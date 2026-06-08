@@ -46,7 +46,7 @@ function DeleteButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+      className="rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
     >
       {pending ? "Deleting…" : "🗑 Delete"}
     </button>
@@ -161,8 +161,8 @@ export default function CourseCard({ course }: { course: CardCourse }) {
             </div>
             <div aria-live="polite" className="flex items-center gap-3">
               <SaveButton />
-              {state?.ok && <span className="text-sm text-green-600">✓ Saved</span>}
-              {state?.error && <span className="text-sm text-red-600">{state.error}</span>}
+              {state?.ok && <span className="text-sm text-green-600 dark:text-green-400">✓ Saved</span>}
+              {state?.error && <span className="text-sm text-red-600 dark:text-red-400">{state.error}</span>}
             </div>
           </form>
           <form
