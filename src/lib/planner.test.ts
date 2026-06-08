@@ -535,5 +535,169 @@ check(
   messyFold.topics.every((t) => Number.isFinite(t.effort) && t.effort >= 0),
 );
 
+// ===========================================================================
+// NULL / UNDEFINED DEFENSIVE HANDLING — the DB columns are typed non-null, but
+// real drift (legacy rows, partial migrations, hand-edited data) and direct
+// callers can hand the pure engine null/undefined collections and fields. Every
+// entry point must stay TOTAL: never throw, never emit NaN/negative minutes, and
+// degrade exactly like the corresponding empty input. We deliberately cast past
+// the types here to simulate that drift. Behaviour-only; matches the contract
+// above (blockIsSane).
+// ===========================================================================
+
+/** Cast helper: feed a deliberately malformed value past the static types. */
+const bad = <T>(v: unknown): T => v as T;
+
+// ---- studyDatesBetween: null/undefined studyDays --------------------------
+let sdbNullOk = true;
+let sdbNull: string[] = ["x"];
+let sdbUndef: string[] = ["x"];
+try {
+  sdbNull = studyDatesBetween("2026-06-08", "2026-06-20", bad(null));
+  sdbUndef = studyDatesBetween("2026-06-08", "2026-06-20", bad(undefined));
+} catch {
+  sdbNullOk = false;
+}
+check("studyDatesBetween(null studyDays) does not throw", sdbNullOk);
+check("studyDatesBetween(null studyDays) yields no dates", sdbNull.length === 0);
+check("studyDatesBetween(undefined studyDays) yields no dates", sdbUndef.length === 0);
+
+// Invalid/missing date strings produce no dates rather than throwing.
+let sdbBadDateOk = true;
+let sdbBadDate: string[] = ["x"];
+try {
+  sdbBadDate = studyDatesBetween(bad(null), bad(undefined), [1, 2, 3, 4, 5]);
+} catch {
+  sdbBadDateOk = false;
+}
+check("studyDatesBetween(null dates) does not throw", sdbBadDateOk);
+check("studyDatesBetween(null dates) yields no dates", sdbBadDate.length === 0);
+
+// ---- generatePlan: null topics / null studyDays / null minutesPerDay ------
+let genNullTopicsOk = true;
+let genNullTopics: StudyBlock[] = [bad(0)];
+try {
+  genNullTopics = generatePlan(bad({ ...course, topics: null }), "2026-06-06");
+} catch {
+  genNullTopicsOk = false;
+}
+check("generatePlan(null topics) does not throw", genNullTopicsOk);
+check("generatePlan(null topics) yields empty plan", genNullTopics.length === 0);
+
+let genNullDaysOk = true;
+let genNullDays: StudyBlock[] = [bad(0)];
+try {
+  genNullDays = generatePlan(bad({ ...course, studyDays: null }), "2026-06-06");
+} catch {
+  genNullDaysOk = false;
+}
+check("generatePlan(null studyDays) does not throw", genNullDaysOk);
+check("generatePlan(null studyDays) yields empty plan", genNullDays.length === 0);
+
+let genNullMpdOk = true;
+let genNullMpd: StudyBlock[] = [bad(0)];
+try {
+  genNullMpd = generatePlan(bad({ ...course, minutesPerDay: null }), "2026-06-06");
+} catch {
+  genNullMpdOk = false;
+}
+check("generatePlan(null minutesPerDay) does not throw", genNullMpdOk);
+check("generatePlan(null minutesPerDay) yields empty plan", genNullMpd.length === 0);
+
+// ---- A topic with null/undefined/NaN effort must not poison the plan -------
+// One real topic + junk-effort topics: the engine schedules the real work and
+// the junk contributes 0 effort, never a NaN/negative block.
+const junkEffort = bad<Course>({
+  ...course,
+  topics: [
+    { id: "real", title: "Real", effort: 2, done: false },
+    { id: "ne", title: "NullEffort", effort: null, done: false },
+    { id: "ue", title: "UndefEffort", effort: undefined, done: false },
+    { id: "nan", title: "NaNEffort", effort: NaN, done: false },
+  ],
+});
+let junkOk = true;
+let junkPlan = { blocks: [] as StudyBlock[], minutesPerDay: -1, intense: false };
+try {
+  junkPlan = planForDeadline(junkEffort, "2026-06-06");
+} catch {
+  junkOk = false;
+}
+check("planForDeadline(junk-effort topics) does not throw", junkOk);
+check("planForDeadline(junk-effort topics) emits only well-formed blocks", junkPlan.blocks.every((b) => blockIsSane(b)));
+check(
+  "planForDeadline(junk-effort topics) pace is finite and non-negative",
+  Number.isFinite(junkPlan.minutesPerDay) && junkPlan.minutesPerDay >= 0,
+);
+// The real topic still gets scheduled; the junk topics contribute nothing bad.
+check("planForDeadline(junk-effort topics) still schedules the real topic", junkPlan.blocks.some((b) => b.topicId === "real"));
+
+// ---- planForDeadline / healPlan with null topics --------------------------
+let pfdNullOk = true;
+let pfdNull = { blocks: [bad<StudyBlock>(0)], minutesPerDay: -1, intense: true };
+try {
+  pfdNull = planForDeadline(bad({ ...course, topics: null }), "2026-06-06");
+} catch {
+  pfdNullOk = false;
+}
+check("planForDeadline(null topics) does not throw", pfdNullOk);
+check("planForDeadline(null topics) schedules nothing", pfdNull.blocks.length === 0);
+check(
+  "planForDeadline(null topics) pace 0, not intense",
+  pfdNull.minutesPerDay === 0 && pfdNull.intense === false,
+);
+
+let healNullOk = true;
+let healNull = { blocks: [bad<StudyBlock>(0)], isOverloaded: true };
+try {
+  healNull = healPlan(bad({ ...course, topics: null }), "2026-06-06");
+} catch {
+  healNullOk = false;
+}
+check("healPlan(null topics) does not throw", healNullOk);
+check("healPlan(null topics) empty plan, not overloaded (no pending work)", healNull.blocks.length === 0 && healNull.isOverloaded === false);
+
+// ---- applyCompletedWork: null record args / null topics -------------------
+let acwNullOk = true;
+let acwNull: Course = bad(null);
+try {
+  acwNull = applyCompletedWork(course, bad(null), bad(undefined));
+} catch {
+  acwNullOk = false;
+}
+check("applyCompletedWork(null records) does not throw", acwNullOk);
+check(
+  "applyCompletedWork(null records) leaves efforts unchanged",
+  acwNull.topics.every((t, i) => t.effort === course.topics[i].effort),
+);
+
+let acwNullTopicsOk = true;
+let acwNullTopics: Course = bad({ topics: [bad(0)] });
+try {
+  acwNullTopics = applyCompletedWork(bad({ ...course, topics: null }), { t1: 60 }, { t1: 120 });
+} catch {
+  acwNullTopicsOk = false;
+}
+check("applyCompletedWork(null topics) does not throw", acwNullTopicsOk);
+check("applyCompletedWork(null topics) yields empty topic list", Array.isArray(acwNullTopics.topics) && acwNullTopics.topics.length === 0);
+
+// NaN values inside the record args are treated as absent (no NaN effort out).
+const acwNaN = applyCompletedWork(course, bad({ t1: NaN }), bad({ t1: NaN }));
+check(
+  "applyCompletedWork(NaN records) keeps efforts finite and unchanged",
+  acwNaN.topics.every((t, i) => Number.isFinite(t.effort) && t.effort === course.topics[i].effort),
+);
+
+// ---- buildReviewBlocks: null study set ------------------------------------
+let brbNullOk = true;
+let brbNull: StudyBlock[] = [bad(0)];
+try {
+  brbNull = buildReviewBlocks(bad(null), dates);
+} catch {
+  brbNullOk = false;
+}
+check("buildReviewBlocks(null study) does not throw", brbNullOk);
+check("buildReviewBlocks(null study) yields no reviews", brbNull.length === 0);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
