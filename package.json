@@ -15,6 +15,7 @@
     "test:ics": "tsx src/lib/ics.test.ts",
     "test:stats": "tsx src/lib/stats.test.ts",
     "test:validate": "tsx src/lib/validate.test.ts",
+    "test:apierror": "tsx src/lib/apiError.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:catalog": "tsx prisma/seedCatalog.ts",
