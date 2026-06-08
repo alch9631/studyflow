@@ -68,7 +68,7 @@ async function jsonComplete<T>(
 }
 
 /** Pull the first JSON object out of a model response (handles stray fences/prose). */
-function stripToJson(text: string): string {
+export function stripToJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const body = fenced ? fenced[1] : text;
   const start = body.indexOf("{");
@@ -115,6 +115,38 @@ const SYLLABUS_SYSTEM =
   "and an ordered list of the topics/chapters a student must study, each with a relative effort " +
   "(1 = normal, 2 = heavy). Keep titles short. Never invent a date that isn't in the text.";
 
+/**
+ * Coerce a raw model object into a safe ExtractedSyllabus. Never throws: a
+ * null/undefined/non-object input, missing fields, non-string/array fields, and
+ * blank/whitespace topic titles all collapse to predictable defaults. The exam
+ * date is passed through verbatim (this layer doesn't validate date formats —
+ * downstream storage does); it only guarantees the shape, not the value.
+ */
+export function normalizeSyllabus(
+  parsed:
+    | { courseName?: unknown; examDate?: unknown; topics?: unknown }
+    | null
+    | undefined,
+): ExtractedSyllabus {
+  const p = parsed ?? {};
+  const rawTopics = Array.isArray(p.topics)
+    ? (p.topics as { title?: unknown; effort?: unknown }[])
+    : [];
+  const topics: { title: string; effort: number }[] = [];
+  for (const t of rawTopics) {
+    if (!t || typeof t.title !== "string") continue;
+    const title = t.title.trim();
+    if (!title) continue;
+    const effort = typeof t.effort === "number" && t.effort > 0 ? t.effort : 1;
+    topics.push({ title, effort });
+  }
+  return {
+    courseName: typeof p.courseName === "string" ? p.courseName : "",
+    examDate: typeof p.examDate === "string" ? p.examDate : "",
+    topics,
+  };
+}
+
 export async function extractSyllabus(text: string): Promise<ExtractedSyllabus> {
   const parsed = await jsonComplete<ExtractedSyllabus>(
     SYLLABUS_SYSTEM,
@@ -122,15 +154,7 @@ export async function extractSyllabus(text: string): Promise<ExtractedSyllabus> 
     SYLLABUS_SCHEMA,
     "syllabus",
   );
-  return {
-    courseName: parsed.courseName ?? "",
-    examDate: parsed.examDate ?? "",
-    topics: Array.isArray(parsed.topics)
-      ? parsed.topics
-          .filter((t) => t && typeof t.title === "string" && t.title.trim())
-          .map((t) => ({ title: t.title.trim(), effort: t.effort > 0 ? t.effort : 1 }))
-      : [],
-  };
+  return normalizeSyllabus(parsed);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +230,7 @@ export async function optimizeStudyPlan(
     OPTIMIZE_SCHEMA,
     "studyplan",
   );
-  return Array.isArray(parsed.items) ? parsed.items : [];
+  return Array.isArray(parsed?.items) ? parsed.items : [];
 }
 
 const ANALYZE_SCHEMA = {
@@ -246,6 +270,43 @@ export type ModuleAnalysis = {
   topics: { title: string; difficulty: number; estMinutes: number }[];
 };
 
+/**
+ * Coerce a raw model object into a safe ModuleAnalysis. Same fail-safe contract
+ * as {@link normalizeSyllabus}: never throws, defaults missing/ill-typed fields,
+ * drops blank-title topics, and clamps non-positive difficulty/estMinutes.
+ */
+export function normalizeModuleAnalysis(
+  parsed:
+    | {
+        summary?: unknown;
+        concepts?: unknown;
+        prerequisites?: unknown;
+        topics?: unknown;
+      }
+    | null
+    | undefined,
+): ModuleAnalysis {
+  const p = parsed ?? {};
+  const rawTopics = Array.isArray(p.topics)
+    ? (p.topics as { title?: unknown; difficulty?: unknown; estMinutes?: unknown }[])
+    : [];
+  const topics: { title: string; difficulty: number; estMinutes: number }[] = [];
+  for (const t of rawTopics) {
+    if (!t || typeof t.title !== "string") continue;
+    const title = t.title.trim();
+    if (!title) continue;
+    const difficulty = typeof t.difficulty === "number" && t.difficulty > 0 ? t.difficulty : 1;
+    const estMinutes = typeof t.estMinutes === "number" && t.estMinutes > 0 ? t.estMinutes : 60;
+    topics.push({ title, difficulty, estMinutes });
+  }
+  return {
+    summary: typeof p.summary === "string" ? p.summary : "",
+    concepts: Array.isArray(p.concepts) ? (p.concepts as string[]) : [],
+    prerequisites: Array.isArray(p.prerequisites) ? (p.prerequisites as string[]) : [],
+    topics,
+  };
+}
+
 /** Analyze uploaded module content into a structured, plannable breakdown. */
 export async function analyzeModuleContent(
   courseName: string,
@@ -257,20 +318,7 @@ export async function analyzeModuleContent(
     ANALYZE_SCHEMA,
     "moduleanalysis",
   );
-  return {
-    summary: parsed.summary ?? "",
-    concepts: Array.isArray(parsed.concepts) ? parsed.concepts : [],
-    prerequisites: Array.isArray(parsed.prerequisites) ? parsed.prerequisites : [],
-    topics: Array.isArray(parsed.topics)
-      ? parsed.topics
-          .filter((t) => t && typeof t.title === "string" && t.title.trim())
-          .map((t) => ({
-            title: t.title.trim(),
-            difficulty: t.difficulty > 0 ? t.difficulty : 1,
-            estMinutes: t.estMinutes > 0 ? t.estMinutes : 60,
-          }))
-      : [],
-  };
+  return normalizeModuleAnalysis(parsed);
 }
 
 const SELFTEST_SCHEMA = {
@@ -312,7 +360,7 @@ export async function generateSelfTests(
     SELFTEST_SCHEMA,
     "selftests",
   );
-  return Array.isArray(parsed.items) ? parsed.items : [];
+  return Array.isArray(parsed?.items) ? parsed.items : [];
 }
 
 export async function interpretProgress(
@@ -326,5 +374,5 @@ export async function interpretProgress(
     PROGRESS_SCHEMA,
     "progress",
   );
-  return Array.isArray(parsed.updates) ? parsed.updates : [];
+  return Array.isArray(parsed?.updates) ? parsed.updates : [];
 }

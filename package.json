@@ -13,6 +13,7 @@
     "test:service": "tsx src/lib/planService.test.ts",
     "test:dates": "tsx src/lib/dates.test.ts",
     "test:ics": "tsx src/lib/ics.test.ts",
+    "test:syllabus": "tsx src/lib/syllabus.test.ts",
     "test:stats": "tsx src/lib/stats.test.ts",
     "test:cache": "tsx src/lib/statsCache.test.ts",
     "test:studytime": "tsx src/lib/studyTime.test.ts",

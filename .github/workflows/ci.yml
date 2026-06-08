@@ -23,6 +23,7 @@ jobs:
       - run: npm run test:service
       - run: npm run test:dates
       - run: npm run test:ics
+      - run: npm run test:syllabus
       - run: npm run test:stats
       - run: npm run test:cache
       - run: npm run build
