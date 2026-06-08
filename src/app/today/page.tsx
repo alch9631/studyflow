@@ -45,13 +45,18 @@ function BlockRow({ b }: { b: Row }) {
         </SubmitButton>
       </ToastForm>
       <span className="min-w-0 flex-1">
-        <span className={`break-words ${b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}`}>
-          {isReview ? "🔁 " : ""}
+        <span className={`block break-words ${b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}`}>
           {b.topicTitle}
         </span>
-        <span className="ml-2 break-words text-xs text-gray-400 dark:text-gray-500">
-          {isReview ? "review · " : ""}
-          {b.course.name}
+        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+          {isReview && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+              🔁 Review
+            </span>
+          )}
+          <span className="inline-flex min-w-0 items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <span className="truncate">📘 {b.course.name}</span>
+          </span>
         </span>
       </span>
       <span className="shrink-0 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
@@ -68,7 +73,7 @@ function BlockRow({ b }: { b: Row }) {
         <input type="hidden" name="revalidate" value="/today" />
         <SubmitButton
           variant="secondary"
-          size="sm"
+          size="md"
           className="whitespace-nowrap"
           title="Log a 25-min focus session"
         >

@@ -71,7 +71,6 @@ export default async function CoursesPage() {
                     name: c.name,
                     examDate: c.examDate.toISOString().slice(0, 10),
                     examInDays: daysUntil(c.examDate, today),
-                    studyDays: c.studyDays,
                     done,
                     total: c.topics.length,
                     apple: { emoji: apple.emoji, label: apple.label, cls: apple.cls },

@@ -152,9 +152,9 @@ export default async function CatalogPage({
               </details>
             ))}
 
-            {/* Single sticky primary action, sitting just above the bottom nav.
+            {/* Single sticky primary action, anchored to the bottom of the viewport.
                 Solid background so module cards scrolling behind it stay legible. */}
-            <div className="sticky bottom-20 z-10 mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg sm:bottom-4 dark:border-gray-800 dark:bg-gray-900">
+            <div className="sticky bottom-4 z-10 mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-800 dark:bg-gray-900">
               <SubmitButton
                 variant="primary"
                 size="lg"
