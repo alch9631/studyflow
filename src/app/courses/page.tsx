@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
@@ -9,7 +10,10 @@ import EmptyState from "@/components/EmptyState";
 import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "My Courses" };
+export const metadata: Metadata = {
+  title: "My Courses",
+  description: "All your modules at a glance — exam countdowns, progress, and what needs attention next.",
+};
 
 export default async function CoursesPage() {
   const userId = await getCurrentUserId();

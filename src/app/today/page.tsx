@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
@@ -10,7 +11,10 @@ import ToastForm from "@/components/ToastForm";
 import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Today" };
+export const metadata: Metadata = {
+  title: "Today",
+  description: "Your study blocks for today — what to work on, in order, and for how long.",
+};
 
 type Row = {
   id: string;

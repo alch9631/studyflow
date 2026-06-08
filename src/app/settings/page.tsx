@@ -7,7 +7,10 @@ import PushReminders from "@/components/PushReminders";
 import { panelClass } from "@/components/ui";
 import { getCalendarToken } from "@/lib/devUser";
 
-export const metadata: Metadata = { title: "Settings · StudyFlow" };
+export const metadata: Metadata = {
+  title: "Settings",
+  description: "Theme, calendar sync, and study reminders for StudyFlow.",
+};
 
 export const dynamic = "force-dynamic";
 

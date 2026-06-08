@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
@@ -7,7 +8,10 @@ import SubmitButton from "@/components/SubmitButton";
 import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Modules" };
+export const metadata: Metadata = {
+  title: "Modules",
+  description: "Browse your program's module catalog and add courses to your study plan in one tap.",
+};
 
 export default async function CatalogPage({
   searchParams,

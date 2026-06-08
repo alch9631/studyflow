@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import NewCourseForm from "./NewCourseForm";
 
-export const metadata = { title: "New course" };
+export const metadata: Metadata = {
+  title: "New course",
+  description: "Add a module and its exam date — StudyFlow builds the study plan for you.",
+};
 
 export default function NewCoursePage() {
   return (

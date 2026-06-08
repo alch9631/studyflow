@@ -32,7 +32,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const course = await prisma.course.findUnique({ where: { id }, select: { name: true } });
-  return { title: course?.name ?? "Course" };
+  return {
+    title: course?.name ?? "Course",
+    description: course
+      ? `Study plan, topics, and deadlines for ${course.name}.`
+      : "Course study plan, topics, and deadlines.",
+  };
 }
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
