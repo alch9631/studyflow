@@ -20,18 +20,5 @@ jobs:
       - run: npx prisma generate
       - run: npx prisma db push
       - run: npx tsc --noEmit
-      - run: npm run test:engine
-      - run: npm run test:service
-      - run: npm run test:dates
-      - run: npm run test:ics
-      - run: npm run test:syllabus
-      - run: npm run test:stats
-      - run: npm run test:cache
-      - run: npm run test:pagination
-      - run: npm run test:block-service
-      - run: npm run test:ownership
-      - run: npm run test:testdb
-      - run: npm run test:today-fetch
-      - run: npm run test:push-routes
-      - run: npm run test:api-routes
+      - run: npm test
       - run: npm run build
