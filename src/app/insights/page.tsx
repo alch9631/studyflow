@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
@@ -8,7 +9,10 @@ import EmptyState from "@/components/EmptyState";
 import { panelClass } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Insights" };
+export const metadata: Metadata = {
+  title: "Insights",
+  description: "Your study streak, weekly consistency, and grade average across every module.",
+};
 
 function fmtMin(min: number): string {
   const h = Math.floor(min / 60);

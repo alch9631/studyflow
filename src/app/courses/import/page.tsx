@@ -1,10 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import ImportForm from "./ImportForm";
 
 // Render per-request so the AI-key gating reflects the current env (not build time).
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Import" };
+export const metadata: Metadata = {
+  title: "Import course",
+  description: "Turn a syllabus or module handbook into a ready-made course and study plan.",
+};
 
 export default function ImportPage() {
   const enabled = isSyllabusAIEnabled();

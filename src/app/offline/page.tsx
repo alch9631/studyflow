@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonClasses } from "@/components/ui";
 
-export const metadata = { title: "Offline" };
+export const metadata: Metadata = {
+  title: "Offline",
+  description: "You're offline — StudyFlow will sync the latest once you're back online.",
+};
 
 export default function OfflinePage() {
   return (

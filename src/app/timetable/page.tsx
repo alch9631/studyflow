@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
@@ -7,7 +8,10 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import AddLectureForm from "./AddLectureForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Timetable" };
+export const metadata: Metadata = {
+  title: "Timetable",
+  description: "Your weekly lecture schedule — add lectures and see your whole week at a glance.",
+};
 
 const DAYS = [
   { v: 1, label: "Monday" },
