@@ -13,10 +13,12 @@ import {
   requireId,
 } from "@/lib/validate";
 import { LIMITS, guardCount } from "@/lib/limits";
+import { checkRateLimit } from "@/lib/rateLimitPolicy";
 
 /** Add a recurring weekly class slot. */
 export async function addLecture(formData: FormData) {
   const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return;
   let title: string;
   let weekday: number;
   try {
@@ -51,6 +53,8 @@ export async function addLecture(formData: FormData) {
 
 /** Remove a class slot. */
 export async function deleteLecture(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return;
   let id: string;
   try {
     id = requireId(formData.get("lectureId"), "Class");

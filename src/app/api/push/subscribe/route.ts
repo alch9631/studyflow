@@ -3,6 +3,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { badRequest, handleApiError } from "@/lib/apiError";
 import { readJsonBody } from "@/lib/validate";
 import { LIMITS, guardCount } from "@/lib/limits";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rateLimitPolicy";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const userId = await getCurrentUserId();
+    // Per-user rate limit before any DB work (429 on breach).
+    if (!checkRateLimit("PUSH", userId)) return rateLimitResponse();
     // Size-guarded JSON read: rejects oversized bodies / bad JSON (400).
     const body = await readJsonBody<{
       endpoint?: string;
