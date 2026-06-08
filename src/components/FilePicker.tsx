@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { buttonClasses } from "./ui";
 
 /**
  * Upload box. Uses a <label>-wrapped input (native click association) rather than
@@ -27,7 +28,7 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
       <span className="text-sm text-gray-500 dark:text-gray-400">
         {name ? `📄 ${name}` : "Tap to choose a file from Files — PDF, TXT, or MD"}
       </span>
-      <span className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white">
+      <span className={buttonClasses("primary", "md")}>
         📎 {name ? "Choose a different file" : "Choose file"}
       </span>
     </label>

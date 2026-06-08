@@ -7,6 +7,7 @@ import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
 import ToastForm from "@/components/ToastForm";
+import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Today" };
@@ -69,7 +70,7 @@ function BlockRow({ b }: { b: Row }) {
         <button
           type="submit"
           title="Log a 25-min focus session"
-          className="whitespace-nowrap rounded-full border border-gray-300 px-2.5 py-1 text-xs font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          className={buttonClasses("secondary", "sm", "whitespace-nowrap")}
         >
           🍅 +25m
         </button>

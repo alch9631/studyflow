@@ -4,6 +4,7 @@ import { todayISO } from "@/lib/planService";
 import { examCountdownLabel } from "@/lib/dates";
 import { gatherStats, lpOf } from "@/lib/stats";
 import EmptyState from "@/components/EmptyState";
+import { panelClass } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Insights" };
@@ -46,7 +47,7 @@ export default async function InsightsPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <h1 className="mb-1 text-2xl font-bold">📊 Insights</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight">📊 Insights</h1>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
         How your studying is actually going.
       </p>
@@ -104,7 +105,7 @@ export default async function InsightsPage() {
 
           {/* Grades — Notenschnitt over graded courses */}
           {graded.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+            <section className={`${panelClass} mt-6 p-5`}>
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold">🎓 Grades</h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -137,7 +138,7 @@ export default async function InsightsPage() {
           )}
 
           {/* This week */}
-          <section className="mt-6 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+          <section className={`${panelClass} mt-6 p-5`}>
             <div className="flex items-baseline justify-between">
               <h2 className="font-semibold">This week</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -160,7 +161,7 @@ export default async function InsightsPage() {
           </section>
 
           {/* Last 7 days activity */}
-          <section className="mt-6 rounded-2xl border border-gray-200 p-5 dark:border-gray-800">
+          <section className={`${panelClass} mt-6 p-5`}>
             <h2 className="mb-3 font-semibold">Last 7 days</h2>
             <div className="flex items-end justify-between gap-2" style={{ height: "96px" }}>
               {last7.map((d) => (
@@ -222,7 +223,7 @@ export default async function InsightsPage() {
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+    <div className={`${panelClass} p-4`}>
       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</div>
       <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{sub}</div>}

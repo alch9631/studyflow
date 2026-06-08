@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
 import ToastForm from "./ToastForm";
+import { buttonClasses } from "./ui";
 
 // Read window origin without a hydration mismatch: server snapshot is "" so SSR
 // and the first client render agree, then it syncs to the real origin.
@@ -47,14 +48,11 @@ export default function CalendarSync({ token }: { token: string }) {
           type="button"
           onClick={copy}
           disabled={!webcalUrl}
-          className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          className={buttonClasses("primary", "sm")}
         >
           {copied ? "Copied ✓" : "Copy"}
         </button>
-        <a
-          href={webcalUrl || undefined}
-          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
-        >
+        <a href={webcalUrl || undefined} className={buttonClasses("secondary", "sm")}>
           Add to calendar
         </a>
         <ToastForm
@@ -67,10 +65,7 @@ export default function CalendarSync({ token }: { token: string }) {
             }
           }}
         >
-          <button
-            type="submit"
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
+          <button type="submit" className={buttonClasses("ghost", "sm")}>
             Reset link
           </button>
         </ToastForm>

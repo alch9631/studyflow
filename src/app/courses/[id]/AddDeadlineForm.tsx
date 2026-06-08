@@ -3,6 +3,7 @@
 import { addAssignment } from "../actions";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
+import { buttonClasses } from "@/components/ui";
 
 const LABEL = "block text-xs font-medium text-gray-500 dark:text-gray-400";
 
@@ -46,10 +47,7 @@ export default function AddDeadlineForm({ courseId }: { courseId: string }) {
           />
         )}
       </Field>
-      <button
-        type="submit"
-        className="mt-5 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-      >
+      <button type="submit" className={buttonClasses("primary", "md", "mt-5")}>
         Add
       </button>
     </ValidatedForm>

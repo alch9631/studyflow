@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { buttonClasses, type ButtonVariant } from "./ui";
+import { buttonClasses, mutedCardClass, type ButtonVariant } from "./ui";
 
 /**
  * The standard "you have no data yet" panel. One friendly headline, one line of
@@ -29,7 +29,7 @@ export default function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-800 dark:bg-gray-900">
+    <div className={`${mutedCardClass} p-6 text-center`}>
       {emoji && <p className="text-2xl">{emoji}</p>}
       <p className="mt-2 font-semibold">{title}</p>
       {description && (

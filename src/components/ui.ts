@@ -39,6 +39,18 @@ export function buttonClasses(
   return `${BASE} ${VARIANTS[variant]} ${SIZES[size]} ${extra}`.trim();
 }
 
-/** The standard surface card: rounded, bordered, dark-mode aware. */
+/**
+ * Card / panel surfaces — one radius (rounded-2xl) and border treatment across
+ * the app. Pick by fill:
+ *   cardClass       — elevated surface, white fill (sits above the page).
+ *   panelClass      — section panel, no fill (sits directly on the page bg).
+ *   mutedCardClass  — tinted/inset surface (empty states, callouts).
+ * Compose with padding/spacing at the callsite, e.g. `${panelClass} p-5`.
+ */
 export const cardClass =
   "rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900";
+
+export const panelClass = "rounded-2xl border border-gray-200 dark:border-gray-800";
+
+export const mutedCardClass =
+  "rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900";

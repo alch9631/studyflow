@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { buttonClasses } from "./ui";
 
 const FOCUS_KEY = "sf-focus-min";
 const BREAK_KEY = "sf-break-min";
@@ -106,16 +107,10 @@ export default function PomodoroTimer() {
         </div>
         {/* Controls inline on wider screens */}
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <button
-            onClick={() => setRunning((r) => !r)}
-            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-          >
+          <button onClick={() => setRunning((r) => !r)} className={buttonClasses("primary", "md")}>
             {running ? "Pause" : "Start"}
           </button>
-          <button
-            onClick={reset}
-            className="rounded-full border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-          >
+          <button onClick={reset} className={buttonClasses("secondary", "md")}>
             Reset
           </button>
           <button
@@ -131,16 +126,10 @@ export default function PomodoroTimer() {
 
       {/* On mobile the controls drop to a full-width row so the label isn't squeezed */}
       <div className="mt-3 flex gap-2 sm:hidden">
-        <button
-          onClick={() => setRunning((r) => !r)}
-          className="flex-1 rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
+        <button onClick={() => setRunning((r) => !r)} className={buttonClasses("primary", "md", "flex-1")}>
           {running ? "Pause" : "Start"}
         </button>
-        <button
-          onClick={reset}
-          className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-        >
+        <button onClick={reset} className={buttonClasses("secondary", "md")}>
           Reset
         </button>
         <button
