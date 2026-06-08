@@ -33,4 +33,5 @@ jobs:
       - run: npm run test:testdb
       - run: npm run test:today-fetch
       - run: npm run test:push-routes
+      - run: npm run test:api-routes
       - run: npm run build
