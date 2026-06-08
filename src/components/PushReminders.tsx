@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buttonClasses } from "./ui";
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -106,15 +107,15 @@ export default function PushReminders() {
         type="button"
         onClick={subscribed ? disable : enable}
         disabled={busy}
-        className={`rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50 ${
-          subscribed
-            ? "border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-            : "bg-brand text-white hover:bg-brand-dark"
-        }`}
+        className={buttonClasses(subscribed ? "secondary" : "primary", "md")}
       >
-        {busy ? "…" : subscribed ? "Turn off reminders" : "🔔 Enable reminders"}
+        {busy ? "Working…" : subscribed ? "Turn off reminders" : "🔔 Enable reminders"}
       </button>
-      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
