@@ -4,11 +4,15 @@
  */
 import {
   applyCompletedWork,
+  buildReviewBlocks,
   generatePlan,
   healPlan,
+  INTENSE_MINUTES_PER_DAY,
+  MIN_MINUTES_PER_EFFORT,
   planForDeadline,
   studyDatesBetween,
   type Course,
+  type StudyBlock,
 } from "./planner";
 
 let passed = 0;
@@ -98,6 +102,438 @@ check("computes a daily pace", near.minutesPerDay > 0 && far.minutesPerDay > 0);
 check("nearer exam needs more minutes/day", near.minutesPerDay > far.minutesPerDay);
 check("comfortable runway is not intense", far.intense === false);
 check("plan covers all topics at computed pace", new Set(near.blocks.map((b) => b.topicId)).size === 3);
+
+// ===========================================================================
+// EDGE CASES — adversarial inputs. The engine must DEGRADE GRACEFULLY: never
+// throw, never emit nonsensical (NaN / negative / over-budget) blocks, and stay
+// bounded. These assert behaviour only; they must not require engine changes.
+// ===========================================================================
+
+/** A block is "well-formed" if its minutes are a finite, positive, bounded number. */
+function blockIsSane(b: StudyBlock, dailyCap?: number): boolean {
+  return (
+    Number.isFinite(b.minutes) &&
+    b.minutes > 0 &&
+    typeof b.date === "string" &&
+    b.date.length === 10 &&
+    (dailyCap === undefined || b.minutes <= dailyCap)
+  );
+}
+
+// ---- Zero-day study window: exam today (start === end) --------------------
+// studyDatesBetween is half-open [start, end), so start === end yields no days.
+
+const zeroWindowDates = studyDatesBetween("2026-06-08", "2026-06-08", [1, 2, 3, 4, 5]);
+check("exam-today window yields zero study dates", zeroWindowDates.length === 0);
+
+const examToday: Course = { ...course, examDate: "2026-06-08" };
+
+// generatePlan over a zero-day window must not crash and must produce nothing.
+let genZeroOk = true;
+let genZero: StudyBlock[] = [];
+try {
+  genZero = generatePlan(examToday, "2026-06-08");
+} catch {
+  genZeroOk = false;
+}
+check("generatePlan(exam today) does not throw", genZeroOk);
+check("generatePlan(exam today) yields empty plan", genZero.length === 0);
+
+// planForDeadline with no days left but real work: no schedule, pace 0, flagged
+// intense (it's literally unschedulable) — never NaN/negative.
+let pfdZeroOk = true;
+let pfdZero = { blocks: [] as StudyBlock[], minutesPerDay: -1, intense: false };
+try {
+  pfdZero = planForDeadline(examToday, "2026-06-08");
+} catch {
+  pfdZeroOk = false;
+}
+check("planForDeadline(exam today) does not throw", pfdZeroOk);
+check("planForDeadline(exam today) schedules nothing", pfdZero.blocks.length === 0);
+check(
+  "planForDeadline(exam today) pace is a finite non-negative number",
+  Number.isFinite(pfdZero.minutesPerDay) && pfdZero.minutesPerDay >= 0,
+);
+check("planForDeadline(exam today) flags unschedulable work as intense", pfdZero.intense === true);
+
+// healPlan with no days left + pending work: empty plan, flagged overloaded.
+let healZeroOk = true;
+let healZero = { blocks: [] as StudyBlock[], isOverloaded: false };
+try {
+  healZero = healPlan(examToday, "2026-06-08");
+} catch {
+  healZeroOk = false;
+}
+check("healPlan(exam today) does not throw", healZeroOk);
+check("healPlan(exam today) yields empty plan", healZero.blocks.length === 0);
+check("healPlan(exam today) flags overload (no time, has work)", healZero.isOverloaded === true);
+
+// buildReviewBlocks with an empty date list must short-circuit to [].
+let reviewZeroOk = true;
+let reviewZero: StudyBlock[] = [];
+try {
+  reviewZero = buildReviewBlocks(genZero, []);
+} catch {
+  reviewZeroOk = false;
+}
+check("buildReviewBlocks(no dates) does not throw", reviewZeroOk);
+check("buildReviewBlocks(no dates) yields no reviews", reviewZero.length === 0);
+
+// Exam strictly BEFORE today (negative window) is treated like zero days.
+let pastOk = true;
+let pastPlan: StudyBlock[] = [];
+try {
+  pastPlan = generatePlan({ ...course, examDate: "2026-06-01" }, "2026-06-08");
+} catch {
+  pastOk = false;
+}
+check("generatePlan(exam in the past) does not throw", pastOk);
+check("generatePlan(exam in the past) yields empty plan", pastPlan.length === 0);
+
+// ---- Overlapping exams: many courses, all deadlines on the SAME day -------
+// At the pure-engine layer each course is planned independently. Planning a
+// batch of courses that all share one exam date must remain stable: every
+// course still gets a sane, bounded, fully-covering plan (nothing dropped,
+// nothing over-budget), regardless of how the deadlines collide.
+const SHARED_EXAM = "2026-07-31";
+const overlapping: Course[] = Array.from({ length: 12 }, (_, i) => ({
+  id: `oc${i}`,
+  name: `Course ${i}`,
+  examDate: SHARED_EXAM,
+  studyDays: [1, 2, 3, 4, 5],
+  minutesPerDay: 120,
+  topics: [
+    { id: `oc${i}-a`, title: `C${i} TopicA`, effort: 1 + (i % 3), done: false },
+    { id: `oc${i}-b`, title: `C${i} TopicB`, effort: 2, done: false },
+  ],
+}));
+
+let overlapOk = true;
+let overlapAllSane = true;
+let overlapAllCovered = true;
+try {
+  for (const c of overlapping) {
+    const r = planForDeadline(c, "2026-06-08");
+    if (!r.blocks.every((b) => blockIsSane(b))) overlapAllSane = false;
+    // every pending topic of this course is represented somewhere in its plan
+    const seen = new Set(r.blocks.map((b) => b.topicId));
+    if (!c.topics.every((t) => seen.has(t.id))) overlapAllCovered = false;
+    if (!Number.isFinite(r.minutesPerDay) || r.minutesPerDay < 0) overlapAllSane = false;
+  }
+} catch {
+  overlapOk = false;
+}
+check("overlapping exams: planning every course does not throw", overlapOk);
+check("overlapping exams: all blocks are well-formed/bounded", overlapAllSane);
+check("overlapping exams: every topic still covered per course", overlapAllCovered);
+
+// Two distinct courses with the SAME exam date and SAME work get the SAME pace
+// (the engine is deterministic and per-course — no cross-talk from collisions).
+const twinA = planForDeadline({ ...overlapping[0], id: "twinA" }, "2026-06-08");
+const twinB = planForDeadline({ ...overlapping[0], id: "twinB" }, "2026-06-08");
+check("overlapping exams: identical courses get identical pace", twinA.minutesPerDay === twinB.minutesPerDay);
+
+// ---- Very large load: many courses, many topics, many sessions ------------
+// A heavy student: 40 courses × 25 topics. The engine must finish quickly,
+// without crashing, and never emit a malformed or unbounded block.
+const BIG_DAILY = 240;
+const bigCourses: Course[] = Array.from({ length: 40 }, (_, ci) => ({
+  id: `big${ci}`,
+  name: `Big ${ci}`,
+  examDate: "2027-06-01", // far out, lots of runway
+  studyDays: [0, 1, 2, 3, 4, 5, 6], // study every day
+  minutesPerDay: BIG_DAILY,
+  topics: Array.from({ length: 25 }, (_, ti) => ({
+    id: `big${ci}-t${ti}`,
+    title: `B${ci} T${ti}`,
+    effort: 1 + (ti % 5),
+    done: false,
+  })),
+}));
+
+const tStart = Date.now();
+let bigOk = true;
+let bigTotalBlocks = 0;
+let bigAllSane = true;
+let bigAllCovered = true;
+try {
+  for (const c of bigCourses) {
+    const r = planForDeadline(c, "2026-06-08");
+    bigTotalBlocks += r.blocks.length;
+    if (!r.blocks.every((b) => blockIsSane(b))) bigAllSane = false;
+    const seen = new Set(r.blocks.map((b) => b.topicId));
+    if (!c.topics.every((t) => seen.has(t.id))) bigAllCovered = false;
+  }
+} catch {
+  bigOk = false;
+}
+const bigElapsedMs = Date.now() - tStart;
+check("large load: planning 40×25 does not throw", bigOk);
+check("large load: produced a non-trivial number of blocks", bigTotalBlocks > 0);
+check("large load: all blocks well-formed/bounded", bigAllSane);
+check("large load: every topic covered across all courses", bigAllCovered);
+// Pure, in-memory work over ~1000 topics should be near-instant. Generous bound
+// guards against accidental O(n²)/runaway regressions without being flaky.
+check(`large load: completes promptly (${bigElapsedMs}ms < 5000ms)`, bigElapsedMs < 5000);
+
+// Single course with a HUGE pile of work crammed into a short window: the plan
+// must stay finite/bounded and the engine must flag it intense rather than melt.
+const crammed: Course = {
+  id: "crammed",
+  name: "Crammed",
+  examDate: "2026-06-15", // ~1 week of study days
+  studyDays: [1, 2, 3, 4, 5],
+  minutesPerDay: 120,
+  topics: Array.from({ length: 200 }, (_, i) => ({
+    id: `cr-t${i}`,
+    title: `Cram ${i}`,
+    effort: 5,
+    done: false,
+  })),
+};
+let cramOk = true;
+let cram = { blocks: [] as StudyBlock[], minutesPerDay: 0, intense: false };
+try {
+  cram = planForDeadline(crammed, "2026-06-08");
+} catch {
+  cramOk = false;
+}
+check("large load: crammed course does not throw", cramOk);
+check("large load: crammed plan blocks all well-formed", cram.blocks.every((b) => blockIsSane(b)));
+check(
+  "large load: crammed pace is finite and bounded above zero",
+  Number.isFinite(cram.minutesPerDay) && cram.minutesPerDay > 0,
+);
+check("large load: crammed course flagged intense", cram.intense === true && cram.minutesPerDay > INTENSE_MINUTES_PER_DAY);
+check("large load: crammed course still covers every topic", new Set(cram.blocks.map((b) => b.topicId)).size === 200);
+
+// ---- Degenerate topic data: zero/negative effort, empty topic set ---------
+// Topics with no real effort shouldn't crash distribution or produce junk.
+const zeroEffort: Course = {
+  ...course,
+  topics: [
+    { id: "z1", title: "Zero", effort: 0, done: false },
+    { id: "z2", title: "Negative", effort: -3, done: false },
+  ],
+};
+let zeroEffortOk = true;
+let zeroEffortPlan = { blocks: [] as StudyBlock[], minutesPerDay: 0, intense: false };
+try {
+  zeroEffortPlan = planForDeadline(zeroEffort, "2026-06-08");
+} catch {
+  zeroEffortOk = false;
+}
+check("zero/negative effort topics do not throw", zeroEffortOk);
+check("zero/negative effort -> nothing to schedule", zeroEffortPlan.blocks.length === 0);
+check(
+  "zero/negative effort -> pace 0, not intense",
+  zeroEffortPlan.minutesPerDay === 0 && zeroEffortPlan.intense === false,
+);
+
+// A course with no topics at all is a no-op, not a crash.
+let noTopicsOk = true;
+let noTopicsPlan: StudyBlock[] = [];
+try {
+  noTopicsPlan = generatePlan({ ...course, topics: [] }, "2026-06-08");
+} catch {
+  noTopicsOk = false;
+}
+check("no-topics course does not throw", noTopicsOk);
+check("no-topics course yields empty plan", noTopicsPlan.length === 0);
+
+// ===========================================================================
+// EDGE CASES, round 2 — STAGGERED overlapping exams, the zero-day boundary,
+// large-scale review generation, and degenerate completion folding. Same
+// contract as above: never throw, never emit malformed/unbounded blocks, and
+// stay bounded. Behaviour-only; no engine changes required.
+// ===========================================================================
+
+// ---- STAGGERED overlapping exam windows -----------------------------------
+// The earlier overlapping test shares ONE exam date. The realistic case is a
+// cluster of exams whose study windows OVERLAP but whose deadlines DIFFER (exam
+// season). Each course is planned independently, so a nearer deadline must yield
+// a stricter (>=) pace than a later one, and every course stays sane/covering.
+const seasonBase: Omit<Course, "id" | "examDate"> = {
+  name: "Season",
+  studyDays: [1, 2, 3, 4, 5],
+  minutesPerDay: 120,
+  topics: [
+    { id: "sa", title: "Topic A", effort: 2, done: false },
+    { id: "sb", title: "Topic B", effort: 3, done: false },
+  ],
+};
+// Windows overlap (all start "now") but deadlines stagger across two weeks.
+const staggered: Course[] = [
+  { ...seasonBase, id: "exam-early", examDate: "2026-06-15", topics: seasonBase.topics.map((t) => ({ ...t })) },
+  { ...seasonBase, id: "exam-mid", examDate: "2026-06-22", topics: seasonBase.topics.map((t) => ({ ...t })) },
+  { ...seasonBase, id: "exam-late", examDate: "2026-06-29", topics: seasonBase.topics.map((t) => ({ ...t })) },
+];
+let staggeredOk = true;
+const staggeredPaces: number[] = [];
+let staggeredAllSane = true;
+let staggeredAllCovered = true;
+try {
+  for (const c of staggered) {
+    const r = planForDeadline(c, "2026-06-08");
+    staggeredPaces.push(r.minutesPerDay);
+    if (!r.blocks.every((b) => blockIsSane(b))) staggeredAllSane = false;
+    const seen = new Set(r.blocks.map((b) => b.topicId));
+    if (!c.topics.every((t) => seen.has(t.id))) staggeredAllCovered = false;
+  }
+} catch {
+  staggeredOk = false;
+}
+check("staggered exams: planning every course does not throw", staggeredOk);
+check("staggered exams: all blocks well-formed/bounded", staggeredAllSane);
+check("staggered exams: every topic covered per course", staggeredAllCovered);
+// Earlier deadline => fewer study days for the same work => stricter-or-equal pace.
+check(
+  "staggered exams: nearer deadline never gets an easier pace",
+  staggeredPaces[0] >= staggeredPaces[1] && staggeredPaces[1] >= staggeredPaces[2],
+);
+
+// ---- Zero available study days BEFORE an exam (window exists, weekdays don't)
+// The window [today, exam) is non-empty, but the course studies on weekdays the
+// window never contains (e.g. exam is the very next day, a Sunday, and the
+// student only studies Saturdays). studyDatesBetween must return [] and every
+// entry point must degrade exactly like the empty-window case.
+// 2026-06-08 is a Monday; 2026-06-13 is the following Saturday.
+const sundayOnlyDates = studyDatesBetween("2026-06-08", "2026-06-13", [0]); // only Sundays in Mon..Fri span
+check("window with no matching weekday yields zero study dates", sundayOnlyDates.length === 0);
+
+const noMatchingDay: Course = {
+  ...course,
+  examDate: "2026-06-13",
+  studyDays: [0], // studies only Sundays, but no Sunday falls in the window
+};
+let noDayGenOk = true;
+let noDayGen: StudyBlock[] = [];
+let noDayPfd = { blocks: [] as StudyBlock[], minutesPerDay: -1, intense: false };
+let noDayHeal = { blocks: [] as StudyBlock[], isOverloaded: false };
+try {
+  noDayGen = generatePlan(noMatchingDay, "2026-06-08");
+  noDayPfd = planForDeadline(noMatchingDay, "2026-06-08");
+  noDayHeal = healPlan(noMatchingDay, "2026-06-08");
+} catch {
+  noDayGenOk = false;
+}
+check("no-matching-study-day: nothing throws", noDayGenOk);
+check("no-matching-study-day: generatePlan yields empty plan", noDayGen.length === 0);
+check("no-matching-study-day: planForDeadline schedules nothing", noDayPfd.blocks.length === 0);
+check(
+  "no-matching-study-day: pace is finite and non-negative",
+  Number.isFinite(noDayPfd.minutesPerDay) && noDayPfd.minutesPerDay >= 0,
+);
+check("no-matching-study-day: unschedulable work flagged intense", noDayPfd.intense === true);
+check("no-matching-study-day: healPlan empty + overloaded", noDayHeal.blocks.length === 0 && noDayHeal.isOverloaded === true);
+
+// Empty studyDays list (student picked no study days at all) behaves the same.
+const noStudyDays: Course = { ...course, studyDays: [] };
+let emptyDaysOk = true;
+let emptyDaysPlan: StudyBlock[] = [];
+try {
+  emptyDaysPlan = generatePlan(noStudyDays, "2026-05-01");
+} catch {
+  emptyDaysOk = false;
+}
+check("empty studyDays list does not throw", emptyDaysOk);
+check("empty studyDays list yields empty plan", emptyDaysPlan.length === 0);
+
+// ---- healPlan overload boundary -------------------------------------------
+// Overload is judged against the MIN-viable floor, not the (always-fitting)
+// spread. Construct work that sits just under and just over the floor for the
+// SAME runway, and confirm the flag flips at the boundary as expected.
+const overloadDates = studyDatesBetween("2026-06-08", "2026-06-15", [1, 2, 3, 4, 5]); // Mon..Fri
+const runwayDays = overloadDates.length;
+const dailyCap = 120;
+const capacity = runwayDays * dailyCap;
+// effort such that effort * MIN_MINUTES_PER_EFFORT is just under capacity.
+const underEffort = Math.floor(capacity / MIN_MINUTES_PER_EFFORT) - 1;
+const overEffort = Math.ceil(capacity / MIN_MINUTES_PER_EFFORT) + 1;
+const underCourse: Course = {
+  ...course,
+  examDate: "2026-06-15",
+  minutesPerDay: dailyCap,
+  topics: [{ id: "u", title: "Under", effort: underEffort, done: false }],
+};
+const overCourse: Course = {
+  ...course,
+  examDate: "2026-06-15",
+  minutesPerDay: dailyCap,
+  topics: [{ id: "o", title: "Over", effort: overEffort, done: false }],
+};
+check("healPlan: work under the floor is NOT overloaded", healPlan(underCourse, "2026-06-08").isOverloaded === false);
+check("healPlan: work over the floor IS overloaded", healPlan(overCourse, "2026-06-08").isOverloaded === true);
+
+// ---- Large-scale spaced-review generation ---------------------------------
+// buildReviewBlocks runs over the full study plan; at large scale it must stay
+// bounded (<= 3 reviews per topic), well-formed, and prompt.
+const bigStudyDates = studyDatesBetween("2026-06-08", "2027-06-08", [0, 1, 2, 3, 4, 5, 6]); // a full year, every day
+const reviewCourse: Course = {
+  id: "review-big",
+  name: "Review Big",
+  examDate: "2027-06-08",
+  studyDays: [0, 1, 2, 3, 4, 5, 6],
+  minutesPerDay: 240,
+  topics: Array.from({ length: 300 }, (_, i) => ({
+    id: `rt${i}`,
+    title: `Review Topic ${i}`,
+    effort: 2,
+    done: false,
+  })),
+};
+// Use the public generatePlan to produce the study set (it drives the same
+// distribute() the engine uses), then exercise review generation over it.
+const bigStudyBlocks = generatePlan(reviewCourse, "2026-06-08");
+const tRev = Date.now();
+let revOk = true;
+let reviews: StudyBlock[] = [];
+try {
+  reviews = buildReviewBlocks(bigStudyBlocks, bigStudyDates);
+} catch {
+  revOk = false;
+}
+const revElapsed = Date.now() - tRev;
+check("large reviews: buildReviewBlocks does not throw", revOk);
+check("large reviews: all review blocks well-formed", reviews.every((b) => blockIsSane(b) && b.kind === "review"));
+// At most 3 review sessions per distinct topic (intervals 1/3/7).
+const reviewsByTopic = new Map<string, number>();
+for (const r of reviews) reviewsByTopic.set(r.topicId, (reviewsByTopic.get(r.topicId) ?? 0) + 1);
+check("large reviews: never more than 3 reviews per topic", [...reviewsByTopic.values()].every((n) => n <= 3));
+check(`large reviews: completes promptly (${revElapsed}ms < 5000ms)`, revElapsed < 5000);
+
+// ---- applyCompletedWork: degenerate / adversarial completion data ---------
+// Folding must never produce NaN/negative/over-100% effort even when callers
+// pass junk (over-completion, zero planned, negative numbers, missing topics).
+const foldBase: Course = {
+  ...course,
+  topics: [
+    { id: "f1", title: "F1", effort: 4, done: false },
+    { id: "f2", title: "F2", effort: 2, done: false },
+  ],
+};
+// Over-completion: done > planned must clamp to done (drop out), not go negative.
+const over = applyCompletedWork(foldBase, { f1: 500 }, { f1: 100 });
+const overF1 = over.topics.find((t) => t.id === "f1")!;
+check("fold: over-completion marks topic done (no negative effort)", overF1.done === true);
+check("fold: over-completed topics never carry negative effort", over.topics.every((t) => t.effort >= 0));
+// Zero planned minutes: can't compute a fraction -> leave the topic untouched.
+const zeroPlanned = applyCompletedWork(foldBase, { f1: 50 }, { f1: 0 });
+check("fold: zero planned minutes leaves effort unchanged", zeroPlanned.topics.find((t) => t.id === "f1")!.effort === 4);
+// Completion for a topic that isn't in the course is simply ignored.
+let ghostOk = true;
+try {
+  applyCompletedWork(foldBase, { ghost: 90 }, { ghost: 120 });
+} catch {
+  ghostOk = false;
+}
+check("fold: completion for an unknown topic does not throw", ghostOk);
+// All efforts stay finite and non-negative across a messy fold.
+const messyFold = applyCompletedWork(foldBase, { f1: 30, f2: -10 }, { f1: 120, f2: 90 });
+check(
+  "fold: messy completion still yields finite, non-negative efforts",
+  messyFold.topics.every((t) => Number.isFinite(t.effort) && t.effort >= 0),
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

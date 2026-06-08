@@ -145,5 +145,124 @@ check(
   noneCompleted.topics.every((t, i) => t.effort === foldCourse.topics[i].effort),
 );
 
+// ===========================================================================
+// EDGE CASES — the pure mapping/folding layer under adversarial inputs:
+// overlapping/zero-day exam windows and very large course/topic loads. These
+// functions feed the global scheduler, so they must stay total (never throw),
+// finite, and bounded no matter what the DB hands them. Behaviour-only.
+// ===========================================================================
+
+type DbCourse = typeof dbCourse;
+type DbFoldCourse = typeof foldCourse;
+
+// ---- toEngineCourse: zero-day / past exam windows -------------------------
+// toEngineCourse just maps shapes; an exam in the past or today is mapped
+// faithfully (the engine, not the mapper, decides it's unschedulable).
+const pastExam = toEngineCourse({ ...dbCourse, examDate: new Date("2020-01-01T00:00:00Z") });
+check("toEngineCourse: past exam date maps faithfully", pastExam.examDate === "2020-01-01");
+const examTodayMap = toEngineCourse({ ...dbCourse, examDate: new Date("2026-06-08T00:00:00Z") });
+check("toEngineCourse: exam-today date maps faithfully", examTodayMap.examDate === "2026-06-08");
+
+// Non-midnight DB timestamps still map to the correct calendar day (no TZ slip
+// in the mapping itself — examDate is sliced from the ISO string).
+const lateTs = toEngineCourse({ ...dbCourse, examDate: new Date("2026-06-20T23:30:00Z") });
+check("toEngineCourse: late-in-day UTC timestamp keeps its calendar date", lateTs.examDate === "2026-06-20");
+
+// ---- foldCompletedSessions: zero-day window with completed work -----------
+// Even when the exam is in the past, folding completion is purely arithmetic and
+// must still behave (drop fully-done topics, shrink partials) without throwing.
+const pastCourseFold = foldCompletedSessions({
+  ...foldCourse,
+  examDate: new Date("2020-01-01T00:00:00Z"),
+});
+check(
+  "fold: past-exam course still folds without throwing",
+  pastCourseFold.topics.find((t) => t.id === "t1")!.effort === 2,
+);
+
+// ---- foldCompletedSessions: over-completion / zero-planned guards ----------
+// A topic logged for more minutes than were ever planned must drop out (done),
+// never carry negative effort. A topic with completed minutes but ZERO planned
+// (shouldn't happen, but DB drift is real) must be left untouched, not NaN.
+const weirdFold = foldCompletedSessions({
+  ...foldCourse,
+  blocks: [
+    // t1: 60 planned but 300 completed -> over-completed -> done.
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-08T00:00:00Z"), minutes: 60, completed: true },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-09T00:00:00Z"), minutes: 240, completed: true },
+    // t2: a completed block with 0 minutes -> planned 0 from this block, no fold.
+    { topicId: "t2", topicTitle: "Graphs", date: new Date("2026-06-10T00:00:00Z"), minutes: 0, completed: true },
+  ],
+});
+const wf1 = weirdFold.topics.find((t) => t.id === "t1")!;
+const wf2 = weirdFold.topics.find((t) => t.id === "t2")!;
+check("fold: over-completed topic marked done", wf1.done === true);
+check("fold: no topic ends with negative effort", weirdFold.topics.every((t) => t.effort >= 0));
+check("fold: zero-planned topic keeps full effort", wf2.effort === 4 && wf2.done === false);
+check("fold: all efforts stay finite", weirdFold.topics.every((t) => Number.isFinite(t.effort)));
+
+// ---- Overlapping exam windows across many courses (mapping layer) ---------
+// A batch of courses whose windows overlap (exam season) is mapped one-by-one.
+// Mapping is per-course and stateless, so a shared/overlapping exam date causes
+// no cross-talk: each maps to exactly its own shape.
+const SHARED = new Date("2026-07-31T00:00:00Z");
+const overlappingDb: DbCourse[] = Array.from({ length: 15 }, (_, i) => ({
+  ...dbCourse,
+  id: `oc${i}`,
+  name: `Overlap ${i}`,
+  examDate: SHARED,
+  topics: [
+    { id: `oc${i}-a`, title: `A${i}`, effort: 1 + (i % 3), done: false },
+    { id: `oc${i}-b`, title: `B${i}`, effort: 2, done: i % 2 === 0 },
+  ],
+}));
+let overlapMapOk = true;
+let overlapMappedRight = true;
+try {
+  for (let i = 0; i < overlappingDb.length; i++) {
+    const e = toEngineCourse(overlappingDb[i]);
+    if (e.id !== `oc${i}` || e.examDate !== "2026-07-31" || e.topics.length !== 2) overlapMappedRight = false;
+  }
+} catch {
+  overlapMapOk = false;
+}
+check("overlapping exams: mapping a batch does not throw", overlapMapOk);
+check("overlapping exams: each course maps to its own shape (no cross-talk)", overlapMappedRight);
+
+// ---- Very large course/topic load (mapping + folding) ---------------------
+// A heavy student: one course with 1,000 topics, each with two completed-ish
+// blocks. Mapping and folding must finish quickly and stay well-formed.
+const BIG_TOPICS = 1000;
+const bigDbTopics = Array.from({ length: BIG_TOPICS }, (_, i) => ({
+  id: `bt${i}`,
+  title: `Big Topic ${i}`,
+  effort: 1 + (i % 4),
+  done: false,
+}));
+const bigDbCourse: DbFoldCourse = {
+  ...foldCourse,
+  id: "big",
+  topics: bigDbTopics,
+  blocks: bigDbTopics.flatMap((t, i) => [
+    // half of each topic done -> effort should roughly halve for every topic.
+    { topicId: t.id, topicTitle: t.title, date: new Date("2026-06-08T00:00:00Z"), minutes: 60, completed: i % 3 !== 0 },
+    { topicId: t.id, topicTitle: t.title, date: new Date("2026-06-09T00:00:00Z"), minutes: 60, completed: false },
+  ]),
+};
+const tBig = Date.now();
+let bigFoldOk = true;
+let bigFolded = { topics: [] as { id: string; effort: number; done: boolean }[] };
+try {
+  bigFolded = foldCompletedSessions(bigDbCourse) as typeof bigFolded;
+} catch {
+  bigFoldOk = false;
+}
+const bigElapsed = Date.now() - tBig;
+check("large load: mapping the course also works", toEngineCourse(bigDbCourse).topics.length === BIG_TOPICS);
+check("large load: folding 1000 topics does not throw", bigFoldOk);
+check("large load: every topic survives the fold", bigFolded.topics.length === BIG_TOPICS);
+check("large load: all folded efforts finite and non-negative", bigFolded.topics.every((t) => Number.isFinite(t.effort) && t.effort >= 0));
+check(`large load: folding completes promptly (${bigElapsed}ms < 5000ms)`, bigElapsed < 5000);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
