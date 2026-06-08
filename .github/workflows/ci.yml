@@ -29,6 +29,7 @@ jobs:
       - run: npm run test:cache
       - run: npm run test:pagination
       - run: npm run test:block-service
+      - run: npm run test:ownership
       - run: npm run test:testdb
       - run: npm run test:today-fetch
       - run: npm run test:push-routes
