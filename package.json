@@ -14,6 +14,7 @@
     "test:dates": "tsx src/lib/dates.test.ts",
     "test:ics": "tsx src/lib/ics.test.ts",
     "test:stats": "tsx src/lib/stats.test.ts",
+    "test:cache": "tsx src/lib/statsCache.test.ts",
     "test:studytime": "tsx src/lib/studyTime.test.ts",
     "test:validate": "tsx src/lib/validate.test.ts",
     "test:limits": "tsx src/lib/limits.test.ts",

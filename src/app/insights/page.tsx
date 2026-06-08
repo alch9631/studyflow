@@ -2,7 +2,8 @@ import Link from "next/link";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { examCountdownLabel } from "@/lib/dates";
-import { gatherStats, lpOf } from "@/lib/stats";
+import { lpOf } from "@/lib/stats";
+import { getStatsCached } from "@/lib/statsCache";
 import EmptyState from "@/components/EmptyState";
 import { panelClass } from "@/components/ui";
 
@@ -19,7 +20,7 @@ function fmtMin(min: number): string {
 
 export default async function InsightsPage() {
   const userId = await getCurrentUserId();
-  const stats = await gatherStats(userId, todayISO());
+  const stats = await getStatsCached(userId, todayISO());
 
   const {
     hasData,
