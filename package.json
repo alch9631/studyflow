@@ -19,6 +19,7 @@
     "test:limits": "tsx src/lib/limits.test.ts",
     "test:ratelimit": "tsx src/lib/rateLimitPolicy.test.ts",
     "test:push-routes": "tsx src/lib/pushRoutes.test.ts",
+    "test:route-errors": "tsx src/lib/routeErrors.test.ts",
     "test:apierror": "tsx src/lib/apiError.test.ts",
     "test:export": "tsx src/lib/export.test.ts",
     "test:today-fetch": "tsx src/lib/todayFetch.test.ts",
