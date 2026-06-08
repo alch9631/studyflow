@@ -5,6 +5,7 @@ import FilePicker from "@/components/FilePicker";
 import SubmitButton from "@/components/SubmitButton";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
+import { Textarea } from "@/components/ui/textarea";
 
 const DAYS = [
   { v: 1, label: "Mon" },
@@ -37,12 +38,12 @@ export default function ImportForm({ enabled }: { enabled: boolean }) {
 
       <Field name="syllabus" label="…or paste syllabus text">
         {(p) => (
-          <textarea
+          <Textarea
             {...p}
             rows={8}
             disabled={!enabled}
             placeholder="Paste the whole syllabus here — weeks, chapters, exam dates, anything."
-            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 font-mono text-xs aria-[invalid]:border-red-500 disabled:bg-gray-100 dark:disabled:bg-gray-800"
+            className="mt-1 w-full font-mono text-xs disabled:bg-gray-100 dark:disabled:bg-gray-800"
           />
         )}
       </Field>
