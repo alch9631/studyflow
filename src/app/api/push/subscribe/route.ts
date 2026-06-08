@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { badRequest, handleApiError } from "@/lib/apiError";
-import { readJsonBody } from "@/lib/validate";
+import { handleApiError } from "@/lib/apiError";
+import { readJsonBody, requireBodyString } from "@/lib/validate";
 import { LIMITS, guardCount } from "@/lib/limits";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rateLimitPolicy";
 
@@ -15,19 +15,16 @@ export async function POST(req: Request) {
     if (!checkRateLimit("PUSH", userId)) return rateLimitResponse();
     // Size-guarded JSON read: rejects oversized bodies / bad JSON (400).
     const body = await readJsonBody<{
-      endpoint?: string;
-      keys?: { p256dh?: string; auth?: string };
+      endpoint?: unknown;
+      keys?: { p256dh?: unknown; auth?: unknown };
     }>(req, LIMITS.MAX_REQUEST_BODY_BYTES);
-    const endpoint = body.endpoint;
-    const p256dh = body.keys?.p256dh;
-    const auth = body.keys?.auth;
-    if (!endpoint || !p256dh || !auth) {
-      return badRequest("Missing required fields.");
-    }
-    // Bound the fields so an oversized payload can't reach the DB write.
-    if (endpoint.length > 2000 || p256dh.length > 500 || auth.length > 500) {
-      return badRequest("Field too long.");
-    }
+    // Validate every field through the shared body-string validator (presence +
+    // length bound) — the same helper the rest of the input layer uses, so a
+    // missing or oversized field becomes a clean 400 via handleApiError before
+    // anything reaches the DB write.
+    const endpoint = requireBodyString(body.endpoint, "Endpoint", LIMITS.MAX_FIELD_LENGTH);
+    const p256dh = requireBodyString(body.keys?.p256dh, "p256dh key", 500);
+    const auth = requireBodyString(body.keys?.auth, "auth key", 500);
     // Cap subscriptions per user, but only when this endpoint is new (an upsert
     // of an existing endpoint must still be allowed to refresh its keys).
     // Existence check only — no need to load the stored keys.

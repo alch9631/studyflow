@@ -51,6 +51,20 @@ async function main() {
     check("subscribe with missing keys is a 400 (validation reached)", res.status === 400);
   }
 
+  // --- subscribe: an oversized field is rejected by requireBodyString (400, not 429).
+  {
+    const res = await subscribePOST(
+      jsonPost({ endpoint: "x".repeat(3000), keys: { p256dh: "k", auth: "a" } }),
+    );
+    check("subscribe with oversized endpoint is a 400 (requireBodyString)", res.status === 400);
+  }
+
+  // --- unsubscribe: missing endpoint hits validation (400) on a fresh budget.
+  {
+    const res = await unsubscribePOST(jsonPost({}));
+    check("unsubscribe with missing endpoint is a 400 (validation reached)", res.status === 400);
+  }
+
   // --- subscribe: once the per-user PUSH budget is exhausted -> 429 RATE_LIMITED.
   {
     drainPushBudget(userId);
