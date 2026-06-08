@@ -10,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import ToastForm from "@/components/ToastForm";
 import OptimisticToggleForm from "@/components/OptimisticToggleForm";
 import SubmitButton from "@/components/SubmitButton";
+import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -333,13 +334,13 @@ export default async function TodayPage() {
       )}
 
       {blocks.length > 0 ? (
-        <ul className="space-y-2">
+        <AnimatedList className="space-y-2">
           {blocks.map((b) => (
-            <li key={b.id}>
+            <AnimatedListItem key={b.id}>
               <BlockRow b={b} />
-            </li>
+            </AnimatedListItem>
           ))}
-        </ul>
+        </AnimatedList>
       ) : hasNoPlan ? (
         <EmptyState
           emoji="🚀"
@@ -370,13 +371,13 @@ export default async function TodayPage() {
                   {nextBlocks.length}
                 </span>
               </summary>
-              <ul className="space-y-2 px-3 pb-3">
+              <AnimatedList className="space-y-2 px-3 pb-3">
                 {nextBlocks.map((b) => (
-                  <li key={b.id}>
+                  <AnimatedListItem key={b.id}>
                     <BlockRow b={b} />
-                  </li>
+                  </AnimatedListItem>
                 ))}
-              </ul>
+              </AnimatedList>
             </details>
           )}
         </div>

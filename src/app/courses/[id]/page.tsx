@@ -25,6 +25,7 @@ import { iconButtonClass } from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
+import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
 
@@ -376,13 +377,13 @@ export default async function CoursePage({
         {course.assignments.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">No deadlines yet.</p>
         ) : (
-          <ul className="space-y-2">
+          <AnimatedList className="space-y-2">
             {course.assignments.map((a) => {
               const days = daysUntil(a.dueDate, todayISO());
               const due = a.dueDate.toISOString().slice(0, 10);
               const urgent = !a.done && days <= 3;
               return (
-                <li
+                <AnimatedListItem
                   key={a.id}
                   className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800"
                 >
@@ -442,23 +443,23 @@ export default async function CoursePage({
                     confirmLabel="Delete deadline"
                     pendingLabel="Removing…"
                   />
-                </li>
+                </AnimatedListItem>
               );
             })}
-          </ul>
+          </AnimatedList>
         )}
       </section>
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Topics</h2>
-        <ul className="space-y-2">
+        <AnimatedList className="space-y-2">
           {course.topics.map((t) => {
             let questions: string[] = [];
             try {
               questions = t.questions ? (JSON.parse(t.questions) as string[]) : [];
             } catch {}
             return (
-              <li key={t.id}>
+              <AnimatedListItem key={t.id}>
                 <OptimisticToggleForm
                   action={toggleTopic}
                   done={t.done}
@@ -501,13 +502,15 @@ export default async function CoursePage({
                     </ul>
                   </details>
                 )}
-              </li>
+              </AnimatedListItem>
             );
           })}
           {course.topics.length === 0 && (
-            <li className="text-sm text-gray-500 dark:text-gray-400">No topics added.</li>
+            <AnimatedListItem key="empty" className="text-sm text-gray-500 dark:text-gray-400">
+              No topics added.
+            </AnimatedListItem>
           )}
-        </ul>
+        </AnimatedList>
       </section>
 
       <section>
