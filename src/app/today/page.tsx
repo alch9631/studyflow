@@ -74,11 +74,38 @@ export default async function TodayPage() {
   const start = new Date(today + "T00:00:00Z");
   const end = new Date(start.getTime() + 86400_000);
 
-  const blocks = (await prisma.studyBlock.findMany({
-    where: { date: { gte: start, lt: end }, course: { userId } },
-    include: { course: { select: { name: true, id: true } } },
-    orderBy: [{ kind: "asc" }, { minutes: "desc" }],
-  })) as Row[];
+  // These four reads are independent, so fire them concurrently in a single
+  // round-trip batch instead of awaiting one after another (avoids a serial
+  // query waterfall). Identical results — only the wall-clock timing changes.
+  const [blocks, nextExam, todaysLectures, upcomingDeadlines] = await Promise.all([
+    prisma.studyBlock.findMany({
+      where: { date: { gte: start, lt: end }, course: { userId } },
+      include: { course: { select: { name: true, id: true } } },
+      orderBy: [{ kind: "asc" }, { minutes: "desc" }],
+    }) as Promise<Row[]>,
+    // Nearest upcoming exam, for a motivating header line / focus banner.
+    prisma.course.findFirst({
+      where: { userId, examDate: { gte: start } },
+      orderBy: { examDate: "asc" },
+      select: { id: true, name: true, examDate: true },
+    }),
+    // Today's recurring classes (lectures/tutorials/labs).
+    prisma.lecture.findMany({
+      where: { userId, weekday: new Date(today + "T00:00:00Z").getUTCDay() },
+      orderBy: { startMin: "asc" },
+    }),
+    // Open deadlines due within the next 2 weeks, soonest first.
+    prisma.assignment.findMany({
+      where: {
+        done: false,
+        course: { userId },
+        dueDate: { lt: new Date(start.getTime() + 14 * 86400_000) },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 6,
+      include: { course: { select: { name: true, id: true } } },
+    }),
+  ]);
 
   let nextDate = "";
   let nextBlocks: Row[] = [];
@@ -99,33 +126,8 @@ export default async function TodayPage() {
     }
   }
 
-  // Nearest upcoming exam, for a motivating header line / focus banner.
-  const nextExam = await prisma.course.findFirst({
-    where: { userId, examDate: { gte: start } },
-    orderBy: { examDate: "asc" },
-    select: { id: true, name: true, examDate: true },
-  });
   const nextExamDays = nextExam ? daysUntil(nextExam.examDate, today) : null;
   const examWeek = nextExamDays !== null && nextExamDays <= 7; // focus mode
-
-  // Today's recurring classes (lectures/tutorials/labs).
-  const weekday = new Date(today + "T00:00:00Z").getUTCDay();
-  const todaysLectures = await prisma.lecture.findMany({
-    where: { userId, weekday },
-    orderBy: { startMin: "asc" },
-  });
-
-  // Open deadlines due within the next 2 weeks, soonest first.
-  const upcomingDeadlines = await prisma.assignment.findMany({
-    where: {
-      done: false,
-      course: { userId },
-      dueDate: { lt: new Date(start.getTime() + 14 * 86400_000) },
-    },
-    orderBy: { dueDate: "asc" },
-    take: 6,
-    include: { course: { select: { name: true, id: true } } },
-  });
 
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
