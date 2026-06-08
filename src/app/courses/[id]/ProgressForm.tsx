@@ -3,6 +3,7 @@
 import { applyProgress } from "../actions";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
+import { buttonClasses } from "@/components/ui";
 
 /**
  * Plain-language progress update. Required field surfaces an inline error and
@@ -27,10 +28,7 @@ export default function ProgressForm({ courseId }: { courseId: string }) {
           />
         )}
       </Field>
-      <button
-        type="submit"
-        className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
-      >
+      <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
         ✨ Apply &amp; rebuild plan
       </button>
     </ValidatedForm>

@@ -154,10 +154,7 @@ export default async function CatalogPage({
             {/* Single sticky primary action, sitting just above the bottom nav.
                 Solid background so module cards scrolling behind it stay legible. */}
             <div className="sticky bottom-20 z-10 mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg sm:bottom-4 dark:border-gray-800 dark:bg-gray-900">
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
-              >
+              <button type="submit" className={buttonClasses("primary", "lg", "w-full")}>
                 Add selected →
               </button>
             </div>

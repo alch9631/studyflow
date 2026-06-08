@@ -2,6 +2,7 @@
 
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
+import { buttonClasses, panelClass } from "@/components/ui";
 import { addLecture } from "./actions";
 
 const DAYS = [
@@ -54,7 +55,7 @@ export default function AddLectureForm({
       successMessage="Class added to your timetable."
       errorMessage="Couldn't add that class — check the times and try again."
       validate={validate}
-      className="mb-6 space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-800"
+      className={`${panelClass} mb-6 space-y-3 p-4`}
     >
       <div className="flex flex-wrap gap-3">
         <Field
@@ -123,10 +124,7 @@ export default function AddLectureForm({
           )}
         </Field>
       )}
-      <button
-        type="submit"
-        className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
-      >
+      <button type="submit" className={buttonClasses("primary", "lg")}>
         Add class
       </button>
     </ValidatedForm>

@@ -34,7 +34,7 @@ export default async function CoursesPage() {
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">My Courses</h1>
+        <h1 className="text-2xl font-bold tracking-tight">My Courses</h1>
         <Link href="/courses/new" className={buttonClasses("primary", "md", "shrink-0")}>
           + New course
         </Link>

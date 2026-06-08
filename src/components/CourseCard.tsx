@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { editCourse, deleteCourse, type EditState } from "@/app/courses/actions";
 import { examCountdownLabel } from "@/lib/dates";
+import { buttonClasses, cardClass } from "./ui";
 
 const DAYS = [
   { v: 1, label: "Mon" },
@@ -30,11 +31,7 @@ export type CardCourse = {
 function SaveButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-    >
+    <button type="submit" disabled={pending} className={buttonClasses("primary", "md")}>
       {pending ? "Saving…" : "Save"}
     </button>
   );
@@ -43,11 +40,7 @@ function SaveButton() {
 function DeleteButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
-    >
+    <button type="submit" disabled={pending} className={buttonClasses("danger", "md")}>
       {pending ? "Deleting…" : "🗑 Delete"}
     </button>
   );
@@ -60,7 +53,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
   const days = course.studyDays.split(",");
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className={`${cardClass} p-4 shadow-sm transition-shadow hover:shadow-md`}>
       {/* Header: priority + name, exam date */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
@@ -105,17 +98,14 @@ export default function CourseCard({ course }: { course: CardCourse }) {
 
       {/* Actions */}
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          href={`/courses/${course.id}`}
-          className="rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-dark"
-        >
+        <Link href={`/courses/${course.id}`} className={buttonClasses("primary", "md")}>
           Open →
         </Link>
         <button
           type="button"
           aria-expanded={editing}
           onClick={() => setEditing((e) => !e)}
-          className="rounded-full border border-gray-300 dark:border-gray-700 px-4 py-1.5 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
+          className={buttonClasses("secondary", "md")}
         >
           {editing ? "✕ Close" : "✏️ Edit"}
         </button>

@@ -20,6 +20,7 @@ import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
+import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -141,7 +142,7 @@ export default async function CoursePage({
 
       <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold tracking-tight">
             {course.name}
             {course.aiOptimized && (
               <span className="ml-2 align-middle rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-brand dark:bg-blue-950/50">
@@ -173,20 +174,14 @@ export default async function CoursePage({
           {isSyllabusAIEnabled() && (
             <form action={reoptimizeCourse} className="w-full sm:w-auto">
               <input type="hidden" name="courseId" value={course.id} />
-              <button
-                type="submit"
-                className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
-              >
+              <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
                 ✨ Optimize with AI
               </button>
             </form>
           )}
           <form action={healCourse} className="w-full sm:w-auto">
             <input type="hidden" name="courseId" value={course.id} />
-            <button
-              type="submit"
-              className="w-full rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 sm:w-auto"
-            >
+            <button type="submit" className={buttonClasses("secondary", "md", "w-full sm:w-auto")}>
               😵‍💫 I fell behind — replan
             </button>
           </form>
@@ -232,10 +227,7 @@ export default async function CoursePage({
               ))}
             </div>
           </fieldset>
-          <button
-            type="submit"
-            className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
-          >
+          <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
             Save & rebuild plan
           </button>
         </form>
@@ -258,10 +250,7 @@ export default async function CoursePage({
               className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
             />
           </div>
-          <button
-            type="submit"
-            className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-          >
+          <button type="submit" className={buttonClasses("secondary", "md")}>
             Save grade
           </button>
           <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -271,10 +260,7 @@ export default async function CoursePage({
 
         <form action={deleteCourse} className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
           <input type="hidden" name="courseId" value={course.id} />
-          <button
-            type="submit"
-            className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
-          >
+          <button type="submit" className={buttonClasses("danger", "md")}>
             🗑 Delete this course
           </button>
         </form>
@@ -311,10 +297,7 @@ export default async function CoursePage({
           <form action={analyzeModuleUpload} className="space-y-3">
             <input type="hidden" name="courseId" value={course.id} />
             <FilePicker />
-            <button
-              type="submit"
-              className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
-            >
+            <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
               ✨ Analyze file &amp; rebuild plan from its content
             </button>
           </form>
