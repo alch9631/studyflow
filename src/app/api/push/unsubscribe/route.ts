@@ -1,21 +1,26 @@
 import { prisma } from "@/lib/db";
+import { badRequest, handleApiError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 
 /** Remove a browser push subscription by endpoint. */
 export async function POST(req: Request) {
-  let body: { endpoint?: string };
   try {
-    body = await req.json();
-  } catch {
-    return Response.json({ ok: false, error: "bad json" }, { status: 400 });
+    let body: { endpoint?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return badRequest("Invalid JSON body.");
+    }
+    if (!body.endpoint) {
+      return badRequest("Missing endpoint.");
+    }
+    if (body.endpoint.length > 2000) {
+      return badRequest("Field too long.");
+    }
+    await prisma.pushSubscription.deleteMany({ where: { endpoint: body.endpoint } });
+    return Response.json({ ok: true });
+  } catch (err) {
+    return handleApiError(err);
   }
-  if (!body.endpoint) {
-    return Response.json({ ok: false, error: "missing endpoint" }, { status: 400 });
-  }
-  if (body.endpoint.length > 2000) {
-    return Response.json({ ok: false, error: "field too long" }, { status: 400 });
-  }
-  await prisma.pushSubscription.deleteMany({ where: { endpoint: body.endpoint } });
-  return Response.json({ ok: true });
 }
