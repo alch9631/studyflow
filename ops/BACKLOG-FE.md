@@ -8,7 +8,7 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (research) a
 - [x] Empty states with clear CTAs (no courses yet, no plan yet, no exams) — PR #14
 - [x] Full mobile-responsive pass across every page (test at 375px width) — PR #16
 - [x] User feedback on server actions: toast/inline success + error states — PR #19
-- [ ] Dark-mode audit + consistency across all components
+- [x] Dark-mode audit + consistency across all components — PR #20
 - [ ] Landing page polish: hero, feature grid, social proof, strong CTA
 - [ ] Accessible forms: labels, inline validation errors, focus management
 - [ ] Consistent design tokens (buttons, cards, spacing, type scale) on remaining pages
