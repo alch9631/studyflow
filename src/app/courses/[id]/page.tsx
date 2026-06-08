@@ -395,7 +395,7 @@ export default async function CoursePage({
                     </button>
                   </form>
                   <span className="min-w-0 flex-1">
-                    <span className={a.done ? "text-gray-400 line-through dark:text-gray-500" : "font-medium"}>
+                    <span className={`break-words ${a.done ? "text-gray-400 line-through dark:text-gray-500" : "font-medium"}`}>
                       {a.title}
                     </span>
                     <span
@@ -439,12 +439,12 @@ export default async function CoursePage({
             } catch {}
             return (
               <li key={t.id}>
-                <form action={toggleTopic} className="flex items-center gap-2">
+                <form action={toggleTopic} className="flex items-start gap-2">
                   <input type="hidden" name="topicId" value={t.id} />
                   <input type="hidden" name="courseId" value={course.id} />
                   <button
                     type="submit"
-                    className={`flex h-5 w-5 items-center justify-center rounded border ${
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
                       t.done
                         ? "border-green-500 bg-green-500 text-white"
                         : "border-gray-300 dark:border-gray-700"
@@ -453,7 +453,7 @@ export default async function CoursePage({
                   >
                     {t.done ? "✓" : ""}
                   </button>
-                  <span className={t.done ? "text-gray-400 dark:text-gray-500 line-through" : ""}>
+                  <span className={`min-w-0 break-words ${t.done ? "text-gray-400 dark:text-gray-500 line-through" : ""}`}>
                     {t.title}
                   </span>
                 </form>
@@ -498,10 +498,10 @@ export default async function CoursePage({
                     {blocks.map((b) => (
                       <li
                         key={b.id}
-                        className="flex justify-between text-sm text-gray-600 dark:text-gray-300"
+                        className="flex justify-between gap-3 text-sm text-gray-600 dark:text-gray-300"
                       >
-                        <span>{b.topicTitle}</span>
-                        <span className="text-gray-400 dark:text-gray-500">{b.minutes} min</span>
+                        <span className="min-w-0 break-words">{b.topicTitle}</span>
+                        <span className="shrink-0 whitespace-nowrap text-gray-400 dark:text-gray-500">{b.minutes} min</span>
                       </li>
                     ))}
                   </ul>
