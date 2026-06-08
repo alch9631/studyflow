@@ -38,6 +38,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
     "@prisma/client": "^6.19.3",
+    "@radix-ui/react-dialog": "^1.1.16",
+    "@radix-ui/react-dropdown-menu": "^2.1.17",
     "@radix-ui/react-slot": "^1.2.5",
     "@supabase/supabase-js": "^2.107.0",
     "class-variance-authority": "^0.7.1",

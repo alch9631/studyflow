@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { iconButtonClass } from "./ui";
+import SettingsMenu from "./SettingsMenu";
 
 type Tab = { href: string; label: string; icon: string; external?: boolean };
 
@@ -148,21 +149,9 @@ export default function Nav() {
             })}
           </div>
 
-          {/* Desktop settings (theme + future prefs live here) */}
-          <Link
-            href={SETTINGS.href}
-            aria-label="Settings"
-            aria-current={pathname.startsWith(SETTINGS.href) ? "page" : undefined}
-            className={iconButtonClass(
-              `ml-1 hidden lg:inline-flex ${
-                pathname.startsWith(SETTINGS.href)
-                  ? "bg-brand text-white"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`,
-            )}
-          >
-            <span aria-hidden="true">{SETTINGS.icon}</span>
-          </Link>
+          {/* Desktop settings: a dropdown for the theme switch + a link through
+              to the full Settings page. */}
+          <SettingsMenu />
 
           {/* Mobile menu toggle */}
           <button

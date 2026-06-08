@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import ToastForm from "./ToastForm";
 import SubmitButton from "./SubmitButton";
-import { buttonClasses, cardClass, type ButtonSize, type ButtonVariant } from "./ui";
+import { buttonClasses, type ButtonSize, type ButtonVariant } from "./ui";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 
 /**
  * A destructive-action button that asks for confirmation before it fires.
@@ -86,7 +94,10 @@ export default function ConfirmDialog({
   className,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  // The confirm button is portaled out of the <form> by Radix, so it's wired
+  // back to it by id (`form={formId}`) — that keeps the real submit + the
+  // hidden fields together while the dialog renders at the document root.
+  const formId = useId();
 
   const triggerClasses = triggerVariant
     ? buttonClasses(triggerVariant, triggerSize, triggerClassName)
@@ -94,6 +105,7 @@ export default function ConfirmDialog({
 
   return (
     <ToastForm
+      id={formId}
       action={action}
       successMessage={successMessage}
       errorMessage={errorMessage}
@@ -105,21 +117,13 @@ export default function ConfirmDialog({
           <input key={name} type="hidden" name={name} value={value} />
         ))}
 
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={triggerAriaLabel}
-        aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-        className={triggerClasses}
-      >
-        {triggerLabel}
-      </button>
-
       <ConfirmModal
         open={open}
-        onRequestClose={() => setOpen(false)}
-        returnFocusTo={triggerRef}
+        setOpen={setOpen}
+        formId={formId}
+        triggerLabel={triggerLabel}
+        triggerClasses={triggerClasses}
+        triggerAriaLabel={triggerAriaLabel}
         title={title}
         message={message}
         confirmLabel={confirmLabel}
@@ -132,8 +136,11 @@ export default function ConfirmDialog({
 
 function ConfirmModal({
   open,
-  onRequestClose,
-  returnFocusTo,
+  setOpen,
+  formId,
+  triggerLabel,
+  triggerClasses,
+  triggerAriaLabel,
   title,
   message,
   confirmLabel,
@@ -141,105 +148,58 @@ function ConfirmModal({
   cancelLabel,
 }: {
   open: boolean;
-  onRequestClose: () => void;
-  returnFocusTo: React.RefObject<HTMLButtonElement | null>;
+  setOpen: (open: boolean) => void;
+  formId: string;
+  triggerLabel: ReactNode;
+  triggerClasses?: string;
+  triggerAriaLabel?: string;
   title: string;
   message: ReactNode;
   confirmLabel: string;
   pendingLabel: string;
   cancelLabel: string;
 }) {
-  // Read the parent form's status: while the delete is in flight we hold the
-  // dialog open and lock out cancel/Escape/backdrop so nothing races the submit.
+  // Read the parent form's status (this component renders inside the ToastForm,
+  // so the status flows through Radix's portal via React context). While the
+  // delete is in flight we hold the dialog open and lock out
+  // Cancel/Escape/backdrop so nothing races the submit. Radix handles the focus
+  // trap, scroll lock, Escape, and restoring focus to the trigger on close.
   const { pending } = useFormStatus();
-  const titleId = useId();
-  const descId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  // While open: focus the (safe) Cancel button, trap focus, lock body scroll,
-  // close on Escape, and return focus to the trigger on close. Mirrors the
-  // mobile-nav drawer's modal handling so behaviour is consistent app-wide.
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const trigger = returnFocusTo.current;
-
-    cancelRef.current?.focus();
-
-    const focusable = () =>
-      Array.from(
-        panel.querySelectorAll<HTMLElement>("button:not([disabled])"),
-      ).filter((el) => el.offsetParent !== null);
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        if (!pending) onRequestClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const items = focusable();
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = prevOverflow;
-      trigger?.focus();
-    };
-  }, [open, pending, onRequestClose, returnFocusTo]);
-
-  if (!open) return null;
+  const lockWhilePending = (e: Event) => {
+    if (pending) e.preventDefault();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        aria-hidden="true"
-        onClick={() => {
-          if (!pending) onRequestClose();
-        }}
-        className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm motion-safe:animate-[overlay-in_150ms_ease-out]"
-      />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        className={`${cardClass} relative w-full max-w-sm p-5 shadow-xl motion-safe:animate-[dialog-in_180ms_ease-out]`}
+    <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+      <DialogTrigger
+        type="button"
+        aria-label={triggerAriaLabel}
+        className={triggerClasses}
       >
-        <h2 id={titleId} className="text-lg font-semibold tracking-tight">
-          {title}
-        </h2>
-        <p id={descId} className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-          {message}
-        </p>
+        {triggerLabel}
+      </DialogTrigger>
+
+      <DialogContent
+        showCloseButton={false}
+        onEscapeKeyDown={lockWhilePending}
+        onPointerDownOutside={lockWhilePending}
+        onInteractOutside={lockWhilePending}
+      >
+        <DialogTitle>{title}</DialogTitle>
+        <DialogDescription>{message}</DialogDescription>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button
-            ref={cancelRef}
-            type="button"
-            variant="secondary"
-            onClick={onRequestClose}
-            disabled={pending}
-            className="w-full sm:w-auto"
-          >
-            {cancelLabel}
-          </Button>
+          <DialogClose asChild>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending}
+              className="w-full sm:w-auto"
+            >
+              {cancelLabel}
+            </Button>
+          </DialogClose>
           <SubmitButton
+            form={formId}
             variant="danger-solid"
             size="md"
             pendingLabel={pendingLabel}
@@ -248,7 +208,7 @@ function ConfirmModal({
             {confirmLabel}
           </SubmitButton>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
