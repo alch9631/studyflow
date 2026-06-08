@@ -21,7 +21,7 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (research) a
 - [x] Per-route page metadata/titles for clearer browser tabs
 - [x] Consistent iconography & button sizing pass across pages
 - [x] WCAG AA color-contrast pass across components
-- [ ] Micro-interaction/transition consistency (hover/active/focus)
+- [x] Micro-interaction/transition consistency (hover/active/focus)
 - [ ] Insights data-viz polish (chart/legend clarity, responsive) — replace hand-rolled div-bar charts in insights/page.tsx with a real chart lib (recharts): tooltips on "last 7 days", plus a new 14-day consistency trend chart (surface the already-computed consistency score visually)
 - [ ] Optimistic updates on toggle actions: marking a session done on /today and toggling a topic on courses/[id] currently wait for the server round-trip (only the toast confirms) — add client-side optimistic state with rollback on error so taps feel instant
 - [ ] Undo for accidental toggles: after marking a session/topic done, show an "Undo" action in the toast (≈3s grace) that reverts the action, instead of forcing the user to find and re-toggle it
