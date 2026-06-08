@@ -1,9 +1,48 @@
 // Shared iCalendar (.ics) builder. Used by the one-time download route
 // (/api/calendar) and the live subscribe feed (/api/calendar/[token]).
 
-/** Escape a value for an iCalendar text field (RFC 5545). */
+const encoder = new TextEncoder();
+
+/**
+ * Escape a value for an iCalendar TEXT field (RFC 5545 §3.3.11). Backslash must
+ * be doubled first; then `;` `,` and any line break are escaped. A bare CR or
+ * LF inside a value would otherwise inject a phantom content line — they fold to
+ * the literal `\n` escape.
+ */
 function ics(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/;/g, "\\;").replace(/\n/g, " ");
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n");
+}
+
+/**
+ * Fold a content line to ≤75 octets per RFC 5545 §3.1. Continuation lines begin
+ * with a single space (which counts toward the 75). Folding only happens on
+ * code-point boundaries, so a multi-octet UTF-8 sequence is never split and
+ * unfolding (removing every CRLF+space) restores the exact original line.
+ */
+function fold(line: string): string {
+  if (encoder.encode(line).length <= 75) return line;
+  const out: string[] = [];
+  let cur = "";
+  let curBytes = 0;
+  let limit = 75; // continuation lines spend 1 octet on the leading space → 74
+  for (const ch of line) {
+    const chBytes = encoder.encode(ch).length;
+    if (curBytes + chBytes > limit) {
+      out.push(cur);
+      cur = ch;
+      curBytes = chBytes;
+      limit = 74;
+    } else {
+      cur += ch;
+      curBytes += chBytes;
+    }
+  }
+  out.push(cur);
+  return out.join("\r\n ");
 }
 
 /** Minimal shape this builder needs from a StudyBlock (plus its course name). */
@@ -48,7 +87,7 @@ export function buildCalendar(blocks: CalendarBlock[]): string {
       lines.push(
         "BEGIN:VEVENT",
         `UID:sf-${uid++}-${dt}@studyflow`,
-        `DTSTAMP:${dt}T090000`,
+        `DTSTAMP:${dt}T090000Z`,
         `DTSTART:${dt}T${hhmm(startM)}`,
         `DTEND:${dt}T${hhmm(endM)}`,
         `SUMMARY:${ics(`${label} (${b.course.name})`)}`,
@@ -58,5 +97,5 @@ export function buildCalendar(blocks: CalendarBlock[]): string {
   }
   lines.push("END:VCALENDAR");
 
-  return lines.join("\r\n");
+  return lines.map(fold).join("\r\n");
 }
