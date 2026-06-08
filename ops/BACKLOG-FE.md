@@ -14,3 +14,11 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (research) a
 - [ ] Consistent design tokens (buttons, cards, spacing, type scale) on remaining pages
 - [ ] Settings page polish + clearer copy
 - [ ] Global nav: active states, mobile drawer, keyboard navigable
+- [ ] Keyboard navigation & visible focus rings across all interactive elements
+- [ ] Pending/disabled states on all submit buttons during server actions
+- [ ] Confirmation dialogs for destructive actions (delete course/topic/deadline/class)
+- [ ] Per-route page metadata/titles for clearer browser tabs
+- [ ] Consistent iconography & button sizing pass across pages
+- [ ] WCAG AA color-contrast pass across components
+- [ ] Micro-interaction/transition consistency (hover/active/focus)
+- [ ] Insights data-viz polish (chart/legend clarity, responsive)
