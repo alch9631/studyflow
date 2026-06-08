@@ -20,7 +20,7 @@ import { useToast } from "./Toast";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
-function isNextControlFlow(err: unknown): boolean {
+export function isNextControlFlow(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
   const digest = (err as { digest?: unknown }).digest;
   return (
