@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node scripts/test-all.mjs",
     "test:engine": "tsx src/lib/planner.test.ts",
     "test:service": "tsx src/lib/planService.test.ts",
     "test:dates": "tsx src/lib/dates.test.ts",
