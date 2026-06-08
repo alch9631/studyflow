@@ -13,7 +13,7 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
 
   return (
     <label
-      className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 p-6 text-center ${
+      className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 p-6 text-center transition-colors ${
         disabled ? "opacity-50" : "cursor-pointer hover:border-brand"
       }`}
     >

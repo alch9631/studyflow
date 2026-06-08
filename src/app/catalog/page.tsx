@@ -74,7 +74,7 @@ export default async function CatalogPage({
             <Link href="/courses/new" className={buttonClasses("primary")}>
               + Add a course
             </Link>
-            <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">
+            <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium transition-colors hover:bg-amber-100 active:scale-[.97] dark:border-amber-700 dark:hover:bg-amber-900/40">
               ✨ Import a syllabus
             </Link>
           </div>
@@ -120,7 +120,7 @@ export default async function CatalogPage({
                       .slice(0, 240);
                     return (
                       <li key={m.id}>
-                        <div className="rounded-lg border border-gray-200 p-3 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
+                        <div className="rounded-lg border border-gray-200 p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
                           <label className="flex cursor-pointer items-start gap-3">
                             <input
                               type="checkbox"
@@ -132,7 +132,7 @@ export default async function CatalogPage({
                           </label>
                           {/* Module details behind a small "?" info toggle */}
                           <details className="ml-7 mt-1.5">
-                            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-gray-500 hover:text-brand dark:text-gray-400">
+                            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-gray-500 transition-colors hover:text-brand dark:text-gray-400">
                               <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-bold">
                                 ?
                               </span>
