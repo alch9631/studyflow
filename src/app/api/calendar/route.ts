@@ -11,7 +11,14 @@ export async function GET() {
     const userId = await getCurrentUserId();
     const blocks = await prisma.studyBlock.findMany({
       where: { course: { userId } },
-      include: { course: { select: { name: true } } },
+      // Exactly the CalendarBlock shape buildCalendar consumes — nothing else.
+      select: {
+        date: true,
+        minutes: true,
+        topicTitle: true,
+        kind: true,
+        course: { select: { name: true } },
+      },
       orderBy: [{ date: "asc" }, { kind: "asc" }],
     });
 

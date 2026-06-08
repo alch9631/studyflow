@@ -80,7 +80,10 @@ export async function addFromCatalog(formData: FormData) {
     .slice(0, LIMITS.MAX_CATALOG_ADD_BATCH);
   if (ids.length === 0) redirect("/catalog");
 
-  const templates = await prisma.moduleTemplate.findMany({ where: { id: { in: ids } } });
+  const templates = await prisma.moduleTemplate.findMany({
+    where: { id: { in: ids } },
+    select: { name: true, content: true, ects: true, code: true, examDate: true },
+  });
 
   // Don't let a bulk catalog add push the user past the course cap.
   guardCountBy(
@@ -242,7 +245,10 @@ export async function analyzeModuleUpload(formData: FormData) {
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
   }
-  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { name: true },
+  });
   if (!course) redirect("/courses");
 
   let result = "analyze-error";
@@ -314,7 +320,10 @@ export async function applyProgress(formData: FormData) {
   }
   if (!rateLimit(`ai:${id}`)) redirect(`/courses/${id}?msg=rate-limited`);
 
-  const course = await prisma.course.findUnique({ where: { id }, include: { topics: true } });
+  const course = await prisma.course.findUnique({
+    where: { id },
+    select: { topics: { select: { id: true, title: true, done: true } } },
+  });
   if (!course) return;
 
   // Note: redirect() must live OUTSIDE the try (it throws NEXT_REDIRECT).
@@ -421,7 +430,10 @@ export async function logFocus(formData: FormData) {
   // adaptive pacing estimates (actualMinutes feeds the calibration factor).
   const minutes = clampInt(formData.get("minutes"), 1, 600, 25);
   const path = str(formData.get("revalidate")) || "/today";
-  const block = await prisma.studyBlock.findUnique({ where: { id } });
+  const block = await prisma.studyBlock.findUnique({
+    where: { id },
+    select: { actualMinutes: true, minutes: true, completed: true },
+  });
   if (block) {
     const actual = (block.actualMinutes ?? 0) + minutes;
     await prisma.studyBlock.update({
@@ -441,7 +453,10 @@ export async function toggleBlock(formData: FormData) {
     return;
   }
   const path = str(formData.get("revalidate")) || "/today";
-  const block = await prisma.studyBlock.findUnique({ where: { id } });
+  const block = await prisma.studyBlock.findUnique({
+    where: { id },
+    select: { completed: true },
+  });
   if (block) {
     await prisma.studyBlock.update({
       where: { id },
@@ -489,7 +504,10 @@ export async function toggleAssignment(formData: FormData) {
     return;
   }
   const path = str(formData.get("revalidate"));
-  const a = await prisma.assignment.findUnique({ where: { id } });
+  const a = await prisma.assignment.findUnique({
+    where: { id },
+    select: { done: true, courseId: true },
+  });
   if (a) {
     await prisma.assignment.update({ where: { id }, data: { done: !a.done } });
   }
@@ -533,7 +551,10 @@ export async function toggleTopic(formData: FormData) {
   } catch {
     return;
   }
-  const topic = await prisma.topic.findUnique({ where: { id } });
+  const topic = await prisma.topic.findUnique({
+    where: { id },
+    select: { done: true },
+  });
   if (topic) {
     await prisma.topic.update({ where: { id }, data: { done: !topic.done } });
     await regeneratePlan(courseId);

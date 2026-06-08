@@ -27,7 +27,11 @@ export async function POST(req: Request) {
     }
     // Cap subscriptions per user, but only when this endpoint is new (an upsert
     // of an existing endpoint must still be allowed to refresh its keys).
-    const existing = await prisma.pushSubscription.findUnique({ where: { endpoint } });
+    // Existence check only — no need to load the stored keys.
+    const existing = await prisma.pushSubscription.findUnique({
+      where: { endpoint },
+      select: { id: true },
+    });
     if (!existing) {
       guardCount(
         await prisma.pushSubscription.count({ where: { userId } }),
