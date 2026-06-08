@@ -6,6 +6,7 @@ import {
   useId,
   type ReactNode,
 } from "react";
+import { Label } from "@/components/ui/label";
 
 /**
  * Accessible form-field primitives that wire up the relationships screen
@@ -65,7 +66,7 @@ export function Field({
   hint,
   required,
   className,
-  labelClassName = "block text-sm font-medium",
+  labelClassName = "block",
   children,
 }: {
   name: string;
@@ -90,14 +91,14 @@ export function Field({
 
   return (
     <div className={className}>
-      <label htmlFor={id} className={labelClassName}>
+      <Label htmlFor={id} className={labelClassName}>
         {label}
         {required && (
           <span aria-hidden="true" className="ml-0.5 text-red-600 dark:text-red-400">
             *
           </span>
         )}
-      </label>
+      </Label>
       {hint && (
         <p id={hintId} className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
           {hint}

@@ -2,6 +2,8 @@
 
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import SubmitButton from "@/components/SubmitButton";
 import { panelClass } from "@/components/ui";
 import { addLecture } from "./actions";
@@ -16,8 +18,7 @@ const DAYS = [
   { v: 0, label: "Sunday" },
 ];
 
-const INPUT =
-  "mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 aria-[invalid]:border-red-500";
+const INPUT = "mt-1";
 const LABEL = "block text-xs font-medium text-gray-500 dark:text-gray-400";
 
 /** "HH:MM" -> minutes from midnight, or null when unparseable. */
@@ -67,7 +68,7 @@ export default function AddLectureForm({
           labelClassName={LABEL}
         >
           {(p) => (
-            <input
+            <Input
               {...p}
               required
               maxLength={120}
@@ -78,22 +79,22 @@ export default function AddLectureForm({
         </Field>
         <Field name="weekday" label="Day" className="text-sm" labelClassName={LABEL}>
           {(p) => (
-            <select {...p} defaultValue="1" className={INPUT}>
+            <Select {...p} defaultValue="1" className={INPUT}>
               {DAYS.map((d) => (
                 <option key={d.v} value={d.v}>
                   {d.label}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </Field>
       </div>
       <div className="flex flex-wrap gap-3">
         <Field name="start" label="Start" required className="text-sm" labelClassName={LABEL}>
-          {(p) => <input {...p} type="time" required defaultValue="10:00" className={INPUT} />}
+          {(p) => <Input {...p} type="time" required defaultValue="10:00" className={INPUT} />}
         </Field>
         <Field name="end" label="End" required className="text-sm" labelClassName={LABEL}>
-          {(p) => <input {...p} type="time" required defaultValue="12:00" className={INPUT} />}
+          {(p) => <Input {...p} type="time" required defaultValue="12:00" className={INPUT} />}
         </Field>
         <Field
           name="location"
@@ -102,7 +103,7 @@ export default function AddLectureForm({
           labelClassName={LABEL}
         >
           {(p) => (
-            <input {...p} placeholder="e.g. Audimax I" className={`${INPUT} w-full`} />
+            <Input {...p} placeholder="e.g. Audimax I" className={`${INPUT} w-full`} />
           )}
         </Field>
       </div>
@@ -114,14 +115,14 @@ export default function AddLectureForm({
           labelClassName={LABEL}
         >
           {(p) => (
-            <select {...p} defaultValue="" className={`${INPUT} w-full`}>
+            <Select {...p} defaultValue="" className={`${INPUT} w-full`}>
               <option value="">—</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </Field>
       )}

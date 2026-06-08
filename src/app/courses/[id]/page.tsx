@@ -22,6 +22,7 @@ import OptimisticToggleForm from "@/components/OptimisticToggleForm";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { iconButtonClass } from "@/components/ui";
+import { Input } from "@/components/ui/input";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
 
@@ -217,12 +218,12 @@ export default async function CoursePage({
               <label htmlFor="settings-examDate" className="block font-medium">
                 Exam date
               </label>
-              <input
+              <Input
                 id="settings-examDate"
                 type="date"
                 name="examDate"
                 defaultValue={course.examDate.toISOString().slice(0, 10)}
-                className="mt-1 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
+                className="mt-1"
               />
             </div>
             <p className="self-end text-xs text-gray-500 dark:text-gray-400">
@@ -261,7 +262,7 @@ export default async function CoursePage({
             <label htmlFor="settings-grade" className="block font-medium">
               Final grade (1.0–5.0)
             </label>
-            <input
+            <Input
               id="settings-grade"
               type="number"
               name="grade"
@@ -270,7 +271,7 @@ export default async function CoursePage({
               max="5"
               defaultValue={course.grade ?? ""}
               placeholder="e.g. 1.7"
-              className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
+              className="mt-1 w-28"
             />
           </div>
           <SubmitButton variant="secondary" size="md" pendingLabel="Saving…">

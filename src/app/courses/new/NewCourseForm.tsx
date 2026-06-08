@@ -4,9 +4,8 @@ import { createCourse } from "../actions";
 import SubmitButton from "@/components/SubmitButton";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
-
-const INPUT_CLASS =
-  "mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 aria-[invalid]:border-red-500";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const DAYS = [
   { v: 1, label: "Mon" },
@@ -31,27 +30,27 @@ export default function NewCourseForm() {
     >
       <Field name="name" label="Course name" required>
         {(p) => (
-          <input
+          <Input
             {...p}
             required
             maxLength={100}
             placeholder="e.g. Algorithms"
-            className={INPUT_CLASS}
+            className="mt-1 w-full"
           />
         )}
       </Field>
 
       <Field name="examDate" label="Exam date" required>
-        {(p) => <input {...p} type="date" required className={INPUT_CLASS} />}
+        {(p) => <Input {...p} type="date" required className="mt-1 w-full" />}
       </Field>
 
       <Field name="topics" label="Topics / chapters (one per line)">
         {(p) => (
-          <textarea
+          <Textarea
             {...p}
             rows={6}
             placeholder={"Sorting\nGraphs\nDynamic programming"}
-            className={`${INPUT_CLASS} font-mono text-sm`}
+            className="mt-1 w-full font-mono text-sm"
           />
         )}
       </Field>

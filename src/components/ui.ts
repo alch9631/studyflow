@@ -59,9 +59,12 @@ export const mutedCardClass =
 
 /**
  * Text / number / date input surfaces — one border, radius, fill, and hover
- * treatment so every field matches. Width is intentionally left to the callsite
- * (`w-full`, `w-20`, …); the visible focus ring is defined globally in
- * globals.css. Compose: `className={`${inputClass} w-full`}`.
+ * treatment so every field matches. This is the visual base behind the shadcn
+ * field primitives (ui/input.tsx, textarea.tsx, select.tsx), which layer the
+ * shared `aria-[invalid]` / `disabled` states on top. Width AND font-size are
+ * left to the callsite (`w-full`, `w-20`, the 16px default that avoids iOS
+ * focus-zoom, the inherited `text-sm` of dense rows); the visible focus ring is
+ * defined globally in globals.css.
  */
 export const inputClass =
-  "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600";
+  "rounded-lg border border-gray-300 bg-white px-3 py-2 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600";

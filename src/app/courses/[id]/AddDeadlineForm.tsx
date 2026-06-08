@@ -3,6 +3,7 @@
 import { addAssignment } from "../actions";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
+import { Input } from "@/components/ui/input";
 import SubmitButton from "@/components/SubmitButton";
 
 const LABEL = "block text-xs font-medium text-gray-500 dark:text-gray-400";
@@ -28,24 +29,17 @@ export default function AddDeadlineForm({ courseId }: { courseId: string }) {
         labelClassName={LABEL}
       >
         {(p) => (
-          <input
+          <Input
             {...p}
             required
             maxLength={120}
             placeholder="e.g. Übungsblatt 5"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 aria-[invalid]:border-red-500"
+            className="mt-1 w-full"
           />
         )}
       </Field>
       <Field name="dueDate" label="Due" required className="text-sm" labelClassName={LABEL}>
-        {(p) => (
-          <input
-            {...p}
-            type="date"
-            required
-            className="mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700 aria-[invalid]:border-red-500"
-          />
-        )}
+        {(p) => <Input {...p} type="date" required className="mt-1" />}
       </Field>
       <SubmitButton variant="primary" size="md" className="mt-5" pendingLabel="Adding…">
         Add

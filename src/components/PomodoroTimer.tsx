@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { iconButtonClass, inputClass } from "./ui";
+import { iconButtonClass } from "./ui";
+import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
 const FOCUS_KEY = "sf-focus-min";
@@ -164,26 +165,26 @@ export default function PomodoroTimer() {
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
                 Focus (min)
               </span>
-              <input
+              <Input
                 type="number"
                 min={1}
                 max={180}
                 value={focusMin}
                 onChange={(e) => applyDurations(parseInt(e.target.value, 10), breakMin)}
-                className={`${inputClass} mt-1 w-20`}
+                className="mt-1 w-20 text-sm"
               />
             </label>
             <label className="text-sm">
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
                 Break (min)
               </span>
-              <input
+              <Input
                 type="number"
                 min={1}
                 max={180}
                 value={breakMin}
                 onChange={(e) => applyDurations(focusMin, parseInt(e.target.value, 10))}
-                className={`${inputClass} mt-1 w-20`}
+                className="mt-1 w-20 text-sm"
               />
             </label>
             <div className="flex flex-wrap gap-1.5">
