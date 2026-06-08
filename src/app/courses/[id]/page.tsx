@@ -19,6 +19,7 @@ import {
   setGrade,
 } from "../actions";
 import FilePicker from "@/components/FilePicker";
+import ToastForm from "@/components/ToastForm";
 
 export const dynamic = "force-dynamic";
 
@@ -338,7 +339,12 @@ export default async function CoursePage({
         <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
           Homework, lab reports, hand-ins — anything due before the exam.
         </p>
-        <form action={addAssignment} className="mb-3 flex flex-wrap items-end gap-2">
+        <ToastForm
+          action={addAssignment}
+          successMessage="Deadline added."
+          errorMessage="Couldn't add that deadline — check the fields and try again."
+          className="mb-3 flex flex-wrap items-end gap-2"
+        >
           <input type="hidden" name="courseId" value={course.id} />
           <label className="min-w-0 flex-1 text-sm">
             <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Title</span>
@@ -365,7 +371,7 @@ export default async function CoursePage({
           >
             Add
           </button>
-        </form>
+        </ToastForm>
         {course.assignments.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500">No deadlines yet.</p>
         ) : (
@@ -379,7 +385,11 @@ export default async function CoursePage({
                   key={a.id}
                   className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800"
                 >
-                  <form action={toggleAssignment}>
+                  <ToastForm
+                    action={toggleAssignment}
+                    successMessage={a.done ? "Deadline marked not done." : "Deadline done. ✓"}
+                    errorMessage="Couldn't update that deadline — please try again."
+                  >
                     <input type="hidden" name="assignmentId" value={a.id} />
                     <input type="hidden" name="revalidate" value={`/courses/${course.id}`} />
                     <button
@@ -393,7 +403,7 @@ export default async function CoursePage({
                     >
                       {a.done ? "✓" : ""}
                     </button>
-                  </form>
+                  </ToastForm>
                   <span className="min-w-0 flex-1">
                     <span className={`break-words ${a.done ? "text-gray-400 line-through dark:text-gray-500" : "font-medium"}`}>
                       {a.title}
@@ -411,7 +421,12 @@ export default async function CoursePage({
                       {!a.done && ` · ${dueLabel(days)}`}
                     </span>
                   </span>
-                  <form action={deleteAssignment} className="shrink-0">
+                  <ToastForm
+                    action={deleteAssignment}
+                    successMessage="Deadline removed."
+                    errorMessage="Couldn't remove that deadline — please try again."
+                    className="shrink-0"
+                  >
                     <input type="hidden" name="assignmentId" value={a.id} />
                     <input type="hidden" name="courseId" value={course.id} />
                     <button
@@ -421,7 +436,7 @@ export default async function CoursePage({
                     >
                       ✕
                     </button>
-                  </form>
+                  </ToastForm>
                 </li>
               );
             })}
@@ -439,7 +454,12 @@ export default async function CoursePage({
             } catch {}
             return (
               <li key={t.id}>
-                <form action={toggleTopic} className="flex items-start gap-2">
+                <ToastForm
+                  action={toggleTopic}
+                  successMessage={t.done ? "Topic reopened — plan updated." : "Topic done — plan updated. ✓"}
+                  errorMessage="Couldn't update that topic — please try again."
+                  className="flex items-start gap-2"
+                >
                   <input type="hidden" name="topicId" value={t.id} />
                   <input type="hidden" name="courseId" value={course.id} />
                   <button
@@ -456,7 +476,7 @@ export default async function CoursePage({
                   <span className={`min-w-0 break-words ${t.done ? "text-gray-400 dark:text-gray-500 line-through" : ""}`}>
                     {t.title}
                   </span>
-                </form>
+                </ToastForm>
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
                     <summary className="cursor-pointer text-xs text-brand">

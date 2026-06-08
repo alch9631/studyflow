@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { addLecture, deleteLecture } from "./actions";
 import EmptyState from "@/components/EmptyState";
+import ToastForm from "@/components/ToastForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Timetable" };
@@ -47,8 +48,10 @@ export default async function TimetablePage() {
       </p>
 
       {/* Add a class slot */}
-      <form
+      <ToastForm
         action={addLecture}
+        successMessage="Class added to your timetable."
+        errorMessage="Couldn't add that class — check the times and try again."
         className="mb-6 space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-800"
       >
         <div className="flex flex-wrap gap-3">
@@ -132,7 +135,7 @@ export default async function TimetablePage() {
         >
           Add class
         </button>
-      </form>
+      </ToastForm>
 
       {/* Weekly view */}
       {lectures.length === 0 ? (
@@ -163,7 +166,12 @@ export default async function TimetablePage() {
                         <span className="text-xs text-gray-400 dark:text-gray-500">📍 {l.location}</span>
                       )}
                     </span>
-                    <form action={deleteLecture} className="shrink-0">
+                    <ToastForm
+                      action={deleteLecture}
+                      successMessage="Class removed from your timetable."
+                      errorMessage="Couldn't remove that class — please try again."
+                      className="shrink-0"
+                    >
                       <input type="hidden" name="lectureId" value={l.id} />
                       <button
                         type="submit"
@@ -172,7 +180,7 @@ export default async function TimetablePage() {
                       >
                         ✕
                       </button>
-                    </form>
+                    </ToastForm>
                   </li>
                 ))}
               </ul>

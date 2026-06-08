@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { ToastProvider } from "@/components/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,9 +59,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <Nav />
-        {/* pb clears the fixed bottom tab bar (shown below lg) */}
-        <div className="flex-1 pb-20 lg:pb-0">{children}</div>
+        <ToastProvider>
+          <Nav />
+          {/* pb clears the fixed bottom tab bar (shown below lg) */}
+          <div className="flex-1 pb-20 lg:pb-0">{children}</div>
+        </ToastProvider>
         <ServiceWorkerRegister />
       </body>
     </html>
