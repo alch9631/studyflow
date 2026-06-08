@@ -61,8 +61,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <Nav />
-          {/* pb clears the fixed bottom tab bar (shown below lg) */}
-          <div className="flex-1 pb-20 lg:pb-0">{children}</div>
+          <div className="flex-1">{children}</div>
         </ToastProvider>
         <ServiceWorkerRegister />
       </body>
