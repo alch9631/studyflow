@@ -3,7 +3,7 @@
 import { applyProgress } from "../actions";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
-import { buttonClasses } from "@/components/ui";
+import SubmitButton from "@/components/SubmitButton";
 
 /**
  * Plain-language progress update. Required field surfaces an inline error and
@@ -28,9 +28,14 @@ export default function ProgressForm({ courseId }: { courseId: string }) {
           />
         )}
       </Field>
-      <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
+      <SubmitButton
+        variant="primary"
+        size="md"
+        className="w-full sm:w-auto"
+        pendingLabel="Applying…"
+      >
         ✨ Apply &amp; rebuild plan
-      </button>
+      </SubmitButton>
     </ValidatedForm>
   );
 }

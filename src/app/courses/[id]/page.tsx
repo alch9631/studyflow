@@ -18,9 +18,9 @@ import {
 } from "../actions";
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
+import SubmitButton from "@/components/SubmitButton";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
-import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -174,16 +174,26 @@ export default async function CoursePage({
           {isSyllabusAIEnabled() && (
             <form action={reoptimizeCourse} className="w-full sm:w-auto">
               <input type="hidden" name="courseId" value={course.id} />
-              <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
+              <SubmitButton
+                variant="primary"
+                size="md"
+                className="w-full sm:w-auto"
+                pendingLabel="Optimizing…"
+              >
                 ✨ Optimize with AI
-              </button>
+              </SubmitButton>
             </form>
           )}
           <form action={healCourse} className="w-full sm:w-auto">
             <input type="hidden" name="courseId" value={course.id} />
-            <button type="submit" className={buttonClasses("secondary", "md", "w-full sm:w-auto")}>
+            <SubmitButton
+              variant="secondary"
+              size="md"
+              className="w-full sm:w-auto"
+              pendingLabel="Replanning…"
+            >
               😵‍💫 I fell behind — replan
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </div>
@@ -227,9 +237,14 @@ export default async function CoursePage({
               ))}
             </div>
           </fieldset>
-          <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
+          <SubmitButton
+            variant="primary"
+            size="md"
+            className="w-full sm:w-auto"
+            pendingLabel="Saving…"
+          >
             Save & rebuild plan
-          </button>
+          </SubmitButton>
         </form>
 
         <form action={setGrade} className="mt-4 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
@@ -250,9 +265,9 @@ export default async function CoursePage({
               className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
             />
           </div>
-          <button type="submit" className={buttonClasses("secondary", "md")}>
+          <SubmitButton variant="secondary" size="md" pendingLabel="Saving…">
             Save grade
-          </button>
+          </SubmitButton>
           <span className="text-xs text-gray-400 dark:text-gray-500">
             Leave empty to clear. Counts toward your Notenschnitt in Insights.
           </span>
@@ -260,9 +275,9 @@ export default async function CoursePage({
 
         <form action={deleteCourse} className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
           <input type="hidden" name="courseId" value={course.id} />
-          <button type="submit" className={buttonClasses("danger", "md")}>
+          <SubmitButton variant="danger" size="md" pendingLabel="Deleting…">
             🗑 Delete this course
-          </button>
+          </SubmitButton>
         </form>
       </details>
 
@@ -297,9 +312,14 @@ export default async function CoursePage({
           <form action={analyzeModuleUpload} className="space-y-3">
             <input type="hidden" name="courseId" value={course.id} />
             <FilePicker />
-            <button type="submit" className={buttonClasses("primary", "md", "w-full sm:w-auto")}>
+            <SubmitButton
+              variant="primary"
+              size="md"
+              className="w-full sm:w-auto"
+              pendingLabel="Analyzing…"
+            >
               ✨ Analyze file &amp; rebuild plan from its content
-            </button>
+            </SubmitButton>
           </form>
         ) : (
           <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -353,8 +373,7 @@ export default async function CoursePage({
                   >
                     <input type="hidden" name="assignmentId" value={a.id} />
                     <input type="hidden" name="revalidate" value={`/courses/${course.id}`} />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       aria-label={a.done ? "Mark not done" : "Mark done"}
                       className={`flex h-5 w-5 items-center justify-center rounded border ${
                         a.done
@@ -363,7 +382,7 @@ export default async function CoursePage({
                       }`}
                     >
                       {a.done ? "✓" : ""}
-                    </button>
+                    </SubmitButton>
                   </ToastForm>
                   <span className="min-w-0 flex-1">
                     <span className={`break-words ${a.done ? "text-gray-400 line-through dark:text-gray-500" : "font-medium"}`}>
@@ -390,13 +409,12 @@ export default async function CoursePage({
                   >
                     <input type="hidden" name="assignmentId" value={a.id} />
                     <input type="hidden" name="courseId" value={course.id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       aria-label="Delete deadline"
-                      className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                      className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-gray-800"
                     >
                       ✕
-                    </button>
+                    </SubmitButton>
                   </ToastForm>
                 </li>
               );
@@ -423,8 +441,7 @@ export default async function CoursePage({
                 >
                   <input type="hidden" name="topicId" value={t.id} />
                   <input type="hidden" name="courseId" value={course.id} />
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
                       t.done
                         ? "border-green-500 bg-green-500 text-white"
@@ -433,7 +450,7 @@ export default async function CoursePage({
                     aria-label={t.done ? "Mark not done" : "Mark done"}
                   >
                     {t.done ? "✓" : ""}
-                  </button>
+                  </SubmitButton>
                   <span className={`min-w-0 break-words ${t.done ? "text-gray-400 dark:text-gray-500 line-through" : ""}`}>
                     {t.title}
                   </span>

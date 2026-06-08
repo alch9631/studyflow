@@ -7,7 +7,7 @@ import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
 import ToastForm from "@/components/ToastForm";
-import { buttonClasses } from "@/components/ui";
+import SubmitButton from "@/components/SubmitButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Today" };
@@ -33,8 +33,7 @@ function BlockRow({ b }: { b: Row }) {
       >
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="revalidate" value="/today" />
-        <button
-          type="submit"
+        <SubmitButton
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border ${
             b.completed
               ? "border-green-500 bg-green-500 text-white"
@@ -43,7 +42,7 @@ function BlockRow({ b }: { b: Row }) {
           aria-label={b.completed ? "Mark not done" : "Mark done"}
         >
           {b.completed ? "✓" : ""}
-        </button>
+        </SubmitButton>
       </ToastForm>
       <span className="min-w-0 flex-1">
         <span className={`break-words ${b.completed ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"}`}>
@@ -67,13 +66,14 @@ function BlockRow({ b }: { b: Row }) {
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="minutes" value="25" />
         <input type="hidden" name="revalidate" value="/today" />
-        <button
-          type="submit"
+        <SubmitButton
+          variant="secondary"
+          size="sm"
+          className="whitespace-nowrap"
           title="Log a 25-min focus session"
-          className={buttonClasses("secondary", "sm", "whitespace-nowrap")}
         >
           🍅 +25m
-        </button>
+        </SubmitButton>
       </ToastForm>
     </div>
   );

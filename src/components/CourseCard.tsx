@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { editCourse, deleteCourse, type EditState } from "@/app/courses/actions";
 import { examCountdownLabel } from "@/lib/dates";
+import SubmitButton from "./SubmitButton";
 import { buttonClasses, cardClass } from "./ui";
 
 const DAYS = [
@@ -27,24 +27,6 @@ export type CardCourse = {
   total: number;
   apple: { emoji: string; label: string; cls: string };
 };
-
-function SaveButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending} className={buttonClasses("primary", "md")}>
-      {pending ? "Saving…" : "Save"}
-    </button>
-  );
-}
-
-function DeleteButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending} className={buttonClasses("danger", "md")}>
-      {pending ? "Deleting…" : "🗑 Delete"}
-    </button>
-  );
-}
 
 export default function CourseCard({ course }: { course: CardCourse }) {
   const [editing, setEditing] = useState(false);
@@ -150,7 +132,9 @@ export default function CourseCard({ course }: { course: CardCourse }) {
               ))}
             </div>
             <div aria-live="polite" className="flex items-center gap-3">
-              <SaveButton />
+              <SubmitButton variant="primary" size="md" pendingLabel="Saving…">
+                Save
+              </SubmitButton>
               {state?.ok && <span className="text-sm text-green-600 dark:text-green-400">✓ Saved</span>}
               {state?.error && <span className="text-sm text-red-600 dark:text-red-400">{state.error}</span>}
             </div>
@@ -163,7 +147,9 @@ export default function CourseCard({ course }: { course: CardCourse }) {
             className="mt-2"
           >
             <input type="hidden" name="courseId" value={course.id} />
-            <DeleteButton />
+            <SubmitButton variant="danger" size="md" pendingLabel="Deleting…">
+              🗑 Delete
+            </SubmitButton>
           </form>
         </>
       )}

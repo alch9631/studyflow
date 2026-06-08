@@ -2,7 +2,7 @@
 
 import { importSyllabus } from "../actions";
 import FilePicker from "@/components/FilePicker";
-import { buttonClasses } from "@/components/ui";
+import SubmitButton from "@/components/SubmitButton";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
 
@@ -64,9 +64,14 @@ export default function ImportForm({ enabled }: { enabled: boolean }) {
         </div>
       </fieldset>
 
-      <button type="submit" disabled={!enabled} className={buttonClasses("primary", "lg")}>
+      <SubmitButton
+        variant="primary"
+        size="lg"
+        disabled={!enabled}
+        pendingLabel="Extracting…"
+      >
         ✨ Extract &amp; build my plan
-      </button>
+      </SubmitButton>
     </ValidatedForm>
   );
 }
