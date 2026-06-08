@@ -10,15 +10,16 @@ Format: `- [ ] item`. Controller flips to `- [x]` on merge. Feeders (research) a
 - [x] User feedback on server actions: toast/inline success + error states — PR #19
 - [x] Dark-mode audit + consistency across all components — PR #20
 - [x] Landing page polish: hero, feature grid, social proof, strong CTA — PR #22
-- [ ] Accessible forms: labels, inline validation errors, focus management
-- [ ] Consistent design tokens (buttons, cards, spacing, type scale) on remaining pages
-- [ ] Settings page polish + clearer copy
-- [ ] Global nav: active states, mobile drawer, keyboard navigable
-- [ ] Keyboard navigation & visible focus rings across all interactive elements
-- [ ] Pending/disabled states on all submit buttons during server actions
-- [ ] Confirmation dialogs for destructive actions (delete course/topic/deadline/class)
-- [ ] Per-route page metadata/titles for clearer browser tabs
-- [ ] Consistent iconography & button sizing pass across pages
-- [ ] WCAG AA color-contrast pass across components
+- [x] Accessible forms: labels, inline validation errors, focus management
+- [x] Consistent design tokens (buttons, cards, spacing, type scale) on remaining pages
+- [x] Settings page polish + clearer copy
+- [x] Global nav: active states, mobile drawer, keyboard navigable
+- [x] Keyboard navigation & visible focus rings across all interactive elements
+- [x] Pending/disabled states on all submit buttons during server actions
+- [x] Confirmation dialogs for destructive actions (delete course/topic/deadline/class)
+- [x] (user feedback, single PR) Mobile UI fixes across three areas: (1) My Courses — rename the per-course "Open" button to "Update Progress", remove the "Edit" button, make tapping a module/course row auto-open it (whole row is the tap target, no separate button); (2) Today — clarify the "Focus Timer" (obvious label + helper text + clear start/stop UX) or remove it if it has no real function, standardize inconsistent mobile button sizes (uniform height/padding, >=44px touch targets), improve the poor styling of the text/number input boxes and the module-reference display; (3) Modules — fix the "Selected" button that is misaligned at the bottom of the card
+- [x] Per-route page metadata/titles for clearer browser tabs
+- [x] Consistent iconography & button sizing pass across pages
+- [x] WCAG AA color-contrast pass across components
 - [ ] Micro-interaction/transition consistency (hover/active/focus)
 - [ ] Insights data-viz polish (chart/legend clarity, responsive)

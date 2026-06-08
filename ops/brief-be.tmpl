@@ -13,6 +13,16 @@ RULES:
 - Stay on branch `__BRANCH__`. No other branches, never touch/merge main, no destructive git.
 - Commit with a clear message ending in: Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 
+BACKEND QUALITY BAR (production-grade, not prototype — full reference: ops/be-quality-guide.md):
+- Separation of concerns (App Router reality): route handlers & server actions stay THIN — parse input, call a service, shape the response. Business logic + Prisma access live in src/lib/**, never inline in route bodies or components. No repository ceremony — Prisma-in-service is the pattern here.
+- Validate every input at the boundary (body, query, route params) with zod or existing validators; reject bad data before it hits logic. NEVER trust frontend input. Enforce ownership/authorization on the server by scoping queries to the resolved userId — never rely on the client hiding a control.
+- Auth: do NOT roll your own auth/JWT/password-hashing. StudyFlow uses the dev-user stand-in locally and Supabase auth in prod (issue #1). Resolve the current user and scope by userId; respect that model.
+- Consistent responses & errors: new/changed endpoints use correct HTTP status codes and a predictable shape; map failures to validation/auth/not-found/conflict/rate-limit/server categories with clear, non-leaky messages (no raw stack traces, no leaking whether a private row exists). Match existing conventions — do NOT sweep-refactor every endpoint in one cycle.
+- Database: explicit fields/types/required-optional/relations, indexes for common lookups, unique constraints, timestamps. Avoid N+1 (Prisma include/select), select only needed fields, paginate list endpoints. Avoid destructive migrations — never wipe dev.db or switch provider.
+- Tests gate the merge: cover what you change — success, validation failure, auth/ownership failure, not-found, edge cases, critical business rules. Test behavior, not implementation. Add a test:* script for any new lib.
+- FE/BE contract: return frontend-friendly shapes the parallel FE agent can render — displayable error messages, pagination metadata, restorable auth state, predictable form/upload/filter handling. Keep API docs/types matching the implementation.
+- Self-review before the PR: audit like a senior engineer — input trust, ownership checks, secret leaks, N+1/slow queries, duplicated logic, prototype-level shortcuts. Fix, then ship. Scope to THIS task — don't wander into a framework rewrite.
+
 DEFINITION OF DONE (verify before finishing — the loop auto-merges on green CI):
 - `npx tsc --noEmit` clean, `npm run lint` clean, `npm run build` green, and all test scripts pass (test:engine, test:service, test:dates, test:ics, test:stats and any you add).
 - `git push -u origin __BRANCH__` then `gh pr create --base main --head __BRANCH__` with a clear title + body (heredoc).

@@ -13,6 +13,16 @@ RULES:
 - Stay on branch `__BRANCH__`. No other branches, never touch/merge main, no destructive git.
 - Commit with a clear message ending in: Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 
+FRONTEND QUALITY BAR (this is a real SaaS launching, not a demo — full reference: ops/fe-quality-guide.md):
+- Design system & consistency: EXTEND the existing system, never reinvent per-PR. Reuse tokens in tailwind.config + src/app/globals.css and existing src/components/**. Missing token/variant → add it to the shared system, don't hardcode inline. One coherent language: primary/secondary/muted/success/warning/danger, a type scale, a spacing scale, consistent radius & shadow.
+- Layout & hierarchy: important content first, generous whitespace, precise alignment, consistent page padding. Primary CTA visually dominant, secondary actions quieter. Short, logically-grouped forms.
+- Components: every interactive component supports loading / disabled / error / empty states where relevant. Extract a reusable component when a pattern repeats — no copy-pasted markup.
+- Micro-interactions (subtle, fast): hover/focus/active states, smooth transitions, skeleton loaders, toast feedback, modal/dropdown animation, inline form-validation feedback. Clarity over flash.
+- Accessibility (non-negotiable): semantic HTML, correct heading order, labels tied to inputs, error messages linked to fields, visible focus rings, good contrast, <button> for buttons / <a> for links, modals & dropdowns keyboard-usable. ARIA only when needed.
+- Mobile-first: verify mentally at 360 / 768 / 1024 / desktop. Single-column forms, tap-friendly targets, readable text, tables → cards or careful horizontal scroll, primary actions always visible.
+- Anti-generic: no gradient-everywhere, no purposeless oversized/repetitive dashboard cards, no shadow/color soup, no mismatched icons, no vague CTAs ("Learn More" → name the action). Make it specific to StudyFlow and its student users.
+- Self-review before the PR: pass over the diff like a senior product engineer — UX friction, spacing/hierarchy, missing loading/empty/error states, mobile layout, a11y, components that should be reused, anything unfinished. Fix it, then ship. Make it feel like a product, not just "it works."
+
 DEFINITION OF DONE (verify before finishing — the loop auto-merges on green CI):
 - `npx tsc --noEmit` clean, `npm run lint` clean, `npm run build` green.
 - `git push -u origin __BRANCH__` then `gh pr create --base main --head __BRANCH__` with a clear title + body (heredoc) describing the change.
