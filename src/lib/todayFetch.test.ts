@@ -27,10 +27,20 @@ function check(name: string, cond: boolean) {
 
 // The exact query shapes the page uses. `seqFetch` mirrors the OLD code path
 // (sequential awaits); `batchFetch` mirrors the NEW code path (Promise.all).
+// The `select` shapes here are kept in lockstep with src/app/today/page.tsx:
+// they fetch only the fields the page actually renders (over-fetch audit).
 function blocksQuery(userId: string, start: Date, end: Date) {
   return prisma.studyBlock.findMany({
     where: { date: { gte: start, lt: end }, course: { userId } },
-    include: { course: { select: { name: true, id: true } } },
+    select: {
+      id: true,
+      topicTitle: true,
+      minutes: true,
+      completed: true,
+      kind: true,
+      actualMinutes: true,
+      course: { select: { name: true, id: true } },
+    },
     orderBy: [{ kind: "asc" }, { minutes: "desc" }],
   });
 }
@@ -45,6 +55,7 @@ function lecturesQuery(userId: string, weekday: number) {
   return prisma.lecture.findMany({
     where: { userId, weekday },
     orderBy: { startMin: "asc" },
+    select: { id: true, title: true, location: true, startMin: true, endMin: true },
   });
 }
 function deadlinesQuery(userId: string, start: Date) {
@@ -56,7 +67,12 @@ function deadlinesQuery(userId: string, start: Date) {
     },
     orderBy: { dueDate: "asc" },
     take: 6,
-    include: { course: { select: { name: true, id: true } } },
+    select: {
+      id: true,
+      title: true,
+      dueDate: true,
+      course: { select: { name: true, id: true } },
+    },
   });
 }
 
@@ -143,6 +159,23 @@ async function main() {
       seq.blocks[1].topicTitle === "Study A long" &&
       seq.blocks[2].topicTitle === "Study B short");
     check("upcoming deadline fetched", seq.upcomingDeadlines.length === 1);
+
+    // Over-fetch audit: the narrowed `select`s must return EXACTLY the fields the
+    // page renders — no more (proves we didn't widen) and no less (proves the
+    // render still has what it needs). Guards against a future drift back to a
+    // bare include / *.
+    check("block select fetches only rendered fields",
+      JSON.stringify(Object.keys(seq.blocks[0]).sort()) ===
+        JSON.stringify(["actualMinutes", "completed", "course", "id", "kind", "minutes", "topicTitle"]));
+    check("block.course select fetches only name+id",
+      JSON.stringify(Object.keys(seq.blocks[0].course).sort()) ===
+        JSON.stringify(["id", "name"]));
+    check("lecture select fetches only rendered fields",
+      JSON.stringify(Object.keys(seq.todaysLectures[0]).sort()) ===
+        JSON.stringify(["endMin", "id", "location", "startMin", "title"]));
+    check("deadline select fetches only rendered fields",
+      JSON.stringify(Object.keys(seq.upcomingDeadlines[0]).sort()) ===
+        JSON.stringify(["course", "dueDate", "id", "title"]));
 
     // Core assertion: batched fetch === sequential fetch.
     check("batched fetch is identical to sequential fetch",

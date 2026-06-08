@@ -30,6 +30,7 @@ export default async function TimetablePage() {
     prisma.lecture.findMany({
       where: { userId },
       orderBy: [{ weekday: "asc" }, { startMin: "asc" }],
+      select: { id: true, title: true, location: true, weekday: true, startMin: true, endMin: true },
     }),
     prisma.course.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);

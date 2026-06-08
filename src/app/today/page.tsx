@@ -88,11 +88,20 @@ export default async function TodayPage() {
   // round-trip batch instead of awaiting one after another (avoids a serial
   // query waterfall). Identical results — only the wall-clock timing changes.
   const [blocks, nextExam, todaysLectures, upcomingDeadlines] = await Promise.all([
+    // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
       where: { date: { gte: start, lt: end }, course: { userId } },
-      include: { course: { select: { name: true, id: true } } },
+      select: {
+        id: true,
+        topicTitle: true,
+        minutes: true,
+        completed: true,
+        kind: true,
+        actualMinutes: true,
+        course: { select: { name: true, id: true } },
+      },
       orderBy: [{ kind: "asc" }, { minutes: "desc" }],
-    }) as Promise<Row[]>,
+    }),
     // Nearest upcoming exam, for a motivating header line / focus banner.
     prisma.course.findFirst({
       where: { userId, examDate: { gte: start } },
@@ -103,6 +112,7 @@ export default async function TodayPage() {
     prisma.lecture.findMany({
       where: { userId, weekday: new Date(today + "T00:00:00Z").getUTCDay() },
       orderBy: { startMin: "asc" },
+      select: { id: true, title: true, location: true, startMin: true, endMin: true },
     }),
     // Open deadlines due within the next 2 weeks, soonest first.
     prisma.assignment.findMany({
@@ -113,7 +123,12 @@ export default async function TodayPage() {
       },
       orderBy: { dueDate: "asc" },
       take: 6,
-      include: { course: { select: { name: true, id: true } } },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        course: { select: { name: true, id: true } },
+      },
     }),
   ]);
 
@@ -123,16 +138,25 @@ export default async function TodayPage() {
     const next = await prisma.studyBlock.findFirst({
       where: { date: { gte: end }, course: { userId } },
       orderBy: { date: "asc" },
+      select: { date: true },
     });
     if (next) {
       nextDate = next.date.toISOString().slice(0, 10);
       const ns = new Date(nextDate + "T00:00:00Z");
       const ne = new Date(ns.getTime() + 86400_000);
-      nextBlocks = (await prisma.studyBlock.findMany({
+      nextBlocks = await prisma.studyBlock.findMany({
         where: { date: { gte: ns, lt: ne }, course: { userId } },
-        include: { course: { select: { name: true, id: true } } },
+        select: {
+          id: true,
+          topicTitle: true,
+          minutes: true,
+          completed: true,
+          kind: true,
+          actualMinutes: true,
+          course: { select: { name: true, id: true } },
+        },
         orderBy: [{ kind: "asc" }, { minutes: "desc" }],
-      })) as Row[];
+      });
     }
   }
 

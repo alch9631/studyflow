@@ -74,11 +74,30 @@ export default async function CoursePage({
   const banner = msg ? BANNERS[msg] : undefined;
   const course = await prisma.course.findUnique({
     where: { id },
-    include: {
-      topics: { orderBy: { order: "asc" } },
-      blocks: { orderBy: { date: "asc" } },
-      files: { orderBy: { createdAt: "desc" } },
-      assignments: { orderBy: { dueDate: "asc" } },
+    select: {
+      id: true,
+      name: true,
+      examDate: true,
+      studyDays: true,
+      minutesPerDay: true,
+      aiOptimized: true,
+      grade: true,
+      topics: {
+        orderBy: { order: "asc" },
+        select: { id: true, title: true, done: true, questions: true },
+      },
+      blocks: {
+        orderBy: { date: "asc" },
+        select: { id: true, date: true, topicTitle: true, minutes: true },
+      },
+      files: {
+        orderBy: { createdAt: "desc" },
+        select: { filename: true, analysis: true },
+      },
+      assignments: {
+        orderBy: { dueDate: "asc" },
+        select: { id: true, title: true, dueDate: true, done: true },
+      },
     },
   });
   if (!course) notFound();

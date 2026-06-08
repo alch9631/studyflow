@@ -27,6 +27,16 @@ export default async function CatalogPage({
   const allModules = await prisma.moduleTemplate.findMany({
     where: { university: "TUHH", program: program.code },
     orderBy: [{ section: "asc" }, { name: "asc" }],
+    // Only the fields the list/detail toggle renders — skip examSemester etc.
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      section: true,
+      ects: true,
+      content: true,
+      examDate: true,
+    },
   });
   const modules = allModules.filter((m) => !takenCodes.has(m.code));
 

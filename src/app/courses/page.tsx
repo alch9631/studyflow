@@ -16,7 +16,17 @@ export default async function CoursesPage() {
   const courses = await prisma.course.findMany({
     where: { userId },
     orderBy: { examDate: "asc" },
-    include: { topics: true, blocks: true },
+    select: {
+      id: true,
+      name: true,
+      examDate: true,
+      studyDays: true,
+      intense: true,
+      // Card only needs each topic's done flag (count + total) and each block's
+      // completed/kind/minutes (remaining-study estimate) — not full records.
+      topics: { select: { done: true } },
+      blocks: { select: { completed: true, kind: true, minutes: true } },
+    },
   });
 
   const today = todayISO();

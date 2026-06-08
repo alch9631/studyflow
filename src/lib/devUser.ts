@@ -12,6 +12,7 @@ export async function getCurrentUserId(): Promise<string> {
     where: { email: DEV_EMAIL },
     update: {},
     create: { email: DEV_EMAIL, name: "Dev Student" },
+    select: { id: true },
   });
   return user.id;
 }

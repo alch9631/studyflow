@@ -84,7 +84,10 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   // Completed sessions are durable history — never wipe them. We rebuild only
   // the unfinished plan, and skip any freshly-planned block that lands on a
   // topic+date a completed session already covers (matching on topic+date).
-  const existing = await prisma.studyBlock.findMany({ where: { courseId } });
+  const existing = await prisma.studyBlock.findMany({
+    where: { courseId },
+    select: { completed: true, topicTitle: true, date: true },
+  });
   const completedKeys = new Set(
     existing.filter((b) => b.completed).map((b) => blockKey(b.topicTitle, b.date)),
   );
@@ -142,7 +145,29 @@ export async function rebuildSchedule(
 ): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
   const courses = await prisma.course.findMany({
     where: { userId },
-    include: { topics: { orderBy: { order: "asc" } }, blocks: true },
+    // Only the fields the scheduler reads: course identity/pace + each topic's
+    // effort/done + each block's completion (folding) and logged time (calibration).
+    select: {
+      id: true,
+      name: true,
+      examDate: true,
+      studyDays: true,
+      minutesPerDay: true,
+      topics: {
+        orderBy: { order: "asc" },
+        select: { id: true, title: true, effort: true, done: true },
+      },
+      blocks: {
+        select: {
+          topicId: true,
+          topicTitle: true,
+          date: true,
+          minutes: true,
+          completed: true,
+          actualMinutes: true,
+        },
+      },
+    },
   });
 
   // Timetable awareness: total lecture minutes per weekday, so a day busy with
@@ -288,7 +313,11 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
   if (!isSyllabusAIEnabled()) return false;
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: { topics: true },
+    select: {
+      name: true,
+      examDate: true,
+      topics: { select: { id: true, title: true } },
+    },
   });
   if (!course || course.topics.length === 0) return false;
 
@@ -332,6 +361,7 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
   try {
     const fresh = await prisma.topic.findMany({
       where: { courseId, title: { not: { startsWith: "Review:" } } },
+      select: { id: true, title: true },
     });
     const tests = await generateSelfTests(course.name, fresh.map((t) => t.title));
     const qByTitle = new Map(tests.map((x) => [x.title.trim().toLowerCase(), x.questions]));

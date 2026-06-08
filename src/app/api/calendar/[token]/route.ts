@@ -27,7 +27,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
 
     const blocks = await prisma.studyBlock.findMany({
       where: { course: { userId: user.id } },
-      include: { course: { select: { name: true } } },
+      // Exactly the CalendarBlock shape buildCalendar consumes — nothing else.
+      select: {
+        date: true,
+        minutes: true,
+        topicTitle: true,
+        kind: true,
+        course: { select: { name: true } },
+      },
       orderBy: [{ date: "asc" }, { kind: "asc" }],
     });
 
