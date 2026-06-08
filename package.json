@@ -25,6 +25,8 @@
     "test:apierror": "tsx src/lib/apiError.test.ts",
     "test:export": "tsx src/lib/export.test.ts",
     "test:today-fetch": "tsx src/lib/todayFetch.test.ts",
+    "test:pagination": "tsx src/lib/pagination.test.ts",
+    "test:block-service": "tsx src/lib/blockService.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:catalog": "tsx prisma/seedCatalog.ts",
