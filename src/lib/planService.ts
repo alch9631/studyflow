@@ -53,29 +53,35 @@ export function foldCompletedSessions(
 ): EngineCourse {
   const planned: Record<string, number> = {};
   const done: Record<string, number> = {};
-  for (const b of course.blocks) {
-    planned[b.topicId] = (planned[b.topicId] ?? 0) + b.minutes;
-    if (b.completed) done[b.topicId] = (done[b.topicId] ?? 0) + b.minutes;
+  for (const b of course.blocks ?? []) {
+    // Guard against null/NaN minutes from DB drift so a single bad row can't
+    // poison a topic's planned/done totals (and ultimately its folded effort).
+    const minutes = Number.isFinite(b.minutes) ? b.minutes : 0;
+    planned[b.topicId] = (planned[b.topicId] ?? 0) + minutes;
+    if (b.completed) done[b.topicId] = (done[b.topicId] ?? 0) + minutes;
   }
   return applyCompletedWork(toEngineCourse(course), done, planned);
 }
 
 /** Map a persisted course into the shape the pure engine expects. */
 export function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
+  // The DB columns are typed non-null, but we defend against drift (legacy rows,
+  // partial migrations) here at the boundary so the pure engine always receives
+  // clean, finite values and never has to second-guess its inputs.
   return {
     id: c.id,
-    name: c.name,
-    examDate: c.examDate.toISOString().slice(0, 10),
-    minutesPerDay: c.minutesPerDay,
-    studyDays: c.studyDays
+    name: c.name ?? "",
+    examDate: c.examDate ? c.examDate.toISOString().slice(0, 10) : "",
+    minutesPerDay: Number.isFinite(c.minutesPerDay) ? c.minutesPerDay : 0,
+    studyDays: (c.studyDays ?? "")
       .split(",")
       .map((s) => parseInt(s.trim(), 10))
       .filter((n) => !Number.isNaN(n)),
-    topics: c.topics.map((t) => ({
+    topics: (c.topics ?? []).map((t) => ({
       id: t.id,
-      title: t.title,
-      effort: t.effort,
-      done: t.done,
+      title: t.title ?? "",
+      effort: Number.isFinite(t.effort) ? t.effort : 0,
+      done: t.done === true,
     })),
   };
 }

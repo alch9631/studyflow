@@ -45,6 +45,16 @@ export type Course = {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
+ * Effort as a finite, non-negative number. The DB columns are typed non-null,
+ * but real-world drift (legacy rows, partial migrations, hand-edited data) can
+ * hand us null/NaN. Coercing here keeps NaN out of every downstream sum/ratio so
+ * the engine degrades gracefully instead of emitting malformed blocks.
+ */
+function effortOf(effort: number | null | undefined): number {
+  return Number.isFinite(effort as number) ? Math.max(effort as number, 0) : 0;
+}
+
+/**
  * The minimum minutes a topic of effort 1 realistically needs. Used to judge
  * whether the remaining days can hold the remaining work at all (overload),
  * independent of how the plan happens to spread the time.
@@ -61,14 +71,17 @@ export const INTENSE_MINUTES_PER_DAY = 360; // 6h/day
 export function studyDatesBetween(
   startISO: string,
   endISO: string,
-  studyDays: number[],
+  studyDays: number[] | null | undefined,
 ): string[] {
   const start = new Date(startISO + "T00:00:00Z");
   const end = new Date(endISO + "T00:00:00Z");
+  const days = studyDays ?? [];
   const dates: string[] = [];
+  // Invalid/missing dates yield NaN getTime(), so the loop simply produces no
+  // dates rather than throwing.
   for (let t = start.getTime(); t < end.getTime(); t += MS_PER_DAY) {
     const d = new Date(t);
-    if (studyDays.includes(d.getUTCDay())) {
+    if (days.includes(d.getUTCDay())) {
       dates.push(d.toISOString().slice(0, 10));
     }
   }
@@ -91,13 +104,15 @@ function distribute(
 ): StudyBlock[] {
   if (dates.length === 0 || topics.length === 0) return [];
 
-  const totalEffort = topics.reduce((s, t) => s + Math.max(t.effort, 0), 0);
+  const totalEffort = topics.reduce((s, t) => s + effortOf(t.effort), 0);
   if (totalEffort <= 0) return [];
 
-  const totalMinutes = dates.length * minutesPerDay;
+  const dailyCap = Number.isFinite(minutesPerDay) ? Math.max(minutesPerDay, 0) : 0;
+  if (dailyCap <= 0) return [];
+  const totalMinutes = dates.length * dailyCap;
   // Minutes still owed per topic (fair share of total time, by effort).
   const remaining = topics.map((t) => {
-    const m = Math.round((Math.max(t.effort, 0) / totalEffort) * totalMinutes);
+    const m = Math.round((effortOf(t.effort) / totalEffort) * totalMinutes);
     return { t, m: m > 0 ? m : 15 };
   });
 
@@ -105,7 +120,7 @@ function distribute(
   let ti = 0; // round-robin cursor across topics
 
   for (const date of dates) {
-    let cap = minutesPerDay;
+    let cap = dailyCap;
     while (cap > 0) {
       if (!remaining.some((r) => r.m > 0)) break;
       // Next topic (from ti) that still owes time.
@@ -162,19 +177,21 @@ function distribute(
  */
 export function applyCompletedWork(
   course: Course,
-  completedMinutesByTopic: Record<string, number>,
-  plannedMinutesByTopic: Record<string, number>,
+  completedMinutesByTopic: Record<string, number> | null | undefined,
+  plannedMinutesByTopic: Record<string, number> | null | undefined,
 ): Course {
+  const completed = completedMinutesByTopic ?? {};
+  const plannedAll = plannedMinutesByTopic ?? {};
   return {
     ...course,
-    topics: course.topics.map((t) => {
-      const planned = plannedMinutesByTopic[t.id] ?? 0;
-      const done = completedMinutesByTopic[t.id] ?? 0;
+    topics: (course.topics ?? []).map((t) => {
+      const planned = Number.isFinite(plannedAll[t.id]) ? plannedAll[t.id] : 0;
+      const done = Number.isFinite(completed[t.id]) ? completed[t.id] : 0;
       if (done <= 0 || planned <= 0) return t;
       const remainingFraction = Math.max(0, 1 - done / planned);
       // Nothing left to do for this topic — let it drop out of the plan.
       if (remainingFraction <= 0) return { ...t, done: true };
-      return { ...t, effort: t.effort * remainingFraction };
+      return { ...t, effort: effortOf(t.effort) * remainingFraction };
     }),
   };
 }
@@ -193,8 +210,8 @@ export function planForDeadline(
   opts?: { calibration?: number },
 ): { blocks: StudyBlock[]; minutesPerDay: number; intense: boolean } {
   const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
-  const pending = course.topics.filter((t) => !t.done);
-  const totalEffort = pending.reduce((s, t) => s + Math.max(t.effort, 0), 0);
+  const pending = (course.topics ?? []).filter((t) => !t.done);
+  const totalEffort = pending.reduce((s, t) => s + effortOf(t.effort), 0);
 
   if (dates.length === 0 || totalEffort <= 0) {
     return { blocks: [], minutesPerDay: 0, intense: dates.length === 0 && totalEffort > 0 };
@@ -229,11 +246,14 @@ export const REVIEW_MINUTES = 25;
  * reviews at EXPANDING intervals (+1, +3, +7 days), snapped to the next study
  * day and kept before the exam. This is the #1 evidence-backed retention lever.
  */
-export function buildReviewBlocks(study: StudyBlock[], dates: string[]): StudyBlock[] {
+export function buildReviewBlocks(
+  study: StudyBlock[] | null | undefined,
+  dates: string[],
+): StudyBlock[] {
   if (dates.length === 0) return [];
   const intervals = [1, 3, 7];
   const lastByTopic = new Map<string, { date: string; title: string }>();
-  for (const b of study) {
+  for (const b of study ?? []) {
     const cur = lastByTopic.get(b.topicId);
     if (!cur || b.date > cur.date) lastByTopic.set(b.topicId, { date: b.date, title: b.topicTitle });
   }
@@ -263,7 +283,7 @@ export function buildReviewBlocks(study: StudyBlock[], dates: string[]): StudyBl
 /** Build a fresh plan for a course, starting from `todayISO`. */
 export function generatePlan(course: Course, todayISO: string): StudyBlock[] {
   const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
-  const pending = course.topics.filter((t) => !t.done);
+  const pending = (course.topics ?? []).filter((t) => !t.done);
   return distribute(pending, dates, course.minutesPerDay);
 }
 
@@ -281,16 +301,17 @@ export function healPlan(
 
   // A topic is "done" if flagged done on the course. (Block-level completion
   // can be folded in by the caller before invoking heal.)
-  const pending = course.topics.filter((t) => !t.done);
+  const pending = (course.topics ?? []).filter((t) => !t.done);
   const blocks = distribute(pending, dates, course.minutesPerDay);
 
   // Overload = can the days left even hold a minimum-viable amount per topic?
   // Judged against the floor, NOT the spread plan (which always "fits" because
   // it scales to available time).
   const requiredMinutes =
-    pending.reduce((s, t) => s + Math.max(t.effort, 0), 0) *
+    pending.reduce((s, t) => s + effortOf(t.effort), 0) *
     MIN_MINUTES_PER_EFFORT;
-  const availableMinutes = dates.length * course.minutesPerDay;
+  const dailyCap = Number.isFinite(course.minutesPerDay) ? Math.max(course.minutesPerDay, 0) : 0;
+  const availableMinutes = dates.length * dailyCap;
   const isOverloaded = requiredMinutes > availableMinutes;
 
   return { blocks, isOverloaded };

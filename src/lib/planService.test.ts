@@ -264,5 +264,88 @@ check("large load: every topic survives the fold", bigFolded.topics.length === B
 check("large load: all folded efforts finite and non-negative", bigFolded.topics.every((t) => Number.isFinite(t.effort) && t.effort >= 0));
 check(`large load: folding completes promptly (${bigElapsed}ms < 5000ms)`, bigElapsed < 5000);
 
+// ===========================================================================
+// NULL / UNDEFINED DEFENSIVE HANDLING — the Prisma columns are typed non-null,
+// but legacy rows, partial migrations and hand-edited data are real. The DB
+// boundary (toEngineCourse / foldCompletedSessions) must sanitize so the pure
+// engine never receives null collections or NaN-inducing fields. We cast past
+// the static types here to simulate that drift. Behaviour-only.
+// ===========================================================================
+
+/** Cast helper: feed a deliberately malformed value past the static types. */
+const bad = <T>(v: unknown): T => v as T;
+
+// ---- toEngineCourse: null/undefined columns -------------------------------
+let teNullOk = true;
+let teNull = bad<ReturnType<typeof toEngineCourse>>(null);
+try {
+  teNull = toEngineCourse(bad({
+    id: "x",
+    name: null,
+    examDate: null,
+    studyDays: null,
+    minutesPerDay: null,
+    topics: null,
+  }));
+} catch {
+  teNullOk = false;
+}
+check("toEngineCourse(all-null columns) does not throw", teNullOk);
+check("toEngineCourse(null name) -> empty string", teNull.name === "");
+check("toEngineCourse(null examDate) -> empty string", teNull.examDate === "");
+check("toEngineCourse(null minutesPerDay) -> 0", teNull.minutesPerDay === 0);
+check("toEngineCourse(null studyDays) -> []", Array.isArray(teNull.studyDays) && teNull.studyDays.length === 0);
+check("toEngineCourse(null topics) -> []", Array.isArray(teNull.topics) && teNull.topics.length === 0);
+
+// Per-topic null/undefined fields are coerced to safe defaults.
+const teTopics = toEngineCourse(bad({
+  ...dbCourse,
+  topics: [
+    { id: "a", title: null, effort: null, done: null },
+    { id: "b", title: "B", effort: undefined, done: undefined },
+    { id: "c", title: "C", effort: NaN, done: 1 },
+  ],
+}));
+check("toEngineCourse(null topic.title) -> empty string", teTopics.topics[0].title === "");
+check(
+  "toEngineCourse(null/undefined/NaN topic.effort) -> 0",
+  teTopics.topics.every((t) => Number.isFinite(t.effort) && t.effort === 0),
+);
+check(
+  "toEngineCourse(non-boolean topic.done) -> strict boolean",
+  teTopics.topics[0].done === false &&
+    teTopics.topics[1].done === false &&
+    teTopics.topics[2].done === false,
+);
+
+// ---- foldCompletedSessions: null blocks / null minutes --------------------
+let foldNullBlocksOk = true;
+let foldNullBlocks = bad<ReturnType<typeof foldCompletedSessions>>(null);
+try {
+  foldNullBlocks = foldCompletedSessions(bad({ ...foldCourse, blocks: null }));
+} catch {
+  foldNullBlocksOk = false;
+}
+check("foldCompletedSessions(null blocks) does not throw", foldNullBlocksOk);
+check(
+  "foldCompletedSessions(null blocks) leaves efforts unchanged",
+  foldNullBlocks.topics.every((t, i) => t.effort === foldCourse.topics[i].effort),
+);
+
+// A block with null/NaN minutes must not poison the topic's planned/done totals
+// (which would otherwise yield a NaN folded effort).
+const foldNullMinutes = foldCompletedSessions(bad({
+  ...foldCourse,
+  blocks: [
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-08T00:00:00Z"), minutes: null, completed: true },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-09T00:00:00Z"), minutes: 120, completed: true },
+    { topicId: "t2", topicTitle: "Graphs", date: new Date("2026-06-10T00:00:00Z"), minutes: NaN, completed: false },
+  ],
+}));
+check(
+  "foldCompletedSessions(null/NaN minutes) keeps every effort finite",
+  foldNullMinutes.topics.every((t) => Number.isFinite(t.effort) && t.effort >= 0),
+);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
