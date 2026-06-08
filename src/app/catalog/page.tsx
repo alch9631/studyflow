@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
+import SubmitButton from "@/components/SubmitButton";
 import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -154,9 +155,14 @@ export default async function CatalogPage({
             {/* Single sticky primary action, sitting just above the bottom nav.
                 Solid background so module cards scrolling behind it stay legible. */}
             <div className="sticky bottom-20 z-10 mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg sm:bottom-4 dark:border-gray-800 dark:bg-gray-900">
-              <button type="submit" className={buttonClasses("primary", "lg", "w-full")}>
+              <SubmitButton
+                variant="primary"
+                size="lg"
+                className="w-full"
+                pendingLabel="Adding…"
+              >
                 Add selected →
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </>

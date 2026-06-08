@@ -4,6 +4,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { deleteLecture } from "./actions";
 import EmptyState from "@/components/EmptyState";
 import ToastForm from "@/components/ToastForm";
+import SubmitButton from "@/components/SubmitButton";
 import AddLectureForm from "./AddLectureForm";
 
 export const dynamic = "force-dynamic";
@@ -88,13 +89,12 @@ export default async function TimetablePage() {
                       className="shrink-0"
                     >
                       <input type="hidden" name="lectureId" value={l.id} />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         aria-label="Delete class"
-                        className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                        className="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-gray-800"
                       >
                         ✕
-                      </button>
+                      </SubmitButton>
                     </ToastForm>
                   </li>
                 ))}

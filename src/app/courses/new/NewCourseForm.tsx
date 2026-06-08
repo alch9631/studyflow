@@ -1,7 +1,7 @@
 "use client";
 
 import { createCourse } from "../actions";
-import { buttonClasses } from "@/components/ui";
+import SubmitButton from "@/components/SubmitButton";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
 
@@ -78,9 +78,9 @@ export default function NewCourseForm() {
         exam — you don&apos;t set the hours.
       </p>
 
-      <button type="submit" className={buttonClasses("primary", "lg")}>
+      <SubmitButton variant="primary" size="lg" pendingLabel="Creating…">
         Create &amp; build my plan
-      </button>
+      </SubmitButton>
     </ValidatedForm>
   );
 }

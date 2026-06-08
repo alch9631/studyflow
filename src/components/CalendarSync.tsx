@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
 import ToastForm from "./ToastForm";
+import SubmitButton from "./SubmitButton";
 import { buttonClasses } from "./ui";
 
 // Read window origin without a hydration mismatch: server snapshot is "" so SSR
@@ -65,9 +66,9 @@ export default function CalendarSync({ token }: { token: string }) {
             }
           }}
         >
-          <button type="submit" className={buttonClasses("ghost", "sm")}>
+          <SubmitButton variant="ghost" size="sm" pendingLabel="Resetting…">
             Reset link
-          </button>
+          </SubmitButton>
         </ToastForm>
       </div>
     </div>

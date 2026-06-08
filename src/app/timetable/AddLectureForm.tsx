@@ -2,7 +2,8 @@
 
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
-import { buttonClasses, panelClass } from "@/components/ui";
+import SubmitButton from "@/components/SubmitButton";
+import { panelClass } from "@/components/ui";
 import { addLecture } from "./actions";
 
 const DAYS = [
@@ -124,9 +125,9 @@ export default function AddLectureForm({
           )}
         </Field>
       )}
-      <button type="submit" className={buttonClasses("primary", "lg")}>
+      <SubmitButton variant="primary" size="lg" pendingLabel="Adding…">
         Add class
-      </button>
+      </SubmitButton>
     </ValidatedForm>
   );
 }

@@ -3,7 +3,7 @@
 import { addAssignment } from "../actions";
 import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
-import { buttonClasses } from "@/components/ui";
+import SubmitButton from "@/components/SubmitButton";
 
 const LABEL = "block text-xs font-medium text-gray-500 dark:text-gray-400";
 
@@ -47,9 +47,9 @@ export default function AddDeadlineForm({ courseId }: { courseId: string }) {
           />
         )}
       </Field>
-      <button type="submit" className={buttonClasses("primary", "md", "mt-5")}>
+      <SubmitButton variant="primary" size="md" className="mt-5" pendingLabel="Adding…">
         Add
-      </button>
+      </SubmitButton>
     </ValidatedForm>
   );
 }
