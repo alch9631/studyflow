@@ -5,6 +5,7 @@ import { appleFor } from "@/lib/apple";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
 import CourseCard from "@/components/CourseCard";
+import EmptyState from "@/components/EmptyState";
 import { buttonClasses } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -30,24 +31,16 @@ export default async function CoursesPage() {
       </div>
 
       {courses.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-800 dark:bg-gray-900">
-          <p className="text-2xl">📚</p>
-          <p className="mt-2 font-semibold">No courses yet</p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Pick how you want to start — StudyFlow builds the plan for you.
-          </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link href="/catalog" className={buttonClasses("primary")}>
-              🎓 Browse TUHH modules
-            </Link>
-            <Link href="/courses/import" className={buttonClasses("secondary")}>
-              ✨ Import a syllabus
-            </Link>
-            <Link href="/courses/new" className={buttonClasses("secondary")}>
-              ✍️ Add manually
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          emoji="📚"
+          title="No courses yet"
+          description="Pick how you want to start — StudyFlow builds the plan for you."
+          actions={[
+            { label: "🎓 Browse TUHH modules", href: "/catalog" },
+            { label: "✨ Import a syllabus", href: "/courses/import" },
+            { label: "✍️ Add manually", href: "/courses/new" },
+          ]}
+        />
       ) : (
         <ul className="space-y-3">
           {courses.map((c) => {

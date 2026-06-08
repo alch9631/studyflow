@@ -5,6 +5,7 @@ import { todayISO } from "@/lib/planService";
 import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
 import { toggleBlock, logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
+import EmptyState from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Today" };
@@ -147,6 +148,16 @@ export default async function TodayPage() {
   const achievable = remainingMin === 0 || remainingMin <= availableMin;
   const overBy = Math.max(0, remainingMin - availableMin);
 
+  // No plan exists at all (no sessions today, none scheduled ahead, no upcoming
+  // exam) → treat as a brand-new user and onboard them, rather than implying a
+  // "rest day" they never set up.
+  const hasNoPlan =
+    blocks.length === 0 &&
+    nextBlocks.length === 0 &&
+    !nextExam &&
+    todaysLectures.length === 0 &&
+    upcomingDeadlines.length === 0;
+
   return (
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <h1 className="text-2xl font-bold tracking-tight">Today</h1>
@@ -273,11 +284,28 @@ export default async function TodayPage() {
             </li>
           ))}
         </ul>
+      ) : hasNoPlan ? (
+        <EmptyState
+          emoji="🚀"
+          title="Let's build your study plan"
+          description="Add your first course and StudyFlow lays out exactly what to study each day — working backward from your exams."
+          actions={[
+            { label: "🎓 Browse TUHH modules", href: "/catalog" },
+            { label: "✨ Import a syllabus", href: "/courses/import" },
+            { label: "✍️ Add a course", href: "/courses/new" },
+          ]}
+        />
       ) : (
         <div>
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-5 text-center text-sm text-gray-500 dark:text-gray-400">
-            Nothing scheduled today — it&apos;s not a study day. 😎
-          </div>
+          <EmptyState
+            emoji="😎"
+            title="Nothing scheduled today"
+            description="It's not a study day — enjoy the break. Review your courses or get ahead whenever you like."
+            actions={[
+              { label: "📚 My courses", href: "/courses" },
+              { label: "📊 Insights", href: "/insights", variant: "secondary" },
+            ]}
+          />
           {nextBlocks.length > 0 && (
             <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
