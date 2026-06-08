@@ -8,9 +8,11 @@
  * the same data as the original sequential fetch against a seeded dataset, so the
  * page render is unchanged — only the wall-clock timing improves.
  *
- * Runs against the real SQLite dev DB (same style as scripts/smoke.ts).
- * Run: DATABASE_URL="file:./dev.db" npx tsx src/lib/todayFetch.test.ts
+ * Runs against an isolated throwaway test DB (see ./testDb) on its own seeded
+ * user, so it never touches dev/prod data.
+ * Run: npx tsx src/lib/todayFetch.test.ts
  */
+import "./testDb"; // MUST be first: points ./db at the test DB before it loads.
 import { prisma } from "./db";
 
 let passed = 0;
