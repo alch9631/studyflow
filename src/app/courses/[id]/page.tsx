@@ -20,6 +20,7 @@ import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { iconButtonClass } from "@/components/ui";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
 
@@ -426,7 +427,9 @@ export default async function CoursePage({
                     className="shrink-0"
                     triggerLabel="✕"
                     triggerAriaLabel={`Delete deadline: ${a.title}`}
-                    triggerClassName="rounded-full px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800"
+                    triggerClassName={iconButtonClass(
+                      "inline-flex text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800",
+                    )}
                     title="Delete this deadline?"
                     message={
                       <>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { iconButtonClass } from "./ui";
 
 /** Subscribe to changes of the `.dark` class on <html>. */
 function subscribe(cb: () => void) {
@@ -30,9 +31,11 @@ export default function ThemeToggle() {
       onClick={toggle}
       aria-label="Toggle night mode"
       title="Toggle night mode"
-      className="rounded-full border border-gray-300 px-2.5 py-1.5 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+      className={iconButtonClass(
+        "inline-flex border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
+      )}
     >
-      {dark ? "☀️" : "🌙"}
+      <span aria-hidden="true">{dark ? "☀️" : "🌙"}</span>
     </button>
   );
 }

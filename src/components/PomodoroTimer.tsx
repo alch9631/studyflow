@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { buttonClasses, inputClass } from "./ui";
+import { buttonClasses, iconButtonClass, inputClass } from "./ui";
 
 const FOCUS_KEY = "sf-focus-min";
 const BREAK_KEY = "sf-break-min";
@@ -126,9 +126,11 @@ export default function PomodoroTimer() {
             onClick={() => setShowCfg((s) => !s)}
             aria-label="Timer settings"
             aria-expanded={showCfg}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+            className={iconButtonClass(
+              "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
+            )}
           >
-            ⚙︎
+            <span aria-hidden="true">⚙︎</span>
           </button>
         </div>
       </div>
