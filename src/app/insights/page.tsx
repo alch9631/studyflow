@@ -88,7 +88,7 @@ export default async function InsightsPage() {
                   <li key={id}>
                     <Link
                       href={`/courses/${id}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{name}</span>

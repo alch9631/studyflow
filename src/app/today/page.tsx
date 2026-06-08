@@ -38,7 +38,7 @@ function BlockRow({ b }: { b: Row }) {
         <input type="hidden" name="blockId" value={b.id} />
         <input type="hidden" name="revalidate" value="/today" />
         <SubmitButton
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border ${
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border transition-colors ${
             b.completed
               ? "border-green-500 bg-green-500 text-white"
               : "border-gray-300 dark:border-gray-700 hover:border-gray-500"
@@ -225,7 +225,7 @@ export default async function TodayPage() {
       {nextExam && examWeek && (
         <Link
           href={`/courses/${nextExam.id}`}
-          className="mb-6 mt-2 block rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 hover:border-red-400 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+          className="mb-6 mt-2 block rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 transition-colors hover:border-red-400 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
         >
           <span className="font-semibold">🎯 Focus mode — exam week.</span>{" "}
           <span className="font-medium">{nextExam.name}</span> {examCountdownLabel(nextExamDays!)}.
@@ -275,7 +275,7 @@ export default async function TodayPage() {
                 <li key={a.id}>
                   <Link
                     href={`/courses/${a.course.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{a.title}</span>

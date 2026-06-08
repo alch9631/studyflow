@@ -121,7 +121,7 @@ function ToastView({
         type="button"
         onClick={() => onDismiss(item.id)}
         aria-label="Dismiss"
-        className="-mr-1 shrink-0 rounded px-1 text-current/70 hover:text-current"
+        className="-mr-1 shrink-0 rounded px-1 text-current/70 transition-colors hover:text-current"
       >
         ✕
       </button>

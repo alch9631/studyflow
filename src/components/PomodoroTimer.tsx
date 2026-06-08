@@ -147,9 +147,11 @@ export default function PomodoroTimer() {
           onClick={() => setShowCfg((s) => !s)}
           aria-label="Timer settings"
           aria-expanded={showCfg}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          className={iconButtonClass(
+            "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
+          )}
         >
-          ⚙︎
+          <span aria-hidden="true">⚙︎</span>
         </button>
       </div>
 
@@ -188,7 +190,7 @@ export default function PomodoroTimer() {
                 <button
                   key={p.label}
                   onClick={() => applyDurations(p.f, p.b)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors active:scale-[.97] ${
                     focusMin === p.f && breakMin === p.b
                       ? "border-brand bg-brand text-white"
                       : "border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
