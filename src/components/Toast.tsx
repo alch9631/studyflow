@@ -23,9 +23,18 @@ import {
 
 export type ToastKind = "success" | "error" | "info";
 
+export type ToastAction = {
+  /** Button label, e.g. "Undo". Keep it a single short verb. */
+  label: string;
+  /** Run when the button is pressed; the toast dismisses right after. */
+  onClick: () => void;
+};
+
 export type ToastOptions = {
   /** Override the auto-dismiss delay (ms). Errors default to a longer 6s. */
   duration?: number;
+  /** Optional inline action button (e.g. "Undo") shown before the dismiss ✕. */
+  action?: ToastAction;
 };
 
 type ToastItem = {
@@ -33,6 +42,7 @@ type ToastItem = {
   message: string;
   kind: ToastKind;
   duration: number;
+  action?: ToastAction;
 };
 
 type ToastContextValue = {
@@ -73,7 +83,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, kind: ToastKind = "success", opts?: ToastOptions) => {
       const id = nextId.current++;
       const duration = opts?.duration ?? DEFAULT_DURATION[kind];
-      setToasts((prev) => [...prev, { id, message, kind, duration }]);
+      setToasts((prev) => [
+        ...prev,
+        { id, message, kind, duration, action: opts?.action },
+      ]);
     },
     [],
   );
@@ -117,6 +130,18 @@ function ToastView({
         {KIND_ICON[item.kind]}
       </span>
       <span className="min-w-0 flex-1 break-words">{item.message}</span>
+      {item.action ? (
+        <button
+          type="button"
+          onClick={() => {
+            item.action?.onClick();
+            onDismiss(item.id);
+          }}
+          className="-my-0.5 shrink-0 rounded-md border border-current/30 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-current/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/40"
+        >
+          {item.action.label}
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => onDismiss(item.id)}
