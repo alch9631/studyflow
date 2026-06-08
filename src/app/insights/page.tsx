@@ -3,6 +3,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { examCountdownLabel } from "@/lib/dates";
 import { gatherStats, lpOf } from "@/lib/stats";
+import EmptyState from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Insights" };
@@ -51,11 +52,15 @@ export default async function InsightsPage() {
       </p>
 
       {!hasData ? (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
-          No study data yet. Add a course and check off some sessions on{" "}
-          <Link href="/today" className="text-brand hover:underline">Today</Link> —
-          your stats will appear here.
-        </div>
+        <EmptyState
+          emoji="📊"
+          title="No study data yet"
+          description="Add a course and check off some sessions — your streak, progress, and grades will all appear here."
+          actions={[
+            { label: "🎓 Browse TUHH modules", href: "/catalog" },
+            { label: "📚 My courses", href: "/courses", variant: "secondary" },
+          ]}
+        />
       ) : (
         <>
           {/* Headline stats */}

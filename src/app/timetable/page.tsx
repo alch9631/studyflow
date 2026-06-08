@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { addLecture, deleteLecture } from "./actions";
+import EmptyState from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Timetable" };
@@ -135,9 +136,11 @@ export default async function TimetablePage() {
 
       {/* Weekly view */}
       {lectures.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">
-          No classes yet. Add your lectures above to see your week.
-        </p>
+        <EmptyState
+          emoji="📅"
+          title="No classes yet"
+          description="Add your recurring lectures, tutorials, and labs above — they'll show up here as your weekly schedule and on Today."
+        />
       ) : (
         <div className="space-y-4">
           {DAYS.filter((d) => byDay.has(d.v)).map((d) => (
