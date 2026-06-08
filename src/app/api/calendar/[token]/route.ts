@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  // Bound the token so a junk/oversized path segment can't reach the DB query.
+  if (!token || token.length > 200) {
+    return new Response("Not found", { status: 404 });
+  }
 
   const user = await prisma.user.findUnique({
     where: { calendarToken: token },
