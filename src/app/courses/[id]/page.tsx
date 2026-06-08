@@ -208,7 +208,7 @@ export default async function CoursePage({
         </div>
       </div>
 
-      <details className="mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+      <details id="settings" className="mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4 scroll-mt-20 [&:target]:ring-2 [&:target]:ring-brand">
         <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200">
           ⚙️ Course settings (exam date, study time)
         </summary>
