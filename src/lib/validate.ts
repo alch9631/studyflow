@@ -185,3 +185,73 @@ export function parseGrade(
   if (Number.isNaN(n) || n < min || n > max) return null;
   return n;
 }
+
+// ── Payload size guards (API request bodies) ────────────────────────────────
+// Defensive limits for raw HTTP bodies, so an oversized payload is rejected
+// BEFORE it's parsed/written. Reused by API routes via apiError's handler.
+
+/**
+ * Reject a raw request body that's larger than `maxBytes`. Uses the
+ * Content-Length header when present (cheap, no read), and is also safe to call
+ * with an already-read body string. Throws `ValidationError` on breach.
+ *
+ * Note: Content-Length can be spoofed/absent, so routes should ALSO bound the
+ * decoded text (see `guardTextSize`) — this just catches the obvious cases early.
+ */
+export function guardContentLength(req: Request, maxBytes: number): void {
+  const header = req.headers.get("content-length");
+  if (header) {
+    const len = Number(header);
+    if (Number.isFinite(len) && len > maxBytes) {
+      throw new ValidationError("Request body is too large.");
+    }
+  }
+}
+
+/** Reject an already-read body/text whose byte length exceeds `maxBytes`. */
+export function guardTextSize(text: string, maxBytes: number): void {
+  // Byte length (UTF-8), not char count — matches what was actually sent.
+  const bytes = typeof Buffer !== "undefined"
+    ? Buffer.byteLength(text, "utf8")
+    : new TextEncoder().encode(text).length;
+  if (bytes > maxBytes) {
+    throw new ValidationError("Request body is too large.");
+  }
+}
+
+/**
+ * Read a JSON request body with a size cap. Rejects (ValidationError) when the
+ * declared Content-Length or the decoded text exceeds `maxBytes`, and when the
+ * body isn't valid JSON. One call replaces the inline `try { req.json() }`
+ * pattern while adding the size guard.
+ */
+export async function readJsonBody<T = unknown>(
+  req: Request,
+  maxBytes: number,
+): Promise<T> {
+  guardContentLength(req, maxBytes);
+  const text = await req.text();
+  guardTextSize(text, maxBytes);
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ValidationError("Invalid JSON body.");
+  }
+}
+
+/**
+ * Validate a required, length-bounded string from a parsed (JSON) body — the
+ * body-side counterpart to `requireText`, which works on FormData. Throws when
+ * missing, not a string, or longer than `max`.
+ */
+export function requireBodyString(
+  value: unknown,
+  label: string,
+  max: number,
+): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ValidationError(`${label} is required.`);
+  }
+  if (value.length > max) throw new ValidationError(`${label} is too long.`);
+  return value;
+}
