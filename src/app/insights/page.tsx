@@ -6,7 +6,19 @@ import { examCountdownLabel } from "@/lib/dates";
 import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
 import EmptyState from "@/components/EmptyState";
+import { WeeklyActivityChart, ConsistencyGauge } from "@/components/InsightsCharts";
 import { panelClass } from "@/components/ui";
+
+// Short weekday labels (from the stats series) → full names for chart tooltips.
+const FULL_DOW: Record<string, string> = {
+  Su: "Sunday",
+  Mo: "Monday",
+  Tu: "Tuesday",
+  We: "Wednesday",
+  Th: "Thursday",
+  Fr: "Friday",
+  Sa: "Saturday",
+};
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -46,9 +58,12 @@ export default async function InsightsPage() {
   const { gpa, lpEarned } = stats.grades;
   const graded = courses.filter((c) => c.grade != null);
 
-  // Last 7 days of completed study minutes (for a small activity chart).
-  const last7 = stats.dailyLoad;
-  const maxDay = Math.max(60, ...last7.map((x) => x.min));
+  // Last 7 days of completed study minutes (for the activity chart).
+  const activity = stats.dailyLoad.map((d) => ({
+    label: d.label,
+    min: d.min,
+    full: FULL_DOW[d.label] ?? d.label,
+  }));
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
@@ -74,7 +89,6 @@ export default async function InsightsPage() {
             <Stat label="🔥 Streak" value={`${streak} ${streak === 1 ? "day" : "days"}`} />
             <Stat label="✅ Done when due" value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
             <Stat label="⏱️ Focus logged" value={fmtMin(loggedMinutes)} />
-            <Stat label="📅 Consistency" value={`${consistency}%`} sub={`${activeDays}/14 days active`} />
             <Stat label="📚 Next 7 days" value={fmtMin(upcomingWorkload)} sub="study planned" />
             <Stat label="🎓 Modules done" value={`${completedModules}`} sub={`of ${courses.length}`} />
           </div>
@@ -165,23 +179,33 @@ export default async function InsightsPage() {
             </p>
           </section>
 
-          {/* Last 7 days activity */}
+          {/* Activity & consistency — recent study load + the 14-day rhythm */}
           <section className={`${panelClass} mt-6 p-5`}>
-            <h2 className="mb-3 font-semibold">Last 7 days</h2>
-            <div className="flex items-end justify-between gap-2" style={{ height: "96px" }}>
-              {last7.map((d) => (
-                <div key={d.key} className="flex flex-1 flex-col items-center justify-end gap-1">
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                    {d.min > 0 ? fmtMin(d.min) : ""}
-                  </span>
-                  <div
-                    className={`w-full rounded-t ${d.min > 0 ? "bg-brand" : "bg-gray-100 dark:bg-gray-800"}`}
-                    style={{ height: `${Math.max(4, Math.round((d.min / maxDay) * 72))}px` }}
-                    title={`${d.label}: ${fmtMin(d.min)}`}
-                  />
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{d.label}</span>
-                </div>
-              ))}
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-semibold">Last 7 days</h2>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                completed study time
+              </span>
+            </div>
+            <div className="mt-3">
+              <WeeklyActivityChart data={activity} />
+            </div>
+          </section>
+
+          <section className={`${panelClass} mt-6 p-5`}>
+            <h2 className="mb-1 font-semibold">Consistency</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              How often you showed up over the last 14 days.
+            </p>
+            <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
+              <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
+              <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
+                {consistency >= 80
+                  ? `Rock solid — active on ${activeDays} of the last 14 days. This rhythm is what makes exam prep stick.`
+                  : consistency >= 40
+                    ? `A steady habit is forming: ${activeDays} of the last 14 days active. A few more sessions and it'll feel automatic.`
+                    : `Studied on ${activeDays} of the last 14 days. Small daily sessions beat rare marathons — even 20 minutes keeps the streak alive.`}
+              </p>
             </div>
           </section>
 
