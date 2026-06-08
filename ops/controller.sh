@@ -54,6 +54,9 @@ process_track(){
       echo "MERGED|$track|$num|$inflight"
       [ -n "$inflight" ] && { mark_done "$backlog" "$inflight"; git add "$backlog" >/dev/null 2>&1; \
         git commit -q -m "loop($track): complete backlog item — $inflight" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" >/dev/null 2>&1; \
+        # squash-merge just advanced origin/main; rebase our backlog commit on top so the push fast-forwards
+        git fetch origin -q 2>/dev/null; \
+        git pull -q --rebase --autostash origin main >/dev/null 2>&1; \
         git push -q origin main 2>/dev/null; }
       git fetch origin -q 2>/dev/null
       setf "s.tracks.$track.inflight=''"
