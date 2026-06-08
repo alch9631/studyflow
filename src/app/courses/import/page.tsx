@@ -1,22 +1,10 @@
 import Link from "next/link";
-import { importSyllabus } from "../actions";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
-import FilePicker from "@/components/FilePicker";
-import { buttonClasses } from "@/components/ui";
+import ImportForm from "./ImportForm";
 
 // Render per-request so the AI-key gating reflects the current env (not build time).
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Import" };
-
-const DAYS = [
-  { v: 1, label: "Mon" },
-  { v: 2, label: "Tue" },
-  { v: 3, label: "Wed" },
-  { v: 4, label: "Thu" },
-  { v: 5, label: "Fri" },
-  { v: 6, label: "Sat" },
-  { v: 0, label: "Sun" },
-];
 
 export default function ImportPage() {
   const enabled = isSyllabusAIEnabled();
@@ -41,48 +29,7 @@ export default function ImportPage() {
         </div>
       )}
 
-      <form action={importSyllabus} className="space-y-5">
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            Upload material <span className="text-gray-400 dark:text-gray-500">(PDF, txt, md)</span>
-          </label>
-          <FilePicker disabled={!enabled} />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">
-            …or paste syllabus text
-          </label>
-          <textarea
-            name="syllabus"
-            rows={8}
-            disabled={!enabled}
-            placeholder="Paste the whole syllabus here — weeks, chapters, exam dates, anything."
-            className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 font-mono text-xs disabled:bg-gray-100 dark:disabled:bg-gray-800"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">Study days</label>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {DAYS.map((d) => (
-              <label key={d.v} className="flex items-center gap-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  name="studyDays"
-                  value={d.v}
-                  defaultChecked={d.v >= 1 && d.v <= 5}
-                />
-                {d.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <button type="submit" disabled={!enabled} className={buttonClasses("primary", "lg")}>
-          ✨ Extract & build my plan
-        </button>
-      </form>
+      <ImportForm enabled={enabled} />
     </main>
   );
 }

@@ -9,17 +9,17 @@ import {
   healCourse,
   toggleTopic,
   updateCourse,
-  applyProgress,
   deleteCourse,
   reoptimizeCourse,
   analyzeModuleUpload,
-  addAssignment,
   toggleAssignment,
   deleteAssignment,
   setGrade,
 } from "../actions";
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
+import ProgressForm from "./ProgressForm";
+import AddDeadlineForm from "./AddDeadlineForm";
 
 export const dynamic = "force-dynamic";
 
@@ -181,21 +181,24 @@ export default async function CoursePage({
         <form action={updateCourse} className="mt-4 space-y-4">
           <input type="hidden" name="courseId" value={course.id} />
           <div className="flex flex-wrap gap-4">
-            <label className="text-sm">
-              <span className="block font-medium">Exam date</span>
+            <div className="text-sm">
+              <label htmlFor="settings-examDate" className="block font-medium">
+                Exam date
+              </label>
               <input
+                id="settings-examDate"
                 type="date"
                 name="examDate"
                 defaultValue={course.examDate.toISOString().slice(0, 10)}
                 className="mt-1 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2"
               />
-            </label>
+            </div>
             <p className="self-end text-xs text-gray-400 dark:text-gray-500">
               Daily pace is computed automatically (~{course.minutesPerDay} min/day).
             </p>
           </div>
-          <div>
-            <span className="block text-sm font-medium">Study days</span>
+          <fieldset>
+            <legend className="block text-sm font-medium">Study days</legend>
             <div className="mt-2 flex flex-wrap gap-3">
               {DAY_OPTS.map((d) => (
                 <label key={d.v} className="flex items-center gap-1.5 text-sm">
@@ -209,7 +212,7 @@ export default async function CoursePage({
                 </label>
               ))}
             </div>
-          </div>
+          </fieldset>
           <button
             type="submit"
             className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
@@ -220,9 +223,12 @@ export default async function CoursePage({
 
         <form action={setGrade} className="mt-4 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
           <input type="hidden" name="courseId" value={course.id} />
-          <label className="text-sm">
-            <span className="block font-medium">Final grade (1.0–5.0)</span>
+          <div className="text-sm">
+            <label htmlFor="settings-grade" className="block font-medium">
+              Final grade (1.0–5.0)
+            </label>
             <input
+              id="settings-grade"
               type="number"
               name="grade"
               step="0.1"
@@ -232,7 +238,7 @@ export default async function CoursePage({
               placeholder="e.g. 1.7"
               className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
             />
-          </label>
+          </div>
           <button
             type="submit"
             className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
@@ -271,22 +277,7 @@ export default async function CoursePage({
       <section className="mb-8">
         <h2 className="mb-2 text-lg font-semibold">📣 Update your progress</h2>
         {isSyllabusAIEnabled() ? (
-          <form action={applyProgress} className="space-y-2">
-            <input type="hidden" name="courseId" value={course.id} />
-            <textarea
-              name="status"
-              rows={2}
-              required
-              placeholder="In your own words — e.g. 'done with sorting and graphs, still shaky on dynamic programming'"
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              className="w-full rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark sm:w-auto"
-            >
-              ✨ Apply & rebuild plan
-            </button>
-          </form>
+          <ProgressForm courseId={course.id} />
         ) : (
           <p className="text-sm text-gray-400 dark:text-gray-500">
             Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to
@@ -339,39 +330,7 @@ export default async function CoursePage({
         <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
           Homework, lab reports, hand-ins — anything due before the exam.
         </p>
-        <ToastForm
-          action={addAssignment}
-          successMessage="Deadline added."
-          errorMessage="Couldn't add that deadline — check the fields and try again."
-          className="mb-3 flex flex-wrap items-end gap-2"
-        >
-          <input type="hidden" name="courseId" value={course.id} />
-          <label className="min-w-0 flex-1 text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Title</span>
-            <input
-              name="title"
-              required
-              maxLength={120}
-              placeholder="e.g. Übungsblatt 5"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Due</span>
-            <input
-              type="date"
-              name="dueDate"
-              required
-              className="mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            Add
-          </button>
-        </ToastForm>
+        <AddDeadlineForm courseId={course.id} />
         {course.assignments.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500">No deadlines yet.</p>
         ) : (

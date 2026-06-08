@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { addLecture, deleteLecture } from "./actions";
+import { deleteLecture } from "./actions";
 import EmptyState from "@/components/EmptyState";
 import ToastForm from "@/components/ToastForm";
+import AddLectureForm from "./AddLectureForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Timetable" };
@@ -48,94 +49,7 @@ export default async function TimetablePage() {
       </p>
 
       {/* Add a class slot */}
-      <ToastForm
-        action={addLecture}
-        successMessage="Class added to your timetable."
-        errorMessage="Couldn't add that class — check the times and try again."
-        className="mb-6 space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-800"
-      >
-        <div className="flex flex-wrap gap-3">
-          <label className="min-w-0 flex-1 text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Title</span>
-            <input
-              name="title"
-              required
-              maxLength={120}
-              placeholder="e.g. Analysis I — Vorlesung"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Day</span>
-            <select
-              name="weekday"
-              defaultValue="1"
-              className="mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            >
-              {DAYS.map((d) => (
-                <option key={d.v} value={d.v}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <label className="text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Start</span>
-            <input
-              type="time"
-              name="start"
-              required
-              defaultValue="10:00"
-              className="mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">End</span>
-            <input
-              type="time"
-              name="end"
-              required
-              defaultValue="12:00"
-              className="mt-1 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            />
-          </label>
-          <label className="min-w-0 flex-1 text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">Room (optional)</span>
-            <input
-              name="location"
-              placeholder="e.g. Audimax I"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            />
-          </label>
-        </div>
-        {courses.length > 0 && (
-          <label className="block text-sm">
-            <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-              Link to course (optional)
-            </span>
-            <select
-              name="courseId"
-              defaultValue=""
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-700"
-            >
-              <option value="">—</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button
-          type="submit"
-          className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          Add class
-        </button>
-      </ToastForm>
+      <AddLectureForm courses={courses} />
 
       {/* Weekly view */}
       {lectures.length === 0 ? (
