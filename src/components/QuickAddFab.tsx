@@ -30,7 +30,7 @@ export default function QuickAddFab() {
 
   return (
     <Link
-      href="/courses/new"
+      href="/catalog"
       aria-label={t("fab.addCourse")}
       className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand-dark active:scale-[.95] lg:hidden"
     >

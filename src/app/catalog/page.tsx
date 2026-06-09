@@ -59,6 +59,21 @@ export default async function CatalogPage({
           🎓 Modules · {program.code}
         </p>
         <h1 className="text-xl font-bold leading-tight sm:text-2xl">{program.name}</h1>
+        {/* Pick official modules below, or take a manual / import route. */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href="/courses/new"
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+          >
+            ✍️ Add manually
+          </Link>
+          <Link
+            href="/courses/import"
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+          >
+            ✨ Import syllabus
+          </Link>
+        </div>
       </div>
 
       {allModules.length === 0 ? (

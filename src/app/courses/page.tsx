@@ -43,7 +43,7 @@ export default async function CoursesPage() {
       <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">{t("courses.title")}</h1>
         <Button asChild className="hidden shrink-0 lg:inline-flex">
-          <Link href="/courses/new">{t("courses.newCourse")}</Link>
+          <Link href="/catalog">{t("courses.newCourse")}</Link>
         </Button>
       </div>
 
