@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import BottomTabBar from "@/components/BottomTabBar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { ToastProvider } from "@/components/Toast";
 
@@ -69,9 +70,16 @@ export default function RootLayout({
         </a>
         <ToastProvider>
           <Nav />
-          <div id="main-content" tabIndex={-1} className="flex-1">
+          {/* Bottom padding clears the mobile tab bar (its 3.5rem height + the
+              safe-area inset); desktop has no bottom bar, so reset to 0. */}
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+          >
             {children}
           </div>
+          <BottomTabBar />
         </ToastProvider>
         <ServiceWorkerRegister />
       </body>
