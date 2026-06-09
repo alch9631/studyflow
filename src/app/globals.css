@@ -17,6 +17,9 @@
   /* Data-viz palette (recharts on the Insights page). Brand blue for the active
      series, neutral gray for empty/track, muted gray for axis ticks & gridlines. */
   --chart-series: #00509b;
+  /* Secondary data series (e.g. the running Notenschnitt overlay) — amber reads
+     clearly against the brand-blue series and stays AA on white. */
+  --chart-series-2: #d97706;
   --chart-track: #e5e7eb;
   --chart-axis: #6b7280;
   --chart-grid: #f3f4f6;
@@ -54,6 +57,8 @@
   /* Data-viz palette, dark theme — the deep brand blue muddies against the
      near-black bg, so the active series lifts to the lighter focus-ring blue. */
   --chart-series: #4d94d6;
+  /* Secondary series, dark theme — lighter amber so it lifts off the near-black bg. */
+  --chart-series-2: #fbbf24;
   --chart-track: #1f2937;
   --chart-axis: #9ca3af;
   --chart-grid: #1f2937;

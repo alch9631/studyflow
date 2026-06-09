@@ -61,16 +61,27 @@ export default async function InsightsPage() {
   const graded = courses.filter((c) => c.grade != null);
 
   // Grade trend — graded courses in exam-date order (courses arrive sorted by
-  // examDate asc), labelled by exam month so the line reads as "over time".
-  const gradeTrend = graded.map((c) => ({
-    label: c.examDate.toLocaleDateString("en-US", {
-      month: "short",
-      year: "2-digit",
-      timeZone: "UTC",
-    }),
-    grade: c.grade as number,
-    full: c.name,
-  }));
+  // examDate asc), labelled by exam month so the line reads as "over time". The
+  // `running` field is the LP-weighted Notenschnitt up to and including each
+  // exam, so the overlay shows how the GPA itself drifted — not just the
+  // individual marks. Weighting mirrors gradeSummary() in lib/stats.
+  const gradeTrend = graded.map((c, i) => {
+    const soFar = graded.slice(0, i + 1);
+    const lp = soFar.reduce((s, x) => s + lpOf(x), 0);
+    const running = lp
+      ? soFar.reduce((s, x) => s + (x.grade as number) * lpOf(x), 0) / lp
+      : (c.grade as number);
+    return {
+      label: c.examDate.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
+        timeZone: "UTC",
+      }),
+      grade: c.grade as number,
+      running,
+      full: c.name,
+    };
+  });
 
   // Last 7 days of completed study minutes (for the activity chart).
   const activity = stats.dailyLoad.map((d) => ({

@@ -15,7 +15,6 @@ import {
   PolarAngleAxis,
   RadialBar,
   RadialBarChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -147,9 +146,12 @@ export function ConsistencyGauge({
   );
 }
 
-export type GradePoint = { label: string; grade: number; full: string };
+export type GradePoint = { label: string; grade: number; running: number; full: string };
 
-/** Tooltip for the grade trend — course name + its grade on the German scale. */
+/**
+ * Tooltip for the grade trend — course name, its own grade, and the running
+ * Notenschnitt after that exam, both on the German scale.
+ */
 function GradeTooltip({
   active,
   payload,
@@ -163,6 +165,29 @@ function GradeTooltip({
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md dark:border-gray-700 dark:bg-gray-900">
       <div className="font-medium">{d.full}</div>
       <div className="mt-0.5 text-gray-500 dark:text-gray-400">Grade {d.grade.toFixed(1)}</div>
+      <div className="text-gray-500 dark:text-gray-400">Avg so far {d.running.toFixed(2)}</div>
+    </div>
+  );
+}
+
+/** Tiny inline legend swatch for the two grade-trend series. */
+function GradeLegend() {
+  return (
+    <div className="mt-2 flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-0.5 w-3.5 rounded-full" style={{ background: "var(--chart-series)" }} />
+        Per course
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="h-0.5 w-3.5 rounded-full"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(to right, var(--chart-series-2) 0 4px, transparent 4px 7px)",
+          }}
+        />
+        Running average
+      </span>
     </div>
   );
 }
@@ -170,9 +195,11 @@ function GradeTooltip({
 /**
  * Grade trend as a line chart — graded courses plotted in exam-date order so the
  * student can see whether their Notenschnitt is drifting up or down over time.
- * The Y axis is reversed (1.0 sits at the top) so an upward line reads as
- * "grades improving", and a dashed reference line marks the running average.
- * Needs ≥2 graded courses to be meaningful; the page gates on that.
+ * The brand-blue line is each course's own grade; the amber dashed line is the
+ * running LP-weighted average after each exam, so the GPA's drift is visible
+ * directly. The Y axis is reversed (1.0 sits at the top) so an upward line reads
+ * as "grades improving". Needs ≥2 graded courses to be meaningful; the page
+ * gates on that.
  */
 export function GradeTrendChart({
   data,
@@ -186,7 +213,7 @@ export function GradeTrendChart({
       <div
         className="h-36 w-full"
         role="img"
-        aria-label={`Grade trend across ${data.length} graded courses in exam-date order. Average ${average.toFixed(2)} on the German 1.0 to 5.0 scale, where lower is better.`}
+        aria-label={`Grade trend across ${data.length} graded courses in exam-date order: each course's grade and the running average, ending at ${average.toFixed(2)} on the German 1.0 to 5.0 scale, where lower is better.`}
       >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -209,7 +236,16 @@ export function GradeTrendChart({
               width={28}
             />
             <Tooltip content={<GradeTooltip />} cursor={{ stroke: "var(--chart-grid)" }} />
-            <ReferenceLine y={average} stroke="var(--chart-axis)" strokeDasharray="4 4" />
+            <Line
+              type="monotone"
+              dataKey="running"
+              stroke="var(--chart-series-2)"
+              strokeWidth={2}
+              strokeDasharray="4 3"
+              dot={false}
+              activeDot={{ r: 4 }}
+              isAnimationActive={false}
+            />
             <Line
               type="monotone"
               dataKey="grade"
@@ -222,8 +258,9 @@ export function GradeTrendChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
+      <GradeLegend />
       <figcaption className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-        Grade over time (1.0 best). Dashed line marks your {average.toFixed(2)} average.
+        Grade over time (1.0 best). The amber line is your running {average.toFixed(2)} average.
       </figcaption>
     </figure>
   );
