@@ -1,8 +1,16 @@
 "use client";
 
-import { type MouseEvent } from "react";
-import Link from "next/link";
+import { useState, type MouseEvent } from "react";
+import { deleteCourse } from "@/app/courses/actions";
 import { iconButtonClass } from "./ui";
+import { Button } from "./ui/button";
+import SubmitButton from "./SubmitButton";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "./ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,18 +23,14 @@ import {
 /**
  * The per-card "Course settings" menu on the My Courses list.
  *
- * Design constraint: each course card is a single `<Link>` to the detail page so
- * the whole row is one tap target. This menu is rendered as an *overlay sibling*
- * of that Link (positioned absolute, top-right) — never nested inside the anchor.
- * The trigger stops propagation so opening the menu never navigates the card.
+ * Rendered as an overlay sibling of the card's `<Link>` (positioned absolute,
+ * top-right) — never nested inside the anchor. The trigger stops propagation so
+ * opening the menu never navigates the card.
  *
- * IMPORTANT: every item here is a plain navigation `<Link>`/`<a>`. We deliberately
- * do NOT nest `<form>`s, confirm dialogs, or motion components inside the portaled
- * Radix menu — that nesting crashed the page in production (the menu mounts a
- * framer-motion Dialog + nested forms inside a portaled menuitem, which throws on
- * client render and trips the route error boundary). The destructive/action items
- * (rebuild plan, delete) deep-link to the course detail page, where those flows are
- * already implemented with their own confirm dialog and server actions.
+ * The confirm Dialog lives OUTSIDE the dropdown (a sibling, controlled by state)
+ * — not nested inside a menu item — so there's no fragile menu↔dialog nesting.
+ * The "Delete course" item just flips `confirmOpen`; the actual delete is a plain
+ * `<form action={deleteCourse}>` (the action redirects to /courses on success).
  */
 export default function CourseCardMenu({
   courseId,
@@ -35,48 +39,71 @@ export default function CourseCardMenu({
   courseId: string;
   courseName: string;
 }) {
-  // The trigger sits on top of the card's <Link>; stop the click from bubbling to
-  // the anchor so opening the menu never navigates to the detail page.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   const stop = (e: MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        onClick={stop}
-        onPointerDown={(e) => e.stopPropagation()}
-        aria-label={`Course settings for ${courseName}`}
-        className={iconButtonClass(
-          "inline-flex bg-white/80 text-gray-600 shadow-sm backdrop-blur hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand dark:bg-gray-900/80 dark:text-gray-300 dark:hover:bg-gray-800",
-        )}
-      >
-        <span aria-hidden="true">⋯</span>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="truncate">{courseName}</DropdownMenuLabel>
-
-        <DropdownMenuItem asChild>
-          <a href="/api/export?format=json">
-            <span aria-hidden="true">⬇️</span>
-            Export
-          </a>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem
-          asChild
-          className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40 dark:focus:text-red-300"
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          onClick={stop}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label={`Course settings for ${courseName}`}
+          className={iconButtonClass(
+            "inline-flex bg-white/80 text-gray-600 shadow-sm backdrop-blur hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand dark:bg-gray-900/80 dark:text-gray-300 dark:hover:bg-gray-800",
+          )}
         >
-          <Link href={`/courses/${courseId}#settings`}>
+          <span aria-hidden="true">⋯</span>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel className="truncate">{courseName}</DropdownMenuLabel>
+
+          <DropdownMenuItem asChild>
+            <a href="/api/export?format=json">
+              <span aria-hidden="true">⬇️</span>
+              Export
+            </a>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            onSelect={(e) => {
+              // Keep the menu from closing/refocusing before the dialog mounts.
+              e.preventDefault();
+              setConfirmOpen(true);
+            }}
+            className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40 dark:focus:text-red-300"
+          >
             <span aria-hidden="true">🗑</span>
             Delete course
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogTitle>Delete this course?</DialogTitle>
+          <DialogDescription>
+            This permanently removes <strong>{courseName}</strong> — its topics,
+            deadlines, and study plan. This can&apos;t be undone.
+          </DialogDescription>
+          <form action={deleteCourse} className="mt-5 flex justify-end gap-2">
+            <input type="hidden" name="courseId" value={courseId} />
+            <Button type="button" variant="secondary" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <SubmitButton variant="danger-solid" pendingLabel="Deleting…">
+              Delete course
+            </SubmitButton>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
