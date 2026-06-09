@@ -24,6 +24,7 @@ import {
   requireId,
   requireDate,
   optionalDate,
+  optionalText,
   longText,
   toUTCDate,
   sanitizeStudyDays,
@@ -40,6 +41,8 @@ import {
   findOwnedBlock,
   findOwnedAssignment,
   deleteOwnedAssignment,
+  upsertOwnedTopicNote,
+  deleteOwnedTopicNote,
 } from "@/lib/ownership";
 
 /**
@@ -617,4 +620,47 @@ export async function toggleTopic(formData: FormData) {
     await regeneratePlan(topic.courseId);
     revalidatePath(`/courses/${topic.courseId}`);
   }
+}
+
+/**
+ * Save a topic's free-text study note (autosaved from the course-detail editor).
+ * Upserts the single note for that topic; an empty body clears it so we never
+ * keep a blank row. Ownership-scoped: a non-owner's (or junk) topicId is a no-op.
+ *
+ * No `revalidatePath` here on purpose — the editor is the source of truth while
+ * the user types (optimistic local state), so revalidating on every autosave
+ * would refetch the page and fight the textarea. A later navigation/refresh reads
+ * the persisted note normally.
+ */
+export async function saveNote(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) {
+    throw new Error("You're saving a lot quickly — give it a moment and try again.");
+  }
+  let topicId: string;
+  try {
+    topicId = requireId(formData.get("topicId"), "Topic");
+  } catch {
+    return;
+  }
+  const body = optionalText(formData.get("body"), LIMITS.MAX_NOTE_LENGTH);
+  if (body === null) {
+    // Emptying the note removes it rather than storing a blank string.
+    await deleteOwnedTopicNote(userId, topicId);
+    return;
+  }
+  await upsertOwnedTopicNote(userId, topicId, body);
+}
+
+/** Explicitly clear a topic's note (the editor's "Clear note" control). */
+export async function deleteNote(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let topicId: string;
+  try {
+    topicId = requireId(formData.get("topicId"), "Topic");
+  } catch {
+    return;
+  }
+  await deleteOwnedTopicNote(userId, topicId);
 }
