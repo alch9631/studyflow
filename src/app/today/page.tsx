@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
+import { getStatsCached } from "@/lib/statsCache";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
+import { StreakBadge } from "@/components/StreakBadge";
 import BlockToggle from "./BlockToggle";
 import FocusLogButton from "./FocusLogButton";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
@@ -54,7 +56,7 @@ export default async function TodayPage() {
   // These four reads are independent, so fire them concurrently in a single
   // round-trip batch instead of awaiting one after another (avoids a serial
   // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, todaysLectures, upcomingDeadlines] = await Promise.all([
+  const [blocks, nextExam, todaysLectures, upcomingDeadlines, stats] = await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
       where: { date: { gte: start, lt: end }, course: { userId } },
@@ -97,6 +99,9 @@ export default async function TodayPage() {
         course: { select: { name: true, id: true } },
       },
     }),
+    // Cached analytics bundle — reused here only for the streak counter in the
+    // header (cheap: shared with /insights + /api/stats, 30s TTL + write-invalidated).
+    getStatsCached(userId, today),
   ]);
 
   let nextDate = "";
@@ -163,7 +168,10 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
-      <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+        <StreakBadge streak={stats.currentStreak} />
+      </div>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         {today}
         {blocks.length > 0

@@ -6,6 +6,7 @@ import { examCountdownLabel } from "@/lib/dates";
 import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
 import EmptyState from "@/components/EmptyState";
+import { StreakCard } from "@/components/StreakBadge";
 import { WeeklyActivityChart, ConsistencyGauge } from "@/components/InsightsCharts";
 import { panelClass } from "@/components/ui";
 
@@ -41,6 +42,7 @@ export default async function InsightsPage() {
   const {
     hasData,
     currentStreak: streak,
+    longestStreak,
     loggedMinutes,
     weekPlanned,
     weekDone,
@@ -84,9 +86,13 @@ export default async function InsightsPage() {
         />
       ) : (
         <>
+          {/* Study streak — the headline habit metric */}
+          <div className="mb-3">
+            <StreakCard current={streak} best={longestStreak} />
+          </div>
+
           {/* Headline stats */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label="🔥 Streak" value={`${streak} ${streak === 1 ? "day" : "days"}`} />
             <Stat label="✅ Done when due" value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
             <Stat label="⏱️ Focus logged" value={fmtMin(loggedMinutes)} />
             <Stat label="📚 Next 7 days" value={fmtMin(upcomingWorkload)} sub="study planned" />
