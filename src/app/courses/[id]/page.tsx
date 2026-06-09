@@ -165,14 +165,7 @@ export default async function CoursePage({
 
       <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {course.name}
-            {course.aiOptimized && (
-              <span className="ml-2 align-middle rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-brand dark:bg-blue-950/50">
-                {t("courseDetail.aiOptimized")}
-              </span>
-            )}
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">{course.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <span
               className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -478,7 +471,7 @@ export default async function CoursePage({
               <AnimatedListItem
                 key={topic.id}
                 id={`topic-${topic.id}`}
-                className="scroll-mt-24 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
+                className="relative scroll-mt-24 rounded-xl border border-gray-200 p-3 pr-9 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
                 <TopicToggle
                   topicId={topic.id}

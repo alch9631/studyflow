@@ -26,7 +26,7 @@ export default function NewCourseForm() {
     <ValidatedForm
       action={createCourse}
       errorMessage="Couldn't create that course — check the fields and try again."
-      className="space-y-5"
+      className="space-y-4"
     >
       <Field name="name" label="Course name" required>
         {(p) => (
@@ -48,7 +48,7 @@ export default function NewCourseForm() {
         {(p) => (
           <Textarea
             {...p}
-            rows={6}
+            rows={4}
             placeholder={"Sorting\nGraphs\nDynamic programming"}
             className="mt-1 w-full font-mono text-sm"
           />

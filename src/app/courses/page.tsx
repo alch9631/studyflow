@@ -42,7 +42,7 @@ export default async function CoursesPage() {
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">{t("courses.title")}</h1>
-        <Button asChild className="shrink-0">
+        <Button asChild className="hidden shrink-0 lg:inline-flex">
           <Link href="/courses/new">{t("courses.newCourse")}</Link>
         </Button>
       </div>

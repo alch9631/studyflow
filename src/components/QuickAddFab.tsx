@@ -15,11 +15,11 @@ import { useT } from "./i18n/I18nProvider";
  * app-wide ring from globals.css). The plus glyph is decorative; the action is
  * named for screen readers via `aria-label`.
  *
- * Hidden where it would be redundant or out of place: the marketing landing page,
- * the add/import flows themselves, and the My Courses list (which already shows a
- * "+ New course" button in its header).
+ * Hidden where it would be redundant or out of place: the marketing landing page
+ * and the add/import flows themselves. On My Courses the desktop header button is
+ * hidden on mobile, so this FAB is the single mobile add-course affordance.
  */
-const HIDDEN_ON = ["/", "/courses", "/courses/new", "/courses/import"];
+const HIDDEN_ON = ["/", "/courses/new", "/courses/import"];
 
 export default function QuickAddFab() {
   const pathname = usePathname();

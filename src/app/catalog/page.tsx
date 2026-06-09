@@ -120,7 +120,7 @@ export default async function CatalogPage({
                       .slice(0, 240);
                     return (
                       <li key={m.id}>
-                        <div className="rounded-lg border border-gray-200 p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
+                        <div className="relative rounded-lg border border-gray-200 p-3 pr-10 transition-colors hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
                           <label className="flex cursor-pointer items-start gap-3">
                             <input
                               type="checkbox"
@@ -130,18 +130,18 @@ export default async function CatalogPage({
                             />
                             <span className="min-w-0 flex-1 font-medium leading-snug">{m.name}</span>
                           </label>
-                          {/* Module details behind a small "?" info toggle */}
-                          <details className="ml-7 mt-1.5">
+                          {/* Module details: a "?" info toggle in the top-right corner */}
+                          <details className="absolute right-2 top-2">
                             <summary
                               aria-label={`Details for ${m.name}`}
                               title="Details"
-                              className="inline-flex cursor-pointer list-none items-center text-xs text-gray-500 transition-colors hover:text-brand dark:text-gray-400"
+                              className="inline-flex cursor-pointer list-none items-center text-gray-400 transition-colors hover:text-brand"
                             >
                               <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px] font-bold">
                                 ?
                               </span>
                             </summary>
-                            <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
+                            <div className="absolute right-0 top-7 z-10 w-64 max-w-[75vw] rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                               <div className="font-medium text-gray-700 dark:text-gray-200">
                                 {m.code} · {m.ects} LP
                                 {m.examDate ? ` · exam ${m.examDate.toISOString().slice(0, 10)}` : ""}

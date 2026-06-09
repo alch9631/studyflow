@@ -109,19 +109,22 @@ export default function NoteEditor({
   }
 
   return (
-    <details className="ml-7 mt-1">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-brand">
-        <span aria-hidden="true">📝</span>
-        {t("courseDetail.note")}
+    <details className="absolute right-2 top-2">
+      <summary
+        aria-label={t("courseDetail.note")}
+        title={t("courseDetail.note")}
+        className="relative inline-flex cursor-pointer list-none items-center justify-center rounded p-0.5 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <span aria-hidden="true" className="text-base leading-none">📝</span>
         {hasNote && (
           <span
-            className="h-1.5 w-1.5 rounded-full bg-brand"
+            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-white dark:ring-gray-900"
             aria-label={t("courseDetail.noteHasNote")}
             title={t("courseDetail.noteHasNoteTitle")}
           />
         )}
       </summary>
-      <div className="mt-2 space-y-1.5">
+      <div className="absolute right-0 top-8 z-20 w-[min(20rem,75vw)] space-y-1.5 rounded-lg border border-gray-200 bg-white p-2.5 shadow-lg dark:border-gray-800 dark:bg-gray-900">
         <Textarea
           aria-label={t("courseDetail.noteAria", { title: topicTitle })}
           aria-describedby={statusId}
