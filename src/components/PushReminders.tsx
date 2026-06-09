@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
+import { useToast } from "./Toast";
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -16,41 +17,97 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+/** True when this browser can do web push at all (secure context + the APIs + a key). */
+function browserSupportsPush(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    "Notification" in window &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    window.isSecureContext &&
+    !!VAPID_PUBLIC
+  );
+}
+
 /**
- * Study-reminders opt-in. Web push needs a secure context (https/localhost) AND
- * a configured VAPID public key, so locally / over plain http this renders a
- * "coming soon" state — it fully activates once the app is deployed.
+ * High-level state of the opt-in:
+ *  - checking      reading browser caps + asking the server if push is configured
+ *  - unsupported   this browser/context can't do web push (insecure, missing APIs…)
+ *  - unconfigured  the deploy has no VAPID keys yet — clean, clearly-disabled no-op
+ *  - ready         push works; offer enable / disable / send-test
+ */
+type Status = "checking" | "unsupported" | "unconfigured" | "ready";
+
+/** Which action is mid-flight, so each button can show its own pending state. */
+type Pending = null | "toggle" | "test";
+
+/**
+ * Study-reminders opt-in, wired to the real web-push backend.
+ *
+ * On mount it confirms two things before offering anything: the browser can do
+ * push (secure context + APIs + the public VAPID key), and — via
+ * `/api/push/status` — the deploy actually has VAPID keys configured. Either
+ * missing → a graceful, clearly-disabled "coming soon" message instead of a
+ * button that can't work.
+ *
+ * When ready it requests permission, subscribes with the VAPID public key, and
+ * POSTs the subscription to `/api/push/subscribe`. A subscribed device can send
+ * itself a test notification (rendered locally by the service worker, so it
+ * needs no server round-trip) or turn reminders back off.
  */
 export default function PushReminders() {
-  // Lazy init reads the browser capabilities on the client (false during SSR),
-  // avoiding a setState-in-effect.
-  const [available] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      "Notification" in window &&
-      "serviceWorker" in navigator &&
-      window.isSecureContext &&
-      !!VAPID_PUBLIC
-  );
+  const { toast } = useToast();
+  const [status, setStatus] = useState<Status>("checking");
   const [subscribed, setSubscribed] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState("");
 
+  // On mount: settle browser support, ask the server if push is configured, and
+  // read any existing subscription. setState happens only inside the async
+  // callbacks (an allowed external-sync pattern), guarded against unmount.
   useEffect(() => {
-    if (!available) return;
-    // setState only in the async callback (an allowed external-sync pattern).
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setSubscribed(!!sub))
-      .catch(() => {});
-  }, [available]);
+    let active = true;
+    (async () => {
+      if (!browserSupportsPush()) {
+        if (active) setStatus("unsupported");
+        return;
+      }
+      try {
+        const res = await fetch("/api/push/status");
+        const data = (await res.json()) as { configured?: boolean };
+        if (!active) return;
+        if (!data.configured) {
+          setStatus("unconfigured");
+          return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!active) return;
+        setSubscribed(!!sub);
+        setStatus("ready");
+      } catch {
+        // Can't confirm the backend is ready — fail safe to the disabled state
+        // rather than offer a button that might not work.
+        if (active) setStatus("unconfigured");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function enable() {
-    setBusy(true);
+    setPending("toggle");
     setError("");
     try {
       const perm = await Notification.requestPermission();
-      if (perm !== "granted") throw new Error("Notifications were not allowed.");
+      if (perm !== "granted") {
+        throw new Error(
+          perm === "denied"
+            ? "Notifications are blocked. Allow them for StudyFlow in your browser settings, then try again."
+            : "Notifications were not allowed.",
+        );
+      }
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -63,15 +120,18 @@ export default function PushReminders() {
       });
       if (!res.ok) throw new Error("Couldn't save the subscription.");
       setSubscribed(true);
+      toast("Reminders are on for this device.", "success");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      const message = e instanceof Error ? e.message : "Something went wrong.";
+      setError(message);
+      toast(message, "error");
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
   async function disable() {
-    setBusy(true);
+    setPending("toggle");
     setError("");
     try {
       const reg = await navigator.serviceWorker.ready;
@@ -85,32 +145,93 @@ export default function PushReminders() {
         await sub.unsubscribe();
       }
       setSubscribed(false);
+      toast("Reminders turned off.", "info");
     } catch {
-      setError("Couldn't turn reminders off.");
+      const message = "Couldn't turn reminders off.";
+      setError(message);
+      toast(message, "error");
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
-  if (!available) {
+  /** Show a local test notification via the service worker — no server round-trip. */
+  async function sendTest() {
+    setPending("test");
+    setError("");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification("StudyFlow", {
+        body: "🔔 Test reminder — your study nudges are working.",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        data: { url: "/today" },
+      });
+      toast("Sent a test notification.", "success");
+    } catch {
+      const message = "Couldn't show a test notification.";
+      setError(message);
+      toast(message, "error");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  if (status === "checking") {
     return (
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-        🔔 Study reminders are coming soon — push notifications need StudyFlow to be
-        deployed (served over https). They&apos;ll switch on automatically then.
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400" role="status">
+        Checking notification support…
       </p>
     );
   }
 
+  if (status === "unsupported" || status === "unconfigured") {
+    return (
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        🔔 Study reminders are coming soon — push notifications need StudyFlow to be
+        deployed (served over https) with notifications enabled. They&apos;ll switch on
+        automatically then.
+      </p>
+    );
+  }
+
+  const busy = pending !== null;
+
   return (
     <div className="mt-3">
-      <Button
-        type="button"
-        onClick={subscribed ? disable : enable}
-        disabled={busy}
-        variant={subscribed ? "secondary" : "primary"}
-      >
-        {busy ? "Working…" : subscribed ? "Turn off reminders" : "🔔 Enable reminders"}
-      </Button>
+      {subscribed && (
+        <p className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
+          <span aria-hidden>✓</span>
+          Reminders are on for this device.
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          onClick={subscribed ? disable : enable}
+          disabled={busy}
+          variant={subscribed ? "secondary" : "primary"}
+        >
+          {pending === "toggle"
+            ? "Working…"
+            : subscribed
+              ? "Turn off reminders"
+              : "🔔 Enable reminders"}
+        </Button>
+
+        {subscribed && (
+          <Button
+            type="button"
+            onClick={sendTest}
+            disabled={busy}
+            variant="secondary"
+          >
+            {pending === "test" ? "Sending…" : "Send test"}
+          </Button>
+        )}
+      </div>
+
       {error && (
         <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
           {error}
