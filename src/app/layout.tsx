@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import BottomTabBar from "@/components/BottomTabBar";
+import QuickAddFab from "@/components/QuickAddFab";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { ToastProvider } from "@/components/Toast";
 
@@ -84,6 +85,7 @@ export default function RootLayout({
           >
             {children}
           </div>
+          <QuickAddFab />
           <BottomTabBar />
         </ToastProvider>
         <ServiceWorkerRegister />
