@@ -7,6 +7,7 @@ import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
 import { getStatsCached } from "@/lib/statsCache";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
+import Onboarding from "@/components/Onboarding";
 import { StreakBadge } from "@/components/StreakBadge";
 import PullToRefresh from "@/components/PullToRefresh";
 import TodayBlockRow from "./TodayBlockRow";
@@ -149,6 +150,10 @@ export default async function TodayPage() {
 
   return (
     <PullToRefresh>
+    {/* First-run intro for brand-new users with no plan yet. It self-gates on a
+        localStorage "seen" flag, so it shows at most once and never for users
+        who already have courses. */}
+    <Onboarding active={hasNoPlan} />
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Today</h1>
