@@ -7,7 +7,7 @@ import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
 import EmptyState from "@/components/EmptyState";
 import { StreakCard } from "@/components/StreakBadge";
-import { WeeklyActivityChart, ConsistencyGauge } from "@/components/InsightsCharts";
+import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts";
 import { panelClass } from "@/components/ui";
 
 // Short weekday labels (from the stats series) → full names for chart tooltips.
@@ -59,6 +59,18 @@ export default async function InsightsPage() {
   } = stats;
   const { gpa, lpEarned } = stats.grades;
   const graded = courses.filter((c) => c.grade != null);
+
+  // Grade trend — graded courses in exam-date order (courses arrive sorted by
+  // examDate asc), labelled by exam month so the line reads as "over time".
+  const gradeTrend = graded.map((c) => ({
+    label: c.examDate.toLocaleDateString("en-US", {
+      month: "short",
+      year: "2-digit",
+      timeZone: "UTC",
+    }),
+    grade: c.grade as number,
+    full: c.name,
+  }));
 
   // Last 7 days of completed study minutes (for the activity chart).
   const activity = stats.dailyLoad.map((d) => ({
@@ -147,6 +159,14 @@ export default async function InsightsPage() {
                   <div className="text-2xl font-bold tabular-nums">{lpEarned}</div>
                 </div>
               </div>
+              {gradeTrend.length >= 2 && (
+                <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-800">
+                  <h3 className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                    Grade trend
+                  </h3>
+                  <GradeTrendChart data={gradeTrend} average={gpa!} />
+                </div>
+              )}
               <ul className="mt-4 space-y-1.5">
                 {graded.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-3 text-sm">
