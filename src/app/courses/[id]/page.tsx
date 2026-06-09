@@ -7,7 +7,6 @@ import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
 import {
   healCourse,
-  toggleTopic,
   updateCourse,
   deleteCourse,
   reoptimizeCourse,
@@ -18,7 +17,7 @@ import {
 } from "../actions";
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
-import OptimisticToggleForm from "@/components/OptimisticToggleForm";
+import TopicToggle from "./TopicToggle";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { iconButtonClass } from "@/components/ui";
@@ -460,36 +459,12 @@ export default async function CoursePage({
             } catch {}
             return (
               <AnimatedListItem key={t.id}>
-                <OptimisticToggleForm
-                  action={toggleTopic}
+                <TopicToggle
+                  topicId={t.id}
+                  courseId={course.id}
+                  title={t.title}
                   done={t.done}
-                  doneMessage="Topic done — plan updated. ✓"
-                  undoneMessage="Topic reopened — plan updated."
-                  errorMessage="Couldn't update that topic — please try again."
-                  className="flex items-start gap-2"
-                >
-                  {(done) => (
-                    <>
-                      <input type="hidden" name="topicId" value={t.id} />
-                      <input type="hidden" name="courseId" value={course.id} />
-                      <button
-                        type="submit"
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
-                          done
-                            ? "border-green-500 bg-green-500 text-white"
-                            : "border-gray-300 dark:border-gray-700"
-                        }`}
-                        aria-pressed={done}
-                        aria-label={done ? "Mark not done" : "Mark done"}
-                      >
-                        {done ? "✓" : ""}
-                      </button>
-                      <span className={`min-w-0 break-words ${done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
-                        {t.title}
-                      </span>
-                    </>
-                  )}
-                </OptimisticToggleForm>
+                />
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
                     <summary className="cursor-pointer text-xs text-brand">
