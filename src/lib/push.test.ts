@@ -8,6 +8,8 @@
  *  - happy path delivers one payload per stored subscription,
  *  - a 410/404 from the Push service prunes that dead subscription,
  *  - a transient failure is counted but the subscription is kept,
+ *  - a malformed error with no statusCode is kept (counted failed, never crashes),
+ *  - a multi-subscription fan-out reports success/prune/fail in a single call,
  *  - sending is scoped to the owner (no cross-user delivery),
  *  - `getPushConfig` requires both keys and defaults the subject.
  *
@@ -146,6 +148,69 @@ async function main() {
     check("sendPush does NOT prune a transient failure", res.pruned === 0);
     const stillThere = await prisma.pushSubscription.findUnique({ where: { endpoint: flaky } });
     check("the transiently-failed subscription is kept", stillThere !== null);
+  }
+
+  // --- 404 Not Found is also "gone": prunes the subscription like a 410 ---
+  {
+    enablePush();
+    const u404 = await makeUser("gone404@studyflow.local");
+    const dead = "https://push.example/dead-404";
+    await addSub(u404, dead);
+    const sender = fakeSender({ [dead]: 404 });
+    const res = await sendPush(u404, { title: "x" }, sender);
+    check("sendPush prunes a 404 Not Found subscription", res.pruned === 1);
+    check("sendPush counts no live delivery when the only sub is 404", res.sent === 0);
+    const stillThere = await prisma.pushSubscription.findUnique({ where: { endpoint: dead } });
+    check("the 404 subscription is deleted from the store", stillThere === null);
+  }
+
+  // --- malformed delivery error (no statusCode): kept, counted failed, no crash ---
+  {
+    enablePush();
+    const uMalformed = await makeUser("malformed@studyflow.local");
+    const weird = "https://push.example/weird";
+    await addSub(uMalformed, weird);
+    // A sender that throws a plain Error with NO statusCode (e.g. a malformed
+    // endpoint, DNS failure, or a non-WebPushError thrown mid-send).
+    const sender: PushSender & { calls: number } = {
+      calls: 0,
+      async send() {
+        this.calls++;
+        throw new Error("totally malformed, no statusCode here");
+      },
+    };
+    const res = await sendPush(uMalformed, { title: "x" }, sender);
+    check("sendPush treats a statusCode-less error as a transient failure", res.failed === 1);
+    check("sendPush does NOT prune on an unknown (non-Gone) error", res.pruned === 0);
+    const stillThere = await prisma.pushSubscription.findUnique({ where: { endpoint: weird } });
+    check("a malformed-error subscription is kept (not silently dropped)", stillThere !== null);
+    check("the malformed send was attempted exactly once", sender.calls === 1);
+  }
+
+  // --- multi-subscription fan-out: success + prune + fail all in ONE call ---
+  {
+    enablePush();
+    const fan = await makeUser("fanout@studyflow.local");
+    const ok1 = "https://push.example/fan-ok-1";
+    const ok2 = "https://push.example/fan-ok-2";
+    const gone = "https://push.example/fan-gone";
+    const flaky = "https://push.example/fan-flaky";
+    await addSub(fan, ok1);
+    await addSub(fan, ok2);
+    await addSub(fan, gone);
+    await addSub(fan, flaky);
+    const sender = fakeSender({ [gone]: 410, [flaky]: 503 });
+    const res = await sendPush(fan, { title: "fan", body: "out" }, sender);
+    check("fan-out reaches every one of the user's subscriptions", sender.calls.length === 4);
+    check("fan-out counts both healthy deliveries", res.sent === 2);
+    check("fan-out prunes the one Gone subscription", res.pruned === 1);
+    check("fan-out counts the one transient failure", res.failed === 1);
+    const goneGone = await prisma.pushSubscription.findUnique({ where: { endpoint: gone } });
+    check("only the Gone subscription is removed by the fan-out", goneGone === null);
+    const flakyKept = await prisma.pushSubscription.findUnique({ where: { endpoint: flaky } });
+    check("the transiently-failed subscription survives the fan-out", flakyKept !== null);
+    const remaining = await prisma.pushSubscription.count({ where: { userId: fan } });
+    check("fan-out leaves the 3 non-Gone subscriptions in place", remaining === 3);
   }
 
   // --- ownership: sending for one user never touches another's devices ---
