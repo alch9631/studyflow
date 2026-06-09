@@ -228,7 +228,7 @@ export default async function CoursePage({
       <details id="settings" className="group mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4 scroll-mt-20 [&:target]:ring-2 [&:target]:ring-brand">
         <summary className="-m-4 mb-0 flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800 group-open:mb-2">
           <span className="flex items-center gap-2">
-            <span aria-hidden="true">⚙️</span> {t("courseDetail.settingsSummary")}
+            {t("courseDetail.settingsSummary")}
           </span>
           <span aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-90">›</span>
         </summary>
