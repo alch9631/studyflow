@@ -397,7 +397,8 @@ export default async function CoursePage({
               return (
                 <AnimatedListItem
                   key={a.id}
-                  className="flex items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                  id={`deadline-${a.id}`}
+                  className="flex scroll-mt-24 items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:border-brand [&:target]:ring-2 [&:target]:ring-brand"
                 >
                   <ToastForm
                     action={toggleAssignment}
@@ -471,7 +472,11 @@ export default async function CoursePage({
               questions = t.questions ? (JSON.parse(t.questions) as string[]) : [];
             } catch {}
             return (
-              <AnimatedListItem key={t.id}>
+              <AnimatedListItem
+                key={t.id}
+                id={`topic-${t.id}`}
+                className="scroll-mt-24 rounded-xl [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
+              >
                 <TopicToggle
                   topicId={t.id}
                   courseId={course.id}
