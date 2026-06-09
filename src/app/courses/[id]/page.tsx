@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
-import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
+import { daysUntil } from "@/lib/dates";
+import { getT } from "@/components/i18n/server";
+import { examCountdownLabel, dueLabel, type MessageKey } from "@/components/i18n/messages";
 import {
   healCourse,
   updateCourse,
@@ -44,34 +46,35 @@ export async function generateMetadata({
   };
 }
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Map weekday index → the charts.weekdays short-key, so the labels localize.
+const WEEKDAY_KEY = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const DAY_OPTS = [
-  { v: 1, label: "Mon" },
-  { v: 2, label: "Tue" },
-  { v: 3, label: "Wed" },
-  { v: 4, label: "Thu" },
-  { v: 5, label: "Fri" },
-  { v: 6, label: "Sat" },
-  { v: 0, label: "Sun" },
-];
+  { v: 1, key: "Mo" },
+  { v: 2, key: "Tu" },
+  { v: 3, key: "We" },
+  { v: 4, key: "Th" },
+  { v: 5, key: "Fr" },
+  { v: 6, key: "Sa" },
+  { v: 0, key: "Su" },
+] as const;
 
-const BANNERS: Record<string, string> = {
-  healed: "✓ Plan rebuilt around the days you have left.",
-  "healed-over": "✓ Plan rebuilt — it's tight, though. Adding study days or starting earlier will help it all fit.",
-  saved: "✓ Course updated and plan rebuilt.",
-  progress: "✓ Progress applied — your plan adjusted.",
-  "progress-none": "No matching topics found in that update — try naming them as they appear below.",
-  "progress-error": "Couldn't reach the AI to read that. Check your API key, then try again.",
-  optimized: "✨ AI re-optimized your plan — difficulty, order, and review sessions updated.",
-  "optimize-failed": "Couldn't optimize with AI (no key, or the call failed). Plan is unchanged.",
-  analyzed: "✨ Analyzed your file and rebuilt the topics + plan from its actual content.",
-  "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
-  "analyze-unsupported": "PPTX isn't supported yet — export the slides to PDF and upload that.",
-  "analyze-nofile": "Choose a file first.",
-  graded: "✓ Grade saved.",
-  "past-exam": "Exam date can't be in the past — not saved.",
-  "rate-limited": "You're doing that a lot — give it a minute and try again.",
-};
+const BANNER_KEYS = new Set([
+  "healed",
+  "healed-over",
+  "saved",
+  "progress",
+  "progress-none",
+  "progress-error",
+  "optimized",
+  "optimize-failed",
+  "analyzed",
+  "analyze-error",
+  "analyze-unsupported",
+  "analyze-nofile",
+  "graded",
+  "past-exam",
+  "rate-limited",
+]);
 
 export default async function CoursePage({
   params,
@@ -82,7 +85,8 @@ export default async function CoursePage({
 }) {
   const { id } = await params;
   const { msg } = await searchParams;
-  const banner = msg ? BANNERS[msg] : undefined;
+  const t = await getT();
+  const banner = msg && BANNER_KEYS.has(msg) ? t(`courseDetail.banners.${msg}` as MessageKey) : undefined;
   const course = await prisma.course.findUnique({
     where: { id },
     select: {
@@ -143,7 +147,7 @@ export default async function CoursePage({
         href="/courses"
         className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
       >
-        <span aria-hidden="true">←</span> My Courses
+        <span aria-hidden="true">←</span> {t("courseDetail.back")}
       </Link>
 
       {banner && (
@@ -165,7 +169,7 @@ export default async function CoursePage({
             {course.name}
             {course.aiOptimized && (
               <span className="ml-2 align-middle rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-brand dark:bg-blue-950/50">
-                ✨ AI-optimized
+                {t("courseDetail.aiOptimized")}
               </span>
             )}
           </h1>
@@ -181,11 +185,15 @@ export default async function CoursePage({
                       : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
               }`}
             >
-              ⏳ {examCountdownLabel(examInDays)}
+              ⏳ {examCountdownLabel(t, examInDays)}
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Exam {course.examDate.toISOString().slice(0, 10)} · ~{course.minutesPerDay} min/day · {doneCount}/
-              {course.topics.length} topics done
+              {t("courseDetail.examOn", {
+                date: course.examDate.toISOString().slice(0, 10),
+                minutes: course.minutesPerDay,
+                done: doneCount,
+                total: course.topics.length,
+              })}
             </span>
           </div>
         </div>
@@ -197,9 +205,9 @@ export default async function CoursePage({
                 variant="primary"
                 size="md"
                 className="w-full sm:w-auto"
-                pendingLabel="Optimizing…"
+                pendingLabel={t("courseDetail.optimizing")}
               >
-                ✨ Optimize with AI
+                {t("courseDetail.optimizeWithAI")}
               </SubmitButton>
             </form>
           )}
@@ -209,9 +217,9 @@ export default async function CoursePage({
               variant="secondary"
               size="md"
               className="w-full sm:w-auto"
-              pendingLabel="Replanning…"
+              pendingLabel={t("courseDetail.replanning")}
             >
-              😵‍💫 I fell behind — replan
+              {t("courseDetail.fellBehind")}
             </SubmitButton>
           </form>
         </div>
@@ -220,7 +228,7 @@ export default async function CoursePage({
       <details id="settings" className="group mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4 scroll-mt-20 [&:target]:ring-2 [&:target]:ring-brand">
         <summary className="-m-4 mb-0 flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800 group-open:mb-2">
           <span className="flex items-center gap-2">
-            <span aria-hidden="true">⚙️</span> Course settings (exam date, study time)
+            <span aria-hidden="true">⚙️</span> {t("courseDetail.settingsSummary")}
           </span>
           <span aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-90">›</span>
         </summary>
@@ -229,7 +237,7 @@ export default async function CoursePage({
           <div className="flex flex-wrap gap-4">
             <div className="text-sm">
               <label htmlFor="settings-examDate" className="block font-medium">
-                Exam date
+                {t("courseDetail.examDate")}
               </label>
               <Input
                 id="settings-examDate"
@@ -240,11 +248,11 @@ export default async function CoursePage({
               />
             </div>
             <p className="self-end text-xs text-gray-500 dark:text-gray-400">
-              Daily pace is computed automatically (~{course.minutesPerDay} min/day).
+              {t("courseDetail.dailyPaceHint", { minutes: course.minutesPerDay })}
             </p>
           </div>
           <fieldset>
-            <legend className="block text-sm font-medium">Study days</legend>
+            <legend className="block text-sm font-medium">{t("courseDetail.studyDays")}</legend>
             <div className="mt-2 flex flex-wrap gap-3">
               {DAY_OPTS.map((d) => (
                 <label key={d.v} className="flex items-center gap-1.5 text-sm">
@@ -254,7 +262,7 @@ export default async function CoursePage({
                     value={d.v}
                     defaultChecked={course.studyDays.split(",").includes(String(d.v))}
                   />
-                  {d.label}
+                  {t(`charts.weekdaysShort.${d.key}`)}
                 </label>
               ))}
             </div>
@@ -263,9 +271,9 @@ export default async function CoursePage({
             variant="primary"
             size="md"
             className="w-full sm:w-auto"
-            pendingLabel="Saving…"
+            pendingLabel={t("common.saving")}
           >
-            Save & rebuild plan
+            {t("courseDetail.saveRebuild")}
           </SubmitButton>
         </form>
 
@@ -273,7 +281,7 @@ export default async function CoursePage({
           <input type="hidden" name="courseId" value={course.id} />
           <div className="text-sm">
             <label htmlFor="settings-grade" className="block font-medium">
-              Final grade (1.0–5.0)
+              {t("courseDetail.finalGrade")}
             </label>
             <Input
               id="settings-grade"
@@ -283,15 +291,15 @@ export default async function CoursePage({
               min="1"
               max="5"
               defaultValue={course.grade ?? ""}
-              placeholder="e.g. 1.7"
+              placeholder={t("courseDetail.gradePlaceholder")}
               className="mt-1 w-28"
             />
           </div>
-          <SubmitButton variant="secondary" size="md" pendingLabel="Saving…">
-            Save grade
+          <SubmitButton variant="secondary" size="md" pendingLabel={t("common.saving")}>
+            {t("courseDetail.saveGrade")}
           </SubmitButton>
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            Leave empty to clear. Counts toward your Notenschnitt in Insights.
+            {t("courseDetail.gradeHint")}
           </span>
         </form>
 
@@ -299,48 +307,44 @@ export default async function CoursePage({
           action={deleteCourse}
           fields={{ courseId: course.id }}
           className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800"
-          triggerLabel="🗑 Delete this course"
+          triggerLabel={t("courseDetail.deleteCourse")}
           triggerVariant="danger"
           triggerSize="md"
-          title="Delete this course?"
+          title={t("courseDetail.deleteTitle")}
           message={
             <>
-              Deleting <strong>{course.name}</strong> also removes its topics,
-              deadlines, files, and study plan. This can&apos;t be undone.
+              {t("courseDetail.deleteMsgPre")} <strong>{course.name}</strong>{" "}
+              {t("courseDetail.deleteMsgPost")}
             </>
           }
-          confirmLabel="Delete course"
-          errorMessage="Couldn't delete that course — please try again."
+          confirmLabel={t("courseDetail.deleteConfirm")}
+          errorMessage={t("courseDetail.deleteError")}
         />
       </details>
 
       {overloaded ? (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-          ⏰ Even at a realistic ~3 h/day across all your courses, there isn&apos;t
-          quite enough time to finish this one before the exam. Starting earlier,
-          adding study days, or easing your other modules will help.
+          {t("courseDetail.overloaded")}
         </div>
       ) : (
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-          📅 Planned at about {course.minutesPerDay} min/day for this course —
-          balanced within your ~3 h/day total across all modules.
+          {t("courseDetail.planned", { minutes: course.minutesPerDay })}
         </div>
       )}
 
       <section className="mb-8">
-        <h2 className="mb-2 text-lg font-semibold">📣 Update your progress</h2>
+        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.updateProgressHeading")}</h2>
         {isSyllabusAIEnabled() ? (
           <ProgressForm courseId={course.id} />
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to
-            update progress in plain language. For now, tick topics below.
+            {t("courseDetail.apiKeyProgress")}
           </p>
         )}
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-2 text-lg font-semibold">📎 Module files</h2>
+        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.moduleFiles")}</h2>
         {isSyllabusAIEnabled() ? (
           <form action={analyzeModuleUpload} className="space-y-3">
             <input type="hidden" name="courseId" value={course.id} />
@@ -349,15 +353,14 @@ export default async function CoursePage({
               variant="primary"
               size="md"
               className="w-full sm:w-auto"
-              pendingLabel="Analyzing…"
+              pendingLabel={t("courseDetail.analyzing")}
             >
-              ✨ Analyze file &amp; rebuild plan from its content
+              {t("courseDetail.analyzeFile")}
             </SubmitButton>
           </form>
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> to analyze
-            uploaded materials.
+            {t("courseDetail.apiKeyFiles")}
           </p>
         )}
         {latestFile && (
@@ -368,12 +371,12 @@ export default async function CoursePage({
             )}
             {fileAnalysis?.concepts && fileAnalysis.concepts.length > 0 && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Concepts: {fileAnalysis.concepts.slice(0, 8).join(", ")}
+                {t("courseDetail.concepts", { list: fileAnalysis.concepts.slice(0, 8).join(", ") })}
               </p>
             )}
             {fileAnalysis?.prerequisites && fileAnalysis.prerequisites.length > 0 && (
               <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                Prerequisites: {fileAnalysis.prerequisites.join(", ")}
+                {t("courseDetail.prerequisites", { list: fileAnalysis.prerequisites.join(", ") })}
               </p>
             )}
           </div>
@@ -381,13 +384,13 @@ export default async function CoursePage({
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-2 text-lg font-semibold">📝 Deadlines</h2>
+        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.deadlinesHeading")}</h2>
         <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-          Homework, lab reports, hand-ins — anything due before the exam.
+          {t("courseDetail.deadlinesHint")}
         </p>
         <AddDeadlineForm courseId={course.id} />
         {course.assignments.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No deadlines yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t("courseDetail.noDeadlines")}</p>
         ) : (
           <AnimatedList className="space-y-2">
             {course.assignments.map((a) => {
@@ -402,13 +405,13 @@ export default async function CoursePage({
                 >
                   <ToastForm
                     action={toggleAssignment}
-                    successMessage={a.done ? "Deadline marked not done." : "Deadline done. ✓"}
-                    errorMessage="Couldn't update that deadline — please try again."
+                    successMessage={a.done ? t("courseDetail.deadlineNotDone") : t("courseDetail.deadlineDone")}
+                    errorMessage={t("courseDetail.deadlineUpdateError")}
                   >
                     <input type="hidden" name="assignmentId" value={a.id} />
                     <input type="hidden" name="revalidate" value={`/courses/${course.id}`} />
                     <SubmitButton
-                      aria-label={a.done ? "Mark not done" : "Mark done"}
+                      aria-label={a.done ? t("block.markNotDone") : t("block.markDone")}
                       className={`flex h-5 w-5 items-center justify-center rounded border ${
                         a.done
                           ? "border-green-500 bg-green-500 text-white"
@@ -431,30 +434,30 @@ export default async function CoursePage({
                             : "text-gray-500 dark:text-gray-400"
                       }`}
                     >
-                      due {due}
-                      {!a.done && ` · ${dueLabel(days)}`}
+                      {t("courseDetail.due", { date: due })}
+                      {!a.done && ` · ${dueLabel(t, days)}`}
                     </span>
                   </span>
                   <ConfirmDialog
                     action={deleteAssignment}
                     fields={{ assignmentId: a.id, courseId: course.id }}
-                    successMessage="Deadline removed."
-                    errorMessage="Couldn't remove that deadline — please try again."
+                    successMessage={t("courseDetail.deadlineRemoved")}
+                    errorMessage={t("courseDetail.deadlineRemoveError")}
                     className="shrink-0"
                     triggerLabel="✕"
-                    triggerAriaLabel={`Delete deadline: ${a.title}`}
+                    triggerAriaLabel={t("courseDetail.deleteDeadlineAria", { title: a.title })}
                     triggerClassName={iconButtonClass(
                       "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
                     )}
-                    title="Delete this deadline?"
+                    title={t("courseDetail.deleteDeadlineTitle")}
                     message={
                       <>
-                        Remove <strong>{a.title}</strong> from this course? This
-                        can&apos;t be undone.
+                        {t("courseDetail.deleteDeadlineMsgPre")} <strong>{a.title}</strong>{" "}
+                        {t("courseDetail.deleteDeadlineMsgPost")}
                       </>
                     }
-                    confirmLabel="Delete deadline"
-                    pendingLabel="Removing…"
+                    confirmLabel={t("courseDetail.deleteDeadlineConfirm")}
+                    pendingLabel={t("courseDetail.removing")}
                   />
                 </AnimatedListItem>
               );
@@ -464,34 +467,34 @@ export default async function CoursePage({
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">Topics</h2>
+        <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.topics")}</h2>
         <AnimatedList className="space-y-2">
-          {course.topics.map((t) => {
+          {course.topics.map((topic) => {
             let questions: string[] = [];
             try {
-              questions = t.questions ? (JSON.parse(t.questions) as string[]) : [];
+              questions = topic.questions ? (JSON.parse(topic.questions) as string[]) : [];
             } catch {}
             return (
               <AnimatedListItem
-                key={t.id}
-                id={`topic-${t.id}`}
+                key={topic.id}
+                id={`topic-${topic.id}`}
                 className="scroll-mt-24 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
                 <TopicToggle
-                  topicId={t.id}
+                  topicId={topic.id}
                   courseId={course.id}
-                  title={t.title}
-                  done={t.done}
+                  title={topic.title}
+                  done={topic.done}
                 />
                 <NoteEditor
-                  topicId={t.id}
-                  topicTitle={t.title}
-                  initialBody={t.note?.body ?? ""}
+                  topicId={topic.id}
+                  topicTitle={topic.title}
+                  initialBody={topic.note?.body ?? ""}
                 />
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
                     <summary className="cursor-pointer text-xs text-brand">
-                      🧠 Self-test ({questions.length})
+                      {t("courseDetail.selfTest", { count: questions.length })}
                     </summary>
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
                       {questions.map((q, i) => (
@@ -505,18 +508,17 @@ export default async function CoursePage({
           })}
           {course.topics.length === 0 && (
             <AnimatedListItem key="empty" className="text-sm text-gray-500 dark:text-gray-400">
-              No topics added.
+              {t("courseDetail.noTopics")}
             </AnimatedListItem>
           )}
         </AnimatedList>
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Study plan</h2>
+        <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.studyPlan")}</h2>
         {byDate.size === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Nothing scheduled — all topics done, or no study days before the
-            exam. 🎉
+            {t("courseDetail.nothingScheduled")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -528,10 +530,10 @@ export default async function CoursePage({
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800/50">
                     <span className="flex items-center gap-2">
                       <span aria-hidden="true" className="text-gray-400 transition-transform group-open:rotate-90">›</span>
-                      {WEEKDAY[d.getUTCDay()]} · {date}
+                      {t(`charts.weekdaysShort.${WEEKDAY_KEY[d.getUTCDay()]}` as MessageKey)} · {date}
                     </span>
                     <span className="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">
-                      {blocks.length} {blocks.length === 1 ? "block" : "blocks"} · {totalMin} min
+                      {t.n("courseDetail.blockCount", blocks.length, { min: totalMin })}
                     </span>
                   </summary>
                   <ul className="space-y-1 px-4 pb-4">
@@ -541,7 +543,7 @@ export default async function CoursePage({
                         className="flex justify-between gap-3 text-sm text-gray-600 dark:text-gray-300"
                       >
                         <span className="min-w-0 break-words">{b.topicTitle}</span>
-                        <span className="shrink-0 whitespace-nowrap text-gray-500 dark:text-gray-400">{b.minutes} min</span>
+                        <span className="shrink-0 whitespace-nowrap text-gray-500 dark:text-gray-400">{b.minutes} {t("common.min")}</span>
                       </li>
                     ))}
                   </ul>

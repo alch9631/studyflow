@@ -7,6 +7,8 @@
  * src/lib/ remains server/data-only).
  */
 
+import type { Translator } from "../i18n/messages";
+
 /** Highest milestone reached: 0 (none), then 3, 7, 30 days. */
 export type StreakLevel = 0 | 3 | 7 | 30;
 
@@ -59,7 +61,7 @@ export function streakStyle(streak: number): StreakStyle {
   };
 }
 
-/** "1-day streak" / "12-day streak". */
-export function streakLabel(streak: number): string {
-  return `${streak}-day streak`;
+/** Localized streak label, e.g. "12-day streak" / "12-Tage-Serie". */
+export function streakLabel(t: Translator, streak: number): string {
+  return t("streak.label", { count: streak });
 }

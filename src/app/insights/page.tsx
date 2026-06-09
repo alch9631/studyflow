@@ -2,24 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
-import { examCountdownLabel } from "@/lib/dates";
 import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
 import EmptyState from "@/components/EmptyState";
 import { StreakCard } from "@/components/StreakBadge";
 import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts";
 import { panelClass } from "@/components/ui";
-
-// Short weekday labels (from the stats series) → full names for chart tooltips.
-const FULL_DOW: Record<string, string> = {
-  Su: "Sunday",
-  Mo: "Monday",
-  Tu: "Tuesday",
-  We: "Wednesday",
-  Th: "Thursday",
-  Fr: "Friday",
-  Sa: "Saturday",
-};
+import { getT } from "@/components/i18n/server";
+import { examCountdownLabel, type MessageKey } from "@/components/i18n/messages";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -37,6 +27,7 @@ function fmtMin(min: number): string {
 
 export default async function InsightsPage() {
   const userId = await getCurrentUserId();
+  const t = await getT();
   const stats = await getStatsCached(userId, todayISO());
 
   const {
@@ -72,7 +63,7 @@ export default async function InsightsPage() {
       ? soFar.reduce((s, x) => s + (x.grade as number) * lpOf(x), 0) / lp
       : (c.grade as number);
     return {
-      label: c.examDate.toLocaleDateString("en-US", {
+      label: c.examDate.toLocaleDateString(t.locale === "de" ? "de-DE" : "en-US", {
         month: "short",
         year: "2-digit",
         timeZone: "UTC",
@@ -87,45 +78,45 @@ export default async function InsightsPage() {
   const activity = stats.dailyLoad.map((d) => ({
     label: d.label,
     min: d.min,
-    full: FULL_DOW[d.label] ?? d.label,
+    full: t(`charts.weekdays.${d.label}` as MessageKey),
   }));
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight">📊 Insights</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight">{t("insights.title")}</h1>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-        How your studying is actually going.
+        {t("insights.subtitle")}
       </p>
 
       {!hasData ? (
         <EmptyState
           emoji="📊"
-          title="No study data yet"
-          description="Add a course and check off some sessions — your streak, progress, and grades will all appear here."
+          title={t("insights.emptyTitle")}
+          description={t("insights.emptyDesc")}
           actions={[
-            { label: "🎓 Browse TUHH modules", href: "/catalog" },
-            { label: "📚 My courses", href: "/courses", variant: "secondary" },
+            { label: t("insights.browseModules"), href: "/catalog" },
+            { label: t("insights.myCourses"), href: "/courses", variant: "secondary" },
           ]}
         />
       ) : (
         <>
           {/* Study streak — the headline habit metric */}
           <div className="mb-3">
-            <StreakCard current={streak} best={longestStreak} />
+            <StreakCard current={streak} best={longestStreak} t={t} />
           </div>
 
           {/* Headline stats */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label="✅ Done when due" value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
-            <Stat label="⏱️ Focus logged" value={fmtMin(loggedMinutes)} />
-            <Stat label="📚 Next 7 days" value={fmtMin(upcomingWorkload)} sub="study planned" />
-            <Stat label="🎓 Modules done" value={`${completedModules}`} sub={`of ${courses.length}`} />
+            <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
+            <Stat label={t("insights.focusLogged")} value={fmtMin(loggedMinutes)} />
+            <Stat label={t("insights.next7days")} value={fmtMin(upcomingWorkload)} sub={t("insights.studyPlanned")} />
+            <Stat label={t("insights.modulesDone")} value={`${completedModules}`} sub={t("insights.ofN", { count: courses.length })} />
           </div>
 
           {/* Needs attention — what to focus on next */}
           {attention.length > 0 && (
             <section className="mt-6">
-              <h2 className="mb-3 font-semibold">Needs attention</h2>
+              <h2 className="mb-3 font-semibold">{t("insights.needsAttention")}</h2>
               <ul className="space-y-2">
                 {attention.map(({ id, name, topicsTotal, topicsDone, apple, days }) => (
                   <li key={id}>
@@ -136,13 +127,13 @@ export default async function InsightsPage() {
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{name}</span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {topicsDone}/{topicsTotal} topics · {examCountdownLabel(days)}
+                          {t("insights.topicsLabel", { done: topicsDone, total: topicsTotal })} · {examCountdownLabel(t, days)}
                         </span>
                       </span>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${apple.cls}`}
                       >
-                        {apple.emoji} {apple.label}
+                        {apple.emoji} {t(`apple.${apple.level}`)}
                       </span>
                     </Link>
                   </li>
@@ -155,25 +146,25 @@ export default async function InsightsPage() {
           {graded.length > 0 && (
             <section className={`${panelClass} mt-6 p-5`}>
               <div className="flex items-baseline justify-between">
-                <h2 className="font-semibold">🎓 Grades</h2>
+                <h2 className="font-semibold">{t("insights.grades")}</h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {graded.length} graded
+                  {t("insights.graded", { count: graded.length })}
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-8">
                 <div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Notenschnitt</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{t("insights.notenschnitt")}</div>
                   <div className="text-2xl font-bold tabular-nums">{gpa!.toFixed(2)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">LP earned</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{t("insights.lpEarned")}</div>
                   <div className="text-2xl font-bold tabular-nums">{lpEarned}</div>
                 </div>
               </div>
               {gradeTrend.length >= 2 && (
                 <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-800">
                   <h3 className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-                    Grade trend
+                    {t("insights.gradeTrend")}
                   </h3>
                   <GradeTrendChart data={gradeTrend} average={gpa!} />
                 </div>
@@ -196,7 +187,7 @@ export default async function InsightsPage() {
           {/* This week */}
           <section className={`${panelClass} mt-6 p-5`}>
             <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">This week</h2>
+              <h2 className="font-semibold">{t("insights.thisWeek")}</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {fmtMin(weekDone)} / {fmtMin(weekPlanned)}
               </span>
@@ -209,19 +200,19 @@ export default async function InsightsPage() {
             </div>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               {weekPlanned === 0
-                ? "Nothing scheduled this week."
+                ? t("insights.nothingThisWeek")
                 : weekPct >= 100
-                  ? "You're on top of this week. 🎉"
-                  : `${weekPct}% of this week's plan done.`}
+                  ? t("insights.onTopWeek")
+                  : t("insights.weekPctDone", { pct: weekPct })}
             </p>
           </section>
 
           {/* Activity & consistency — recent study load + the 14-day rhythm */}
           <section className={`${panelClass} mt-6 p-5`}>
             <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">Last 7 days</h2>
+              <h2 className="font-semibold">{t("insights.last7days")}</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                completed study time
+                {t("insights.completedStudyTime")}
               </span>
             </div>
             <div className="mt-3">
@@ -230,25 +221,25 @@ export default async function InsightsPage() {
           </section>
 
           <section className={`${panelClass} mt-6 p-5`}>
-            <h2 className="mb-1 font-semibold">Consistency</h2>
+            <h2 className="mb-1 font-semibold">{t("insights.consistency")}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              How often you showed up over the last 14 days.
+              {t("insights.consistencyHint")}
             </p>
             <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
               <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
               <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
                 {consistency >= 80
-                  ? `Rock solid — active on ${activeDays} of the last 14 days. This rhythm is what makes exam prep stick.`
+                  ? t("insights.rockSolid", { days: activeDays })
                   : consistency >= 40
-                    ? `A steady habit is forming: ${activeDays} of the last 14 days active. A few more sessions and it'll feel automatic.`
-                    : `Studied on ${activeDays} of the last 14 days. Small daily sessions beat rare marathons — even 20 minutes keeps the streak alive.`}
+                    ? t("insights.steadyHabit", { days: activeDays })
+                    : t("insights.smallSessions", { days: activeDays })}
               </p>
             </div>
           </section>
 
           {/* Per-course progress */}
           <section className="mt-6">
-            <h2 className="mb-3 font-semibold">By course</h2>
+            <h2 className="mb-3 font-semibold">{t("insights.byCourse")}</h2>
             <ul className="space-y-2">
               {courses.map((c) => {
                 const total = c.topicsTotal;
@@ -267,7 +258,7 @@ export default async function InsightsPage() {
                         {c.name}
                       </Link>
                       <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
-                        {done}/{total} topics
+                        {t("insights.topicsLabel", { done, total })}
                       </span>
                     </div>
                     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -277,7 +268,7 @@ export default async function InsightsPage() {
                 );
               })}
               {courses.length === 0 && (
-                <li className="text-sm text-gray-500 dark:text-gray-400">No courses yet.</li>
+                <li className="text-sm text-gray-500 dark:text-gray-400">{t("insights.noCourses")}</li>
               )}
             </ul>
           </section>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * Mobile quick-add: a thumb-reachable floating action button that jumps straight
@@ -21,12 +22,13 @@ const HIDDEN_ON = ["/", "/courses/new"];
 
 export default function QuickAddFab() {
   const pathname = usePathname();
+  const t = useT();
   if (HIDDEN_ON.includes(pathname)) return null;
 
   return (
     <Link
       href="/courses/new"
-      aria-label="Add a course"
+      aria-label={t("fab.addCourse")}
       className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg transition hover:bg-brand-dark active:scale-[.95] lg:hidden"
     >
       <svg

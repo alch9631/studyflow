@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/Toast";
+import { useT } from "@/components/i18n/I18nProvider";
+import type { MessageKey } from "@/components/i18n/messages";
 import { saveNote, deleteNote } from "../actions";
 
 /**
@@ -20,12 +22,12 @@ const DEBOUNCE_MS = 900;
 
 type Status = "idle" | "dirty" | "saving" | "saved" | "error";
 
-const STATUS_TEXT: Record<Status, string> = {
-  idle: "Jot down anything worth remembering for this topic.",
-  dirty: "Unsaved changes…",
-  saving: "Saving…",
-  saved: "Saved ✓",
-  error: "Couldn't save — keep typing to retry.",
+const STATUS_KEY: Record<Status, MessageKey> = {
+  idle: "courseDetail.noteStatusIdle",
+  dirty: "courseDetail.noteStatusDirty",
+  saving: "courseDetail.noteStatusSaving",
+  saved: "courseDetail.noteStatusSaved",
+  error: "courseDetail.noteStatusError",
 };
 
 export default function NoteEditor({
@@ -43,6 +45,7 @@ export default function NoteEditor({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusId = useId();
   const { toast } = useToast();
+  const t = useT();
 
   const hasNote = body.trim().length > 0;
   const nearLimit = body.length > MAX_LENGTH * 0.9;
@@ -98,10 +101,10 @@ export default function NoteEditor({
       await deleteNote(fd);
       savedRef.current = "";
       setStatus("idle");
-      toast("Note cleared.", "success");
+      toast(t("courseDetail.noteCleared"), "success");
     } catch {
       setStatus("error");
-      toast("Couldn't clear that note — please try again.", "error");
+      toast(t("courseDetail.noteClearError"), "error");
     }
   }
 
@@ -109,23 +112,23 @@ export default function NoteEditor({
     <details className="ml-7 mt-1">
       <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-brand">
         <span aria-hidden="true">📝</span>
-        Note
+        {t("courseDetail.note")}
         {hasNote && (
           <span
             className="h-1.5 w-1.5 rounded-full bg-brand"
-            aria-label="has a note"
-            title="This topic has a note"
+            aria-label={t("courseDetail.noteHasNote")}
+            title={t("courseDetail.noteHasNoteTitle")}
           />
         )}
       </summary>
       <div className="mt-2 space-y-1.5">
         <Textarea
-          aria-label={`Note for ${topicTitle}`}
+          aria-label={t("courseDetail.noteAria", { title: topicTitle })}
           aria-describedby={statusId}
           value={body}
           maxLength={MAX_LENGTH}
           rows={3}
-          placeholder="e.g. Prof stressed the proof on slide 23; revisit eigenvalues."
+          placeholder={t("courseDetail.notePlaceholder")}
           onChange={(e) => onChange(e.target.value)}
           onBlur={flush}
           className="w-full text-sm"
@@ -142,7 +145,7 @@ export default function NoteEditor({
                   : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            {STATUS_TEXT[status]}
+            {t(STATUS_KEY[status])}
           </p>
           <div className="flex shrink-0 items-center gap-2">
             {nearLimit && (
@@ -156,7 +159,7 @@ export default function NoteEditor({
                 onClick={clear}
                 className="rounded text-xs font-medium text-gray-500 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-gray-400 dark:hover:text-red-400"
               >
-                Clear note
+                {t("courseDetail.clearNote")}
               </button>
             )}
           </div>

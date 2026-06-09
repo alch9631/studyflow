@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { iconButtonClass } from "./ui";
 import { applyMode, THEME_OPTIONS, useThemeMode, type Mode } from "./lib/theme";
+import { useLocale, useSetLocale, useT } from "./i18n/I18nProvider";
+import { LOCALES, type Locale } from "./i18n/messages";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +29,15 @@ import {
 export default function SettingsMenu() {
   const pathname = usePathname();
   const mode = useThemeMode();
+  const locale = useLocale();
+  const setLocale = useSetLocale();
+  const t = useT();
   const onSettings = pathname.startsWith("/settings");
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Settings"
+        aria-label={t("nav.settings")}
         className={iconButtonClass(
           `ml-1 hidden lg:inline-flex ${
             onSettings
@@ -45,7 +50,7 @@ export default function SettingsMenu() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("nav.theme")}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={mode}
           onValueChange={(v) => applyMode(v as Mode)}
@@ -53,7 +58,21 @@ export default function SettingsMenu() {
           {THEME_OPTIONS.map((o) => (
             <DropdownMenuRadioItem key={o.v} value={o.v}>
               <span aria-hidden="true">{o.icon}</span>
-              {o.label}
+              {t(`theme.${o.v}`)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuLabel>{t("nav.language")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={locale}
+          onValueChange={(v) => setLocale(v as Locale)}
+        >
+          {LOCALES.map((l) => (
+            <DropdownMenuRadioItem key={l} value={l}>
+              {t(`language.${l}`)}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -63,7 +82,7 @@ export default function SettingsMenu() {
         <DropdownMenuItem asChild>
           <Link href="/settings" aria-current={onSettings ? "page" : undefined}>
             <span aria-hidden="true">⚙️</span>
-            All settings
+            {t("nav.allSettings")}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

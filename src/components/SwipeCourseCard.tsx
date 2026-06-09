@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "./ui/dialog";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * Adds swipe-to-delete to a course row on the My Courses list. Swiping a card
@@ -32,6 +33,7 @@ export default function SwipeCourseCard({
   courseName: string;
   children: ReactNode;
 }) {
+  const t = useT();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
@@ -39,7 +41,7 @@ export default function SwipeCourseCard({
       <SwipeRow
         className="rounded-2xl"
         left={{
-          label: "Delete",
+          label: t("courses.swipeDelete"),
           icon: "🗑",
           tone: "danger",
           onTrigger: () => setConfirmOpen(true),
@@ -50,18 +52,18 @@ export default function SwipeCourseCard({
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
-          <DialogTitle>Delete this course?</DialogTitle>
+          <DialogTitle>{t("courses.deleteTitle")}</DialogTitle>
           <DialogDescription>
-            This permanently removes <strong>{courseName}</strong> — its topics,
-            deadlines, and study plan. This can&apos;t be undone.
+            {t("courses.deleteDescPre")} <strong>{courseName}</strong>{" "}
+            {t("courses.deleteDescPost")}
           </DialogDescription>
           <form action={deleteCourse} className="mt-5 flex justify-end gap-2">
             <input type="hidden" name="courseId" value={courseId} />
             <Button type="button" variant="secondary" onClick={() => setConfirmOpen(false)}>
-              Cancel
+              {t("courses.cancel")}
             </Button>
-            <SubmitButton variant="danger-solid" pendingLabel="Deleting…">
-              Delete course
+            <SubmitButton variant="danger-solid" pendingLabel={t("courses.deleting")}>
+              {t("courses.delete")}
             </SubmitButton>
           </form>
         </DialogContent>

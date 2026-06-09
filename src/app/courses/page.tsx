@@ -9,6 +9,7 @@ import CourseCard from "@/components/CourseCard";
 import SwipeCourseCard from "@/components/SwipeCourseCard";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
+import { getT } from "@/components/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 
 export default async function CoursesPage() {
   const userId = await getCurrentUserId();
+  const t = await getT();
   const courses = await prisma.course.findMany({
     where: { userId },
     orderBy: { examDate: "asc" },
@@ -39,21 +41,21 @@ export default async function CoursesPage() {
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">My Courses</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("courses.title")}</h1>
         <Button asChild className="shrink-0">
-          <Link href="/courses/new">+ New course</Link>
+          <Link href="/courses/new">{t("courses.newCourse")}</Link>
         </Button>
       </div>
 
       {courses.length === 0 ? (
         <EmptyState
           emoji="📚"
-          title="No courses yet"
-          description="Pick how you want to start — StudyFlow builds the plan for you."
+          title={t("courses.emptyTitle")}
+          description={t("courses.emptyDesc")}
           actions={[
-            { label: "🎓 Browse TUHH modules", href: "/catalog" },
-            { label: "✨ Import a syllabus", href: "/courses/import" },
-            { label: "✍️ Add manually", href: "/courses/new" },
+            { label: t("courses.browseModules"), href: "/catalog" },
+            { label: t("courses.importSyllabus"), href: "/courses/import" },
+            { label: t("courses.addManually"), href: "/courses/new" },
           ]}
         />
       ) : (
@@ -72,6 +74,7 @@ export default async function CoursesPage() {
               <li key={c.id}>
                 <SwipeCourseCard courseId={c.id} courseName={c.name}>
                   <CourseCard
+                    t={t}
                     course={{
                       id: c.id,
                       name: c.name,
@@ -79,7 +82,7 @@ export default async function CoursesPage() {
                       examInDays: daysUntil(c.examDate, today),
                       done,
                       total: c.topics.length,
-                      apple: { emoji: apple.emoji, label: apple.label, cls: apple.cls },
+                      apple: { emoji: apple.emoji, label: t(`apple.${apple.level}`), cls: apple.cls },
                     }}
                   />
                 </SwipeCourseCard>
@@ -92,33 +95,32 @@ export default async function CoursesPage() {
       {/* Explanation moved to the bottom */}
       <details className="mt-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 text-sm text-gray-600 dark:text-gray-300">
         <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
-          ℹ️ How StudyFlow plans your studying
+          {t("courses.howTitle")}
         </summary>
         <ol className="mt-2 list-decimal space-y-1 pl-5">
           <li>
-            Add your modules (manually, from the{" "}
-            <Link href="/catalog" className="text-brand hover:underline">TUHH catalog</Link>, or by{" "}
-            <Link href="/courses/import" className="text-brand hover:underline">uploading a syllabus/script</Link>).
+            {t("courses.how1Pre")}{" "}
+            <Link href="/catalog" className="text-brand hover:underline">{t("courses.how1Catalog")}</Link>{t("courses.how1Mid")}{" "}
+            <Link href="/courses/import" className="text-brand hover:underline">{t("courses.how1Upload")}</Link>{t("courses.how1Post")}
           </li>
-          <li>AI reads the content → topics, difficulty, and how long each takes.</li>
+          <li>{t("courses.how2")}</li>
           <li>
-            It works backward from your exam dates and spreads the work across all your
-            courses within a realistic <strong>~3 h/day</strong> — never cramming one day.
-          </li>
-          <li>
-            It adds <strong>spaced reviews</strong> and <strong>self-test questions</strong> for
-            active recall — the proven ways to remember.
+            {t("courses.how3Pre")} <strong>{t("courses.how3Strong")}</strong> {t("courses.how3Post")}
           </li>
           <li>
-            Each day, open <Link href="/today" className="text-brand hover:underline">Today</Link> for
-            exactly what to study; tell it your progress and it re-plans around you.
+            {t("courses.how4Pre")} <strong>{t("courses.how4Spaced")}</strong> {t("courses.how4Mid")}{" "}
+            <strong>{t("courses.how4SelfTest")}</strong> {t("courses.how4Post")}
+          </li>
+          <li>
+            {t("courses.how5Pre")} <Link href="/today" className="text-brand hover:underline">{t("courses.how5Today")}</Link>{" "}
+            {t("courses.how5Post")}
           </li>
         </ol>
         <p className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-2">
-          <strong>🍎 Apple priority:</strong> each course is rated by urgency (exam soon) and
-          workload — <span className="font-medium text-green-700 dark:text-green-400">🍏 On track</span>,
-          <span className="font-medium text-yellow-800 dark:text-yellow-300"> 🟡 Medium</span>,
-          <span className="font-medium text-red-700 dark:text-red-400"> 🍎 High</span>. Red = focus here first.
+          <strong>{t("courses.appleTitle")}</strong> {t("courses.appleBody")}{" "}
+          <span className="font-medium text-green-700 dark:text-green-400">{t("courses.appleOnTrack")}</span>,
+          <span className="font-medium text-yellow-800 dark:text-yellow-300"> {t("courses.appleMedium")}</span>,
+          <span className="font-medium text-red-700 dark:text-red-400"> {t("courses.appleHigh")}</span>{t("courses.appleTail")}
         </p>
       </details>
     </main>

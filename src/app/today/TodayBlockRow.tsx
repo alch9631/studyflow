@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import SwipeRow from "@/components/SwipeRow";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
+import { useT } from "@/components/i18n/I18nProvider";
 import { toggleBlock } from "../courses/actions";
 import FocusLogButton from "./FocusLogButton";
 
@@ -30,13 +31,14 @@ export type TodayBlock = {
  * touch/vibration isn't available.
  */
 export default function TodayBlockRow({ b }: { b: TodayBlock }) {
+  const t = useT();
   const isReview = b.kind === "review";
   const { optimisticDone, fire } = useOptimisticToggle({
     action: toggleBlock,
     done: b.completed,
-    doneMessage: "Nice — session done! ✓",
-    undoneMessage: "Session marked not done.",
-    errorMessage: "Couldn't update that session — please try again.",
+    doneMessage: t("block.sessionDone"),
+    undoneMessage: t("block.sessionNotDone"),
+    errorMessage: t("block.sessionError"),
   });
   const formRef = useRef<HTMLFormElement>(null);
   const formData = () => new FormData(formRef.current ?? undefined);
@@ -48,11 +50,11 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
       right={
         optimisticDone
           ? undefined
-          : { label: "Done", icon: "✓", tone: "success", onTrigger: () => fire(formData(), true, true) }
+          : { label: t("block.done"), icon: "✓", tone: "success", onTrigger: () => fire(formData(), true, true) }
       }
       left={
         optimisticDone
-          ? { label: "Reopen", icon: "↩", tone: "neutral", onTrigger: () => fire(formData(), false, true) }
+          ? { label: t("block.reopen"), icon: "↩", tone: "neutral", onTrigger: () => fire(formData(), false, true) }
           : undefined
       }
     >
@@ -71,7 +73,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
               : "border-gray-300 dark:border-gray-700 hover:border-gray-500"
           }`}
           aria-pressed={optimisticDone}
-          aria-label={optimisticDone ? "Mark not done" : "Mark done"}
+          aria-label={optimisticDone ? t("block.markNotDone") : t("block.markDone")}
         >
           {optimisticDone ? "✓" : ""}
         </button>
@@ -86,7 +88,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {isReview && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                🔁 Review
+                {t("block.review")}
               </span>
             )}
             <span className="inline-flex min-w-0 items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
@@ -96,7 +98,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
         </span>
       </form>
       <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
+        {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} {t("common.min")}
       </span>
       <FocusLogButton blockId={b.id} />
     </SwipeRow>

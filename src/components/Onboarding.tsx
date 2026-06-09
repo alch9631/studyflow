@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
+import { useT } from "./i18n/I18nProvider";
+import type { MessageKey } from "./i18n/messages";
 
 /**
  * First-run onboarding — a one-time, dismissible three-step intro shown to brand-
@@ -28,29 +30,18 @@ const STORAGE_KEY = "studyflow:onboarded";
 
 type Step = {
   emoji: string;
-  title: string;
-  body: string;
+  titleKey: MessageKey;
+  bodyKey: MessageKey;
 };
 
 const STEPS: readonly Step[] = [
-  {
-    emoji: "📚",
-    title: "Add your first course",
-    body: "Pick a TUHH module, import a syllabus, or add one by hand. StudyFlow reads it and works backward from your exam into a realistic day-by-day plan.",
-  },
-  {
-    emoji: "✅",
-    title: "Check off sessions on Today",
-    body: "Each morning, open Today for exactly what to study — in order, for how long. Tap a session to mark it done; slip a day and StudyFlow re-plans around you.",
-  },
-  {
-    emoji: "📊",
-    title: "Watch it work on Insights",
-    body: "Your streak, weekly consistency, GPA and credit points climb on Insights — the momentum that keeps you going all semester.",
-  },
+  { emoji: "📚", titleKey: "onboarding.s1Title", bodyKey: "onboarding.s1Body" },
+  { emoji: "✅", titleKey: "onboarding.s2Title", bodyKey: "onboarding.s2Body" },
+  { emoji: "📊", titleKey: "onboarding.s3Title", bodyKey: "onboarding.s3Body" },
 ] as const;
 
 export default function Onboarding({ active = false }: { active?: boolean }) {
+  const t = useT();
   // Start closed so server and first client render agree (no hydration flash);
   // a mount-time effect opens it only once we've confirmed it's a fresh, unseen
   // user on the client where localStorage exists.
@@ -97,11 +88,11 @@ export default function Onboarding({ active = false }: { active?: boolean }) {
           <div
             className="flex items-center gap-1.5"
             role="group"
-            aria-label={`Step ${step + 1} of ${STEPS.length}`}
+            aria-label={t("onboarding.step", { step: step + 1, total: STEPS.length })}
           >
             {STEPS.map((s, i) => (
               <span
-                key={s.title}
+                key={s.titleKey}
                 aria-hidden="true"
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   i === step
@@ -118,7 +109,7 @@ export default function Onboarding({ active = false }: { active?: boolean }) {
             onClick={dismiss}
             className="-mr-1 rounded-full px-2 py-1 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
           >
-            Skip
+            {t("onboarding.skip")}
           </button>
         </div>
 
@@ -126,9 +117,9 @@ export default function Onboarding({ active = false }: { active?: boolean }) {
           <span aria-hidden="true">{current.emoji}</span>
         </div>
 
-        <DialogTitle className="mt-4">{current.title}</DialogTitle>
+        <DialogTitle className="mt-4">{t(current.titleKey)}</DialogTitle>
         <DialogDescription className="mt-2 leading-relaxed">
-          {current.body}
+          {t(current.bodyKey)}
         </DialogDescription>
 
         {/* Footer: Back is quiet, primary action dominates. On the last step the
@@ -142,21 +133,21 @@ export default function Onboarding({ active = false }: { active?: boolean }) {
               onClick={() => setStep((s) => s - 1)}
               className="shrink-0"
             >
-              Back
+              {t("onboarding.back")}
             </Button>
           ) : (
             <span className="text-xs text-gray-400 dark:text-gray-500">
-              Takes 30 seconds
+              {t("onboarding.takes")}
             </span>
           )}
           <div className="flex-1" />
           {isLast ? (
             <Button asChild onClick={dismiss}>
-              <Link href="/catalog">Add my first course</Link>
+              <Link href="/catalog">{t("onboarding.addFirst")}</Link>
             </Button>
           ) : (
             <Button type="button" onClick={() => setStep((s) => s + 1)}>
-              Next
+              {t("onboarding.next")}
             </Button>
           )}
         </div>

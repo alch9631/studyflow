@@ -5,6 +5,10 @@
  * (Dependency-free, same style as the lib/* suites.)
  */
 import { streakStyle, streakLabel, STREAK_MILESTONES } from "./streak";
+import { createTranslator } from "../i18n/messages";
+
+const en = createTranslator("en");
+const de = createTranslator("de");
 
 let passed = 0;
 let failed = 0;
@@ -58,8 +62,9 @@ check(
 check("milestones are 30/7/3 (highest first)", STREAK_MILESTONES.join(",") === "30,7,3");
 
 // ---- label -----------------------------------------------------------------
-check("label singular form", streakLabel(1) === "1-day streak");
-check("label multi-day", streakLabel(12) === "12-day streak");
+check("label singular form", streakLabel(en, 1) === "1-day streak");
+check("label multi-day", streakLabel(en, 12) === "12-day streak");
+check("label localized (de)", streakLabel(de, 12) === "12-Tage-Serie");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
