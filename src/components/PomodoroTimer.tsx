@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { useToast } from "./Toast";
+import { useT } from "./i18n/I18nProvider";
 import { logFocus } from "@/app/courses/actions";
 
 /** A Today study block the completed focus sprint can be logged against. */
@@ -53,6 +54,7 @@ const PRESETS = [
  * different block, and can dismiss without logging.
  */
 export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }) {
+  const t = useT();
   const [focusMin, setFocusMin] = useState(() => readMin(FOCUS_KEY, DEFAULT_FOCUS));
   const [breakMin, setBreakMin] = useState(() => readMin(BREAK_KEY, DEFAULT_BREAK));
   const [mode, setMode] = useState<"focus" | "break">("focus");
@@ -145,11 +147,10 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
     <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <div className="mb-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          🍅 Focus Timer
+          {t("pomodoro.title")}
         </h2>
         <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-          Study in focused sprints, then take a short break. Press <strong>Start</strong> when you
-          sit down; it counts down and rolls into a break automatically.
+          {t("pomodoro.intro")}
         </p>
       </div>
       <div className="flex items-center gap-4">
@@ -158,23 +159,23 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">
-            {mode === "focus" ? "🍅 Focus" : "☕ Break"}
+            {mode === "focus" ? t("pomodoro.focus") : t("pomodoro.break")}
           </div>
           <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-            {cycles} focus sessions done
+            {t.n("pomodoro.sessionsDone", cycles)}
           </div>
         </div>
         {/* Controls inline on wider screens */}
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
           <Button onClick={() => setRunning((r) => !r)}>
-            {running ? "Pause" : "Start"}
+            {running ? t("pomodoro.pause") : t("pomodoro.start")}
           </Button>
           <Button onClick={reset} variant="secondary">
-            Reset
+            {t("pomodoro.reset")}
           </Button>
           <button
             onClick={() => setShowCfg((s) => !s)}
-            aria-label="Timer settings"
+            aria-label={t("pomodoro.timerSettings")}
             aria-expanded={showCfg}
             className={iconButtonClass(
               "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
@@ -188,14 +189,14 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
       {/* On mobile the controls drop to a full-width row so the label isn't squeezed */}
       <div className="mt-3 flex gap-2 sm:hidden">
         <Button onClick={() => setRunning((r) => !r)} className="flex-1">
-          {running ? "Pause" : "Start"}
+          {running ? t("pomodoro.pause") : t("pomodoro.start")}
         </Button>
         <Button onClick={reset} variant="secondary">
-          Reset
+          {t("pomodoro.reset")}
         </Button>
         <button
           onClick={() => setShowCfg((s) => !s)}
-          aria-label="Timer settings"
+          aria-label={t("pomodoro.timerSettings")}
           aria-expanded={showCfg}
           className={iconButtonClass(
             "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
@@ -211,7 +212,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
           <div className="flex flex-wrap items-end gap-4">
             <label className="text-sm">
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Focus (min)
+                {t("pomodoro.focusMin")}
               </span>
               <Input
                 type="number"
@@ -224,7 +225,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
             </label>
             <label className="text-sm">
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Break (min)
+                {t("pomodoro.breakMin")}
               </span>
               <Input
                 type="number"
@@ -252,7 +253,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
             </div>
           </div>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Saved on this device. Changes apply when the timer is idle.
+            {t("pomodoro.savedHint")}
           </p>
         </div>
       )}
@@ -288,6 +289,7 @@ function LogSprintDialog({
   onClose: () => void;
 }) {
   const { toast } = useToast();
+  const t = useT();
   const selectId = useId();
   // The dialog is remounted (keyed) each time a sprint completes, so the initial
   // value here is always the current/next block — no open-sync effect needed.
@@ -303,10 +305,10 @@ function LogSprintDialog({
     fd.set("revalidate", "/today");
     try {
       await logFocus(fd);
-      toast(`Logged a ${minutes}-min focus session. 🍅`, "success");
+      toast(t("pomodoro.logged", { minutes }), "success");
       onClose();
     } catch {
-      toast("Couldn't log that focus session — please try again.", "error");
+      toast(t("pomodoro.logError"), "error");
     } finally {
       setPending(false);
     }
@@ -325,17 +327,16 @@ function LogSprintDialog({
         onPointerDownOutside={lockWhilePending}
         onInteractOutside={lockWhilePending}
       >
-        <DialogTitle>Focus sprint done 🍅</DialogTitle>
+        <DialogTitle>{t("pomodoro.sprintDone")}</DialogTitle>
         <DialogDescription>
-          Nice work. Log this {minutes}-minute sprint to a study block so your plan stays
-          accurate — or skip it.
+          {t("pomodoro.sprintDesc", { minutes })}
         </DialogDescription>
         <div className="mt-4">
           <label
             htmlFor={selectId}
             className="block text-xs font-medium text-gray-500 dark:text-gray-400"
           >
-            Study block
+            {t("pomodoro.studyBlock")}
           </label>
           <Select
             id={selectId}
@@ -359,7 +360,7 @@ function LogSprintDialog({
             onClick={onClose}
             className="w-full sm:w-auto"
           >
-            Not now
+            {t("pomodoro.notNow")}
           </Button>
           <Button
             type="button"
@@ -367,7 +368,7 @@ function LogSprintDialog({
             onClick={submit}
             className="w-full sm:w-auto"
           >
-            {pending ? "Logging…" : `Log ${minutes} min`}
+            {pending ? t("pomodoro.logging") : t("pomodoro.log", { minutes })}
           </Button>
         </div>
       </DialogContent>

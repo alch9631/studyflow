@@ -9,6 +9,9 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import OfflineQueueSync from "@/components/OfflineQueueSync";
 import InstallPrompt from "@/components/InstallPrompt";
 import { ToastProvider } from "@/components/Toast";
+import { I18nProvider } from "@/components/i18n/I18nProvider";
+import { getLocale } from "@/components/i18n/server";
+import { createTranslator } from "@/components/i18n/messages";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,14 +49,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const t = createTranslator(locale);
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
@@ -73,8 +78,9 @@ export default function RootLayout({
           href="#main-content"
           className="sr-only rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
         >
-          Skip to content
+          {t("common.skipToContent")}
         </a>
+        <I18nProvider initialLocale={locale}>
         <ToastProvider>
           {/* Replays toggles queued while offline once the browser reconnects,
               and toasts if a replay fails. Headless. */}
@@ -102,6 +108,7 @@ export default function RootLayout({
               localStorage so it never nags. Renders nothing until eligible. */}
           <InstallPrompt />
         </ToastProvider>
+        </I18nProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

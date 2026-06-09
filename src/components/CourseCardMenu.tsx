@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * The per-card "Course settings" menu on the My Courses list.
@@ -39,6 +40,7 @@ export default function CourseCardMenu({
   courseId: string;
   courseName: string;
 }) {
+  const t = useT();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const stop = (e: MouseEvent) => {
@@ -52,7 +54,7 @@ export default function CourseCardMenu({
         <DropdownMenuTrigger
           onClick={stop}
           onPointerDown={(e) => e.stopPropagation()}
-          aria-label={`Course settings for ${courseName}`}
+          aria-label={t("courses.menuOpen", { name: courseName })}
           className={iconButtonClass(
             "inline-flex bg-white/80 text-gray-600 shadow-sm backdrop-blur hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand dark:bg-gray-900/80 dark:text-gray-300 dark:hover:bg-gray-800",
           )}
@@ -66,7 +68,7 @@ export default function CourseCardMenu({
           <DropdownMenuItem asChild>
             <a href="/api/export?format=json">
               <span aria-hidden="true">⬇️</span>
-              Export
+              {t("courses.export")}
             </a>
           </DropdownMenuItem>
 
@@ -81,25 +83,25 @@ export default function CourseCardMenu({
             className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40 dark:focus:text-red-300"
           >
             <span aria-hidden="true">🗑</span>
-            Delete course
+            {t("courses.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
-          <DialogTitle>Delete this course?</DialogTitle>
+          <DialogTitle>{t("courses.deleteTitle")}</DialogTitle>
           <DialogDescription>
-            This permanently removes <strong>{courseName}</strong> — its topics,
-            deadlines, and study plan. This can&apos;t be undone.
+            {t("courses.deleteDescPre")} <strong>{courseName}</strong>{" "}
+            {t("courses.deleteDescPost")}
           </DialogDescription>
           <form action={deleteCourse} className="mt-5 flex justify-end gap-2">
             <input type="hidden" name="courseId" value={courseId} />
             <Button type="button" variant="secondary" onClick={() => setConfirmOpen(false)}>
-              Cancel
+              {t("courses.cancel")}
             </Button>
-            <SubmitButton variant="danger-solid" pendingLabel="Deleting…">
-              Delete course
+            <SubmitButton variant="danger-solid" pendingLabel={t("courses.deleting")}>
+              {t("courses.delete")}
             </SubmitButton>
           </form>
         </DialogContent>

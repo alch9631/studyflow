@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { buttonClasses } from "./ui";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * Upload box. Uses a <label>-wrapped input (native click association) rather than
@@ -10,6 +11,7 @@ import { buttonClasses } from "./ui";
  */
 export default function FilePicker({ disabled }: { disabled?: boolean }) {
   const [name, setName] = useState("");
+  const t = useT();
 
   return (
     <label
@@ -26,10 +28,10 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
         onChange={(e) => setName(e.target.files?.[0]?.name ?? "")}
       />
       <span className="text-sm text-gray-500 dark:text-gray-400">
-        {name ? `📄 ${name}` : "Tap to choose a file from Files — PDF, TXT, or MD"}
+        {name ? `📄 ${name}` : t("courseDetail.filePrompt")}
       </span>
       <span className={buttonClasses("primary", "md")}>
-        📎 {name ? "Choose a different file" : "Choose file"}
+        📎 {name ? t("courseDetail.fileChooseDifferent") : t("courseDetail.fileChoose")}
       </span>
     </label>
   );

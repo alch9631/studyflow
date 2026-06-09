@@ -1,10 +1,12 @@
 "use client";
 
 import { applyMode, THEME_OPTIONS, useThemeMode } from "./lib/theme";
+import { useT } from "./i18n/I18nProvider";
 
 /** Light / Dark / System theme selector. Persists to localStorage. */
 export default function ThemeSetting() {
   const mode = useThemeMode();
+  const t = useT();
 
   return (
     <div className="inline-flex rounded-xl border border-gray-200 p-1 dark:border-gray-800">
@@ -23,7 +25,7 @@ export default function ThemeSetting() {
             }`}
           >
             <span>{o.icon}</span>
-            {o.label}
+            {t(`theme.${o.v}`)}
           </button>
         );
       })}

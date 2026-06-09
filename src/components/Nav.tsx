@@ -6,19 +6,22 @@ import { useEffect, useRef, useState } from "react";
 import { iconButtonClass } from "./ui";
 import SettingsMenu from "./SettingsMenu";
 import ThemeSetting from "./ThemeSetting";
+import LanguageToggle from "./LanguageToggle";
+import { useT } from "./i18n/I18nProvider";
+import type { MessageKey } from "./i18n/messages";
 
-type Tab = { href: string; label: string; icon: string; external?: boolean };
+type Tab = { href: string; labelKey: MessageKey; icon: string; external?: boolean };
 
 const TABS: Tab[] = [
-  { href: "/today", label: "Today", icon: "🗓️" },
-  { href: "/courses", label: "My Courses", icon: "📚" },
-  { href: "/catalog", label: "Modules", icon: "🎓" },
-  { href: "/insights", label: "Insights", icon: "📊" },
+  { href: "/today", labelKey: "nav.today", icon: "🗓️" },
+  { href: "/courses", labelKey: "nav.courses", icon: "📚" },
+  { href: "/catalog", labelKey: "nav.modules", icon: "🎓" },
+  { href: "/insights", labelKey: "nav.insights", icon: "📊" },
   // Calendar export route (/api/calendar) is kept but hidden from nav for now.
 ];
 
-const SEARCH: Tab = { href: "/search", label: "Search", icon: "🔍" };
-const SETTINGS: Tab = { href: "/settings", label: "Settings", icon: "⚙️" };
+const SEARCH: Tab = { href: "/search", labelKey: "nav.search", icon: "🔍" };
+const SETTINGS: Tab = { href: "/settings", labelKey: "nav.settings", icon: "⚙️" };
 
 function isActive(pathname: string, t: Tab) {
   if (t.external) return false;
@@ -80,6 +83,7 @@ function CloseIcon() {
 
 export default function Nav() {
   const pathname = usePathname();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -147,25 +151,25 @@ export default function Nav() {
             >
               TUHH
             </span>
-            StudyFlow
+            {t("common.appName")}
           </Link>
 
           {/* Desktop-only inline tabs */}
           <div className="mr-1 hidden items-center gap-1 lg:flex">
-            {TABS.map((t) => {
-              const active = isActive(pathname, t);
+            {TABS.map((tab) => {
+              const active = isActive(pathname, tab);
               const cls = `rounded-full px-3 py-1.5 font-medium transition-colors ${
                 active
                   ? "bg-brand text-white"
                   : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               }`;
-              return t.external ? (
-                <a key={t.href} href={t.href} className={cls}>
-                  {t.label}
+              return tab.external ? (
+                <a key={tab.href} href={tab.href} className={cls}>
+                  {t(tab.labelKey)}
                 </a>
               ) : (
-                <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined} className={cls}>
-                  {t.label}
+                <Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined} className={cls}>
+                  {t(tab.labelKey)}
                 </Link>
               );
             })}
@@ -175,7 +179,7 @@ export default function Nav() {
               from anywhere; opens the full-page course/topic/deadline search. */}
           <Link
             href="/search"
-            aria-label="Search"
+            aria-label={t("nav.search")}
             aria-current={isActive(pathname, SEARCH) ? "page" : undefined}
             className={iconButtonClass(
               `inline-flex ${
@@ -197,7 +201,7 @@ export default function Nav() {
             ref={toggleRef}
             type="button"
             onClick={() => setOpen((v) => !v)}
-            aria-label={open ? "Close menu" : "Open menu"}
+            aria-label={open ? t("nav.closeMenu") : t("nav.openMenu")}
             aria-expanded={open}
             aria-controls="mobile-nav-drawer"
             className={iconButtonClass(
@@ -226,18 +230,18 @@ export default function Nav() {
           id="mobile-nav-drawer"
           role="dialog"
           aria-modal="true"
-          aria-label="Main menu"
+          aria-label={t("nav.mainMenu")}
           inert={!open}
           className={`absolute inset-y-0 right-0 flex w-72 max-w-[80%] flex-col border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-gray-800 dark:bg-gray-950 ${
             open ? "translate-x-0" : "translate-x-full"
           }`}
         >
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-            <span className="text-sm font-semibold tracking-tight">Menu</span>
+            <span className="text-sm font-semibold tracking-tight">{t("nav.menu")}</span>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="Close menu"
+              aria-label={t("nav.closeMenu")}
               className={iconButtonClass(
                 "inline-flex text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
               )}
@@ -246,9 +250,9 @@ export default function Nav() {
             </button>
           </div>
 
-          <nav aria-label="Mobile" className="flex flex-col gap-1 overflow-y-auto p-3">
-            {[...TABS, SEARCH, SETTINGS].map((t) => {
-              const active = isActive(pathname, t);
+          <nav aria-label={t("nav.menu")} className="flex flex-col gap-1 overflow-y-auto p-3">
+            {[...TABS, SEARCH, SETTINGS].map((tab) => {
+              const active = isActive(pathname, tab);
               const cls = `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
                   ? "bg-brand text-white"
@@ -257,19 +261,19 @@ export default function Nav() {
               const inner = (
                 <>
                   <span className="text-lg leading-none" aria-hidden="true">
-                    {t.icon}
+                    {tab.icon}
                   </span>
-                  <span>{t.label}</span>
+                  <span>{t(tab.labelKey)}</span>
                 </>
               );
-              return t.external ? (
-                <a key={t.href} href={t.href} className={cls} onClick={() => setOpen(false)}>
+              return tab.external ? (
+                <a key={tab.href} href={tab.href} className={cls} onClick={() => setOpen(false)}>
                   {inner}
                 </a>
               ) : (
                 <Link
-                  key={t.href}
-                  href={t.href}
+                  key={tab.href}
+                  href={tab.href}
                   aria-current={active ? "page" : undefined}
                   className={cls}
                   onClick={() => setOpen(false)}
@@ -280,12 +284,20 @@ export default function Nav() {
             })}
           </nav>
 
-          {/* Appearance: day / night / system theme, pinned to the drawer bottom. */}
-          <div className="mt-auto border-t border-gray-200 p-3 dark:border-gray-800">
-            <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Appearance
-            </p>
-            <ThemeSetting />
+          {/* Preferences pinned to the drawer bottom: language + theme. */}
+          <div className="mt-auto space-y-3 border-t border-gray-200 p-3 dark:border-gray-800">
+            <div>
+              <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("nav.language")}
+              </p>
+              <LanguageToggle />
+            </div>
+            <div>
+              <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("nav.appearance")}
+              </p>
+              <ThemeSetting />
+            </div>
           </div>
         </div>
       </div>

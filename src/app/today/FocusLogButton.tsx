@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import ToastForm from "@/components/ToastForm";
 import SubmitButton from "@/components/SubmitButton";
+import { useT } from "@/components/i18n/I18nProvider";
 import { logFocus } from "../courses/actions";
 
 /** Same key the Focus Timer (PomodoroTimer) persists its focus length to. */
@@ -33,12 +34,13 @@ function readFocus(): number {
  */
 export default function FocusLogButton({ blockId }: { blockId: string }) {
   const focusMin = useSyncExternalStore(subscribe, readFocus, () => DEFAULT_FOCUS);
+  const t = useT();
 
   return (
     <ToastForm
       action={logFocus}
-      successMessage={`Logged a ${focusMin}-min focus session. 🍅`}
-      errorMessage="Couldn't log that focus session — please try again."
+      successMessage={t("pomodoro.logged", { minutes: focusMin })}
+      errorMessage={t("pomodoro.logError")}
       className="shrink-0"
     >
       <input type="hidden" name="blockId" value={blockId} />
@@ -48,7 +50,7 @@ export default function FocusLogButton({ blockId }: { blockId: string }) {
         variant="secondary"
         size="md"
         className="whitespace-nowrap"
-        title={`Log a ${focusMin}-min focus session`}
+        title={t("pomodoro.logTitle", { minutes: focusMin })}
       >
         <span suppressHydrationWarning>🍅 +{focusMin}m</span>
       </SubmitButton>

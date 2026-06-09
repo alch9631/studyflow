@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { examCountdownLabel } from "@/lib/dates";
 import { buttonClasses } from "./ui";
 import { Card } from "./ui/card";
 import CourseCardMenu from "./CourseCardMenu";
+import { examCountdownLabel, type Translator } from "./i18n/messages";
 
 export type CardCourse = {
   id: string;
@@ -25,7 +25,7 @@ export type CardCourse = {
  * it stays outside the anchor (valid HTML) and its trigger stops propagation so
  * opening the menu never navigates the card.
  */
-export default function CourseCard({ course }: { course: CardCourse }) {
+export default function CourseCard({ course, t }: { course: CardCourse; t: Translator }) {
   const pct = course.total ? Math.round((course.done / course.total) * 100) : 0;
 
   return (
@@ -36,14 +36,14 @@ export default function CourseCard({ course }: { course: CardCourse }) {
       >
         <Link
           href={`/courses/${course.id}`}
-          aria-label={`${course.name} — open to update progress`}
+          aria-label={t("courses.openCard", { name: course.name })}
         >
         {/* Header: priority + name, exam date. Padded right so the long name
             never sits under the overlay menu trigger. */}
       <div className="flex flex-wrap items-start justify-between gap-2 pr-10">
         <div className="min-w-0">
           <span
-            title={`${course.apple.label} priority`}
+            title={t("courses.priorityTitle", { label: course.apple.label })}
             className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${course.apple.cls}`}
           >
             {course.apple.emoji} {course.apple.label}
@@ -64,7 +64,7 @@ export default function CourseCard({ course }: { course: CardCourse }) {
                     : "text-gray-600 dark:text-gray-300"
             }`}
           >
-            ⏳ {examCountdownLabel(course.examInDays)}
+            ⏳ {examCountdownLabel(t, course.examInDays)}
           </span>
           <span className="block text-xs text-gray-500 dark:text-gray-400">{course.examDate}</span>
         </span>
@@ -78,10 +78,10 @@ export default function CourseCard({ course }: { course: CardCourse }) {
       {/* Footer: progress count + the single call to action */}
       <div className="mt-3 flex items-center justify-between gap-3">
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          {course.done}/{course.total} topics done
+          {t("courses.topicsDone", { done: course.done, total: course.total })}
         </span>
         <span aria-hidden="true" className={buttonClasses("primary", "md", "shrink-0")}>
-          Update progress →
+          {t("courses.updateProgress")}
         </span>
       </div>
         </Link>

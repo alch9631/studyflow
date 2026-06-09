@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactElement, SVGProps } from "react";
+import { useT } from "./i18n/I18nProvider";
+import type { MessageKey } from "./i18n/messages";
 
 type Icon = (props: SVGProps<SVGSVGElement>) => ReactElement;
-type Tab = { href: string; label: string; Icon: Icon };
+type Tab = { href: string; labelKey: MessageKey; Icon: Icon };
 
 /** Line icons in the same stroke style as Nav's HamburgerIcon (24px box, 2px). */
 function iconProps(extra: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
@@ -53,9 +55,9 @@ function InsightsIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 const TABS: Tab[] = [
-  { href: "/today", label: "Today", Icon: TodayIcon },
-  { href: "/courses", label: "My Courses", Icon: CoursesIcon },
-  { href: "/insights", label: "Insights", Icon: InsightsIcon },
+  { href: "/today", labelKey: "nav.today", Icon: TodayIcon },
+  { href: "/courses", labelKey: "nav.courses", Icon: CoursesIcon },
+  { href: "/insights", labelKey: "nav.insights", Icon: InsightsIcon },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -70,6 +72,7 @@ function isActive(pathname: string, href: string) {
  */
 export default function BottomTabBar() {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <nav
@@ -77,12 +80,12 @@ export default function BottomTabBar() {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden dark:border-gray-800 dark:bg-gray-950/95"
     >
       <ul className="mx-auto flex max-w-3xl items-stretch">
-        {TABS.map((t) => {
-          const active = isActive(pathname, t.href);
+        {TABS.map((tab) => {
+          const active = isActive(pathname, tab.href);
           return (
-            <li key={t.href} className="flex-1">
+            <li key={tab.href} className="flex-1">
               <Link
-                href={t.href}
+                href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-2 py-2 text-[11px] font-medium transition-colors ${
                   active
@@ -90,8 +93,8 @@ export default function BottomTabBar() {
                     : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
                 }`}
               >
-                <t.Icon className="h-6 w-6" />
-                <span>{t.label}</span>
+                <tab.Icon className="h-6 w-6" />
+                <span>{t(tab.labelKey)}</span>
               </Link>
             </li>
           );

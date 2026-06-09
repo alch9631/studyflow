@@ -5,26 +5,28 @@ import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
 import { Textarea } from "@/components/ui/textarea";
 import SubmitButton from "@/components/SubmitButton";
+import { useT } from "@/components/i18n/I18nProvider";
 
 /**
  * Plain-language progress update. Required field surfaces an inline error and
  * focuses itself if submitted empty. `applyProgress` is unchanged.
  */
 export default function ProgressForm({ courseId }: { courseId: string }) {
+  const t = useT();
   return (
     <ValidatedForm
       action={applyProgress}
-      errorMessage="Couldn't apply that update — please try again."
+      errorMessage={t("courseDetail.progressError")}
       className="space-y-2"
     >
       <input type="hidden" name="courseId" value={courseId} />
-      <Field name="status" label="Where are you at?" labelClassName="sr-only">
+      <Field name="status" label={t("courseDetail.progressQuestion")} labelClassName="sr-only">
         {(p) => (
           <Textarea
             {...p}
             rows={2}
             required
-            placeholder="In your own words — e.g. 'done with sorting and graphs, still shaky on dynamic programming'"
+            placeholder={t("courseDetail.progressPlaceholder")}
             className="w-full text-sm"
           />
         )}
@@ -33,9 +35,9 @@ export default function ProgressForm({ courseId }: { courseId: string }) {
         variant="primary"
         size="md"
         className="w-full sm:w-auto"
-        pendingLabel="Applying…"
+        pendingLabel={t("courseDetail.applying")}
       >
-        ✨ Apply &amp; rebuild plan
+        {t("courseDetail.applyRebuild")}
       </SubmitButton>
     </ValidatedForm>
   );

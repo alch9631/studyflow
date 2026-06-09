@@ -3,8 +3,10 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
-import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
+import { daysUntil } from "@/lib/dates";
 import { getStatsCached } from "@/lib/statsCache";
+import { getT } from "@/components/i18n/server";
+import { examCountdownLabel, dueLabel } from "@/components/i18n/messages";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
 import Onboarding from "@/components/Onboarding";
@@ -31,6 +33,7 @@ type Row = {
 
 export default async function TodayPage() {
   const userId = await getCurrentUserId();
+  const t = await getT();
   const today = todayISO();
   const start = new Date(today + "T00:00:00Z");
   const end = new Date(start.getTime() + 86400_000);
@@ -156,13 +159,13 @@ export default async function TodayPage() {
     <Onboarding active={hasNoPlan} />
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-        <StreakBadge streak={stats.currentStreak} />
+        <h1 className="text-2xl font-bold tracking-tight">{t("today.title")}</h1>
+        <StreakBadge streak={stats.currentStreak} t={t} />
       </div>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         {today}
         {blocks.length > 0
-          ? ` · ${doneMin}/${totalMin} min done · ${courseCountLabel(courseCount)}`
+          ? ` · ${t("today.minDone", { done: doneMin, total: totalMin })} · ${t.n("today.courseCount", courseCount)}`
           : ""}
       </p>
       {nextExam && !examWeek && (
@@ -170,8 +173,8 @@ export default async function TodayPage() {
           href={`/courses/${nextExam.id}`}
           className="mb-6 mt-1 inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
         >
-          ⏳ Next exam: <span className="font-medium text-gray-700 dark:text-gray-200">{nextExam.name}</span>{" "}
-          — {examCountdownLabel(nextExamDays!)}
+          ⏳ {t("today.nextExam")} <span className="font-medium text-gray-700 dark:text-gray-200">{nextExam.name}</span>{" "}
+          — {examCountdownLabel(t, nextExamDays!)}
         </Link>
       )}
       {nextExam && examWeek && (
@@ -179,9 +182,9 @@ export default async function TodayPage() {
           href={`/courses/${nextExam.id}`}
           className="mb-6 mt-2 block rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 transition-colors hover:border-red-400 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
         >
-          <span className="font-semibold">🎯 Focus mode — exam week.</span>{" "}
-          <span className="font-medium">{nextExam.name}</span> {examCountdownLabel(nextExamDays!)}.
-          Prioritise its sessions today; tap to open the course →
+          <span className="font-semibold">{t("today.focusModeExamWeek")}</span>{" "}
+          <span className="font-medium">{nextExam.name}</span> {examCountdownLabel(t, nextExamDays!)}.{" "}
+          {t("today.focusModeTail")}
         </Link>
       )}
       {!nextExam && <div className="mb-6" />}
@@ -189,7 +192,7 @@ export default async function TodayPage() {
       {todaysLectures.length > 0 && (
         <section className="mb-4">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            🎓 Today&apos;s classes
+            {t("today.classes")}
           </h2>
           <ul className="space-y-2">
             {todaysLectures.map((l) => (
@@ -217,7 +220,7 @@ export default async function TodayPage() {
       {upcomingDeadlines.length > 0 && (
         <section className="mb-4">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            📝 Deadlines
+            {t("today.deadlines")}
           </h2>
           <ul className="space-y-2">
             {upcomingDeadlines.map((a) => {
@@ -238,7 +241,7 @@ export default async function TodayPage() {
                         urgent ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
                       }`}
                     >
-                      {dueLabel(days)}
+                      {dueLabel(t, days)}
                     </span>
                   </Link>
                 </li>
@@ -258,18 +261,14 @@ export default async function TodayPage() {
           }`}
         >
           <p className="font-semibold">
-            {achievable ? "✅ Today's goal looks achievable" : "⚠️ Today's goal is at risk"}
+            {achievable ? t("today.goalAchievable") : t("today.goalAtRisk")}
           </p>
           <p className="mt-1">
-            <strong>{fmtDuration(remainingMin)}</strong> of studying left ·{" "}
-            about <strong>{fmtDuration(availableMin)}</strong> of realistic focus time before 22:00.
+            {t("today.leftStudying", { remaining: fmtDuration(remainingMin) })} ·{" "}
+            {t("today.focusTimeTail", { available: fmtDuration(availableMin) })}
           </p>
           {!achievable && (
-            <p className="mt-2">
-              You&apos;re ~{fmtDuration(overBy)} over. Recommendation: start now with the top blocks,
-              run the 🍅 timer, and let the 🔁 reviews slide to tomorrow if you run out of time —
-              StudyFlow will re-plan them around you.
-            </p>
+            <p className="mt-2">{t("today.overBy", { over: fmtDuration(overBy) })}</p>
           )}
         </div>
       )}
@@ -285,29 +284,29 @@ export default async function TodayPage() {
       ) : hasNoPlan ? (
         <EmptyState
           emoji="🚀"
-          title="Let's build your study plan"
-          description="Add your first course and StudyFlow lays out exactly what to study each day — working backward from your exams."
+          title={t("today.emptyNoPlanTitle")}
+          description={t("today.emptyNoPlanDesc")}
           actions={[
-            { label: "🎓 Browse TUHH modules", href: "/catalog" },
-            { label: "✨ Import a syllabus", href: "/courses/import" },
-            { label: "✍️ Add a course", href: "/courses/new" },
+            { label: t("today.browseModules"), href: "/catalog" },
+            { label: t("today.importSyllabus"), href: "/courses/import" },
+            { label: t("today.addCourse"), href: "/courses/new" },
           ]}
         />
       ) : (
         <div>
           <EmptyState
             emoji="😎"
-            title="Nothing scheduled today"
-            description="It's not a study day — enjoy the break. Review your courses or get ahead whenever you like."
+            title={t("today.emptyRestTitle")}
+            description={t("today.emptyRestDesc")}
             actions={[
-              { label: "📚 My courses", href: "/courses" },
-              { label: "📊 Insights", href: "/insights", variant: "secondary" },
+              { label: t("today.myCourses"), href: "/courses" },
+              { label: t("today.insights"), href: "/insights", variant: "secondary" },
             ]}
           />
           {nextBlocks.length > 0 && (
             <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                <span>Next up · {nextDate}</span>
+                <span>{t("today.nextUp")} · {nextDate}</span>
                 <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                   {nextBlocks.length}
                 </span>
@@ -326,10 +325,6 @@ export default async function TodayPage() {
     </main>
     </PullToRefresh>
   );
-}
-
-function courseCountLabel(n: number): string {
-  return `${n} course${n === 1 ? "" : "s"}`;
 }
 
 /** Minutes from midnight -> "10:00". */

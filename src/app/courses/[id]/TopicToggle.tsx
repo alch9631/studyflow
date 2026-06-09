@@ -1,6 +1,7 @@
 "use client";
 
 import OptimisticToggleForm from "@/components/OptimisticToggleForm";
+import { useT } from "@/components/i18n/I18nProvider";
 import { toggleTopic } from "../actions";
 
 /**
@@ -22,14 +23,15 @@ export default function TopicToggle({
   title: string;
   done: boolean;
 }) {
+  const t = useT();
   return (
     <OptimisticToggleForm
       action={toggleTopic}
       done={doneProp}
-      doneMessage="Topic done — plan updated. ✓"
-      undoneMessage="Topic reopened — plan updated."
-      errorMessage="Couldn't update that topic — please try again."
-      swipe={{ completeLabel: "Done", reopenLabel: "Reopen" }}
+      doneMessage={t("courseDetail.topicDone")}
+      undoneMessage={t("courseDetail.topicReopened")}
+      errorMessage={t("courseDetail.topicError")}
+      swipe={{ completeLabel: t("block.done"), reopenLabel: t("block.reopen") }}
       className="flex items-start gap-2 rounded-lg bg-background py-0.5"
     >
       {(done) => (
@@ -44,7 +46,7 @@ export default function TopicToggle({
                 : "border-gray-300 dark:border-gray-700"
             }`}
             aria-pressed={done}
-            aria-label={done ? "Mark not done" : "Mark done"}
+            aria-label={done ? t("block.markNotDone") : t("block.markDone")}
           >
             {done ? "✓" : ""}
           </button>
