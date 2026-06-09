@@ -8,8 +8,8 @@ import { getStatsCached } from "@/lib/statsCache";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
 import { StreakBadge } from "@/components/StreakBadge";
-import BlockToggle from "./BlockToggle";
-import FocusLogButton from "./FocusLogButton";
+import PullToRefresh from "@/components/PullToRefresh";
+import TodayBlockRow from "./TodayBlockRow";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
@@ -27,25 +27,6 @@ type Row = {
   actualMinutes: number | null;
   course: { name: string; id: string };
 };
-
-function BlockRow({ b }: { b: Row }) {
-  const isReview = b.kind === "review";
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
-      <BlockToggle
-        blockId={b.id}
-        topicTitle={b.topicTitle}
-        courseName={b.course.name}
-        completed={b.completed}
-        isReview={isReview}
-      />
-      <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
-      </span>
-      <FocusLogButton blockId={b.id} />
-    </div>
-  );
-}
 
 export default async function TodayPage() {
   const userId = await getCurrentUserId();
@@ -167,6 +148,7 @@ export default async function TodayPage() {
     upcomingDeadlines.length === 0;
 
   return (
+    <PullToRefresh>
     <main className="mx-auto max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Today</h1>
@@ -291,7 +273,7 @@ export default async function TodayPage() {
         <AnimatedList className="space-y-2">
           {blocks.map((b) => (
             <AnimatedListItem key={b.id}>
-              <BlockRow b={b} />
+              <TodayBlockRow b={b} />
             </AnimatedListItem>
           ))}
         </AnimatedList>
@@ -328,7 +310,7 @@ export default async function TodayPage() {
               <AnimatedList className="space-y-2 px-3 pb-3">
                 {nextBlocks.map((b) => (
                   <AnimatedListItem key={b.id}>
-                    <BlockRow b={b} />
+                    <TodayBlockRow b={b} />
                   </AnimatedListItem>
                 ))}
               </AnimatedList>
@@ -337,6 +319,7 @@ export default async function TodayPage() {
         </div>
       )}
     </main>
+    </PullToRefresh>
   );
 }
 

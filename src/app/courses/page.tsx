@@ -6,6 +6,7 @@ import { appleFor } from "@/lib/apple";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
 import CourseCard from "@/components/CourseCard";
+import SwipeCourseCard from "@/components/SwipeCourseCard";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 
@@ -69,17 +70,19 @@ export default async function CoursesPage() {
             });
             return (
               <li key={c.id}>
-                <CourseCard
-                  course={{
-                    id: c.id,
-                    name: c.name,
-                    examDate: c.examDate.toISOString().slice(0, 10),
-                    examInDays: daysUntil(c.examDate, today),
-                    done,
-                    total: c.topics.length,
-                    apple: { emoji: apple.emoji, label: apple.label, cls: apple.cls },
-                  }}
-                />
+                <SwipeCourseCard courseId={c.id} courseName={c.name}>
+                  <CourseCard
+                    course={{
+                      id: c.id,
+                      name: c.name,
+                      examDate: c.examDate.toISOString().slice(0, 10),
+                      examInDays: daysUntil(c.examDate, today),
+                      done,
+                      total: c.topics.length,
+                      apple: { emoji: apple.emoji, label: apple.label, cls: apple.cls },
+                    }}
+                  />
+                </SwipeCourseCard>
               </li>
             );
           })}
