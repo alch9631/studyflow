@@ -74,7 +74,7 @@ export default function BottomTabBar() {
   return (
     <nav
       aria-label="Primary mobile"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden dark:border-gray-800 dark:bg-gray-950/95"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden dark:border-gray-800 dark:bg-gray-950/95"
     >
       <ul className="mx-auto flex max-w-3xl items-stretch">
         {TABS.map((t) => {

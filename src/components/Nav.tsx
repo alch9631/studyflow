@@ -113,11 +113,13 @@ export default function Nav() {
 
   return (
     <>
-      {/* Top bar: brand + nav. Tabs show inline on desktop; a drawer on mobile. */}
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-950/90">
+      {/* Top bar: brand + nav. Tabs show inline on desktop; a drawer on mobile.
+          The translucent header extends into the notch (pt safe-area inset);
+          the inner row pads its content clear of the top + a landscape side notch. */}
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-gray-800 dark:bg-gray-950/90">
         <nav
           aria-label="Primary"
-          className="mx-auto flex max-w-3xl items-center gap-1 px-4 py-3 text-sm"
+          className="mx-auto flex max-w-3xl items-center gap-1 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm"
         >
           <Link href="/" className="mr-auto flex items-center gap-2 font-bold tracking-tight">
             <span
@@ -190,7 +192,7 @@ export default function Nav() {
           aria-modal="true"
           aria-label="Main menu"
           inert={!open}
-          className={`absolute inset-y-0 right-0 flex w-72 max-w-[80%] flex-col border-l border-gray-200 bg-white shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-gray-800 dark:bg-gray-950 ${
+          className={`absolute inset-y-0 right-0 flex w-72 max-w-[80%] flex-col border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-gray-800 dark:bg-gray-950 ${
             open ? "translate-x-0" : "translate-x-full"
           }`}
         >

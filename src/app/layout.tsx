@@ -37,6 +37,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#00509b", // TUHH blue — colours the mobile browser chrome
+  // Draw under the iPhone notch / home indicator so our own env(safe-area-*)
+  // padding (see below + the nav/tab-bar/toast) controls the clearance.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -71,11 +74,13 @@ export default function RootLayout({
         <ToastProvider>
           <Nav />
           {/* Bottom padding clears the mobile tab bar (its 3.5rem height + the
-              safe-area inset); desktop has no bottom bar, so reset to 0. */}
+              safe-area inset); desktop has no bottom bar, so reset to 0. The
+              left/right insets keep content off a landscape notch (0 in
+              portrait, where viewport-fit=cover only adds top/bottom insets). */}
           <div
             id="main-content"
             tabIndex={-1}
-            className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+            className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:pb-0"
           >
             {children}
           </div>
