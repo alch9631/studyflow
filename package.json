@@ -23,6 +23,7 @@
     "test:ratelimit": "tsx src/lib/rateLimitPolicy.test.ts",
     "test:push": "tsx src/lib/push.test.ts",
     "test:push-routes": "tsx src/lib/pushRoutes.test.ts",
+    "test:reminders": "tsx src/lib/reminders.test.ts",
     "test:api-routes": "tsx src/lib/apiRoutes.test.ts",
     "test:route-errors": "tsx src/lib/routeErrors.test.ts",
     "test:apierror": "tsx src/lib/apiError.test.ts",
