@@ -144,56 +144,36 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
   }
 
   return (
-    <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          {t("pomodoro.title")}
-        </h2>
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-          {t("pomodoro.intro")}
-        </p>
-      </div>
-      <div className="flex items-center gap-4">
-        <div suppressHydrationWarning className="shrink-0 text-3xl font-bold tabular-nums">
+    <div className="mb-4 rounded-xl border border-gray-200 bg-white p-2.5 dark:border-gray-800 dark:bg-gray-900">
+      {/* Compact one-line bar: time · phase · sessions · start/pause · reset · settings.
+          Full duration controls live behind the gear (settings panel below). */}
+      <div className="flex items-center gap-2">
+        <span suppressHydrationWarning className="shrink-0 text-2xl font-bold tabular-nums">
           {mm}:{ss}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">
-            {mode === "focus" ? t("pomodoro.focus") : t("pomodoro.break")}
-          </div>
-          <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-            {t.n("pomodoro.sessionsDone", cycles)}
-          </div>
-        </div>
-        {/* Controls inline on wider screens */}
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <Button onClick={() => setRunning((r) => !r)}>
-            {running ? t("pomodoro.pause") : t("pomodoro.start")}
-          </Button>
-          <Button onClick={reset} variant="secondary">
-            {t("pomodoro.reset")}
-          </Button>
-          <button
-            onClick={() => setShowCfg((s) => !s)}
-            aria-label={t("pomodoro.timerSettings")}
-            aria-expanded={showCfg}
-            className={iconButtonClass(
-              "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
-            )}
-          >
-            <span aria-hidden="true">⚙︎</span>
-          </button>
-        </div>
-      </div>
-
-      {/* On mobile the controls drop to a full-width row so the label isn't squeezed */}
-      <div className="mt-3 flex gap-2 sm:hidden">
-        <Button onClick={() => setRunning((r) => !r)} className="flex-1">
+        </span>
+        <span
+          className="shrink-0 text-base leading-none"
+          title={mode === "focus" ? t("pomodoro.focus") : t("pomodoro.break")}
+          aria-label={mode === "focus" ? t("pomodoro.focus") : t("pomodoro.break")}
+        >
+          {mode === "focus" ? "🍅" : "☕"}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400">
+          {t.n("pomodoro.sessionsDone", cycles)}
+        </span>
+        <Button size="sm" onClick={() => setRunning((r) => !r)} className="shrink-0">
           {running ? t("pomodoro.pause") : t("pomodoro.start")}
         </Button>
-        <Button onClick={reset} variant="secondary">
-          {t("pomodoro.reset")}
-        </Button>
+        <button
+          onClick={reset}
+          aria-label={t("pomodoro.reset")}
+          title={t("pomodoro.reset")}
+          className={iconButtonClass(
+            "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
+          )}
+        >
+          <span aria-hidden="true">↺</span>
+        </button>
         <button
           onClick={() => setShowCfg((s) => !s)}
           aria-label={t("pomodoro.timerSettings")}
