@@ -1,30 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { subscribe } from "./lib/actionQueue";
 
 /**
  * Slim banner shown while the browser is offline. Paired with the service
  * worker's data cache (public/sw.js): when offline, visited pages render their
  * last-synced content, and this strip tells the user that's what they're seeing.
  *
+ * It also reports how many changes are waiting in the offline action queue
+ * (src/components/lib/actionQueue) so a queued toggle is never invisible — the
+ * count survives a moment past reconnect, while the queued flips replay.
+ *
  * Renders nothing on the server and on the first client paint (matching SSR, so
  * no hydration mismatch); the real online/offline state is read on mount.
  */
 export default function OfflineIndicator() {
   const [offline, setOffline] = useState(false);
+  const [queued, setQueued] = useState(0);
 
   useEffect(() => {
     const sync = () => setOffline(!navigator.onLine);
     sync();
     window.addEventListener("online", sync);
     window.addEventListener("offline", sync);
+    const unsubscribe = subscribe(setQueued);
     return () => {
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", sync);
+      unsubscribe();
     };
   }, []);
 
-  if (!offline) return null;
+  // Show while offline, or briefly after reconnect until queued flips replay.
+  if (!offline && queued === 0) return null;
+
+  const queuedNote =
+    queued > 0
+      ? `${queued} change${queued === 1 ? "" : "s"} queued — ${
+          offline ? "will sync when you reconnect" : "syncing…"
+        }`
+      : "showing last synced content";
 
   return (
     <div
@@ -34,7 +50,7 @@ export default function OfflineIndicator() {
     >
       <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-4 py-2 text-sm font-medium">
         <WifiOffIcon />
-        <span>Offline — showing last synced content</span>
+        <span>{offline ? `Offline — ${queuedNote}` : queuedNote}</span>
       </p>
     </div>
   );

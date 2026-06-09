@@ -1,12 +1,21 @@
 "use client";
 
-import { useOptimistic, useRef, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { useToast } from "./Toast";
 import { isNextControlFlow } from "./ToastForm";
 import { haptics } from "./haptics";
+import { queueToggle, toggleKey } from "./lib/actionQueue";
 
 /** Grace window (ms) during which the success toast offers an Undo. */
 export const UNDO_GRACE_MS = 5000;
+
+/** Toast shown when a toggle is stashed for replay because we're offline. */
+const OFFLINE_QUEUED_MESSAGE =
+  "Saved offline — we'll sync this when you're back online.";
+
+function isOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
@@ -49,6 +58,17 @@ export function useOptimisticToggle({
   const { toast } = useToast();
   const [optimisticDone, setOptimisticDone] = useOptimistic(done);
   const [, startTransition] = useTransition();
+  // While offline, the server `done` prop can't update, so `useOptimistic`
+  // would snap the row back to server truth the moment the failed transition
+  // settles. This sticky override keeps the queued state visible until the
+  // replay lands. We tag it with the server value it was based on, so it
+  // auto-expires (becomes inert) as soon as a revalidation moves `done` — no
+  // effect/cleanup needed, and a later genuine server change still wins.
+  const [override, setOverride] = useState<{ value: boolean; base: boolean } | null>(
+    null,
+  );
+  const effectiveDone =
+    override && override.base === done ? override.value : optimisticDone;
   // Guard against a double-fire (a fast double-tap, or a swipe + the click it
   // would otherwise synthesise).
   const inFlight = useRef(false);
@@ -59,13 +79,14 @@ export function useOptimisticToggle({
   function fire(formData: FormData, next: boolean, withUndo: boolean) {
     if (inFlight.current) return;
     // Already in the target state (e.g. swiping "complete" on a done row).
-    if (next === optimisticDone) return;
+    if (next === effectiveDone) return;
     inFlight.current = true;
     startTransition(async () => {
       setOptimisticDone(next);
       haptics.tap();
       try {
         await action(formData);
+        setOverride(null); // server round-trip succeeded — clear any override
         toast(
           next ? doneMessage : undoneMessage,
           "success",
@@ -81,6 +102,17 @@ export function useOptimisticToggle({
         );
       } catch (err) {
         if (isNextControlFlow(err)) throw err; // redirect / notFound — not a failure
+        if (isOffline()) {
+          // Stash the flip and keep it visible; it replays on reconnect. A
+          // second offline tap on the same row cancels it out (parity) — no
+          // double-submit — so mirror that in the sticky override.
+          const stillQueued = queueToggle(toggleKey(formData), () =>
+            action(formData),
+          );
+          setOverride(stillQueued ? { value: next, base: done } : null);
+          toast(OFFLINE_QUEUED_MESSAGE, "info");
+          return; // not a real failure — don't roll back / rethrow
+        }
         toast(errorMessage, "error"); // optimistic value rolls back automatically
         throw err;
       } finally {
@@ -89,5 +121,5 @@ export function useOptimisticToggle({
     });
   }
 
-  return { optimisticDone, fire };
+  return { optimisticDone: effectiveDone, fire };
 }
