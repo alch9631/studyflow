@@ -132,11 +132,14 @@ export default async function CatalogPage({
                           </label>
                           {/* Module details behind a small "?" info toggle */}
                           <details className="ml-7 mt-1.5">
-                            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-gray-500 transition-colors hover:text-brand dark:text-gray-400">
-                              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-bold">
+                            <summary
+                              aria-label={`Details for ${m.name}`}
+                              title="Details"
+                              className="inline-flex cursor-pointer list-none items-center text-xs text-gray-500 transition-colors hover:text-brand dark:text-gray-400"
+                            >
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px] font-bold">
                                 ?
                               </span>
-                              Details
                             </summary>
                             <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800/50 dark:text-gray-300">
                               <div className="font-medium text-gray-700 dark:text-gray-200">
