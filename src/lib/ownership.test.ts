@@ -30,6 +30,8 @@ import {
   findOwnedBlock,
   findOwnedAssignment,
   deleteOwnedAssignment,
+  upsertOwnedTopicNote,
+  deleteOwnedTopicNote,
 } from "./ownership";
 import {
   rebuildSchedule,
@@ -136,6 +138,33 @@ async function main() {
     check("owner can delete own assignment", (await deleteOwnedAssignment(A.userId, A.assignmentId)) === true);
     check("A's assignment is gone after owner delete",
       (await prisma.assignment.count({ where: { id: A.assignmentId } })) === 0);
+
+    // ── upsert/deleteOwnedTopicNote: notes are scoped through topic→course ───
+    // A non-owner can't attach (or overwrite) a note on A's topic.
+    const foreignNote = await upsertOwnedTopicNote(B.userId, A.topicId, "HACKED NOTE");
+    check("non-owner note upsert is a no-op (null)", foreignNote === null);
+    check("no note was created on A's topic by B",
+      (await prisma.note.count({ where: { topicId: A.topicId } })) === 0);
+
+    // The owner can create, then overwrite (single note per topic).
+    const created = await upsertOwnedTopicNote(A.userId, A.topicId, "first draft");
+    check("owner note upsert returns the owning courseId", created === A.courseId);
+    check("owner's note persisted with the given body",
+      (await prisma.note.findUnique({ where: { topicId: A.topicId } }))?.body === "first draft");
+    await upsertOwnedTopicNote(A.userId, A.topicId, "revised");
+    check("owner note upsert overwrites in place (still one row)",
+      (await prisma.note.count({ where: { topicId: A.topicId } })) === 1);
+    check("owner's note body was updated",
+      (await prisma.note.findUnique({ where: { topicId: A.topicId } }))?.body === "revised");
+
+    // A non-owner can't delete A's note; the owner can.
+    check("non-owner note delete is a no-op (null)", (await deleteOwnedTopicNote(B.userId, A.topicId)) === null);
+    check("A's note survived B's delete attempt",
+      (await prisma.note.count({ where: { topicId: A.topicId } })) === 1);
+    check("owner note delete returns the owning courseId",
+      (await deleteOwnedTopicNote(A.userId, A.topicId)) === A.courseId);
+    check("A's note is gone after owner delete",
+      (await prisma.note.count({ where: { topicId: A.topicId } })) === 0);
 
     // ── planService: rebuildSchedule(userId) only touches that user ──────────
     // Snapshot B's pre-rebuild state, rebuild A's whole schedule, assert B intact.

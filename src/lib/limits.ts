@@ -31,6 +31,8 @@ export const LIMITS = {
   MAX_CATALOG_ADD_BATCH: 100,
   /** Max push subscriptions a single user may register. */
   MAX_PUSH_SUBSCRIPTIONS_PER_USER: 50,
+  /** Max length of a single topic note (free-text scratchpad). */
+  MAX_NOTE_LENGTH: 10_000,
 
   /** Max raw bytes accepted for a JSON/API request body. */
   MAX_REQUEST_BODY_BYTES: 1_000_000, // 1 MB

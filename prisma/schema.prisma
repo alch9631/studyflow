@@ -130,11 +130,28 @@ model Topic {
 
   course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String
+  note     Note?
 
   // Topics are always read scoped to a course AND ordered by `order` (course
   // detail page, planner rebuild). Leading courseId still serves plain
   // by-course lookups; the trailing `order` lets SQLite skip the sort step.
   @@index([courseId, order])
+}
+
+// A student's free-text study note for a single topic (one note per topic — a
+// scratchpad for "prof emphasized X", "see slide 23", formulas to remember).
+// Ownership flows through the topic → course → user, like Topic/StudyBlock.
+// Text only; file attachments are a separate future item.
+model Note {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  // One note per topic: the unique constraint lets the editor upsert by topic
+  // and doubles as the lookup index for the course-detail read.
+  topicId String @unique
 }
 
 // Shared, read-only catalog of real university modules students can pick from

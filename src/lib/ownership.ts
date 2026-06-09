@@ -76,3 +76,44 @@ export async function deleteOwnedAssignment(userId: string, assignmentId: string
   });
   return count > 0;
 }
+
+/**
+ * Upsert the (single) note on a topic the current user owns — create on first
+ * save, overwrite the body thereafter. No-op (returns null) when the topic isn't
+ * owned, so a guessed topicId can never attach a note to another user's course.
+ * Returns the owning `courseId` for revalidation, else null.
+ */
+export async function upsertOwnedTopicNote(
+  userId: string,
+  topicId: string,
+  body: string,
+): Promise<string | null> {
+  const topic = await prisma.topic.findFirst({
+    where: { id: topicId, course: { userId } },
+    select: { courseId: true },
+  });
+  if (!topic) return null;
+  await prisma.note.upsert({
+    where: { topicId },
+    create: { topicId, body },
+    update: { body },
+  });
+  return topic.courseId;
+}
+
+/**
+ * Delete a topic's note only if the topic's course is owned. Returns the owning
+ * `courseId` (for revalidation) when something was removed, else null.
+ */
+export async function deleteOwnedTopicNote(
+  userId: string,
+  topicId: string,
+): Promise<string | null> {
+  const topic = await prisma.topic.findFirst({
+    where: { id: topicId, course: { userId } },
+    select: { courseId: true },
+  });
+  if (!topic) return null;
+  await prisma.note.deleteMany({ where: { topicId } });
+  return topic.courseId;
+}

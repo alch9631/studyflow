@@ -18,6 +18,7 @@ import {
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
+import NoteEditor from "./NoteEditor";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { iconButtonClass } from "@/components/ui";
@@ -94,7 +95,13 @@ export default async function CoursePage({
       grade: true,
       topics: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, done: true, questions: true },
+        select: {
+          id: true,
+          title: true,
+          done: true,
+          questions: true,
+          note: { select: { body: true } },
+        },
       },
       blocks: {
         orderBy: { date: "asc" },
@@ -470,6 +477,11 @@ export default async function CoursePage({
                   courseId={course.id}
                   title={t.title}
                   done={t.done}
+                />
+                <NoteEditor
+                  topicId={t.id}
+                  topicTitle={t.title}
+                  initialBody={t.note?.body ?? ""}
                 />
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
