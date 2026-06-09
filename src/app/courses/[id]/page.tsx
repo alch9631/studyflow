@@ -475,7 +475,7 @@ export default async function CoursePage({
               <AnimatedListItem
                 key={t.id}
                 id={`topic-${t.id}`}
-                className="scroll-mt-24 rounded-xl [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
+                className="scroll-mt-24 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
                 <TopicToggle
                   topicId={t.id}
@@ -519,15 +519,22 @@ export default async function CoursePage({
             exam. 🎉
           </p>
         ) : (
-          <div className="space-y-4">
-            {[...byDate.entries()].map(([date, blocks]) => {
+          <div className="space-y-2">
+            {[...byDate.entries()].map(([date, blocks], i) => {
               const d = new Date(date + "T00:00:00Z");
+              const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
               return (
-                <div key={date} className="rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                  <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                    {WEEKDAY[d.getUTCDay()]} · {date}
-                  </div>
-                  <ul className="space-y-1">
+                <details key={date} open={i === 0} className="group rounded-xl border border-gray-200 dark:border-gray-800">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800/50">
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true" className="text-gray-400 transition-transform group-open:rotate-90">›</span>
+                      {WEEKDAY[d.getUTCDay()]} · {date}
+                    </span>
+                    <span className="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">
+                      {blocks.length} {blocks.length === 1 ? "block" : "blocks"} · {totalMin} min
+                    </span>
+                  </summary>
+                  <ul className="space-y-1 px-4 pb-4">
                     {blocks.map((b) => (
                       <li
                         key={b.id}
@@ -538,7 +545,7 @@ export default async function CoursePage({
                       </li>
                     ))}
                   </ul>
-                </div>
+                </details>
               );
             })}
           </div>
