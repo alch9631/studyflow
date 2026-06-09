@@ -83,7 +83,11 @@ model Course {
   assignments Assignment[]
   lectures    Lecture[]
 
-  @@index([userId])
+  // Every hot course read scopes by userId and orders by examDate (Today's
+  // next-exam header with examDate>=now, /courses list, stats, catalog). The
+  // composite serves the range-seek AND the sort in one index; userId being the
+  // leading column still covers the plain count/lookup the old [userId] did.
+  @@index([userId, examDate])
 }
 
 // A dated deliverable that isn't the exam: homework sheet (Übungsblatt), lab
@@ -127,7 +131,10 @@ model Topic {
   course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String
 
-  @@index([courseId])
+  // Topics are always read scoped to a course AND ordered by `order` (course
+  // detail page, planner rebuild). Leading courseId still serves plain
+  // by-course lookups; the trailing `order` lets SQLite skip the sort step.
+  @@index([courseId, order])
 }
 
 // Shared, read-only catalog of real university modules students can pick from
