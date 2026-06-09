@@ -29,7 +29,8 @@ export default function TopicToggle({
       doneMessage="Topic done — plan updated. ✓"
       undoneMessage="Topic reopened — plan updated."
       errorMessage="Couldn't update that topic — please try again."
-      className="flex items-start gap-2"
+      swipe={{ completeLabel: "Done", reopenLabel: "Reopen" }}
+      className="flex items-start gap-2 rounded-lg bg-background py-0.5"
     >
       {(done) => (
         <>
