@@ -7,6 +7,7 @@ import QuickAddFab from "@/components/QuickAddFab";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import OfflineQueueSync from "@/components/OfflineQueueSync";
+import InstallPrompt from "@/components/InstallPrompt";
 import { ToastProvider } from "@/components/Toast";
 
 const geistSans = Geist({
@@ -95,6 +96,11 @@ export default function RootLayout({
           </div>
           <QuickAddFab />
           <BottomTabBar />
+          {/* "Install StudyFlow" home-screen nudge: a branded card on
+              Android/Chrome (driven by beforeinstallprompt) and a one-time
+              Add-to-Home-Screen hint on iOS Safari. Dismissal is remembered in
+              localStorage so it never nags. Renders nothing until eligible. */}
+          <InstallPrompt />
         </ToastProvider>
         <ServiceWorkerRegister />
       </body>
