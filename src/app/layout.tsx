@@ -5,6 +5,7 @@ import Nav from "@/components/Nav";
 import BottomTabBar from "@/components/BottomTabBar";
 import QuickAddFab from "@/components/QuickAddFab";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import OfflineIndicator from "@/components/OfflineIndicator";
 import { ToastProvider } from "@/components/Toast";
 
 const geistSans = Geist({
@@ -74,6 +75,9 @@ export default function RootLayout({
         </a>
         <ToastProvider>
           <Nav />
+          {/* Sits below the sticky header; appears only when the browser is
+              offline to flag that pages are rendering last-synced content. */}
+          <OfflineIndicator />
           {/* Bottom padding clears the mobile tab bar (its 3.5rem height + the
               safe-area inset); desktop has no bottom bar, so reset to 0. The
               left/right insets keep content off a landscape notch (0 in
