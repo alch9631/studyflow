@@ -39,15 +39,19 @@ export function AnimatedList({
 export function AnimatedListItem({
   children,
   className,
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  /** Optional anchor target, so results elsewhere can deep-link to this row. */
+  id?: string;
 }) {
   const reduce = useReducedMotion();
 
   return (
     <motion.li
       layout={!reduce}
+      id={id}
       className={className}
       initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}

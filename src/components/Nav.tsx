@@ -17,11 +17,30 @@ const TABS: Tab[] = [
   // Calendar export route (/api/calendar) is kept but hidden from nav for now.
 ];
 
+const SEARCH: Tab = { href: "/search", label: "Search", icon: "🔍" };
 const SETTINGS: Tab = { href: "/settings", label: "Settings", icon: "⚙️" };
 
 function isActive(pathname: string, t: Tab) {
   if (t.external) return false;
   return pathname === t.href || pathname.startsWith(t.href + "/");
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
 }
 
 function HamburgerIcon() {
@@ -152,6 +171,23 @@ export default function Nav() {
             })}
           </div>
 
+          {/* Global search — always visible (incl. mobile) so it's reachable
+              from anywhere; opens the full-page course/topic/deadline search. */}
+          <Link
+            href="/search"
+            aria-label="Search"
+            aria-current={isActive(pathname, SEARCH) ? "page" : undefined}
+            className={iconButtonClass(
+              `inline-flex ${
+                isActive(pathname, SEARCH)
+                  ? "bg-brand text-white"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`,
+            )}
+          >
+            <SearchIcon />
+          </Link>
+
           {/* Desktop settings: a dropdown for the theme switch + a link through
               to the full Settings page. */}
           <SettingsMenu />
@@ -211,7 +247,7 @@ export default function Nav() {
           </div>
 
           <nav aria-label="Mobile" className="flex flex-col gap-1 overflow-y-auto p-3">
-            {[...TABS, SETTINGS].map((t) => {
+            {[...TABS, SEARCH, SETTINGS].map((t) => {
               const active = isActive(pathname, t);
               const cls = `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 active

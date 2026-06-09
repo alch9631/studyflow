@@ -1,0 +1,282 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { inputClass } from "./ui";
+import EmptyState from "./EmptyState";
+
+/**
+ * One searchable record across the user's own data. Built server-side
+ * (src/app/search/page.tsx) from courses, their topics, and their deadlines —
+ * all already userId-scoped — so the client only ever filters data that belongs
+ * to the signed-in student.
+ */
+export type SearchItem = {
+  /** Stable, type-prefixed key (e.g. "topic-abc") — also the listbox option id. */
+  key: string;
+  type: "course" | "topic" | "deadline";
+  /** The name/title we match against and display. */
+  title: string;
+  /** Where selecting the result jumps to (deep-links into the course page). */
+  href: string;
+  /** Parent course name — shown as context for topics & deadlines. */
+  courseName?: string;
+  /** Short trailing detail, e.g. "exam 2026-07-01" or "due 2026-06-12". */
+  meta?: string;
+};
+
+const TYPE_META: Record<
+  SearchItem["type"],
+  { label: string; emoji: string }
+> = {
+  course: { label: "Courses", emoji: "📚" },
+  topic: { label: "Topics", emoji: "📑" },
+  deadline: { label: "Deadlines", emoji: "📝" },
+};
+
+const TYPE_ORDER: SearchItem["type"][] = ["course", "topic", "deadline"];
+
+/** Split `text` on the first case-insensitive hit of `q`, wrapping it in <mark>. */
+function highlight(text: string, q: string) {
+  if (!q) return text;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i === -1) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="rounded bg-brand/15 px-0.5 text-inherit dark:bg-brand/30">
+        {text.slice(i, i + q.length)}
+      </mark>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
+
+export default function GlobalSearch({
+  items,
+  initialQuery = "",
+}: {
+  items: SearchItem[];
+  initialQuery?: string;
+}) {
+  const router = useRouter();
+  const [query, setQuery] = useState(initialQuery);
+  const [active, setActive] = useState(0);
+  const [lastQuery, setLastQuery] = useState(query);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+
+  // Focus the field on mount so the page is usable straight from the keyboard.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const q = query.trim().toLowerCase();
+
+  // Flat, type-ordered list of matches. We match the title first; falling back
+  // to the parent course name lets "calculus" surface that course's topics too.
+  const results = useMemo(() => {
+    if (!q) return [] as SearchItem[];
+    const scored = items
+      .map((it) => {
+        const title = it.title.toLowerCase();
+        const inTitle = title.includes(q);
+        const inCourse = it.courseName?.toLowerCase().includes(q) ?? false;
+        if (!inTitle && !inCourse) return null;
+        // Rank: title-start > title-contains > course-name-only.
+        const rank = title.startsWith(q) ? 0 : inTitle ? 1 : 2;
+        return { it, rank };
+      })
+      .filter((x): x is { it: SearchItem; rank: number } => x !== null);
+
+    scored.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      const ta = TYPE_ORDER.indexOf(a.it.type);
+      const tb = TYPE_ORDER.indexOf(b.it.type);
+      if (ta !== tb) return ta - tb;
+      return a.it.title.localeCompare(b.it.title);
+    });
+    return scored.map((s) => s.it);
+  }, [items, q]);
+
+  // Reset the active row whenever the query changes (adjusting state during
+  // render — React's recommended alternative to a setState-in-effect).
+  if (query !== lastQuery) {
+    setLastQuery(query);
+    setActive(0);
+  }
+
+  const grouped = useMemo(() => {
+    return TYPE_ORDER.map((type) => ({
+      type,
+      items: results.filter((r) => r.type === type),
+    })).filter((g) => g.items.length > 0);
+  }, [results]);
+
+  function go(item: SearchItem | undefined) {
+    if (item) router.push(item.href);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((a) => (results.length === 0 ? 0 : (a + 1) % results.length));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((a) =>
+        results.length === 0 ? 0 : (a - 1 + results.length) % results.length,
+      );
+    } else if (e.key === "Enter") {
+      if (results[active]) {
+        e.preventDefault();
+        go(results[active]);
+      }
+    } else if (e.key === "Escape") {
+      if (query) {
+        e.preventDefault();
+        setQuery("");
+      }
+    }
+  }
+
+  // Scroll the active option into view when arrow-keying through a long list.
+  const activeKey = results[active]?.key;
+  useEffect(() => {
+    if (!activeKey) return;
+    document
+      .getElementById(`${listId}-${activeKey}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeKey, listId]);
+
+  const hasQuery = q.length > 0;
+
+  return (
+    <div>
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <input
+          ref={inputRef}
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={onKeyDown}
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls={listId}
+          aria-activedescendant={
+            activeKey ? `${listId}-${activeKey}` : undefined
+          }
+          aria-autocomplete="list"
+          aria-label="Search courses, topics and deadlines"
+          enterKeyHint="go"
+          autoComplete="off"
+          placeholder="Search courses, topics, deadlines…"
+          // 16px text avoids iOS focus-zoom; extra left pad clears the icon.
+          className={`${inputClass} w-full py-3 pl-10 pr-4 text-base`}
+        />
+      </div>
+
+      {/* Screen-reader running count of matches. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {hasQuery
+          ? `${results.length} ${results.length === 1 ? "result" : "results"}`
+          : ""}
+      </p>
+
+      {!hasQuery ? (
+        <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          Type to search across your courses, topics and deadlines.
+        </p>
+      ) : results.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState
+            emoji="🔍"
+            title="No matches"
+            description={
+              <>
+                Nothing matched <strong>“{query.trim()}”</strong>. Try a
+                shorter or different term.
+              </>
+            }
+          />
+        </div>
+      ) : (
+        <ul id={listId} role="listbox" aria-label="Search results" className="mt-4 space-y-4">
+          {grouped.map((group) => (
+            <li key={group.type}>
+              <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {TYPE_META[group.type].label}
+              </p>
+              <ul className="space-y-1">
+                {group.items.map((item) => {
+                  const idx = results.indexOf(item);
+                  const isActive = idx === active;
+                  return (
+                    <li key={item.key}>
+                      <Link
+                        id={`${listId}-${item.key}`}
+                        href={item.href}
+                        role="option"
+                        aria-selected={isActive}
+                        onMouseMove={() => setActive(idx)}
+                        className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+                          isActive
+                            ? "border-brand bg-brand/5 dark:bg-brand/10"
+                            : "border-transparent hover:bg-gray-50 dark:hover:bg-gray-900"
+                        }`}
+                      >
+                        <span
+                          className="text-lg leading-none"
+                          aria-hidden="true"
+                        >
+                          {TYPE_META[item.type].emoji}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">
+                            {highlight(item.title, query.trim())}
+                          </span>
+                          {(item.courseName || item.meta) && (
+                            <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
+                              {item.courseName}
+                              {item.courseName && item.meta && " · "}
+                              {item.meta}
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className="shrink-0 text-gray-300 dark:text-gray-600"
+                          aria-hidden="true"
+                        >
+                          ↵
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
