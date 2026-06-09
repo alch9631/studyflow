@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { iconButtonClass } from "./ui";
 import SettingsMenu from "./SettingsMenu";
+import ThemeSetting from "./ThemeSetting";
 
 type Tab = { href: string; label: string; icon: string; external?: boolean };
 
@@ -240,6 +241,14 @@ export default function Nav() {
               );
             })}
           </nav>
+
+          {/* Appearance: day / night / system theme, pinned to the drawer bottom. */}
+          <div className="mt-auto border-t border-gray-200 p-3 dark:border-gray-800">
+            <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Appearance
+            </p>
+            <ThemeSetting />
+          </div>
         </div>
       </div>
     </>

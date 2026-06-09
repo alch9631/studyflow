@@ -74,6 +74,10 @@ export default function PomodoroTimer() {
     try {
       localStorage.setItem(key, String(val));
     } catch {}
+    // Let the Today "+Nm" focus-log buttons track the selected focus length live.
+    if (key === FOCUS_KEY && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("sf-focus-change"));
+    }
   }
 
   /** Apply new durations; if idle, reflect the current phase's new length. */

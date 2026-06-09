@@ -132,8 +132,11 @@ export default async function CoursePage({
 
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
-      <Link href="/courses" className="text-sm text-gray-500 dark:text-gray-400 hover:underline">
-        ← My Courses
+      <Link
+        href="/courses"
+        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        <span aria-hidden="true">←</span> My Courses
       </Link>
 
       {banner && (
@@ -207,9 +210,12 @@ export default async function CoursePage({
         </div>
       </div>
 
-      <details id="settings" className="mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4 scroll-mt-20 [&:target]:ring-2 [&:target]:ring-brand">
-        <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200">
-          ⚙️ Course settings (exam date, study time)
+      <details id="settings" className="group mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4 scroll-mt-20 [&:target]:ring-2 [&:target]:ring-brand">
+        <summary className="-m-4 mb-0 flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800 group-open:mb-2">
+          <span className="flex items-center gap-2">
+            <span aria-hidden="true">⚙️</span> Course settings (exam date, study time)
+          </span>
+          <span aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-90">›</span>
         </summary>
         <form action={updateCourse} className="mt-4 space-y-4">
           <input type="hidden" name="courseId" value={course.id} />

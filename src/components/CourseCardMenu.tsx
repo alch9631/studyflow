@@ -59,27 +59,6 @@ export default function CourseCardMenu({
         <DropdownMenuLabel className="truncate">{courseName}</DropdownMenuLabel>
 
         <DropdownMenuItem asChild>
-          <Link href={`/courses/${courseId}`}>
-            <span aria-hidden="true">📈</span>
-            Update progress / open
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href={`/courses/${courseId}#settings`}>
-            <span aria-hidden="true">⚙️</span>
-            Edit settings
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href={`/courses/${courseId}#settings`}>
-            <span aria-hidden="true">🔁</span>
-            Rebuild plan
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
           <a href="/api/export?format=json">
             <span aria-hidden="true">⬇️</span>
             Export

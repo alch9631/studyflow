@@ -4,12 +4,10 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { daysUntil, examCountdownLabel, dueLabel } from "@/lib/dates";
-import { logFocus } from "../courses/actions";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
-import ToastForm from "@/components/ToastForm";
 import BlockToggle from "./BlockToggle";
-import SubmitButton from "@/components/SubmitButton";
+import FocusLogButton from "./FocusLogButton";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
@@ -42,24 +40,7 @@ function BlockRow({ b }: { b: Row }) {
       <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
         {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} min
       </span>
-      <ToastForm
-        action={logFocus}
-        successMessage="Logged a 25-min focus session. 🍅"
-        errorMessage="Couldn't log that focus session — please try again."
-        className="shrink-0"
-      >
-        <input type="hidden" name="blockId" value={b.id} />
-        <input type="hidden" name="minutes" value="25" />
-        <input type="hidden" name="revalidate" value="/today" />
-        <SubmitButton
-          variant="secondary"
-          size="md"
-          className="whitespace-nowrap"
-          title="Log a 25-min focus session"
-        >
-          🍅 +25m
-        </SubmitButton>
-      </ToastForm>
+      <FocusLogButton blockId={b.id} />
     </div>
   );
 }
