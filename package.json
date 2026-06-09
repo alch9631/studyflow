@@ -17,6 +17,7 @@
     "test:syllabus": "tsx src/lib/syllabus.test.ts",
     "test:stats": "tsx src/lib/stats.test.ts",
     "test:streak-ui": "tsx src/components/lib/streak.test.ts",
+    "test:action-queue": "tsx src/components/lib/actionQueue.test.ts",
     "test:cache": "tsx src/lib/statsCache.test.ts",
     "test:studytime": "tsx src/lib/studyTime.test.ts",
     "test:validate": "tsx src/lib/validate.test.ts",

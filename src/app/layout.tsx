@@ -6,6 +6,7 @@ import BottomTabBar from "@/components/BottomTabBar";
 import QuickAddFab from "@/components/QuickAddFab";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import OfflineQueueSync from "@/components/OfflineQueueSync";
 import { ToastProvider } from "@/components/Toast";
 
 const geistSans = Geist({
@@ -74,6 +75,9 @@ export default function RootLayout({
           Skip to content
         </a>
         <ToastProvider>
+          {/* Replays toggles queued while offline once the browser reconnects,
+              and toasts if a replay fails. Headless. */}
+          <OfflineQueueSync />
           <Nav />
           {/* Sits below the sticky header; appears only when the browser is
               offline to flag that pages are rendering last-synced content. */}
