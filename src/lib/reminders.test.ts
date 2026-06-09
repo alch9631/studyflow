@@ -121,6 +121,11 @@ async function main() {
   check("formatPlannedTime: partial hours keep one decimal", formatPlannedTime(90) === "~1.5h");
   check("formatPlannedTime: sub-hour falls back to minutes", formatPlannedTime(45) === "~45min");
   check("formatPlannedTime: exactly 60 is ~1h", formatPlannedTime(60) === "~1h");
+  check("formatPlannedTime: 59min stays in minutes", formatPlannedTime(59) === "~59min");
+  check("formatPlannedTime: just over an hour keeps one decimal", formatPlannedTime(61) === "~1.0h");
+  check("formatPlannedTime: 150min is ~2.5h", formatPlannedTime(150) === "~2.5h");
+  check("formatPlannedTime: a long day stays whole hours", formatPlannedTime(600) === "~10h");
+  check("formatPlannedTime: 1 minute is ~1min", formatPlannedTime(1) === "~1min");
 
   check("buildReminderPayload pluralizes sessions", (() => {
     const p = buildReminderPayload({ sessions: 3, minutes: 120 });
@@ -138,6 +143,15 @@ async function main() {
     "buildReminderPayload returns null when minutes are zero",
     buildReminderPayload({ sessions: 2, minutes: 0 }) === null,
   );
+  check("buildReminderPayload summarizes a heavy many-session day", (() => {
+    // 8 blocks totalling 7.5h — exercises the plural + decimal-hours path together.
+    const p = buildReminderPayload(summarizeBlocks(Array(8).fill({ minutes: 56 })));
+    return p?.body === "8 sessions, ~7.5h planned" && p?.title === "Today's study plan";
+  })());
+  check("buildReminderPayload renders a whole-hour many-session day cleanly", (() => {
+    const p = buildReminderPayload(summarizeBlocks(Array(6).fill({ minutes: 30 })));
+    return p?.body === "6 sessions, ~3h planned";
+  })());
 
   // ---------- Bearer-auth helpers ----------
   check("isAuthorizedCron accepts a matching Bearer token", isAuthorizedCron("Bearer s3cret", "s3cret"));
