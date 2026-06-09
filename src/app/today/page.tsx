@@ -212,7 +212,7 @@ export default async function TodayPage() {
         </section>
       )}
 
-      <PomodoroTimer />
+      <PomodoroTimer blocks={blocks} />
 
       {upcomingDeadlines.length > 0 && (
         <section className="mb-4">

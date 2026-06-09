@@ -1,9 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { iconButtonClass } from "./ui";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { Select } from "./ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "./ui/dialog";
+import { useToast } from "./Toast";
+import { logFocus } from "@/app/courses/actions";
+
+/** A Today study block the completed focus sprint can be logged against. */
+export type TimerBlock = {
+  id: string;
+  topicTitle: string;
+  completed: boolean;
+  course: { name: string };
+};
 
 const FOCUS_KEY = "sf-focus-min";
 const BREAK_KEY = "sf-break-min";
@@ -26,8 +43,16 @@ const PRESETS = [
   { f: 15, b: 3, label: "15 / 3" },
 ];
 
-/** Pomodoro focus timer with editable, persisted focus/break durations. */
-export default function PomodoroTimer() {
+/**
+ * Pomodoro focus timer with editable, persisted focus/break durations.
+ *
+ * When a focus sprint finishes it offers to log that sprint against a Today
+ * study block via the same `logFocus` action the manual "🍅 +Nm" buttons use —
+ * so the timer and those buttons are no longer disconnected. The block is
+ * pre-selected (current/next incomplete one) but the user confirms or picks a
+ * different block, and can dismiss without logging.
+ */
+export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }) {
   const [focusMin, setFocusMin] = useState(() => readMin(FOCUS_KEY, DEFAULT_FOCUS));
   const [breakMin, setBreakMin] = useState(() => readMin(BREAK_KEY, DEFAULT_BREAK));
   const [mode, setMode] = useState<"focus" | "break">("focus");
@@ -35,17 +60,30 @@ export default function PomodoroTimer() {
   const [running, setRunning] = useState(false);
   const [cycles, setCycles] = useState(0);
   const [showCfg, setShowCfg] = useState(false);
+  // The auto-log prompt: `logOpen` drives the dialog; `logMinutes` is the length
+  // of the sprint that just finished (held through the close animation so the
+  // button label doesn't flash while the dialog animates out).
+  const [logOpen, setLogOpen] = useState(false);
+  const [logMinutes, setLogMinutes] = useState(focusMin);
+  // Bumped on each sprint completion so the dialog remounts fresh — re-defaulting
+  // its block selection to the current/next block without a setState-in-effect.
+  const [logEpisode, setLogEpisode] = useState(0);
+
+  // Blocks still open today — the only sensible targets to log a sprint against.
+  const loggable = blocks.filter((b) => !b.completed);
 
   // Latest values for the interval to read without re-subscribing each tick.
   const leftRef = useRef(left);
   const modeRef = useRef(mode);
   const focusRef = useRef(focusMin);
   const breakRef = useRef(breakMin);
+  const loggableRef = useRef(loggable);
   useEffect(() => {
     leftRef.current = left;
     modeRef.current = mode;
     focusRef.current = focusMin;
     breakRef.current = breakMin;
+    loggableRef.current = loggable;
   });
 
   useEffect(() => {
@@ -59,6 +97,12 @@ export default function PomodoroTimer() {
         setCycles((c) => c + 1);
         setMode("break");
         setLeft(breakRef.current * 60);
+        // Sprint done → offer to log it against a Today block (if any are open).
+        if (loggableRef.current.length > 0) {
+          setLogMinutes(focusRef.current);
+          setLogEpisode((n) => n + 1);
+          setLogOpen(true);
+        }
       } else {
         setMode("focus");
         setLeft(focusRef.current * 60);
@@ -212,6 +256,121 @@ export default function PomodoroTimer() {
           </p>
         </div>
       )}
+
+      {loggable.length > 0 && (
+        <LogSprintDialog
+          key={logEpisode}
+          open={logOpen}
+          minutes={logMinutes}
+          blocks={loggable}
+          onClose={() => setLogOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Confirmation dialog shown when a focus sprint completes: pick (or confirm) the
+ * Today block to credit the sprint to, then log it via the shared `logFocus`
+ * action. Dismissing logs nothing. The action revalidates `/today` so the block's
+ * progress reflects the sprint immediately.
+ */
+function LogSprintDialog({
+  open,
+  minutes,
+  blocks,
+  onClose,
+}: {
+  open: boolean;
+  minutes: number;
+  blocks: TimerBlock[];
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const selectId = useId();
+  // The dialog is remounted (keyed) each time a sprint completes, so the initial
+  // value here is always the current/next block — no open-sync effect needed.
+  const [blockId, setBlockId] = useState(blocks[0]?.id ?? "");
+  const [pending, setPending] = useState(false);
+
+  async function submit() {
+    if (!blockId || pending) return;
+    setPending(true);
+    const fd = new FormData();
+    fd.set("blockId", blockId);
+    fd.set("minutes", String(minutes));
+    fd.set("revalidate", "/today");
+    try {
+      await logFocus(fd);
+      toast(`Logged a ${minutes}-min focus session. 🍅`, "success");
+      onClose();
+    } catch {
+      toast("Couldn't log that focus session — please try again.", "error");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // While logging, hold the dialog open so nothing races the submit.
+  const lockWhilePending = (e: Event) => {
+    if (pending) e.preventDefault();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && !pending && onClose()}>
+      <DialogContent
+        showCloseButton={!pending}
+        onEscapeKeyDown={lockWhilePending}
+        onPointerDownOutside={lockWhilePending}
+        onInteractOutside={lockWhilePending}
+      >
+        <DialogTitle>Focus sprint done 🍅</DialogTitle>
+        <DialogDescription>
+          Nice work. Log this {minutes}-minute sprint to a study block so your plan stays
+          accurate — or skip it.
+        </DialogDescription>
+        <div className="mt-4">
+          <label
+            htmlFor={selectId}
+            className="block text-xs font-medium text-gray-500 dark:text-gray-400"
+          >
+            Study block
+          </label>
+          <Select
+            id={selectId}
+            value={blockId}
+            onChange={(e) => setBlockId(e.target.value)}
+            disabled={pending}
+            className="mt-1"
+          >
+            {blocks.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.topicTitle} — {b.course.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending}
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
+            Not now
+          </Button>
+          <Button
+            type="button"
+            disabled={pending || !blockId}
+            onClick={submit}
+            className="w-full sm:w-auto"
+          >
+            {pending ? "Logging…" : `Log ${minutes} min`}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
