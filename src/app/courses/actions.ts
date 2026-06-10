@@ -30,6 +30,7 @@ import {
   sanitizeStudyDays,
   clampInt,
   parseGrade,
+  isValidISODate,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
@@ -135,7 +136,11 @@ export async function addFromCatalog(formData: FormData) {
 
   for (const t of templates) {
     let topics: { title: string; effort: number }[] = [];
-    if (aiOn) {
+    // Each extraction is a paid LLM call, so a bulk add must spend from the AI
+    // budget per module — not ride in under the cheaper COURSE_WRITE check.
+    // When the AI budget runs out mid-batch, remaining modules get the
+    // placeholder units below instead of blocking the add.
+    if (aiOn && rateLimitOK("AI", userId)) {
       try {
         const extracted = await extractSyllabus(`${t.name}\n\n${t.content}`);
         topics = extracted.topics;
@@ -218,10 +223,13 @@ export async function importSyllabus(formData: FormData) {
 
   const extracted = await extractSyllabus(text);
 
-  // Fall back to ~4 weeks out if the syllabus didn't state an exam date.
-  const examDate = extracted.examDate
-    ? new Date(extracted.examDate + "T00:00:00Z")
-    : new Date(Date.now() + 28 * 86400_000);
+  // Fall back to ~4 weeks out if the syllabus didn't state an exam date — or if
+  // the model returned a non-ISO string ("TBD", "Februar 2026"), which would
+  // otherwise become an Invalid Date and crash the Prisma write.
+  const examDate =
+    extracted.examDate && isValidISODate(extracted.examDate)
+      ? new Date(extracted.examDate + "T00:00:00Z")
+      : new Date(Date.now() + 28 * 86400_000);
 
   // Bound AI-extracted topics so a huge syllabus can't create unbounded rows.
   const topics = extracted.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
@@ -314,15 +322,18 @@ export async function analyzeModuleUpload(formData: FormData) {
       // Bound the content-derived topics to the per-course cap before writing.
       const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
       // Replace topics with the content-derived ones (effort from estimated time).
-      await prisma.topic.deleteMany({ where: { courseId } });
-      await prisma.topic.createMany({
-        data: newTopics.map((t, i) => ({
-          courseId,
-          title: t.title,
-          effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
-          order: i,
-        })),
-      });
+      // Atomic: a crash between delete and create must not destroy all topics.
+      await prisma.$transaction([
+        prisma.topic.deleteMany({ where: { courseId } }),
+        prisma.topic.createMany({
+          data: newTopics.map((t, i) => ({
+            courseId,
+            title: t.title,
+            effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
+            order: i,
+          })),
+        }),
+      ]);
       n = newTopics.length;
       await prisma.moduleFile.create({
         data: {

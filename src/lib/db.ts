@@ -29,7 +29,14 @@ if (!process.env.DATABASE_URL && existsSync(".env")) {
 // otherwise (a topic/block write keyed only by row id) we fall back to a full
 // clear, which is conservative but never stale.
 function makeClient() {
-  return new PrismaClient().$extends({
+  const base = new PrismaClient();
+  // SQLite resilience on the single-instance deployment: WAL lets readers run
+  // while a write is in flight, and busy_timeout makes a second writer wait
+  // (up to 5s) for the lock instead of failing fast with SQLITE_BUSY. Fired
+  // once per process; PRAGMA failures (e.g. non-SQLite test doubles) are benign.
+  void base.$queryRawUnsafe("PRAGMA journal_mode=WAL").catch(() => {});
+  void base.$queryRawUnsafe("PRAGMA busy_timeout=5000").catch(() => {});
+  return base.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {

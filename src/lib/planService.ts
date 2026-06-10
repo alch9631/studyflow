@@ -97,23 +97,29 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   const completedKeys = new Set(
     existing.filter((b) => b.completed).map((b) => blockKey(b.topicTitle, b.date)),
   );
-  await prisma.studyBlock.deleteMany({ where: { courseId, completed: false } });
-
   const fresh = blocks.filter(
     (b) => !completedKeys.has(blockKey(b.topicTitle, new Date(b.date + "T00:00:00Z"))),
   );
-  if (fresh.length === 0) return;
-  await prisma.studyBlock.createMany({
-    data: fresh.map((b) => ({
-      courseId,
-      topicId: b.topicId,
-      topicTitle: b.topicTitle,
-      date: new Date(b.date + "T00:00:00Z"),
-      minutes: b.minutes,
-      completed: false,
-      kind: b.kind,
-    })),
-  });
+  // Atomic swap: a crash between the delete and the create must never leave a
+  // course with no plan, so both run in one transaction.
+  await prisma.$transaction([
+    prisma.studyBlock.deleteMany({ where: { courseId, completed: false } }),
+    ...(fresh.length > 0
+      ? [
+          prisma.studyBlock.createMany({
+            data: fresh.map((b) => ({
+              courseId,
+              topicId: b.topicId,
+              topicTitle: b.topicTitle,
+              date: new Date(b.date + "T00:00:00Z"),
+              minutes: b.minutes,
+              completed: false,
+              kind: b.kind,
+            })),
+          }),
+        ]
+      : []),
+  ]);
 }
 
 /**
