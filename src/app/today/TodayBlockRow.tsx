@@ -35,6 +35,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
   const isReview = b.kind === "review";
   const { optimisticDone, fire } = useOptimisticToggle({
     action: toggleBlock,
+    actionId: "toggleBlock",
     done: b.completed,
     doneMessage: t("block.sessionDone"),
     undoneMessage: t("block.sessionNotDone"),
