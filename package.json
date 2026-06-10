@@ -35,6 +35,7 @@
     "test:pagination": "tsx src/lib/pagination.test.ts",
     "test:block-service": "tsx src/lib/blockService.test.ts",
     "test:ownership": "tsx src/lib/ownership.test.ts",
+    "test:recovery": "tsx src/lib/recovery.test.ts",
     "test:testdb": "tsx src/lib/testDb.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
