@@ -6,7 +6,7 @@ import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
 import EmptyState from "@/components/EmptyState";
 import { StreakCard } from "@/components/StreakBadge";
-import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts";
+import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts.lazy";
 import { panelClass } from "@/components/ui";
 import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, type MessageKey } from "@/components/i18n/messages";
