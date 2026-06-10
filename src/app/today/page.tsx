@@ -12,7 +12,10 @@ import EmptyState from "@/components/EmptyState";
 import Onboarding from "@/components/Onboarding";
 import { StreakBadge } from "@/components/StreakBadge";
 import PullToRefresh from "@/components/PullToRefresh";
+import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
+import { recoverPlan } from "./actions";
+import { assessRecovery, needsRecovery } from "@/lib/recovery";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
@@ -31,17 +34,30 @@ type Row = {
   course: { name: string; id: string };
 };
 
-export default async function TodayPage() {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ recovered?: string; moved?: string; min?: string; intense?: string; msg?: string }>;
+}) {
   const userId = await getCurrentUserId();
   const t = await getT();
   const today = todayISO();
   const start = new Date(today + "T00:00:00Z");
   const end = new Date(start.getTime() + 86400_000);
 
+  // Post-recovery summary, carried via query params (clamped — they're URLs).
+  const sp = await searchParams;
+  const clampParam = (v: string | undefined, max: number) =>
+    Math.min(max, Math.max(0, parseInt(v ?? "0", 10) || 0));
+  const recovered = sp.recovered === "1";
+  const recoveredMin = clampParam(sp.min, 100_000);
+  const recoveredIntense = clampParam(sp.intense, 1000);
+  const recoverFailed = sp.msg === "recover-failed";
+
   // These four reads are independent, so fire them concurrently in a single
   // round-trip batch instead of awaiting one after another (avoids a serial
   // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, todaysLectures, upcomingDeadlines, stats] = await Promise.all([
+  const [blocks, nextExam, todaysLectures, upcomingDeadlines, stats, recovery] = await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
       where: { date: { gte: start, lt: end }, course: { userId } },
@@ -87,6 +103,9 @@ export default async function TodayPage() {
     // Cached analytics bundle — reused here only for the streak counter in the
     // header (cheap: shared with /insights + /api/stats, 30s TTL + write-invalidated).
     getStatsCached(userId, today),
+    // Overdue unfinished sessions from missed days — drives the proactive
+    // "rebuild my plan" recovery banner.
+    assessRecovery(userId, today),
   ]);
 
   let nextDate = "";
@@ -189,6 +208,45 @@ export default async function TodayPage() {
       )}
       {!nextExam && <div className="mb-6" />}
 
+      {/* Recovery engine: after a recovery run, an honest summary of what was
+          rebuilt; otherwise, when missed days have piled up overdue work, a
+          proactive one-tap rebuild. Completed sessions always survive. */}
+      {recovered && (
+        <div
+          aria-live="polite"
+          className="mb-4 rounded-xl border border-green-300 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
+        >
+          <p className="font-semibold">{t("today.recoveredTitle")}</p>
+          <p className="mt-1">
+            {t("today.recoveredBody", { time: fmtDuration(recoveredMin) })}
+            {recoveredIntense > 0 && (
+              <> {t.n("today.recoveredIntense", recoveredIntense)}</>
+            )}
+          </p>
+        </div>
+      )}
+      {recoverFailed && (
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          {t("today.recoverFailed")}
+        </div>
+      )}
+      {!recovered && needsRecovery(recovery) && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          <p className="font-semibold">{t("today.recoveryTitle")}</p>
+          <p className="mt-1">
+            {t("today.recoveryBody", {
+              sessions: recovery.overdueSessions,
+              time: fmtDuration(recovery.overdueMinutes),
+            })}
+          </p>
+          <form action={recoverPlan} className="mt-3">
+            <SubmitButton variant="primary" pendingLabel={t("today.recoveryPending")}>
+              {t("today.recoveryCta")}
+            </SubmitButton>
+          </form>
+        </div>
+      )}
+
       {todaysLectures.length > 0 && (
         <section className="mb-4">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -268,7 +326,16 @@ export default async function TodayPage() {
             {t("today.focusTimeTail", { available: fmtDuration(availableMin) })}
           </p>
           {!achievable && (
-            <p className="mt-2">{t("today.overBy", { over: fmtDuration(overBy) })}</p>
+            <>
+              <p className="mt-2">{t("today.overBy", { over: fmtDuration(overBy) })}</p>
+              {/* One-tap fix: respread the remaining work across the days left
+                  (same global rebuild the recovery banner uses). */}
+              <form action={recoverPlan} className="mt-3">
+                <SubmitButton variant="primary" pendingLabel={t("today.recoveryPending")}>
+                  {t("today.replanCta")}
+                </SubmitButton>
+              </form>
+            </>
           )}
         </div>
       )}

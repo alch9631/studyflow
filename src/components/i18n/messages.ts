@@ -94,6 +94,19 @@ const en = {
     focusTimeTail: "about {available} of realistic focus time before 22:00.",
     overBy:
       "You're ~{over} over. Recommendation: start now with the top blocks, run the 🍅 timer, and let the 🔁 reviews slide to tomorrow if you run out of time — StudyFlow will re-plan them around you.",
+    recoveryTitle: "📅 You fell behind — that's fine",
+    recoveryBody:
+      "{sessions} overdue sessions (~{time}) are sitting in past days. One tap and StudyFlow respreads them across the days left before each exam — everything you've already completed stays untouched.",
+    recoveryCta: "Rebuild my plan",
+    recoveryPending: "Rebuilding…",
+    replanCta: "Respread my plan",
+    recoveredTitle: "✅ Plan rebuilt",
+    recoveredBody: "Folded ~{time} of overdue work back into the days ahead.",
+    recoveredIntense: {
+      one: "{count} course is now very tight before its exam — consider trimming low-priority topics there.",
+      other: "{count} courses are now very tight before their exams — consider trimming low-priority topics there.",
+    },
+    recoverFailed: "Rebuilding the plan failed — nothing was changed. Try again in a moment.",
     emptyNoPlanTitle: "Let's build your study plan",
     emptyNoPlanDesc:
       "Add your first course and StudyFlow lays out exactly what to study each day — working backward from your exams.",
@@ -701,6 +714,19 @@ const de: Messages = {
     focusTimeTail: "etwa {available} realistische Fokuszeit bis 22:00 Uhr.",
     overBy:
       "Du liegst ~{over} darüber. Empfehlung: Fang jetzt mit den obersten Blöcken an, nutze den 🍅 Timer und lass die 🔁 Wiederholungen notfalls auf morgen rutschen — StudyFlow plant sie für dich neu ein.",
+    recoveryTitle: "📅 Du bist in Rückstand geraten — kein Problem",
+    recoveryBody:
+      "{sessions} überfällige Einheiten (~{time}) liegen in vergangenen Tagen. Ein Tipp und StudyFlow verteilt sie neu auf die verbleibenden Tage vor jeder Prüfung — alles bereits Erledigte bleibt unangetastet.",
+    recoveryCta: "Plan neu aufbauen",
+    recoveryPending: "Wird neu geplant…",
+    replanCta: "Plan neu verteilen",
+    recoveredTitle: "✅ Plan neu aufgebaut",
+    recoveredBody: "~{time} überfällige Arbeit wurde auf die kommenden Tage verteilt.",
+    recoveredIntense: {
+      one: "{count} Kurs ist vor seiner Prüfung jetzt sehr eng getaktet — kürze dort ggf. Themen mit niedriger Priorität.",
+      other: "{count} Kurse sind vor ihren Prüfungen jetzt sehr eng getaktet — kürze dort ggf. Themen mit niedriger Priorität.",
+    },
+    recoverFailed: "Der Plan konnte nicht neu aufgebaut werden — nichts wurde geändert. Versuch es gleich noch einmal.",
     emptyNoPlanTitle: "Lass uns deinen Lernplan erstellen",
     emptyNoPlanDesc:
       "Füge deinen ersten Kurs hinzu und StudyFlow legt genau fest, was du jeden Tag lernst — rückwärts von deinen Prüfungen geplant.",
