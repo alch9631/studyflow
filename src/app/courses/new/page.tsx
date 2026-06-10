@@ -1,95 +1,29 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { createCourse } from "../actions";
+import NewCourseForm from "./NewCourseForm";
+import { getT } from "@/components/i18n/server";
 
-const DAYS = [
-  { v: 1, label: "Mon" },
-  { v: 2, label: "Tue" },
-  { v: 3, label: "Wed" },
-  { v: 4, label: "Thu" },
-  { v: 5, label: "Fri" },
-  { v: 6, label: "Sat" },
-  { v: 0, label: "Sun" },
-];
+export const metadata: Metadata = {
+  title: "New course",
+  description: "Add a module and its exam date — StudyFlow builds the study plan for you.",
+};
 
-export default function NewCoursePage() {
+export default async function NewCoursePage() {
+  const t = await getT();
   return (
-    <main className="mx-auto max-w-xl p-8">
-      <Link href="/courses" className="text-sm text-gray-500 hover:underline">
-        ← Back to courses
+    <main className="mx-auto max-w-xl p-4 sm:p-8">
+      <Link
+        href="/catalog"
+        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        <span aria-hidden="true">←</span> {t("newCourse.back")}
       </Link>
-      <h1 className="mb-6 mt-2 text-2xl font-bold">New course</h1>
+      <h1 className="mb-1 mt-2 text-2xl font-bold">{t("newCourse.title")}</h1>
+      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+        {t("newCourse.subtitle")}
+      </p>
 
-      <form action={createCourse} className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium">Course name</label>
-          <input
-            name="name"
-            required
-            placeholder="e.g. Algorithms"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">Exam date</label>
-          <input
-            type="date"
-            name="examDate"
-            required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">
-            Topics / chapters (one per line)
-          </label>
-          <textarea
-            name="topics"
-            rows={6}
-            placeholder={"Sorting\nGraphs\nDynamic programming"}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">Study days</label>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {DAYS.map((d) => (
-              <label key={d.v} className="flex items-center gap-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  name="studyDays"
-                  value={d.v}
-                  defaultChecked={d.v >= 1 && d.v <= 5}
-                />
-                {d.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">
-            Minutes per study day
-          </label>
-          <input
-            type="number"
-            name="minutesPerDay"
-            defaultValue={120}
-            min={15}
-            step={15}
-            className="mt-1 w-32 rounded-lg border border-gray-300 px-3 py-2"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="rounded-full bg-black px-5 py-2.5 font-medium text-white hover:bg-gray-800"
-        >
-          Create & build my plan
-        </button>
-      </form>
+      <NewCourseForm />
     </main>
   );
 }

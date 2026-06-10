@@ -1,8 +1,88 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: toggling `.dark` on <html> flips the theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Muted text — WCAG AA convention (4.5:1 on the page background):
+   secondary  → text-gray-500 dark:text-gray-400  (4.83:1 light / 7.55:1 dark)
+   stronger   → text-gray-600 dark:text-gray-300  (also use -600 on tinted
+                bg-gray-100 pills, where -500 dips to ~4.3:1)
+   Do NOT use text-gray-400 in light mode: #9ca3af is only 2.54:1 on white. */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* One keyboard focus ring for the whole app — TUHH brand blue on light. */
+  --focus-ring: #00509b;
+  /* Data-viz palette (recharts on the Insights page). Brand blue for the active
+     series, neutral gray for empty/track, muted gray for axis ticks & gridlines. */
+  --chart-series: #00509b;
+  /* Secondary data series (e.g. the running Notenschnitt overlay) — amber reads
+     clearly against the brand-blue series and stays AA on white. */
+  --chart-series-2: #d97706;
+  --chart-track: #e5e7eb;
+  --chart-axis: #6b7280;
+  --chart-grid: #f3f4f6;
+
+  /* shadcn/ui theme tokens — mapped onto StudyFlow's existing palette so the
+     shadcn primitives (and any future ones) inherit our look with no visual
+     regression. Light theme. */
+  --radius: 0.5rem;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --primary: #00509b; /* TUHH brand blue */
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6; /* gray-100 */
+  --secondary-foreground: #111827; /* gray-900 */
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280; /* gray-500 */
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
+  --destructive: #dc2626; /* red-600 */
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb; /* gray-200 */
+  --input: #d1d5db; /* gray-300 */
+  --ring: var(--focus-ring);
+}
+
+.dark {
+  --background: #0b0f17;
+  --foreground: #e5e7eb;
+  /* A lighter brand blue for dark mode: the deep #00509b only reaches ~2.4:1
+     against the near-black background (below the 3:1 WCAG non-text bar), so the
+     ring would be hard to see. This lifts it comfortably past 3:1. */
+  --focus-ring: #4d94d6;
+  /* Data-viz palette, dark theme — the deep brand blue muddies against the
+     near-black bg, so the active series lifts to the lighter focus-ring blue. */
+  --chart-series: #4d94d6;
+  /* Secondary series, dark theme — lighter amber so it lifts off the near-black bg. */
+  --chart-series-2: #fbbf24;
+  --chart-track: #1f2937;
+  --chart-axis: #9ca3af;
+  --chart-grid: #1f2937;
+
+  /* shadcn/ui theme tokens — dark theme. Surfaces follow our existing dark
+     card/border palette (gray-900/800); primary stays the brand blue (used as
+     bg-brand text-white in both themes). */
+  --card: #111827; /* gray-900 */
+  --card-foreground: var(--foreground);
+  --popover: #111827;
+  --popover-foreground: var(--foreground);
+  --primary: #00509b;
+  --primary-foreground: #ffffff;
+  --secondary: #1f2937; /* gray-800 */
+  --secondary-foreground: #e5e7eb;
+  --muted: #1f2937;
+  --muted-foreground: #9ca3af; /* gray-400 */
+  --accent: #1f2937;
+  --accent-foreground: #e5e7eb;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #1f2937; /* gray-800 */
+  --input: #374151; /* gray-700 */
+  --ring: var(--focus-ring);
 }
 
 @theme inline {
@@ -10,6 +90,33 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* TUHH brand blue — primary actions, active nav. */
+  --color-brand: #00509b;
+  --color-brand-dark: #003d75;
+
+  /* shadcn/ui token → Tailwind utility bridge (enables bg-primary, text-muted-
+     foreground, border-border, etc. for shadcn-style components). */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
 body {
@@ -20,4 +127,73 @@ body {
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Dark mode: text inputs default to a white field — make them readable.
+   Checkboxes/radios keep their native look so the checkmark stays visible. */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: #111827;
+  color: var(--foreground);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6b7280;
+}
+
+/* Accessibility: one clear, consistent keyboard focus ring across the app.
+   The colour is a single token (--focus-ring) that adapts per theme. The 2px
+   offset lifts it off the control; we deliberately set NO border-radius here so
+   the outline follows each element's own shape (pill buttons get a pill ring,
+   cards a rounded-rect) instead of reshaping rounded controls on focus. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Skip-link target: a non-interactive layout container, focused only
+   programmatically when the "Skip to content" link is activated. Suppress its
+   ring there — the skip link itself shows a clear ring; this is not a control. */
+#main-content:focus {
+  outline: none;
+}
+
+/* Branded text selection — a small cohesive touch. */
+::selection {
+  background-color: #00509b;
+  color: #ffffff;
+}
+
+/* Smooth in-page anchor scrolling, but respect reduced-motion preferences. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Toast entrance — a subtle rise+fade. Gated behind motion-safe at the callsite. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dropdown-menu entrance: a quick fade + settle from just above the trigger.
+   Gated behind motion-safe at the callsite (see ui/dropdown-menu). */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

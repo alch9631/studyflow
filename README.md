@@ -40,6 +40,27 @@ npm run dev      # http://localhost:3000
 
 For production (Postgres + auth + deploy), see **[PRODUCTION.md](PRODUCTION.md)**.
 
+## Daily study reminders (cron)
+
+`POST /api/reminders/run` sends each user with a push subscription a notification
+summarizing today's plan (`"N sessions, ~Xh planned"`). Wire it to any scheduler
+to fire once a day. It's idempotent and safe to call repeatedly — it only reads
+the plan and emits notifications; no data is mutated.
+
+The endpoint is guarded by a bearer token. Set `CRON_SECRET` in `.env` (see
+`.env.example`); leave it blank and the endpoint is a safe no-op
+(`{ disabled: true }`, nothing sent). Delivery additionally needs the VAPID keys
+(without them the run reports `configured: false`).
+
+```bash
+# Once a day, e.g. crontab: 0 7 * * *
+curl -fsS -X POST https://your-app.example/api/reminders/run \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+On Vercel, add a `vercel.json` cron pointing at the path; the platform injects
+the header from the project's `CRON_SECRET` env var.
+
 ## Status
 
 🚧 Day 1 — foundation. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.

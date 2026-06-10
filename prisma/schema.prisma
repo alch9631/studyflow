@@ -14,11 +14,61 @@ datasource db {
 }
 
 model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  createdAt     DateTime  @default(now())
+  // Secret URL token for the live calendar subscribe feed (webcal). null until first used.
+  calendarToken String?   @unique
+  courses       Course[]
+  lectures      Lecture[]
+  pushSubscriptions PushSubscription[]
+}
+
+// A browser web-push subscription (for study reminders). Sending is deploy-gated
+// (needs VAPID keys); this just stores the subscription for later.
+model PushSubscription {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  // The VAPID public key this subscription was registered against. A browser
+  // subscription is cryptographically bound to the application-server key it was
+  // created with, so once the deploy's keypair changes — or is added for the
+  // first time — a subscription made against a different key can no longer
+  // receive our pushes and must be re-synced (re-subscribed) by the client. We
+  // persist the key so the rollover is detectable:
+  //   ""    = created while push was UNCONFIGURED (no key to bind to) — stale the
+  //           moment keys are added; the client must re-subscribe.
+  //   null  = legacy/unknown (pre-dates this column) — trusted, never force-resynced.
+  //   <key> = the actual key it was bound to; stale only if it differs from the
+  //           currently-configured key (a key rotation).
+  vapidKey  String?
   createdAt DateTime @default(now())
-  courses   Course[]
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
+}
+
+// A recurring weekly class slot (lecture, tutorial, lab). Used to show the
+// student's real week and, later, to plan study around actual free time.
+model Lecture {
+  id        String   @id @default(cuid())
+  title     String
+  weekday   Int // 0=Sun … 6=Sat
+  startMin  Int // minutes from midnight (e.g. 600 = 10:00)
+  endMin    Int
+  location  String?
+  createdAt DateTime @default(now())
+
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseId String?
+
+  @@index([userId, weekday])
 }
 
 model Course {
@@ -32,26 +82,88 @@ model Course {
   // Set when the course was created from a catalog module (e.g. TUHH "M0850").
   ects          Int?
   sourceCode    String?
+  aiOptimized   Boolean      @default(false) // AI tuned topic difficulty/order/review
+  intense       Boolean      @default(false) // global scheduler couldn't fit all work before the exam
+  // German final grade once the exam is taken (1.0 best … 5.0 fail). null = not graded yet.
+  grade         Float?
 
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  topics    Topic[]
-  blocks    StudyBlock[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  topics      Topic[]
+  blocks      StudyBlock[]
+  files       ModuleFile[]
+  assignments Assignment[]
+  lectures    Lecture[]
 
-  @@index([userId])
+  // Every hot course read scopes by userId and orders by examDate (Today's
+  // next-exam header with examDate>=now, /courses list, stats, catalog). The
+  // composite serves the range-seek AND the sort in one index; userId being the
+  // leading column still covers the plain count/lookup the old [userId] did.
+  @@index([userId, examDate])
+}
+
+// A dated deliverable that isn't the exam: homework sheet (Übungsblatt), lab
+// report, project hand-in. Surfaced on Today with a due-date countdown.
+model Assignment {
+  id        String   @id @default(cuid())
+  title     String
+  dueDate   DateTime
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId String
+
+  @@index([courseId, dueDate])
+}
+
+// An uploaded module file (lecture script, notes) + its AI content analysis.
+model ModuleFile {
+  id             String   @id @default(cuid())
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId       String
+  filename       String
+  mimeType       String?
+  sizeBytes      Int      @default(0)
+  extractedChars Int      @default(0)
+  analysis       String? // JSON: summary, concepts, prerequisites, detected topics
+  createdAt      DateTime @default(now())
+
+  @@index([courseId])
 }
 
 model Topic {
-  id       String  @id @default(cuid())
-  title    String
-  effort   Float   @default(1) // relative weight; 1 = a normal chunk
-  done     Boolean @default(false)
-  order    Int     @default(0)
+  id        String  @id @default(cuid())
+  title     String
+  effort    Float   @default(1) // relative weight; 1 = a normal chunk
+  done      Boolean @default(false)
+  order     Int     @default(0)
+  questions String? // JSON array of AI self-test questions (active recall)
 
   course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String
+  note     Note?
 
-  @@index([courseId])
+  // Topics are always read scoped to a course AND ordered by `order` (course
+  // detail page, planner rebuild). Leading courseId still serves plain
+  // by-course lookups; the trailing `order` lets SQLite skip the sort step.
+  @@index([courseId, order])
+}
+
+// A student's free-text study note for a single topic (one note per topic — a
+// scratchpad for "prof emphasized X", "see slide 23", formulas to remember).
+// Ownership flows through the topic → course → user, like Topic/StudyBlock.
+// Text only; file attachments are a separate future item.
+model Note {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  // One note per topic: the unique constraint lets the editor upsert by topic
+  // and doubles as the lookup index for the course-detail read.
+  topicId String @unique
 }
 
 // Shared, read-only catalog of real university modules students can pick from
@@ -65,6 +177,8 @@ model ModuleTemplate {
   section    String
   ects       Int
   content    String // handbook snippet — feeds AI topic extraction later
+  examDate   DateTime? // official exam date for the current semester (if examined)
+  examSemester String? // e.g. "SS2026" — exam plans publish twice a year
 
   @@unique([university, program, code])
   @@index([university, program])
@@ -72,11 +186,13 @@ model ModuleTemplate {
 
 // Generated daily study assignments. Regenerated by the planner / heal button.
 model StudyBlock {
-  id         String   @id @default(cuid())
-  date       DateTime
-  topicTitle String
-  minutes    Int
-  completed  Boolean  @default(false)
+  id            String   @id @default(cuid())
+  date          DateTime
+  topicTitle    String
+  minutes       Int
+  completed     Boolean  @default(false)
+  kind          String   @default("study") // "study" | "review" (spaced repetition)
+  actualMinutes Int? // logged via the Pomodoro timer — feeds adaptive estimates
 
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String

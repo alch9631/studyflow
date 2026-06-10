@@ -1,57 +1,234 @@
 import Link from "next/link";
 import { PROGRAMS } from "@/lib/programs";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { getT } from "@/components/i18n/server";
 
-export default function Home() {
+export default async function Home() {
+  const t = await getT();
+
+  // Feature grid — every claim maps to a shipped feature:
+  //  • Builds itself  → plan generated backward from exam dates (planService)
+  //  • Heals itself   → one-tap re-plan around what's still undone
+  //  • Made to stick  → spaced reviews + self-test blocks (kind: "review")
+  //  • See it working → Insights: streak, consistency %, GPA, credit points
+  const FEATURES = [
+    { icon: "🧭", title: t("landing.feat1Title"), body: t("landing.feat1Body") },
+    { icon: "🩹", title: t("landing.feat2Title"), body: t("landing.feat2Body") },
+    { icon: "🧠", title: t("landing.feat3Title"), body: t("landing.feat3Body") },
+    { icon: "📊", title: t("landing.feat4Title"), body: t("landing.feat4Body") },
+  ] as const;
+
+  // Tasteful, clearly-generic stats. No fabricated numbers presented as audited
+  // metrics — framed as what the product is designed to deliver.
+  const STATS = [
+    { value: t("landing.stat1Value"), label: t("landing.stat1Label") },
+    { value: t("landing.stat2Value"), label: t("landing.stat2Label") },
+    { value: t("landing.stat3Value"), label: t("landing.stat3Label") },
+  ] as const;
+
+  // Placeholder social proof — generic personas, no fabricated real names.
+  const TESTIMONIALS = [
+    { quote: t("landing.quote1"), author: t("landing.quote1Author"), detail: t("landing.quote1Detail") },
+    { quote: t("landing.quote2"), author: t("landing.quote2Author"), detail: t("landing.quote2Detail") },
+    { quote: t("landing.quote3"), author: t("landing.quote3Author"), detail: t("landing.quote3Detail") },
+  ] as const;
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-8 p-8 text-center">
-      {/* TUHH wordmark — swap for the official SVG if you have the rights. */}
-      <div className="flex flex-col items-center gap-1">
-        <div
-          className="rounded-md px-4 py-2 text-2xl font-extrabold tracking-tight text-white"
-          style={{ backgroundColor: "#00509b" }}
-        >
-          TUHH
+    <main className="mx-auto flex max-w-3xl flex-col gap-16 px-5 py-12 sm:py-16">
+      {/* ── Hero ───────────────────────────────────────────────────────── */}
+      <section className="flex flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-1.5">
+          <div
+            className="rounded-md px-4 py-2 text-2xl font-extrabold tracking-tight text-white shadow-sm"
+            style={{ backgroundColor: "#00509b" }}
+          >
+            TUHH
+          </div>
+          <span className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
+            {t("landing.uni")}
+          </span>
         </div>
-        <span className="text-xs uppercase tracking-widest text-gray-400">
-          Technische Universität Hamburg
-        </span>
-      </div>
 
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          StudyFlow ⚡
-        </h1>
-        <p className="mt-2 text-gray-500">
-          The study plan that builds itself — and heals itself when you fall behind.
-        </p>
-      </div>
+        <div className="flex flex-col items-center gap-4">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+            <span className="text-brand">⚡</span> {t("landing.badge")}
+          </span>
+          <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+            {t("landing.heroTitlePre")}
+            <span className="text-brand">{t("landing.heroTitleHighlight")}</span>
+            <br className="hidden sm:block" />
+            {t("landing.heroTitlePost")}
+          </h1>
+          <p className="mx-auto max-w-lg text-pretty text-base text-gray-500 dark:text-gray-400 sm:text-lg">
+            {t("landing.heroSubtitle")}
+          </p>
+        </div>
 
-      <div className="w-full">
-        <p className="mb-3 text-sm font-medium text-gray-700">
-          Choose your Studiengang
+        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="#programs">{t("landing.buildPlan")}</Link>
+          </Button>
+          <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
+            <Link href="/courses">{t("landing.havePlan")}</Link>
+          </Button>
+        </div>
+
+        {/* Generic, designed-to-deliver stat strip */}
+        <dl className="mt-2 grid w-full grid-cols-3 gap-3 sm:max-w-lg">
+          {STATS.map((s) => (
+            <Card
+              key={s.label}
+              className="flex flex-col items-center gap-0.5 px-2 py-3 text-center"
+            >
+              <dt className="sr-only">{s.label}</dt>
+              <dd className="text-lg font-bold tracking-tight sm:text-xl">
+                {s.value}
+              </dd>
+              <span className="text-[11px] leading-tight text-gray-500 dark:text-gray-400">
+                {s.label}
+              </span>
+            </Card>
+          ))}
+        </dl>
+      </section>
+
+      {/* ── Feature grid ───────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            {t("landing.featuresTitle")}
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
+            {t("landing.featuresSubtitle")}
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {FEATURES.map((f) => (
+            <Card
+              key={f.title}
+              className="p-5 text-left transition-colors hover:border-gray-300 dark:hover:border-gray-700"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-2xl">
+                {f.icon}
+              </div>
+              <h3 className="mt-3 font-semibold">{f.title}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                {f.body}
+              </p>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Social proof ───────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            {t("landing.proofTitle")}
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
+            {t("landing.proofSubtitle")}
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {TESTIMONIALS.map((tm) => (
+            <Card asChild key={tm.quote} className="flex flex-col gap-3 p-5">
+              <figure>
+                <div aria-hidden className="text-sm text-amber-400">
+                  ★★★★★
+                </div>
+              <blockquote className="text-pretty text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+                “{tm.quote}”
+              </blockquote>
+              <figcaption className="mt-auto text-xs text-gray-500 dark:text-gray-400">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {tm.author}
+                </span>
+                <span className="block">{tm.detail}</span>
+              </figcaption>
+              </figure>
+            </Card>
+          ))}
+        </div>
+        <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
+          {t("landing.quotesDisclaimer")}
         </p>
-        <div className="grid gap-2">
+      </section>
+
+      {/* ── Primary action: choose your Studiengang ────────────────────── */}
+      <section id="programs" className="scroll-mt-20 text-left">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-bold tracking-tight">
+            {t("landing.chooseProgram")}
+          </h2>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {t("landing.programCount", { count: PROGRAMS.length })}
+          </span>
+        </div>
+        <div className="max-h-[44vh] divide-y divide-gray-100 overflow-y-auto rounded-2xl border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
           {PROGRAMS.map((p) => (
             <Link
               key={p.code}
               href={`/catalog?program=${p.code}`}
-              className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-gray-400"
+              className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
             >
-              <span>
-                <span className="font-medium">{p.name}</span>
-                <span className="ml-2 text-xs text-gray-400">{p.code}</span>
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{p.name}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {p.code}
+                </span>
               </span>
-              <span className="text-xs text-gray-400">
-                {p.seeded ? "modules ready →" : "manual →"}
+              <span className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600">
+                ›
               </span>
             </Link>
           ))}
         </div>
-      </div>
+      </section>
 
-      <Link href="/courses" className="text-sm text-gray-500 hover:underline">
-        or go to my courses →
-      </Link>
+      {/* ── Secondary action: jump back into existing courses ──────────── */}
+      <section className="flex flex-col gap-3">
+        <Link
+          href="/courses"
+          className="group flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-xl">
+            📚
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{t("landing.myCourses")}</span>
+            <span className="block text-sm text-gray-500 dark:text-gray-400">
+              {t("landing.myCoursesDesc")}
+            </span>
+          </span>
+          <span className="shrink-0 text-gray-500 transition-transform group-hover:translate-x-0.5 dark:text-gray-400">
+            →
+          </span>
+        </Link>
+
+        <Button asChild variant="secondary" className="w-full">
+          <Link href="/courses/import">{t("landing.importInstead")}</Link>
+        </Button>
+      </section>
+
+      {/* ── Closing CTA ────────────────────────────────────────────────── */}
+      <section className="overflow-hidden rounded-3xl border border-gray-200 bg-gray-50 px-6 py-10 text-center dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="text-balance text-2xl font-bold tracking-tight sm:text-3xl">
+          {t("landing.ctaTitle")}
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
+          {t("landing.ctaSubtitle")}
+        </p>
+        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="#programs">{t("landing.buildPlan")}</Link>
+          </Button>
+          <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
+            <Link href="/today">{t("landing.seeToday")}</Link>
+          </Button>
+        </div>
+      </section>
     </main>
   );
 }
