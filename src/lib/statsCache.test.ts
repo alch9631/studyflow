@@ -11,6 +11,7 @@
 import {
   createStatsCache,
   shouldInvalidateStats,
+  statsWriteOwner,
   type StatsLoader,
 } from "./statsCache";
 import type { Stats } from "./stats";
@@ -200,6 +201,97 @@ async function main() {
     check("User.upsert (per-request dev auth) does NOT invalidate", !shouldInvalidateStats("User", "upsert"));
     check("Assignment.create (irrelevant to stats) does NOT invalidate", !shouldInvalidateStats("Assignment", "create"));
     check("undefined model does NOT invalidate", !shouldInvalidateStats(undefined, "update"));
+  }
+
+  // 10) SCOPED INVALIDATION: one user's write must NOT evict another user. ------
+  {
+    // Loader returns a per-user value derived from a mutable source, so a stale
+    // hit (wrongly-evicted-then-recomputed) vs. a surviving hit is observable.
+    let aliceVal = 1;
+    let bobVal = 100;
+    const calls: string[] = [];
+    const load: StatsLoader = async (userId) => {
+      calls.push(userId);
+      return fakeStats(userId === "alice" ? aliceVal : bobVal);
+    };
+    const cache = createStatsCache({ load, now: clock().now });
+
+    await cache.get("alice", TODAY); // alice cached (value 1)
+    await cache.get("bob", TODAY); // bob cached (value 100)
+    check("both users warm in cache", cache.size() === 2 && calls.length === 2);
+
+    // A write by alice lands: invalidate ONLY alice.
+    aliceVal = 2;
+    bobVal = 999; // would surface iff bob were wrongly recomputed
+    cache.invalidateUser("alice");
+
+    check("invalidating alice drops only alice's entry", cache.size() === 1);
+    const bobAfter = await cache.get("bob", TODAY);
+    check("UNRELATED USER'S CACHE SURVIVES the mutation (no recompute)", calls.length === 2);
+    check("bob still sees his pre-mutation cached value", bobAfter.loggedMinutes === 100);
+
+    const aliceAfter = await cache.get("alice", TODAY);
+    check("alice recomputes and sees her fresh value", aliceAfter.loggedMinutes === 2 && calls.length === 3);
+  }
+
+  // 11) Per-user invalidation spans ALL of that user's cached days. -------------
+  {
+    let n = 0;
+    const { load, calls } = countingLoader(() => ++n);
+    const cache = createStatsCache({ load, now: clock().now });
+    await cache.get("u1", "2026-06-08");
+    await cache.get("u1", "2026-06-09");
+    await cache.get("u2", "2026-06-08");
+    check("three entries cached (u1×2 days, u2×1)", cache.size() === 3);
+    cache.invalidateUser("u1");
+    check("invalidating u1 drops every u1 day but keeps u2", cache.size() === 1);
+    check("u2 still hits (untouched)", (await cache.get("u2", "2026-06-08")).loggedMinutes === 3 && calls.length === 3);
+  }
+
+  // 12) Scoped invalidation mid-load only blocks the AFFECTED user's cache. -----
+  {
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const load: StatsLoader = async (userId) => {
+      calls++;
+      await gate;
+      return fakeStats(userId === "alice" ? 1 : 2);
+    };
+    const cache = createStatsCache({ load, now: clock().now });
+    const aliceRead = cache.get("alice", TODAY); // alice load in flight
+    const bobRead = cache.get("bob", TODAY); // bob load in flight
+    cache.invalidateUser("bob"); // a write by BOB lands mid-load
+    release();
+    await Promise.all([aliceRead, bobRead]);
+    // alice's load was untouched → it cached; bob's was invalidated mid-load → not.
+    check("unaffected user's in-flight load still caches", cache.size() === 1);
+    const aliceHit = await cache.get("alice", TODAY);
+    check("alice is a hit (cached during in-flight, not evicted by bob's write)", calls === 2 && aliceHit.loggedMinutes === 1);
+    const bobMiss = await cache.get("bob", TODAY);
+    check("bob recomputes (his mid-load result was correctly not cached)", calls === 3 && bobMiss.loggedMinutes === 2);
+  }
+
+  // 13) statsWriteOwner: extract the writer's userId from Prisma args (no DB). ---
+  {
+    // Course.create carries data.userId → scope to that user.
+    check("course.create → data.userId", statsWriteOwner("Course", "create", { data: { name: "x", userId: "alice" } }) === "alice");
+    // ownership.ts updates/deletes carry userId in the where clause.
+    check("course.updateMany → where.userId", statsWriteOwner("Course", "updateMany", { where: { id: "c1", userId: "bob" }, data: { name: "y" } }) === "bob");
+    check("course.deleteMany → where.userId", statsWriteOwner("Course", "deleteMany", { where: { id: "c1", userId: "carol" } }) === "carol");
+    // upsert splits its payload into create/update.
+    check("course.upsert → create.userId", statsWriteOwner("Course", "upsert", { where: { id: "c1" }, create: { userId: "dave" }, update: {} }) === "dave");
+    // createMany with a single shared owner.
+    check("createMany (one owner) → that userId", statsWriteOwner("Course", "createMany", { data: [{ userId: "e" }, { userId: "e" }] }) === "e");
+    check("createMany (mixed owners) → undefined", statsWriteOwner("Course", "createMany", { data: [{ userId: "e" }, { userId: "f" }] }) === undefined);
+    // Writes keyed only by row id reveal no owner → full-clear fallback.
+    check("course.update by id → undefined (full clear)", statsWriteOwner("Course", "update", { where: { id: "c1" }, data: { aiOptimized: true } }) === undefined);
+    check("topic.update by id → undefined (full clear)", statsWriteOwner("Topic", "update", { where: { id: "t1" }, data: { done: true } }) === undefined);
+    check("studyBlock write keyed by courseId only → undefined", statsWriteOwner("StudyBlock", "deleteMany", { where: { courseId: "c1", completed: false } }) === undefined);
+    // Non-stats / read ops never yield an owner.
+    check("read op → undefined", statsWriteOwner("Course", "findMany", { where: { userId: "alice" } }) === undefined);
+    check("irrelevant model → undefined", statsWriteOwner("Assignment", "create", { data: { userId: "alice" } }) === undefined);
+    check("non-string userId ignored", statsWriteOwner("Course", "create", { data: { userId: 42 } }) === undefined);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
