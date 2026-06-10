@@ -67,6 +67,9 @@ const BANNER_KEYS = new Set([
   "progress-error",
   "optimized",
   "optimize-failed",
+  "ai-unconfigured",
+  "ai-offline",
+  "heal-failed",
   "analyzed",
   "analyze-error",
   "analyze-unsupported",
@@ -154,7 +157,7 @@ export default async function CoursePage({
         <div
           aria-live="polite"
           className={`mt-3 rounded-lg border p-3 text-sm ${
-            ["progress-none", "progress-error", "optimize-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "rate-limited"].includes(msg ?? "")
+            ["progress-none", "progress-error", "optimize-failed", "ai-unconfigured", "ai-offline", "heal-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "rate-limited"].includes(msg ?? "")
               ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
               : "border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
           }`}
