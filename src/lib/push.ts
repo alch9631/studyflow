@@ -15,6 +15,14 @@
  * subscriptions (subscribe/unsubscribe routes) still works so a client can
  * register early; nothing is delivered until the keys are present.
  *
+ * Key rollover: a browser subscription is cryptographically bound to the VAPID
+ * public key it was created with, so a subscription registered while push was
+ * unconfigured (or against an old key before a rotation) can never receive
+ * pushes signed by the *current* key. We persist that key per subscription
+ * (`vapidKey`) and expose `subscriptionNeedsResync` / `isSubscriptionResyncNeeded`
+ * so the client can detect the rollover on load and re-subscribe; `sendPush`
+ * skips such zombies instead of firing a guaranteed-reject delivery at them.
+ *
  * The sender is injectable so route/helper tests can mock delivery (no real
  * network) — the default lazily loads the `web-push` lib only on the real path.
  */
@@ -61,6 +69,14 @@ export interface SendPushResult {
   failed: number;
   /** Dead subscriptions (404/410) deleted during this send. */
   pruned: number;
+  /**
+   * Subscriptions skipped because they were bound to a different VAPID key than
+   * the one now configured (created while push was unconfigured, or pre-rotation).
+   * Delivering to them would be rejected, so we don't even try — the client must
+   * re-subscribe (see `subscriptionNeedsResync`). Kept in place, not pruned, so a
+   * re-subscribe can refresh them rather than the user silently losing reminders.
+   */
+  stale: number;
 }
 
 /**
@@ -81,6 +97,60 @@ export function getPushConfig(): VapidConfig | null {
 /** True when VAPID keys are present and pushes can actually be delivered. */
 export function isPushConfigured(): boolean {
   return getPushConfig() !== null;
+}
+
+/**
+ * The currently-configured VAPID public key, or null when push is unconfigured.
+ * This is the application-server key new browser subscriptions are bound to, and
+ * the value we persist on each `PushSubscription.vapidKey` so a later key change
+ * (or first-time setup) is detectable as a rollover.
+ */
+export function getVapidPublicKey(): string | null {
+  return getPushConfig()?.publicKey ?? null;
+}
+
+/**
+ * Decide whether a stored subscription must be re-synced (re-subscribed) by the
+ * client because the key it was registered against no longer matches the deploy.
+ *
+ * Pure so it's trivially unit-testable. The rollover this guards against: a
+ * subscription created while VAPID keys were unset (stored `""`) — or against an
+ * old key before a rotation — can never receive pushes signed by the *current*
+ * key, so the browser must create a fresh subscription.
+ *
+ *   - push unconfigured (`currentKey === null`) -> false: nothing to resync to.
+ *   - `storedKey === null` (legacy/unknown, pre-dates the column) -> false: we
+ *     have no evidence it's stale and won't disrupt a working subscription.
+ *   - otherwise stale iff the stored key differs from the current one (covers
+ *     both the unconfigured `""` case and a real key rotation).
+ */
+export function subscriptionNeedsResync(
+  storedKey: string | null,
+  currentKey: string | null,
+): boolean {
+  if (currentKey === null) return false;
+  if (storedKey === null) return false;
+  return storedKey !== currentKey;
+}
+
+/**
+ * Does the current user's stored subscription for `endpoint` need a client-side
+ * re-sync? Backs the re-validate-on-load check (POST /api/push/check). Scoped to
+ * the owner so it can never probe another user's subscriptions; an unknown or
+ * unowned endpoint is reported as not-stale (the normal subscribe flow handles
+ * brand-new subscriptions).
+ */
+export async function isSubscriptionResyncNeeded(
+  userId: string,
+  endpoint: string,
+): Promise<boolean> {
+  const currentKey = getVapidPublicKey();
+  if (currentKey === null) return false;
+  const sub = await prisma.pushSubscription.findFirst({
+    where: { endpoint, userId },
+    select: { vapidKey: true },
+  });
+  return subscriptionNeedsResync(sub?.vapidKey ?? null, currentKey);
 }
 
 /** A dead-subscription HTTP status from the Push service — safe to prune. */
@@ -119,22 +189,30 @@ export async function sendPush(
   sender: PushSender = defaultSender,
 ): Promise<SendPushResult> {
   const config = getPushConfig();
-  if (!config) return { configured: false, sent: 0, failed: 0, pruned: 0 };
+  if (!config) return { configured: false, sent: 0, failed: 0, pruned: 0, stale: 0 };
 
   const subs = await prisma.pushSubscription.findMany({
     where: { userId },
-    select: { id: true, endpoint: true, p256dh: true, auth: true },
+    select: { id: true, endpoint: true, p256dh: true, auth: true, vapidKey: true },
   });
-  if (subs.length === 0) return { configured: true, sent: 0, failed: 0, pruned: 0 };
+  if (subs.length === 0) return { configured: true, sent: 0, failed: 0, pruned: 0, stale: 0 };
 
   const json = JSON.stringify(payload);
   const expiredIds: string[] = [];
   let sent = 0;
   let failed = 0;
+  let stale = 0;
 
   // Fan out concurrently; isolate each send so one rejection can't sink the rest.
   await Promise.all(
     subs.map(async (s) => {
+      // Skip subscriptions bound to a different VAPID key than the live one — a
+      // guaranteed-reject send (key-rollover zombie). Counted, kept in place, and
+      // healed when the client re-subscribes (refreshing `vapidKey`).
+      if (subscriptionNeedsResync(s.vapidKey, config.publicKey)) {
+        stale++;
+        return;
+      }
       try {
         await sender.send(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
@@ -158,5 +236,5 @@ export async function sendPush(
     pruned = res.count;
   }
 
-  return { configured: true, sent, failed, pruned };
+  return { configured: true, sent, failed, pruned, stale };
 }

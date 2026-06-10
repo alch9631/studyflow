@@ -4,6 +4,7 @@ import { handleApiError } from "@/lib/apiError";
 import { readJsonBody, requireBodyString } from "@/lib/validate";
 import { LIMITS, guardCount } from "@/lib/limits";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rateLimitPolicy";
+import { getVapidPublicKey } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +40,16 @@ export async function POST(req: Request) {
         "push subscriptions",
       );
     }
+    // Record which VAPID key this subscription is bound to so a later key change
+    // (or first-time setup) is detectable as a rollover. `""` when push is
+    // unconfigured — distinct from a legacy null — so it's flagged stale the
+    // moment keys are added. A re-subscribe (update) refreshes it to the live
+    // key, which is exactly how a stale subscription heals itself.
+    const vapidKey = getVapidPublicKey() ?? "";
     await prisma.pushSubscription.upsert({
       where: { endpoint },
-      update: { p256dh, auth, userId },
-      create: { endpoint, p256dh, auth, userId },
+      update: { p256dh, auth, userId, vapidKey },
+      create: { endpoint, p256dh, auth, userId, vapidKey },
     });
     return Response.json({ ok: true });
   } catch (err) {

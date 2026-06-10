@@ -80,6 +80,12 @@ export interface ReminderRunResult {
   sent: number;
   /** Dead subscriptions (404/410) pruned during the run. */
   pruned: number;
+  /**
+   * Subscriptions skipped because they were bound to a stale VAPID key (created
+   * while push was unconfigured, or before a key rotation). They await a
+   * client-side re-sync rather than a delivery — see `subscriptionNeedsResync`.
+   */
+  stale: number;
 }
 
 /** UTC midnight-to-midnight window for an ISO date, matching the /today reads. */
@@ -114,6 +120,7 @@ export async function runDailyReminders(
   let skipped = 0;
   let sent = 0;
   let pruned = 0;
+  let stale = 0;
 
   for (const { userId } of subscribed) {
     const blocks = await prisma.studyBlock.findMany({
@@ -129,6 +136,7 @@ export async function runDailyReminders(
     configured = res.configured;
     sent += res.sent;
     pruned += res.pruned;
+    stale += res.stale;
     // Count the user as notified when delivery is enabled (sends may still be 0
     // if every one of their endpoints was just pruned — the intent fired).
     if (res.configured) notified++;
@@ -142,6 +150,7 @@ export async function runDailyReminders(
     skipped,
     sent,
     pruned,
+    stale,
   };
 }
 

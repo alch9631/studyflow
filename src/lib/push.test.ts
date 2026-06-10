@@ -11,7 +11,11 @@
  *  - a malformed error with no statusCode is kept (counted failed, never crashes),
  *  - a multi-subscription fan-out reports success/prune/fail in a single call,
  *  - sending is scoped to the owner (no cross-user delivery),
- *  - `getPushConfig` requires both keys and defaults the subject.
+ *  - `getPushConfig` requires both keys and defaults the subject,
+ *  - key rollover: a subscription registered while push was unconfigured (or
+ *    against a rotated key) is skipped (counted `stale`, never sent, kept) until
+ *    the client re-subscribes, and `subscriptionNeedsResync` /
+ *    `isSubscriptionResyncNeeded` detect that state owner-scoped.
  *
  * Run: npx tsx src/lib/push.test.ts
  */
@@ -21,6 +25,9 @@ import {
   sendPush,
   getPushConfig,
   isPushConfigured,
+  getVapidPublicKey,
+  subscriptionNeedsResync,
+  isSubscriptionResyncNeeded,
   type PushSender,
   type PushTarget,
 } from "./push";
@@ -73,9 +80,15 @@ async function makeUser(email: string): Promise<string> {
   return u.id;
 }
 
-async function addSub(userId: string, endpoint: string) {
+async function addSub(userId: string, endpoint: string, vapidKey?: string | null) {
   await prisma.pushSubscription.create({
-    data: { userId, endpoint, p256dh: "p256dh-" + endpoint, auth: "auth-" + endpoint },
+    data: {
+      userId,
+      endpoint,
+      p256dh: "p256dh-" + endpoint,
+      auth: "auth-" + endpoint,
+      vapidKey: vapidKey === undefined ? null : vapidKey,
+    },
   });
 }
 
@@ -235,6 +248,131 @@ async function main() {
     const res = await sendPush(emptyId, { title: "none" }, sender);
     check("sendPush on a user with no subscriptions sends nothing", res.sent === 0);
     check("sendPush with no subscriptions is still configured:true", res.configured === true);
+    check("sendPush with no subscriptions reports no stale subs", res.stale === 0);
+  }
+
+  // --- getVapidPublicKey mirrors the configured key / null when unset ---
+  {
+    disablePush();
+    check("getVapidPublicKey is null when keys unset", getVapidPublicKey() === null);
+    enablePush();
+    check(
+      "getVapidPublicKey returns the configured public key",
+      getVapidPublicKey() === "test-public-key",
+    );
+    disablePush();
+  }
+
+  // --- subscriptionNeedsResync: the pure key-rollover predicate ---
+  {
+    const KEY = "test-public-key";
+    check(
+      "needsResync is false when push is unconfigured (no key to resync to)",
+      subscriptionNeedsResync("", null) === false &&
+        subscriptionNeedsResync("old", null) === false,
+    );
+    check(
+      "needsResync is false for a legacy/unknown (null) stored key",
+      subscriptionNeedsResync(null, KEY) === false,
+    );
+    check(
+      "needsResync is TRUE for a sub created while unconfigured (stored \"\")",
+      subscriptionNeedsResync("", KEY) === true,
+    );
+    check(
+      "needsResync is TRUE for a sub bound to a rotated (different) key",
+      subscriptionNeedsResync("old-key", KEY) === true,
+    );
+    check(
+      "needsResync is false when the stored key matches the current key",
+      subscriptionNeedsResync(KEY, KEY) === false,
+    );
+  }
+
+  // --- ROLLOVER: a sub registered while UNCONFIGURED is skipped (not sent, not
+  //     pruned) once keys are added, until the client re-subscribes. ---
+  {
+    enablePush();
+    const rollover = await makeUser("rollover@studyflow.local");
+    const stale = "https://push.example/rollover-stale"; // created unconfigured -> ""
+    const fresh = "https://push.example/rollover-fresh"; // bound to the live key
+    await addSub(rollover, stale, ""); // the unconfigured-state subscription
+    await addSub(rollover, fresh, "test-public-key");
+    const sender = fakeSender();
+    const res = await sendPush(rollover, { title: "rollover" }, sender);
+    check("rollover: the stale (unconfigured-state) sub is reported", res.stale === 1);
+    check("rollover: the fresh sub still gets delivered", res.sent === 1);
+    check("rollover: a stale sub is NOT a transient failure", res.failed === 0);
+    check(
+      "rollover: the stale sub is never contacted (no guaranteed-reject send)",
+      sender.calls.every((c) => c.target.endpoint !== stale),
+    );
+    check(
+      "rollover: only the fresh sub is contacted",
+      sender.calls.length === 1 && sender.calls[0].target.endpoint === fresh,
+    );
+    const stillThere = await prisma.pushSubscription.findUnique({ where: { endpoint: stale } });
+    check("rollover: the stale sub is KEPT (heals on re-subscribe, not dropped)", stillThere !== null);
+  }
+
+  // --- ROLLOVER healed: re-binding the sub to the live key makes it deliver. ---
+  {
+    enablePush();
+    const healed = await makeUser("healed@studyflow.local");
+    const ep = "https://push.example/healed-1";
+    await addSub(healed, ep, ""); // started unconfigured
+    // The client re-subscribes once push is configured: vapidKey -> live key.
+    await prisma.pushSubscription.update({
+      where: { endpoint: ep },
+      data: { vapidKey: "test-public-key" },
+    });
+    const sender = fakeSender();
+    const res = await sendPush(healed, { title: "healed" }, sender);
+    check("rollover heal: a re-synced sub delivers normally", res.sent === 1 && res.stale === 0);
+  }
+
+  // --- ROLLOVER while still unconfigured: nothing is stale (can't resync yet). ---
+  {
+    disablePush();
+    const pending = await makeUser("pending@studyflow.local");
+    await addSub(pending, "https://push.example/pending-1", "");
+    const sender = fakeSender();
+    const res = await sendPush(pending, { title: "pending" }, sender);
+    check("unconfigured: a \"\"-key sub is not yet stale (no key to resync to)", res.stale === 0);
+    check("unconfigured: sendPush is still a clean configured:false no-op", res.configured === false);
+  }
+
+  // --- isSubscriptionResyncNeeded: owner-scoped DB-backed check ---
+  {
+    enablePush();
+    const checker = await makeUser("checker@studyflow.local");
+    const staleEp = "https://push.example/check-stale";
+    const freshEp = "https://push.example/check-fresh";
+    await addSub(checker, staleEp, ""); // created unconfigured
+    await addSub(checker, freshEp, "test-public-key");
+    check(
+      "isSubscriptionResyncNeeded is true for the unconfigured-state sub",
+      (await isSubscriptionResyncNeeded(checker, staleEp)) === true,
+    );
+    check(
+      "isSubscriptionResyncNeeded is false for a current-key sub",
+      (await isSubscriptionResyncNeeded(checker, freshEp)) === false,
+    );
+    check(
+      "isSubscriptionResyncNeeded is false for an unknown endpoint",
+      (await isSubscriptionResyncNeeded(checker, "https://push.example/nope")) === false,
+    );
+    // Ownership: another user's stale sub is invisible to this user's check.
+    const intruder = await makeUser("intruder@studyflow.local");
+    check(
+      "isSubscriptionResyncNeeded never probes another user's subscription",
+      (await isSubscriptionResyncNeeded(intruder, staleEp)) === false,
+    );
+    disablePush();
+    check(
+      "isSubscriptionResyncNeeded is false when push is unconfigured",
+      (await isSubscriptionResyncNeeded(checker, staleEp)) === false,
+    );
   }
 
   disablePush();
