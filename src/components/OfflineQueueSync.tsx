@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useToast } from "./Toast";
+import { useT } from "./i18n/I18nProvider";
 import {
   setReplayErrorHandler,
   startAutoReplay,
@@ -20,20 +21,16 @@ import {
  */
 export default function OfflineQueueSync() {
   const { toast } = useToast();
+  const t = useT();
 
   useEffect(() => {
-    setReplayErrorHandler(() =>
-      toast(
-        "Couldn't sync an offline change — please toggle it again.",
-        "error",
-      ),
-    );
+    setReplayErrorHandler(() => toast(t("offlineSync.syncError"), "error"));
     const stop = startAutoReplay();
     return () => {
       setReplayErrorHandler(null);
       stop();
     };
-  }, [toast]);
+  }, [toast, t]);
 
   return null;
 }

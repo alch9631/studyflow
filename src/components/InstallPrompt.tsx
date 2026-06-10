@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * "Install StudyFlow" nudge — turns the PWA into a home-screen app.
@@ -70,6 +71,7 @@ function rememberDismissed() {
 }
 
 export default function InstallPrompt() {
+  const t = useT();
   const [mode, setMode] = useState<Mode>(null);
   const deferred = useRef<BeforeInstallPromptEvent | null>(null);
 
@@ -149,18 +151,17 @@ export default function InstallPrompt() {
             id="install-prompt-title"
             className="text-sm font-semibold text-gray-900 dark:text-gray-100"
           >
-            Install StudyFlow
+            {t("installPrompt.title")}
           </h2>
 
           {mode === "android" ? (
             <>
               <p className="mt-0.5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                Add it to your home screen for full-screen study sessions and
-                one-tap access — no browser, no app store.
+                {t("installPrompt.androidBody")}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <Button type="button" size="sm" onClick={install}>
-                  Install
+                  {t("installPrompt.install")}
                 </Button>
                 <Button
                   type="button"
@@ -168,20 +169,20 @@ export default function InstallPrompt() {
                   variant="ghost"
                   onClick={dismiss}
                 >
-                  Not now
+                  {t("installPrompt.notNow")}
                 </Button>
               </div>
             </>
           ) : (
             <>
               <p className="mt-0.5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                Tap{" "}
+                {t("installPrompt.iosTapPrefix")}{" "}
                 <ShareIcon className="-mt-0.5 inline-block h-4 w-4 align-middle text-brand" />{" "}
-                in Safari&apos;s toolbar, then{" "}
+                {t("installPrompt.iosShareSuffix")}{" "}
                 <span className="font-medium text-gray-900 dark:text-gray-100">
-                  Add to Home Screen
+                  {t("installPrompt.iosAddToHome")}
                 </span>{" "}
-                — StudyFlow opens full-screen, like a real app.
+                {t("installPrompt.iosTail")}
               </p>
               <div className="mt-3">
                 <Button
@@ -190,7 +191,7 @@ export default function InstallPrompt() {
                   variant="ghost"
                   onClick={dismiss}
                 >
-                  Got it
+                  {t("installPrompt.gotIt")}
                 </Button>
               </div>
             </>
@@ -200,7 +201,7 @@ export default function InstallPrompt() {
         <button
           type="button"
           onClick={dismiss}
-          aria-label="Dismiss install prompt"
+          aria-label={t("installPrompt.dismissAria")}
           className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
         >
           <CloseIcon />

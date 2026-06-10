@@ -2,9 +2,9 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
-import ToastForm from "./ToastForm";
-import SubmitButton from "./SubmitButton";
+import ConfirmDialog from "./ConfirmDialog";
 import { Button } from "./ui/button";
+import { useT } from "./i18n/I18nProvider";
 
 // Read window origin without a hydration mismatch: server snapshot is "" so SSR
 // and the first client render agree, then it syncs to the real origin.
@@ -17,6 +17,7 @@ const subscribeNoop = () => () => {};
  * correct whether on localhost, LAN/Tailscale, or a deployed domain.
  */
 export default function CalendarSync({ token }: { token: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   const origin = useSyncExternalStore(
@@ -34,7 +35,7 @@ export default function CalendarSync({ token }: { token: string }) {
   const googleUrl = origin
     ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(`${origin}${path}`)}`
     : "";
-  const displayUrl = host ? webcalUrl : "Loading…";
+  const displayUrl = host ? webcalUrl : t("common.loading");
 
   async function copy() {
     if (!webcalUrl) return;
@@ -68,7 +69,7 @@ export default function CalendarSync({ token }: { token: string }) {
               href={googleUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Subscribe in Google Calendar (opens in a new tab)"
+              aria-label={t("calendarSync.googleAriaLabel")}
             >
               Google Calendar
             </a>
@@ -85,26 +86,24 @@ export default function CalendarSync({ token }: { token: string }) {
           onClick={copy}
           disabled={!webcalUrl}
         >
-          {copied ? "Copied ✓" : "Copy link"}
+          {copied ? t("calendarSync.copied") : t("calendarSync.copyLink")}
         </Button>
-        <ToastForm
+        <ConfirmDialog
           action={resetCalendarToken}
-          successMessage="Calendar link reset — the old link no longer updates."
-          errorMessage="Couldn't reset the calendar link — please try again."
-          onSubmit={(e) => {
-            if (!confirm("Reset the calendar link? Anyone using the old link will stop getting updates.")) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <SubmitButton variant="ghost" size="sm" pendingLabel="Resetting…">
-            Reset link
-          </SubmitButton>
-        </ToastForm>
+          successMessage={t("calendarSync.resetSuccess")}
+          errorMessage={t("calendarSync.resetError")}
+          triggerLabel={t("calendarSync.resetLink")}
+          triggerVariant="ghost"
+          triggerSize="sm"
+          title={t("calendarSync.resetConfirmTitle")}
+          message={t("calendarSync.resetConfirmMessage")}
+          confirmLabel={t("calendarSync.resetConfirm")}
+          pendingLabel={t("calendarSync.resetting")}
+          cancelLabel={t("common.cancel")}
+        />
       </div>
       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        Subscribing keeps your calendar in sync — changes to your study plan show up
-        automatically, no re-importing.
+        {t("calendarSync.syncHint")}
       </p>
     </div>
   );
