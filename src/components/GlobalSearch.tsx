@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { inputClass } from "./ui";
 import EmptyState from "./EmptyState";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * One searchable record across the user's own data. Built server-side
@@ -28,11 +29,11 @@ export type SearchItem = {
 
 const TYPE_META: Record<
   SearchItem["type"],
-  { label: string; emoji: string }
+  { labelKey: "search.groupCourses" | "search.groupTopics" | "search.groupDeadlines"; emoji: string }
 > = {
-  course: { label: "Courses", emoji: "📚" },
-  topic: { label: "Topics", emoji: "📑" },
-  deadline: { label: "Deadlines", emoji: "📝" },
+  course: { labelKey: "search.groupCourses", emoji: "📚" },
+  topic: { labelKey: "search.groupTopics", emoji: "📑" },
+  deadline: { labelKey: "search.groupDeadlines", emoji: "📝" },
 };
 
 const TYPE_ORDER: SearchItem["type"][] = ["course", "topic", "deadline"];
@@ -61,6 +62,7 @@ export default function GlobalSearch({
   initialQuery?: string;
 }) {
   const router = useRouter();
+  const t = useT();
   const [query, setQuery] = useState(initialQuery);
   const [active, setActive] = useState(0);
   const [lastQuery, setLastQuery] = useState(query);
@@ -168,10 +170,10 @@ export default function GlobalSearch({
             activeKey ? `${listId}-${activeKey}` : undefined
           }
           aria-autocomplete="list"
-          aria-label="Search courses, topics and deadlines"
+          aria-label={t("search.inputAria")}
           enterKeyHint="go"
           autoComplete="off"
-          placeholder="Search courses, topics, deadlines…"
+          placeholder={t("search.placeholder")}
           // 16px text avoids iOS focus-zoom; extra left pad clears the icon.
           className={`${inputClass} w-full py-3 pl-10 pr-4 text-base`}
         />
@@ -179,34 +181,32 @@ export default function GlobalSearch({
 
       {/* Screen-reader running count of matches. */}
       <p className="sr-only" role="status" aria-live="polite">
-        {hasQuery
-          ? `${results.length} ${results.length === 1 ? "result" : "results"}`
-          : ""}
+        {hasQuery ? t.n("search.resultsCount", results.length) : ""}
       </p>
 
       {!hasQuery ? (
         <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-          Type to search across your courses, topics and deadlines.
+          {t("search.hint")}
         </p>
       ) : results.length === 0 ? (
         <div className="mt-6">
           <EmptyState
             emoji="🔍"
-            title="No matches"
+            title={t("search.noMatchesTitle")}
             description={
               <>
-                Nothing matched <strong>“{query.trim()}”</strong>. Try a
-                shorter or different term.
+                {t("search.noMatchesPre")} <strong>“{query.trim()}”</strong>
+                {t("search.noMatchesPost")}
               </>
             }
           />
         </div>
       ) : (
-        <ul id={listId} role="listbox" aria-label="Search results" className="mt-4 space-y-4">
+        <ul id={listId} role="listbox" aria-label={t("search.resultsLabel")} className="mt-4 space-y-4">
           {grouped.map((group) => (
             <li key={group.type}>
               <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {TYPE_META[group.type].label}
+                {t(TYPE_META[group.type].labelKey)}
               </p>
               <ul className="space-y-1">
                 {group.items.map((item) => {

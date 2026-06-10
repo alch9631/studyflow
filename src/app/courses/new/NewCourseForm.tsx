@@ -6,57 +6,59 @@ import ValidatedForm from "@/components/ValidatedForm";
 import { Field } from "@/components/Field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/components/i18n/I18nProvider";
 
 const DAYS = [
-  { v: 1, label: "Mon" },
-  { v: 2, label: "Tue" },
-  { v: 3, label: "Wed" },
-  { v: 4, label: "Thu" },
-  { v: 5, label: "Fri" },
-  { v: 6, label: "Sat" },
-  { v: 0, label: "Sun" },
-];
+  { v: 1, key: "Mo" },
+  { v: 2, key: "Tu" },
+  { v: 3, key: "We" },
+  { v: 4, key: "Th" },
+  { v: 5, key: "Fr" },
+  { v: 6, key: "Sa" },
+  { v: 0, key: "Su" },
+] as const;
 
 /**
  * Accessible "new course" form: labelled fields, inline validation errors, and
  * focus-the-first-invalid on submit. Wraps the unchanged `createCourse` action.
  */
 export default function NewCourseForm() {
+  const t = useT();
   return (
     <ValidatedForm
       action={createCourse}
-      errorMessage="Couldn't create that course — check the fields and try again."
+      errorMessage={t("newCourse.formError")}
       className="space-y-4"
     >
-      <Field name="name" label="Course name" required>
+      <Field name="name" label={t("newCourse.name")} required>
         {(p) => (
           <Input
             {...p}
             required
             maxLength={100}
-            placeholder="e.g. Algorithms"
+            placeholder={t("newCourse.namePlaceholder")}
             className="mt-1 w-full"
           />
         )}
       </Field>
 
-      <Field name="examDate" label="Exam date" required>
+      <Field name="examDate" label={t("newCourse.examDate")} required>
         {(p) => <Input {...p} type="date" required className="mt-1 w-full" />}
       </Field>
 
-      <Field name="topics" label="Topics / chapters (one per line)">
+      <Field name="topics" label={t("newCourse.topics")}>
         {(p) => (
           <Textarea
             {...p}
             rows={4}
-            placeholder={"Sorting\nGraphs\nDynamic programming"}
+            placeholder={t("newCourse.topicsPlaceholder")}
             className="mt-1 w-full font-mono text-sm"
           />
         )}
       </Field>
 
       <fieldset>
-        <legend className="block text-sm font-medium">Study days</legend>
+        <legend className="block text-sm font-medium">{t("newCourse.studyDays")}</legend>
         <div className="mt-2 flex flex-wrap gap-3">
           {DAYS.map((d) => (
             <label key={d.v} className="flex items-center gap-1.5 text-sm">
@@ -66,19 +68,18 @@ export default function NewCourseForm() {
                 value={d.v}
                 defaultChecked={d.v >= 1 && d.v <= 5}
               />
-              {d.label}
+              {t(`charts.weekdaysShort.${d.key}`)}
             </label>
           ))}
         </div>
       </fieldset>
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        StudyFlow works out how much to study each day to finish before your
-        exam — you don&apos;t set the hours.
+        {t("newCourse.hint")}
       </p>
 
-      <SubmitButton variant="primary" size="lg" pendingLabel="Creating…">
-        Create &amp; build my plan
+      <SubmitButton variant="primary" size="lg" pendingLabel={t("newCourse.creating")}>
+        {t("newCourse.submit")}
       </SubmitButton>
     </ValidatedForm>
   );
