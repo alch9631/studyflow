@@ -32,6 +32,18 @@ model PushSubscription {
   endpoint  String   @unique
   p256dh    String
   auth      String
+  // The VAPID public key this subscription was registered against. A browser
+  // subscription is cryptographically bound to the application-server key it was
+  // created with, so once the deploy's keypair changes — or is added for the
+  // first time — a subscription made against a different key can no longer
+  // receive our pushes and must be re-synced (re-subscribed) by the client. We
+  // persist the key so the rollover is detectable:
+  //   ""    = created while push was UNCONFIGURED (no key to bind to) — stale the
+  //           moment keys are added; the client must re-subscribe.
+  //   null  = legacy/unknown (pre-dates this column) — trusted, never force-resynced.
+  //   <key> = the actual key it was bound to; stale only if it differs from the
+  //           currently-configured key (a key rotation).
+  vapidKey  String?
   createdAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
