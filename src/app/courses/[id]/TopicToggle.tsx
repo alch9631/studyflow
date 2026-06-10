@@ -27,6 +27,7 @@ export default function TopicToggle({
   return (
     <OptimisticToggleForm
       action={toggleTopic}
+      actionId="toggleTopic"
       done={doneProp}
       doneMessage={t("courseDetail.topicDone")}
       undoneMessage={t("courseDetail.topicReopened")}

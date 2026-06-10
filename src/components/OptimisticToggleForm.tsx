@@ -24,6 +24,7 @@ type ServerAction = (formData: FormData) => void | Promise<void>;
 
 export default function OptimisticToggleForm({
   action,
+  actionId,
   done,
   doneMessage,
   undoneMessage,
@@ -34,6 +35,8 @@ export default function OptimisticToggleForm({
   ...formProps
 }: Omit<ComponentProps<"form">, "action" | "children"> & {
   action: ServerAction;
+  /** Stable id for `action`, so an offline toggle can replay after a reload. */
+  actionId: string;
   /** Server truth for the toggled flag. The optimistic copy tracks this. */
   done: boolean;
   /** Green toast shown when the toggle lands on done (true). */
@@ -49,6 +52,7 @@ export default function OptimisticToggleForm({
 }) {
   const { optimisticDone, fire } = useOptimisticToggle({
     action,
+    actionId,
     done,
     doneMessage,
     undoneMessage,

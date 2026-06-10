@@ -1,10 +1,15 @@
 "use client";
 
-import { useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { useToast } from "./Toast";
 import { isNextControlFlow } from "./ToastForm";
 import { haptics } from "./haptics";
-import { queueToggle, toggleKey } from "./lib/actionQueue";
+import {
+  formDataToFields,
+  queueToggle,
+  registerReplayAction,
+  toggleKey,
+} from "./lib/actionQueue";
 
 /** Grace window (ms) during which the success toast offers an Undo. */
 export const UNDO_GRACE_MS = 5000;
@@ -22,6 +27,11 @@ type ServerAction = (formData: FormData) => void | Promise<void>;
 export type UseOptimisticToggleArgs = {
   /** The boolean toggle server action (mark a session/topic done). */
   action: ServerAction;
+  /**
+   * Stable id for `action`, used to rebuild a queued offline toggle's replay
+   * after a page reload (the closure itself can't be persisted).
+   */
+  actionId: string;
   /** Server truth for the toggled flag. The optimistic copy tracks this. */
   done: boolean;
   /** Green toast shown when the toggle lands on done (true). */
@@ -50,12 +60,18 @@ export type UseOptimisticToggleArgs = {
  */
 export function useOptimisticToggle({
   action,
+  actionId,
   done,
   doneMessage,
   undoneMessage,
   errorMessage = "Something went wrong — please try again.",
 }: UseOptimisticToggleArgs) {
   const { toast } = useToast();
+  // Register the live action so a toggle persisted+restored across a reload has
+  // something to replay against once this row mounts.
+  useEffect(() => {
+    registerReplayAction(actionId, action);
+  }, [actionId, action]);
   const [optimisticDone, setOptimisticDone] = useOptimistic(done);
   const [, startTransition] = useTransition();
   // While offline, the server `done` prop can't update, so `useOptimistic`
@@ -106,8 +122,10 @@ export function useOptimisticToggle({
           // Stash the flip and keep it visible; it replays on reconnect. A
           // second offline tap on the same row cancels it out (parity) — no
           // double-submit — so mirror that in the sticky override.
-          const stillQueued = queueToggle(toggleKey(formData), () =>
-            action(formData),
+          const stillQueued = queueToggle(
+            toggleKey(formData),
+            () => action(formData),
+            { actionId, fields: formDataToFields(formData) },
           );
           setOverride(stillQueued ? { value: next, base: done } : null);
           toast(OFFLINE_QUEUED_MESSAGE, "info");
