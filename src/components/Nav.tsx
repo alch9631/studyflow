@@ -16,6 +16,9 @@ const TABS: Tab[] = [
   { href: "/today", labelKey: "nav.today", icon: "🗓️" },
   { href: "/courses", labelKey: "nav.courses", icon: "📚" },
   { href: "/catalog", labelKey: "nav.modules", icon: "🎓" },
+  // The planner schedules around the timetable — keep it discoverable in the
+  // main nav, not buried behind Settings.
+  { href: "/timetable", labelKey: "nav.timetable", icon: "📅" },
   { href: "/insights", labelKey: "nav.insights", icon: "📊" },
   // Calendar export route (/api/calendar) is kept but hidden from nav for now.
 ];

@@ -21,7 +21,9 @@ export async function POST(req: Request) {
     // Validate the endpoint through the shared body-string validator (presence +
     // length bound) — a missing or oversized value becomes a clean 400.
     const endpoint = requireBodyString(body.endpoint, "Endpoint", LIMITS.MAX_FIELD_LENGTH);
-    await prisma.pushSubscription.deleteMany({ where: { endpoint } });
+    // userId-scoped: knowing another user's endpoint URL must not be enough to
+    // kill their notifications.
+    await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
     return Response.json({ ok: true });
   } catch (err) {
     return handleApiError(err);

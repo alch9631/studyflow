@@ -14,6 +14,7 @@ import {
 } from "@/lib/validate";
 import { LIMITS, guardCount } from "@/lib/limits";
 import { checkRateLimit } from "@/lib/rateLimitPolicy";
+import { ownsCourse } from "@/lib/ownership";
 
 /** Add a recurring weekly class slot. */
 export async function addLecture(formData: FormData) {
@@ -30,7 +31,12 @@ export async function addLecture(formData: FormData) {
   const startMin = parseTimeToMinutes(str(formData.get("start")));
   const endMin = parseTimeToMinutes(str(formData.get("end")));
   const location = optionalText(formData.get("location"), 200);
-  const courseId = optionalId(formData.get("courseId"));
+  // Ownership-scoped: never link a class slot to another user's course.
+  const requestedCourseId = optionalId(formData.get("courseId"));
+  const courseId =
+    requestedCourseId && (await ownsCourse(userId, requestedCourseId))
+      ? requestedCourseId
+      : null;
 
   if (startMin != null && endMin != null && endMin > startMin) {
     // Defensive cap: don't let a user create unbounded class slots.
@@ -61,7 +67,9 @@ export async function deleteLecture(formData: FormData) {
   } catch {
     return;
   }
-  await prisma.lecture.delete({ where: { id } });
+  // deleteMany + userId scope: only the owner's slot is removed, and a stale or
+  // foreign id is a silent no-op instead of a thrown P2025.
+  await prisma.lecture.deleteMany({ where: { id, userId } });
   revalidatePath("/timetable");
   revalidatePath("/today");
 }
