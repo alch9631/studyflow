@@ -2,66 +2,38 @@ import Link from "next/link";
 import { PROGRAMS } from "@/lib/programs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getT } from "@/components/i18n/server";
 
-// Feature grid — every claim maps to a shipped feature:
-//  • Builds itself  → plan generated backward from exam dates (planService)
-//  • Heals itself   → one-tap re-plan around what's still undone
-//  • Made to stick  → spaced reviews + self-test blocks (kind: "review")
-//  • See it working → Insights: streak, consistency %, GPA, credit points
-const FEATURES = [
-  {
-    icon: "🧭",
-    title: "Builds itself",
-    body: "Pick your modules — StudyFlow reads them and works backward from each exam to a realistic daily plan.",
-  },
-  {
-    icon: "🩹",
-    title: "Heals when you slip",
-    body: "Fell behind? One tap re-plans the days you have left around what's still undone. No guilt, no spreadsheets.",
-  },
-  {
-    icon: "🧠",
-    title: "Made to stick",
-    body: "Spaced reviews and self-test sessions are baked in — the proven ways to actually remember it on exam day.",
-  },
-  {
-    icon: "📊",
-    title: "See it working",
-    body: "Streaks, weekly consistency, GPA and credit points — Insights shows the momentum so you keep going.",
-  },
-] as const;
+export default async function Home() {
+  const t = await getT();
 
-// Tasteful, clearly-generic stats. No fabricated numbers presented as audited
-// metrics — framed as what the product is designed to deliver.
-const STATS = [
-  { value: "0", label: "spreadsheets to maintain" },
-  { value: "1 tap", label: "to re-plan a bad week" },
-  { value: "Daily", label: "plan, ready every morning" },
-] as const;
+  // Feature grid — every claim maps to a shipped feature:
+  //  • Builds itself  → plan generated backward from exam dates (planService)
+  //  • Heals itself   → one-tap re-plan around what's still undone
+  //  • Made to stick  → spaced reviews + self-test blocks (kind: "review")
+  //  • See it working → Insights: streak, consistency %, GPA, credit points
+  const FEATURES = [
+    { icon: "🧭", title: t("landing.feat1Title"), body: t("landing.feat1Body") },
+    { icon: "🩹", title: t("landing.feat2Title"), body: t("landing.feat2Body") },
+    { icon: "🧠", title: t("landing.feat3Title"), body: t("landing.feat3Body") },
+    { icon: "📊", title: t("landing.feat4Title"), body: t("landing.feat4Body") },
+  ] as const;
 
-// Placeholder social proof — generic personas, no fabricated real names.
-const TESTIMONIALS = [
-  {
-    quote:
-      "The morning plan is the only to-do list I actually open. It tells me what to study and I just do it.",
-    author: "Engineering student",
-    detail: "Exam-season tester",
-  },
-  {
-    quote:
-      "Missing a few days used to wreck my whole schedule. Now I re-plan in a tap and I'm back on track.",
-    author: "Second-year student",
-    detail: "Early access",
-  },
-  {
-    quote:
-      "Seeing the streak and consistency climb is weirdly motivating. It keeps me honest.",
-    author: "Returning learner",
-    detail: "Early access",
-  },
-] as const;
+  // Tasteful, clearly-generic stats. No fabricated numbers presented as audited
+  // metrics — framed as what the product is designed to deliver.
+  const STATS = [
+    { value: t("landing.stat1Value"), label: t("landing.stat1Label") },
+    { value: t("landing.stat2Value"), label: t("landing.stat2Label") },
+    { value: t("landing.stat3Value"), label: t("landing.stat3Label") },
+  ] as const;
 
-export default function Home() {
+  // Placeholder social proof — generic personas, no fabricated real names.
+  const TESTIMONIALS = [
+    { quote: t("landing.quote1"), author: t("landing.quote1Author"), detail: t("landing.quote1Detail") },
+    { quote: t("landing.quote2"), author: t("landing.quote2Author"), detail: t("landing.quote2Detail") },
+    { quote: t("landing.quote3"), author: t("landing.quote3Author"), detail: t("landing.quote3Detail") },
+  ] as const;
+
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-16 px-5 py-12 sm:py-16">
       {/* ── Hero ───────────────────────────────────────────────────────── */}
@@ -74,33 +46,31 @@ export default function Home() {
             TUHH
           </div>
           <span className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
-            Technische Universität Hamburg
+            {t("landing.uni")}
           </span>
         </div>
 
         <div className="flex flex-col items-center gap-4">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-            <span className="text-brand">⚡</span> Made for TUHH students
+            <span className="text-brand">⚡</span> {t("landing.badge")}
           </span>
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-            The study plan that{" "}
-            <span className="text-brand">builds itself</span>
-            <br className="hidden sm:block" /> — and heals itself when you fall
-            behind.
+            {t("landing.heroTitlePre")}
+            <span className="text-brand">{t("landing.heroTitleHighlight")}</span>
+            <br className="hidden sm:block" />
+            {t("landing.heroTitlePost")}
           </h1>
           <p className="mx-auto max-w-lg text-pretty text-base text-gray-500 dark:text-gray-400 sm:text-lg">
-            Pick your modules and StudyFlow lays out exactly what to study each
-            day, working backward from your exams. Slip a few days? Re-plan in a
-            single tap.
+            {t("landing.heroSubtitle")}
           </p>
         </div>
 
         <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="#programs">Build my plan</Link>
+            <Link href="#programs">{t("landing.buildPlan")}</Link>
           </Button>
           <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
-            <Link href="/courses">I already have a plan</Link>
+            <Link href="/courses">{t("landing.havePlan")}</Link>
           </Button>
         </div>
 
@@ -127,11 +97,10 @@ export default function Home() {
       <section className="flex flex-col gap-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Everything you need to stay on top of the semester
+            {t("landing.featuresTitle")}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-            One place for your plan, your timetable, your exams and your
-            progress.
+            {t("landing.featuresSubtitle")}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -156,35 +125,34 @@ export default function Home() {
       <section className="flex flex-col gap-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Built for the way exam season actually goes
+            {t("landing.proofTitle")}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-            Early testers used StudyFlow to turn a stack of modules into one
-            clear daily routine.
+            {t("landing.proofSubtitle")}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <Card asChild key={t.quote} className="flex flex-col gap-3 p-5">
+          {TESTIMONIALS.map((tm) => (
+            <Card asChild key={tm.quote} className="flex flex-col gap-3 p-5">
               <figure>
                 <div aria-hidden className="text-sm text-amber-400">
                   ★★★★★
                 </div>
               <blockquote className="text-pretty text-sm leading-relaxed text-gray-700 dark:text-gray-200">
-                “{t.quote}”
+                “{tm.quote}”
               </blockquote>
               <figcaption className="mt-auto text-xs text-gray-500 dark:text-gray-400">
                 <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {t.author}
+                  {tm.author}
                 </span>
-                <span className="block">{t.detail}</span>
+                <span className="block">{tm.detail}</span>
               </figcaption>
               </figure>
             </Card>
           ))}
         </div>
         <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
-          Quotes are illustrative early-tester feedback.
+          {t("landing.quotesDisclaimer")}
         </p>
       </section>
 
@@ -192,10 +160,10 @@ export default function Home() {
       <section id="programs" className="scroll-mt-20 text-left">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-bold tracking-tight">
-            Choose your Studiengang
+            {t("landing.chooseProgram")}
           </h2>
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {PROGRAMS.length} programs
+            {t("landing.programCount", { count: PROGRAMS.length })}
           </span>
         </div>
         <div className="max-h-[44vh] divide-y divide-gray-100 overflow-y-auto rounded-2xl border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
@@ -229,9 +197,9 @@ export default function Home() {
             📚
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold">My Courses</span>
+            <span className="block font-semibold">{t("landing.myCourses")}</span>
             <span className="block text-sm text-gray-500 dark:text-gray-400">
-              Jump back into your study plan
+              {t("landing.myCoursesDesc")}
             </span>
           </span>
           <span className="shrink-0 text-gray-500 transition-transform group-hover:translate-x-0.5 dark:text-gray-400">
@@ -240,25 +208,24 @@ export default function Home() {
         </Link>
 
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/courses/import">✨ Import a syllabus instead</Link>
+          <Link href="/courses/import">{t("landing.importInstead")}</Link>
         </Button>
       </section>
 
       {/* ── Closing CTA ────────────────────────────────────────────────── */}
       <section className="overflow-hidden rounded-3xl border border-gray-200 bg-gray-50 px-6 py-10 text-center dark:border-gray-800 dark:bg-gray-900">
         <h2 className="text-balance text-2xl font-bold tracking-tight sm:text-3xl">
-          Stop planning. Start studying.
+          {t("landing.ctaTitle")}
         </h2>
         <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-          Add your modules and get a plan you can actually follow tomorrow
-          morning.
+          {t("landing.ctaSubtitle")}
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="#programs">Build my plan</Link>
+            <Link href="#programs">{t("landing.buildPlan")}</Link>
           </Button>
           <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
-            <Link href="/today">See today’s plan</Link>
+            <Link href="/today">{t("landing.seeToday")}</Link>
           </Button>
         </div>
       </section>

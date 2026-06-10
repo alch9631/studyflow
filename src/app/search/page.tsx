@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import GlobalSearch, { type SearchItem } from "@/components/GlobalSearch";
+import { getT } from "@/components/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default async function SearchPage({
 }) {
   const { q } = await searchParams;
   const userId = await getCurrentUserId();
+  const t = await getT();
 
   // One userId-scoped read of everything searchable. Topics & deadlines come
   // nested under their course so each result can carry the course name (context)
@@ -44,7 +46,7 @@ export default async function SearchPage({
       type: "course",
       title: c.name,
       href: `/courses/${c.id}`,
-      meta: `exam ${iso(c.examDate)}`,
+      meta: t("search.metaExam", { date: iso(c.examDate) }),
     });
     for (const t of c.topics) {
       items.push({
@@ -62,16 +64,16 @@ export default async function SearchPage({
         title: a.title,
         href: `/courses/${c.id}#deadline-${a.id}`,
         courseName: c.name,
-        meta: `due ${iso(a.dueDate)}`,
+        meta: t("search.metaDue", { date: iso(a.dueDate) }),
       });
     }
   }
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight">Search</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight">{t("search.title")}</h1>
       <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
-        Across all your courses, topics and deadlines.
+        {t("search.subtitle")}
       </p>
       <GlobalSearch items={items} initialQuery={q ?? ""} />
     </main>

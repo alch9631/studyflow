@@ -6,17 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import SubmitButton from "@/components/SubmitButton";
 import { panelClass } from "@/components/ui";
+import { useT } from "@/components/i18n/I18nProvider";
 import { addLecture } from "./actions";
 
 const DAYS = [
-  { v: 1, label: "Monday" },
-  { v: 2, label: "Tuesday" },
-  { v: 3, label: "Wednesday" },
-  { v: 4, label: "Thursday" },
-  { v: 5, label: "Friday" },
-  { v: 6, label: "Saturday" },
-  { v: 0, label: "Sunday" },
-];
+  { v: 1, key: "Mo" },
+  { v: 2, key: "Tu" },
+  { v: 3, key: "We" },
+  { v: 4, key: "Th" },
+  { v: 5, key: "Fr" },
+  { v: 6, key: "Sa" },
+  { v: 0, key: "Su" },
+] as const;
 
 const INPUT = "mt-1";
 const LABEL = "block text-xs font-medium text-gray-500 dark:text-gray-400";
@@ -42,11 +43,13 @@ export default function AddLectureForm({
 }: {
   courses: { id: string; name: string }[];
 }) {
+  const t = useT();
+
   function validate(data: FormData): Record<string, string> | null {
     const start = toMinutes(String(data.get("start") ?? ""));
     const end = toMinutes(String(data.get("end") ?? ""));
     if (start != null && end != null && end <= start) {
-      return { end: "End time must be after the start time." };
+      return { end: t("timetable.endAfterStart") };
     }
     return null;
   }
@@ -54,15 +57,15 @@ export default function AddLectureForm({
   return (
     <ValidatedForm
       action={addLecture}
-      successMessage="Class added to your timetable."
-      errorMessage="Couldn't add that class — check the times and try again."
+      successMessage={t("timetable.addSuccess")}
+      errorMessage={t("timetable.addError")}
       validate={validate}
       className={`${panelClass} mb-6 space-y-3 p-4`}
     >
       <div className="flex flex-wrap gap-3">
         <Field
           name="title"
-          label="Title"
+          label={t("timetable.fTitle")}
           required
           className="min-w-0 flex-1 text-sm"
           labelClassName={LABEL}
@@ -72,17 +75,17 @@ export default function AddLectureForm({
               {...p}
               required
               maxLength={120}
-              placeholder="e.g. Analysis I — Vorlesung"
+              placeholder={t("timetable.fTitlePlaceholder")}
               className={`${INPUT} w-full`}
             />
           )}
         </Field>
-        <Field name="weekday" label="Day" className="text-sm" labelClassName={LABEL}>
+        <Field name="weekday" label={t("timetable.fDay")} className="text-sm" labelClassName={LABEL}>
           {(p) => (
             <Select {...p} defaultValue="1" className={INPUT}>
               {DAYS.map((d) => (
                 <option key={d.v} value={d.v}>
-                  {d.label}
+                  {t(`charts.weekdays.${d.key}`)}
                 </option>
               ))}
             </Select>
@@ -90,27 +93,27 @@ export default function AddLectureForm({
         </Field>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Field name="start" label="Start" required className="text-sm" labelClassName={LABEL}>
+        <Field name="start" label={t("timetable.fStart")} required className="text-sm" labelClassName={LABEL}>
           {(p) => <Input {...p} type="time" required defaultValue="10:00" className={INPUT} />}
         </Field>
-        <Field name="end" label="End" required className="text-sm" labelClassName={LABEL}>
+        <Field name="end" label={t("timetable.fEnd")} required className="text-sm" labelClassName={LABEL}>
           {(p) => <Input {...p} type="time" required defaultValue="12:00" className={INPUT} />}
         </Field>
         <Field
           name="location"
-          label="Room (optional)"
+          label={t("timetable.fRoom")}
           className="min-w-0 flex-1 text-sm"
           labelClassName={LABEL}
         >
           {(p) => (
-            <Input {...p} placeholder="e.g. Audimax I" className={`${INPUT} w-full`} />
+            <Input {...p} placeholder={t("timetable.fRoomPlaceholder")} className={`${INPUT} w-full`} />
           )}
         </Field>
       </div>
       {courses.length > 0 && (
         <Field
           name="courseId"
-          label="Link to course (optional)"
+          label={t("timetable.fLinkCourse")}
           className="block text-sm"
           labelClassName={LABEL}
         >
@@ -126,8 +129,8 @@ export default function AddLectureForm({
           )}
         </Field>
       )}
-      <SubmitButton variant="primary" size="lg" pendingLabel="Adding…">
-        Add class
+      <SubmitButton variant="primary" size="lg" pendingLabel={t("timetable.adding")}>
+        {t("timetable.addClass")}
       </SubmitButton>
     </ValidatedForm>
   );
