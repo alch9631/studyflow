@@ -589,6 +589,57 @@ const en = {
     extracting: "Extracting…",
     submit: "✨ Extract & build my plan",
   },
+  calendarSync: {
+    googleAriaLabel: "Subscribe in Google Calendar (opens in a new tab)",
+    copyLink: "Copy link",
+    copied: "Copied ✓",
+    resetLink: "Reset link",
+    resetting: "Resetting…",
+    resetSuccess: "Calendar link reset — the old link no longer updates.",
+    resetError: "Couldn't reset the calendar link — please try again.",
+    resetConfirmTitle: "Reset the calendar link?",
+    resetConfirmMessage: "Anyone using the old link will stop getting updates.",
+    resetConfirm: "Reset link",
+    syncHint:
+      "Subscribing keeps your calendar in sync — changes to your study plan show up automatically, no re-importing.",
+  },
+  pushReminders: {
+    checking: "Checking notification support…",
+    comingSoon:
+      "🔔 Study reminders are coming soon — push notifications need StudyFlow to be deployed (served over https) with notifications enabled. They'll switch on automatically then.",
+    onForDevice: "Reminders are on for this device.",
+    blocked:
+      "Notifications are blocked. Allow them for StudyFlow in your browser settings, then try again.",
+    notAllowed: "Notifications were not allowed.",
+    saveFailed: "Couldn't save the subscription.",
+    somethingWrong: "Something went wrong.",
+    turnedOff: "Reminders turned off.",
+    turnOffFailed: "Couldn't turn reminders off.",
+    testBody: "🔔 Test reminder — your study nudges are working.",
+    testSent: "Sent a test notification.",
+    testFailed: "Couldn't show a test notification.",
+    working: "Working…",
+    turnOff: "Turn off reminders",
+    enable: "🔔 Enable reminders",
+    sending: "Sending…",
+    sendTest: "Send test",
+  },
+  installPrompt: {
+    title: "Install StudyFlow",
+    androidBody:
+      "Add it to your home screen for full-screen study sessions and one-tap access — no browser, no app store.",
+    install: "Install",
+    notNow: "Not now",
+    iosTapPrefix: "Tap",
+    iosShareSuffix: "in Safari's toolbar, then",
+    iosAddToHome: "Add to Home Screen",
+    iosTail: "— StudyFlow opens full-screen, like a real app.",
+    gotIt: "Got it",
+    dismissAria: "Dismiss install prompt",
+  },
+  offlineSync: {
+    syncError: "Couldn't sync an offline change — please toggle it again.",
+  },
 };
 
 export type Messages = typeof en;
@@ -1143,6 +1194,57 @@ const de: Messages = {
     studyDays: "Lerntage",
     extracting: "Extrahieren…",
     submit: "✨ Extrahieren & Plan erstellen",
+  },
+  calendarSync: {
+    googleAriaLabel: "In Google Kalender abonnieren (öffnet in neuem Tab)",
+    copyLink: "Link kopieren",
+    copied: "Kopiert ✓",
+    resetLink: "Link zurücksetzen",
+    resetting: "Zurücksetzen…",
+    resetSuccess: "Kalender-Link zurückgesetzt — der alte Link aktualisiert sich nicht mehr.",
+    resetError: "Der Kalender-Link konnte nicht zurückgesetzt werden — bitte erneut versuchen.",
+    resetConfirmTitle: "Kalender-Link zurücksetzen?",
+    resetConfirmMessage: "Alle, die den alten Link nutzen, erhalten keine Aktualisierungen mehr.",
+    resetConfirm: "Link zurücksetzen",
+    syncHint:
+      "Das Abonnieren hält deinen Kalender synchron — Änderungen an deinem Lernplan erscheinen automatisch, ohne erneuten Import.",
+  },
+  pushReminders: {
+    checking: "Benachrichtigungs-Unterstützung wird geprüft…",
+    comingSoon:
+      "🔔 Lern-Erinnerungen kommen bald — Push-Benachrichtigungen erfordern, dass StudyFlow bereitgestellt ist (über https ausgeliefert) und Benachrichtigungen aktiviert sind. Sie schalten sich dann automatisch ein.",
+    onForDevice: "Erinnerungen sind für dieses Gerät aktiv.",
+    blocked:
+      "Benachrichtigungen sind blockiert. Erlaube sie für StudyFlow in deinen Browser-Einstellungen und versuch es erneut.",
+    notAllowed: "Benachrichtigungen wurden nicht erlaubt.",
+    saveFailed: "Das Abonnement konnte nicht gespeichert werden.",
+    somethingWrong: "Etwas ist schiefgelaufen.",
+    turnedOff: "Erinnerungen ausgeschaltet.",
+    turnOffFailed: "Erinnerungen konnten nicht ausgeschaltet werden.",
+    testBody: "🔔 Test-Erinnerung — deine Lern-Anstöße funktionieren.",
+    testSent: "Test-Benachrichtigung gesendet.",
+    testFailed: "Test-Benachrichtigung konnte nicht angezeigt werden.",
+    working: "Wird ausgeführt…",
+    turnOff: "Erinnerungen ausschalten",
+    enable: "🔔 Erinnerungen aktivieren",
+    sending: "Senden…",
+    sendTest: "Test senden",
+  },
+  installPrompt: {
+    title: "StudyFlow installieren",
+    androidBody:
+      "Füge sie zu deinem Startbildschirm hinzu — für Vollbild-Lerneinheiten und Zugriff mit einem Tipp, ohne Browser, ohne App-Store.",
+    install: "Installieren",
+    notNow: "Jetzt nicht",
+    iosTapPrefix: "Tippe auf",
+    iosShareSuffix: "in Safaris Symbolleiste, dann",
+    iosAddToHome: "Zum Home-Bildschirm",
+    iosTail: "— StudyFlow öffnet sich im Vollbild, wie eine echte App.",
+    gotIt: "Verstanden",
+    dismissAria: "Installationshinweis schließen",
+  },
+  offlineSync: {
+    syncError: "Eine Offline-Änderung konnte nicht synchronisiert werden — bitte erneut umschalten.",
   },
 };
 export const MESSAGES: Record<Locale, Messages> = { en, de };

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { useToast } from "./Toast";
+import { useT } from "./i18n/I18nProvider";
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -57,6 +58,7 @@ type Pending = null | "toggle" | "test";
  */
 export default function PushReminders() {
   const { toast } = useToast();
+  const t = useT();
   const [status, setStatus] = useState<Status>("checking");
   const [subscribed, setSubscribed] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
@@ -104,8 +106,8 @@ export default function PushReminders() {
       if (perm !== "granted") {
         throw new Error(
           perm === "denied"
-            ? "Notifications are blocked. Allow them for StudyFlow in your browser settings, then try again."
-            : "Notifications were not allowed.",
+            ? t("pushReminders.blocked")
+            : t("pushReminders.notAllowed"),
         );
       }
       const reg = await navigator.serviceWorker.ready;
@@ -118,11 +120,11 @@ export default function PushReminders() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(sub),
       });
-      if (!res.ok) throw new Error("Couldn't save the subscription.");
+      if (!res.ok) throw new Error(t("pushReminders.saveFailed"));
       setSubscribed(true);
-      toast("Reminders are on for this device.", "success");
+      toast(t("pushReminders.onForDevice"), "success");
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong.";
+      const message = e instanceof Error ? e.message : t("pushReminders.somethingWrong");
       setError(message);
       toast(message, "error");
     } finally {
@@ -145,9 +147,9 @@ export default function PushReminders() {
         await sub.unsubscribe();
       }
       setSubscribed(false);
-      toast("Reminders turned off.", "info");
+      toast(t("pushReminders.turnedOff"), "info");
     } catch {
-      const message = "Couldn't turn reminders off.";
+      const message = t("pushReminders.turnOffFailed");
       setError(message);
       toast(message, "error");
     } finally {
@@ -161,15 +163,15 @@ export default function PushReminders() {
     setError("");
     try {
       const reg = await navigator.serviceWorker.ready;
-      await reg.showNotification("StudyFlow", {
-        body: "🔔 Test reminder — your study nudges are working.",
+      await reg.showNotification(t("common.appName"), {
+        body: t("pushReminders.testBody"),
         icon: "/icon-192.png",
         badge: "/icon-192.png",
         data: { url: "/today" },
       });
-      toast("Sent a test notification.", "success");
+      toast(t("pushReminders.testSent"), "success");
     } catch {
-      const message = "Couldn't show a test notification.";
+      const message = t("pushReminders.testFailed");
       setError(message);
       toast(message, "error");
     } finally {
@@ -180,7 +182,7 @@ export default function PushReminders() {
   if (status === "checking") {
     return (
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400" role="status">
-        Checking notification support…
+        {t("pushReminders.checking")}
       </p>
     );
   }
@@ -188,9 +190,7 @@ export default function PushReminders() {
   if (status === "unsupported" || status === "unconfigured") {
     return (
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-        🔔 Study reminders are coming soon — push notifications need StudyFlow to be
-        deployed (served over https) with notifications enabled. They&apos;ll switch on
-        automatically then.
+        {t("pushReminders.comingSoon")}
       </p>
     );
   }
@@ -202,7 +202,7 @@ export default function PushReminders() {
       {subscribed && (
         <p className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
           <span aria-hidden>✓</span>
-          Reminders are on for this device.
+          {t("pushReminders.onForDevice")}
         </p>
       )}
 
@@ -214,10 +214,10 @@ export default function PushReminders() {
           variant={subscribed ? "secondary" : "primary"}
         >
           {pending === "toggle"
-            ? "Working…"
+            ? t("pushReminders.working")
             : subscribed
-              ? "Turn off reminders"
-              : "🔔 Enable reminders"}
+              ? t("pushReminders.turnOff")
+              : t("pushReminders.enable")}
         </Button>
 
         {subscribed && (
@@ -227,7 +227,7 @@ export default function PushReminders() {
             disabled={busy}
             variant="secondary"
           >
-            {pending === "test" ? "Sending…" : "Send test"}
+            {pending === "test" ? t("pushReminders.sending") : t("pushReminders.sendTest")}
           </Button>
         )}
       </div>
