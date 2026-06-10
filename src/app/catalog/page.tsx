@@ -114,7 +114,7 @@ export default async function CatalogPage({
             </span>
           </div>
 
-          <form action={addFromCatalog} className="space-y-3 pb-28">
+          <form action={addFromCatalog} className="space-y-3 pb-8">
             {[...bySection.entries()].map(([section, mods]) => (
               <details
                 key={section}
@@ -174,9 +174,8 @@ export default async function CatalogPage({
               </details>
             ))}
 
-            {/* Single sticky primary action, anchored to the bottom of the viewport.
-                Solid background so module cards scrolling behind it stay legible. */}
-            <div className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] z-10 mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+            {/* Primary action flows with the content at the end of the list. */}
+            <div className="mt-4">
               <SubmitButton
                 variant="primary"
                 size="lg"
