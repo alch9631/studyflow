@@ -75,6 +75,7 @@ function distribute(
   topics: Topic[],
   dates: string[],
   minutesPerDay: number,
+  completedByTopic: Record<string, number> = {},
 ): StudyBlock[] {
   if (dates.length === 0 || topics.length === 0) return [];
 
@@ -90,8 +91,15 @@ function distribute(
 
   for (const topic of topics) {
     // Fair share of total study time for this topic.
-    let remaining = Math.round((topic.effort / totalEffort) * totalMinutes);
-    if (remaining <= 0) remaining = Math.min(minutesPerDay, 15);
+    let target = Math.round((Math.max(topic.effort, 0) / totalEffort) * totalMinutes);
+    if (target <= 0) target = Math.min(minutesPerDay, 15);
+
+    // Subtract work already completed on this topic so we only schedule what's
+    // LEFT to do. Completed sessions themselves are preserved by the caller —
+    // here we just avoid re-scheduling minutes the student has already studied.
+    const done = Math.max(completedByTopic[topic.id] ?? 0, 0);
+    let remaining = Math.max(0, target - done);
+    if (remaining <= 0) continue;
 
     while (remaining > 0) {
       // Out of days: dump the remainder onto the last day rather than silently
@@ -144,20 +152,29 @@ export function generatePlan(course: Course, todayISO: string): StudyBlock[] {
 export function healPlan(
   course: Course,
   todayISO: string,
+  /**
+   * Minutes already studied per topic id (from completed study blocks). Heal
+   * subtracts this so it redistributes only the work that's LEFT — falling
+   * behind reshapes the remainder, it doesn't re-litigate what you've done.
+   */
+  completedByTopic: Record<string, number> = {},
 ): { blocks: StudyBlock[]; isOverloaded: boolean } {
   const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
 
-  // A topic is "done" if flagged done on the course. (Block-level completion
-  // can be folded in by the caller before invoking heal.)
+  // A topic is "done" if flagged done on the course; partial progress is folded
+  // in via completedByTopic (minutes already studied), subtracted below.
   const pending = course.topics.filter((t) => !t.done);
-  const blocks = distribute(pending, dates, course.minutesPerDay);
+  const blocks = distribute(pending, dates, course.minutesPerDay, completedByTopic);
 
   // Overload = can the days left even hold a minimum-viable amount per topic?
-  // Judged against the floor, NOT the spread plan (which always "fits" because
-  // it scales to available time).
-  const requiredMinutes =
-    pending.reduce((s, t) => s + Math.max(t.effort, 0), 0) *
-    MIN_MINUTES_PER_EFFORT;
+  // Judged against the floor for the work that REMAINS (minus minutes already
+  // studied), NOT the spread plan (which always "fits" because it scales to
+  // available time).
+  const requiredMinutes = pending.reduce((s, t) => {
+    const floor = Math.max(t.effort, 0) * MIN_MINUTES_PER_EFFORT;
+    const done = Math.max(completedByTopic[t.id] ?? 0, 0);
+    return s + Math.max(0, floor - done);
+  }, 0);
   const availableMinutes = dates.length * course.minutesPerDay;
   const isOverloaded = requiredMinutes > availableMinutes;
 

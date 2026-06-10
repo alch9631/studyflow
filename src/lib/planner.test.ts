@@ -58,5 +58,30 @@ check("overload flagged when too little time", isOverloaded === true);
 const healthy = healPlan(course, "2026-06-06");
 check("not overloaded with full runway", healthy.isOverloaded === false);
 
+// Completed minutes per topic are subtracted from what heal redistributes.
+const minutesFor = (blocks: { topicId: string; minutes: number }[], id: string) =>
+  blocks.filter((b) => b.topicId === id).reduce((s, b) => s + b.minutes, 0);
+const baseline = healPlan(course, "2026-06-06");
+const partial = healPlan(course, "2026-06-06", { t2: 200 });
+check(
+  "heal schedules less of a topic once minutes are studied",
+  minutesFor(partial.blocks, "t2") < minutesFor(baseline.blocks, "t2"),
+);
+
+// A topic whose share is fully covered gets no new blocks.
+const fullyDone = healPlan(course, "2026-06-06", { t2: 100_000 });
+check(
+  "fully-studied topic drops out of the redistribution",
+  !fullyDone.blocks.some((b) => b.topicId === "t2"),
+);
+
+// Crediting studied minutes against the floor can relieve overload.
+const stillTight = healPlan(course, "2026-06-19"); // 1 day, lots of work
+const relieved = healPlan(course, "2026-06-19", { t1: 45, t2: 90, t3: 45 });
+check(
+  "studied work relieves overload",
+  stillTight.isOverloaded === true && relieved.isOverloaded === false,
+);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
