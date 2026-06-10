@@ -308,7 +308,12 @@ const en = {
       "progress-error": "Couldn't reach the AI to read that. Check your API key, then try again.",
       optimized: "✨ AI re-optimized your plan — difficulty, order, and review sessions updated.",
       "optimize-failed":
-        "Couldn't optimize with AI (no key, or the call failed). Plan is unchanged.",
+        "Couldn't optimize with AI — the call failed. Your plan is unchanged.",
+      "ai-unconfigured":
+        "AI features are off — add an OpenAI or Anthropic API key to enable optimization and analysis.",
+      "ai-offline":
+        "Couldn't reach the AI service just now (network, or it's busy). Your plan is unchanged — try again in a moment.",
+      "heal-failed": "Couldn't rebuild the plan just now — please try again.",
       analyzed: "✨ Analyzed your file and rebuilt the topics + plan from its actual content.",
       "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
       "analyze-unsupported": "PPTX isn't supported yet — export the slides to PDF and upload that.",
@@ -708,7 +713,12 @@ const de: Messages = {
       "progress-error": "Die KI war nicht erreichbar. Prüf deinen API-Schlüssel und versuch es erneut.",
       optimized: "✨ KI hat deinen Plan neu optimiert — Schwierigkeit, Reihenfolge und Wiederholungen aktualisiert.",
       "optimize-failed":
-        "Optimierung mit KI fehlgeschlagen (kein Schlüssel oder Aufruf gescheitert). Plan unverändert.",
+        "Optimierung mit KI fehlgeschlagen — der Aufruf ist gescheitert. Plan unverändert.",
+      "ai-unconfigured":
+        "KI-Funktionen sind aus — füge einen OpenAI- oder Anthropic-API-Schlüssel hinzu, um Optimierung und Analyse zu aktivieren.",
+      "ai-offline":
+        "KI-Dienst gerade nicht erreichbar (Netzwerk oder ausgelastet). Dein Plan ist unverändert — versuch es gleich nochmal.",
+      "heal-failed": "Plan konnte gerade nicht neu erstellt werden — bitte versuch es erneut.",
       analyzed: "✨ Deine Datei analysiert und Themen + Plan aus ihrem tatsächlichen Inhalt neu erstellt.",
       "analyze-error": "Diese Datei konnte nicht analysiert werden (unlesbar oder KI-Fehler). Versuch eine andere Datei.",
       "analyze-unsupported": "PPTX wird noch nicht unterstützt — exportiere die Folien als PDF und lade das hoch.",

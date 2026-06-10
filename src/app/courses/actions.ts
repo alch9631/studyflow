@@ -32,6 +32,7 @@ import {
   parseGrade,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
+import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
   ownsCourse,
   findOwnedCourse,
@@ -91,10 +92,12 @@ export async function createCourse(formData: FormData) {
 
   await regeneratePlan(course.id);
   // Auto AI-optimize once (difficulty/order/review). Safe to fail — the
-  // deterministic plan already exists.
+  // deterministic plan already exists — but log so the failure isn't invisible.
   try {
     await aiOptimizeCourse(course.id);
-  } catch {}
+  } catch (e) {
+    logActionError("createCourse.aiOptimize", e);
+  }
   redirect(`/courses/${course.id}`);
 }
 
@@ -136,8 +139,10 @@ export async function addFromCatalog(formData: FormData) {
       try {
         const extracted = await extractSyllabus(`${t.name}\n\n${t.content}`);
         topics = extracted.topics;
-      } catch {
-        // fall through to placeholders
+      } catch (e) {
+        // Log, then fall through to placeholder units — a flaky AI call must not
+        // block the catalog add (the student still gets a usable course).
+        logActionError("addFromCatalog.extractSyllabus", e);
       }
     }
     if (topics.length === 0) {
@@ -238,9 +243,13 @@ export async function importSyllabus(formData: FormData) {
   });
 
   await regeneratePlan(course.id);
+  // Bonus optimization — log if it fails so the swallowed error is diagnosable;
+  // the deterministic plan is already saved, so we still land on the course.
   try {
     await aiOptimizeCourse(course.id);
-  } catch {}
+  } catch (e) {
+    logActionError("importSyllabus.aiOptimize", e);
+  }
   redirect(`/courses/${course.id}`);
 }
 
@@ -256,13 +265,21 @@ export async function reoptimizeCourse(formData: FormData) {
   if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
   // Don't let a non-owner trigger an (AI-spending) replan of someone else's course.
   if (!(await ownsCourse(userId, id))) redirect("/courses");
-  let ok = false;
-  try {
-    ok = await aiOptimizeCourse(id);
-  } catch {
-    ok = false;
+
+  // Distinguish "AI isn't set up" from "the AI call failed" so the banner is
+  // honest. redirect() must stay OUTSIDE the try (it throws NEXT_REDIRECT).
+  let outcome: string;
+  if (!isSyllabusAIEnabled()) {
+    outcome = "ai-unconfigured";
+  } else {
+    try {
+      outcome = (await aiOptimizeCourse(id)) ? "optimized" : "optimize-failed";
+    } catch (e) {
+      logActionError("reoptimizeCourse", e);
+      outcome = aiFailureBanner(e, "optimize-failed");
+    }
   }
-  redirect(`/courses/${id}?msg=${ok ? "optimized" : "optimize-failed"}`);
+  redirect(`/courses/${id}?msg=${outcome}`);
 }
 
 /**
@@ -326,8 +343,14 @@ export async function analyzeModuleUpload(formData: FormData) {
       result = "analyzed";
     }
   } catch (e) {
-    result =
-      e instanceof Error && e.message.includes("PPTX") ? "analyze-unsupported" : "analyze-error";
+    logActionError("analyzeModuleUpload", e);
+    if (e instanceof Error && e.message.includes("PPTX")) {
+      result = "analyze-unsupported";
+    } else {
+      // Tell apart "AI isn't set up" / "AI was unreachable" from a real failure
+      // (e.g. an unreadable file) so the banner reason is accurate.
+      result = aiFailureBanner(e, "analyze-error");
+    }
   }
   redirect(`/courses/${courseId}?msg=${result}&n=${n}`);
 }
@@ -464,8 +487,18 @@ export async function healCourse(formData: FormData) {
   }
   if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   if (!(await ownsCourse(userId, id))) redirect("/courses");
-  const { isOverloaded } = await healCoursePlan(id);
-  redirect(`/courses/${id}?msg=${isOverloaded ? "healed-over" : "healed"}`);
+
+  // Rebuilding can fail (DB hiccup); surface it instead of a raw 500. redirect()
+  // stays OUTSIDE the try since it throws NEXT_REDIRECT.
+  let outcome: string;
+  try {
+    const { isOverloaded } = await healCoursePlan(id);
+    outcome = isOverloaded ? "healed-over" : "healed";
+  } catch (e) {
+    logActionError("healCourse", e);
+    outcome = "heal-failed";
+  }
+  redirect(`/courses/${id}?msg=${outcome}`);
 }
 
 /** Log a finished focus session (Pomodoro) against a block — feeds adaptive pacing. */

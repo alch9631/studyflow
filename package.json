@@ -29,6 +29,7 @@
     "test:api-routes": "tsx src/lib/apiRoutes.test.ts",
     "test:route-errors": "tsx src/lib/routeErrors.test.ts",
     "test:apierror": "tsx src/lib/apiError.test.ts",
+    "test:action-errors": "tsx src/lib/actionErrors.test.ts",
     "test:export": "tsx src/lib/export.test.ts",
     "test:today-fetch": "tsx src/lib/todayFetch.test.ts",
     "test:pagination": "tsx src/lib/pagination.test.ts",
