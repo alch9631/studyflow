@@ -7,8 +7,8 @@ import { daysUntil } from "@/lib/dates";
 import { getStatsCached } from "@/lib/statsCache";
 import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, dueLabel } from "@/components/i18n/messages";
-import PomodoroTimer from "@/components/PomodoroTimer";
 import EmptyState from "@/components/EmptyState";
+import InfoToast from "@/components/InfoToast";
 import Onboarding from "@/components/Onboarding";
 import { StreakBadge } from "@/components/StreakBadge";
 import PullToRefresh from "@/components/PullToRefresh";
@@ -179,9 +179,9 @@ export default async function TodayPage({
         localStorage "seen" flag, so it shows at most once and never for users
         who already have courses. */}
     <Onboarding active={hasNoPlan} />
-    <main className="mx-auto max-w-2xl p-6 sm:p-8">
+    <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">{t("today.title")}</h1>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
         <StreakBadge streak={stats.currentStreak} t={t} />
       </div>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -195,8 +195,7 @@ export default async function TodayPage({
           href={`/courses/${nextExam.id}`}
           className="mb-6 mt-1 inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
         >
-          ⏳ {t("today.nextExam")} <span className="font-medium text-gray-700 dark:text-gray-200">{nextExam.name}</span>{" "}
-          — {examCountdownLabel(t, nextExamDays!)}
+          ⏳ {examCountdownLabel(t, nextExamDays!)}
         </Link>
       )}
       {nextExam && examWeek && (
@@ -276,8 +275,6 @@ export default async function TodayPage({
         </section>
       )}
 
-      <PomodoroTimer blocks={blocks} />
-
       {upcomingDeadlines.length > 0 && (
         <section className="mb-4">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -312,34 +309,30 @@ export default async function TodayPage({
         </section>
       )}
 
-      {blocks.length > 0 && remainingMin > 0 && (
+      {/* On track → a quick auto-dismissing toast (no persistent box). */}
+      {blocks.length > 0 && remainingMin > 0 && achievable && (
+        <InfoToast
+          message={`${t("today.goalAchievable")} — ${t("today.leftStudying", { remaining: fmtDuration(remainingMin) })} · ${t("today.focusTimeTail", { available: fmtDuration(availableMin) })}`}
+        />
+      )}
+      {/* Over capacity → keep the actionable box (it carries the one-tap replan). */}
+      {blocks.length > 0 && remainingMin > 0 && !achievable && (
         <div
           aria-live="polite"
-          className={`mb-4 rounded-xl border p-4 text-sm ${
-            achievable
-              ? "border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
-              : "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-          }`}
+          className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
         >
-          <p className="font-semibold">
-            {achievable ? t("today.goalAchievable") : t("today.goalAtRisk")}
-          </p>
+          <p className="font-semibold">{t("today.goalAtRisk")}</p>
           <p className="mt-1">
             {t("today.leftStudying", { remaining: fmtDuration(remainingMin) })} ·{" "}
             {t("today.focusTimeTail", { available: fmtDuration(availableMin) })}
           </p>
-          {!achievable && (
-            <>
-              <p className="mt-2">{t("today.overBy", { over: fmtDuration(overBy) })}</p>
-              {/* One-tap fix: respread the remaining work across the days left
-                  (same global rebuild the recovery banner uses). */}
-              <form action={recoverPlan} className="mt-3">
-                <SubmitButton variant="primary" pendingLabel={t("today.recoveryPending")}>
-                  {t("today.replanCta")}
-                </SubmitButton>
-              </form>
-            </>
-          )}
+          <p className="mt-2">{t("today.overBy", { over: fmtDuration(overBy) })}</p>
+          {/* One-tap fix: respread the remaining work across the days left. */}
+          <form action={recoverPlan} className="mt-3">
+            <SubmitButton variant="primary" pendingLabel={t("today.recoveryPending")}>
+              {t("today.replanCta")}
+            </SubmitButton>
+          </form>
         </div>
       )}
 

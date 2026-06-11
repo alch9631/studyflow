@@ -5,7 +5,6 @@ import SwipeRow from "@/components/SwipeRow";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import { useT } from "@/components/i18n/I18nProvider";
 import { toggleBlock } from "../courses/actions";
-import FocusLogButton from "./FocusLogButton";
 import BlockDifficultyRating from "./BlockDifficultyRating";
 
 export type TodayBlock = {
@@ -106,10 +105,6 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
           </span>
         </span>
       </form>
-      <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        {b.actualMinutes ? `${b.actualMinutes}/${b.minutes}` : b.minutes} {t("common.min")}
-      </span>
-      <FocusLogButton blockId={b.id} />
     </SwipeRow>
       {/* Optional difficulty rating — only once the (study) block is done. It's a
           separate control, so it never blocks/delays the done-toggle above. */}
