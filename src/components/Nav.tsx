@@ -148,10 +148,7 @@ export default function Nav() {
           className="mx-auto flex max-w-3xl items-center gap-1 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm"
         >
           <Link href="/" className="mr-auto flex items-center gap-2 font-bold tracking-tight">
-            <span
-              className="rounded px-1.5 py-0.5 text-xs font-extrabold text-white"
-              style={{ backgroundColor: "#00509b" }}
-            >
+            <span className="rounded bg-brand px-1.5 py-0.5 text-xs font-extrabold text-white">
               TUHH
             </span>
             {t("common.appName")}

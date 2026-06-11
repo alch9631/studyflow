@@ -43,7 +43,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#00509b", // TUHH blue — colours the mobile browser chrome
+  // Colours the mobile browser / PWA chrome. Theme-aware: TUHH turquoise on the
+  // light theme (the primary brand identity), the deep TUHH blue on dark.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#00808f" },
+    { media: "(prefers-color-scheme: dark)", color: "#00509b" },
+  ],
   // Draw under the iPhone notch / home indicator so our own env(safe-area-*)
   // padding (see below + the nav/tab-bar/toast) controls the clearance.
   viewportFit: "cover",

@@ -30,7 +30,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
             onClick={reset}
             style={{
               marginTop: "1.25rem",
-              background: "#00509b",
+              background: "#00808f",
               color: "#fff",
               border: "none",
               borderRadius: "9999px",
