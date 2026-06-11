@@ -20,6 +20,7 @@ import {
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
+import TopicConfidence from "./TopicConfidence";
 import NoteEditor from "./NoteEditor";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -109,6 +110,7 @@ export default async function CoursePage({
           title: true,
           done: true,
           questions: true,
+          confidence: true,
           note: { select: { body: true } },
         },
       },
@@ -463,6 +465,16 @@ export default async function CoursePage({
                   courseId={course.id}
                   title={topic.title}
                   done={topic.done}
+                />
+                <TopicConfidence
+                  topicId={topic.id}
+                  initial={
+                    topic.confidence === "solid" ||
+                    topic.confidence === "practice" ||
+                    topic.confidence === "struggling"
+                      ? topic.confidence
+                      : null
+                  }
                 />
                 <NoteEditor
                   topicId={topic.id}

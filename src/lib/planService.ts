@@ -91,6 +91,28 @@ export function difficultyByTopic(
   return out;
 }
 
+/** Student confidence → review difficulty. Struggling earns more/earlier reviews
+ *  (treated like a "hard" topic); solid fewer/later ("easy"); unrated stays
+ *  baseline (absent from the map). */
+const CONFIDENCE_TO_DIFFICULTY: Record<string, Difficulty> = {
+  struggling: "hard",
+  practice: "medium",
+  solid: "easy",
+};
+
+/** Build the per-topic review-difficulty map from each topic's self-rated
+ *  confidence (replaces the per-session difficulty signal). */
+export function reviewDifficultyByTopic(
+  topics: { id: string; confidence: string | null }[],
+): Record<string, Difficulty> {
+  const out: Record<string, Difficulty> = {};
+  for (const tp of topics) {
+    const d = tp.confidence ? CONFIDENCE_TO_DIFFICULTY[tp.confidence] : undefined;
+    if (d) out[tp.id] = d;
+  }
+  return out;
+}
+
 /** Map a persisted course into the shape the pure engine expects. */
 export function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
   // The DB columns are typed non-null, but we defend against drift (legacy rows,
@@ -195,7 +217,7 @@ export async function rebuildSchedule(
       minutesPerDay: true,
       topics: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, effort: true, done: true },
+        select: { id: true, title: true, effort: true, done: true, confidence: true },
       },
       blocks: {
         select: {
@@ -313,10 +335,10 @@ export async function rebuildSchedule(
       c.examDate.toISOString().slice(0, 10),
       c.studyDays.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n)),
     );
-    // Difficulty signal from the student's completed-session ratings: hard
-    // topics earn more/earlier reviews, easy fewer. Unrated topics aren't in the
-    // map, so they keep the unchanged baseline spacing (no regression).
-    const reviews = buildReviewBlocks(study, dates, difficultyByTopic(c.blocks));
+    // Confidence signal from the student's per-topic self-rating: struggling
+    // topics earn more/earlier reviews, solid fewer. Unrated topics aren't in
+    // the map, so they keep the unchanged baseline spacing (no regression).
+    const reviews = buildReviewBlocks(study, dates, reviewDifficultyByTopic(c.topics));
     await persistBlocks(c.id, [...study, ...reviews]);
 
     const daysUsed = new Set(study.map((b) => b.date)).size || 1;

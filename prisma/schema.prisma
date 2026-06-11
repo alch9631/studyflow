@@ -139,6 +139,10 @@ model Topic {
   done      Boolean @default(false)
   order     Int     @default(0)
   questions String? // JSON array of AI self-test questions (active recall)
+  // Student self-rated confidence: "solid" | "practice" | "struggling" (null =
+  // unrated). Drives spaced-review spacing — struggling earns more/earlier
+  // reviews, solid fewer/later. Set once per topic (not per study session).
+  confidence String?
 
   course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String

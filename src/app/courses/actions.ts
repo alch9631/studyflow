@@ -561,6 +561,7 @@ export async function toggleBlock(formData: FormData) {
 }
 
 const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
+const CONFIDENCE = new Set(["solid", "practice", "struggling"]);
 
 /**
  * Rate how hard a finished session felt (easy | medium | hard, or "" to clear).
@@ -591,6 +592,33 @@ export async function rateBlock(formData: FormData) {
     await prisma.studyBlock.update({ where: { id }, data: { difficulty } });
   }
   revalidatePath(path);
+}
+
+/**
+ * Save a topic's self-rated confidence (solid | practice | struggling, or "" to
+ * clear) and re-adapt the plan immediately: struggling earns more/earlier spaced
+ * reviews, solid fewer/later. Set once per topic (from the course-detail list),
+ * not per study session. Ownership-scoped — the owning courseId is derived from
+ * the row, never trusted from the form; junk values are a silent no-op.
+ */
+export async function setTopicConfidence(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let id: string;
+  try {
+    id = requireId(formData.get("topicId"), "Topic");
+  } catch {
+    return;
+  }
+  const raw = str(formData.get("confidence"));
+  const confidence = raw === "" ? null : CONFIDENCE.has(raw) ? raw : undefined;
+  if (confidence === undefined) return; // junk → ignore, never persist garbage
+  const topic = await findOwnedTopic(userId, id);
+  if (topic) {
+    await prisma.topic.update({ where: { id }, data: { confidence } });
+    await regeneratePlan(topic.courseId);
+    revalidatePath(`/courses/${topic.courseId}`);
+  }
 }
 
 /** Add a dated deliverable (homework, lab report, project) to a course. */

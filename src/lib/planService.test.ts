@@ -3,7 +3,7 @@
  * Run with: npx tsx src/lib/planService.test.ts
  * (Dependency-free, same style as planner.test.ts.)
  */
-import { toEngineCourse, foldCompletedSessions, blockKey, difficultyByTopic } from "./planService";
+import { toEngineCourse, foldCompletedSessions, blockKey, difficultyByTopic, reviewDifficultyByTopic } from "./planService";
 
 let passed = 0;
 let failed = 0;
@@ -401,6 +401,25 @@ try {
 }
 check("difficultyByTopic([]) does not throw", diffEmptyOk);
 check("difficultyByTopic([]) is empty", Object.keys(diffEmpty).length === 0);
+
+// ---- reviewDifficultyByTopic (per-topic confidence → review difficulty) ----
+
+const conf1 = reviewDifficultyByTopic([
+  { id: "t1", confidence: "struggling" },
+  { id: "t2", confidence: "practice" },
+  { id: "t3", confidence: "solid" },
+]);
+check("confidence struggling → hard (more reviews)", conf1.t1 === "hard");
+check("confidence practice → medium", conf1.t2 === "medium");
+check("confidence solid → easy (fewer reviews)", conf1.t3 === "easy");
+
+const conf2 = reviewDifficultyByTopic([
+  { id: "t1", confidence: null },
+  { id: "t2", confidence: "bogus" },
+]);
+check("unrated topic omitted (baseline spacing)", conf2.t1 === undefined);
+check("junk confidence omitted", conf2.t2 === undefined);
+check("reviewDifficultyByTopic([]) is empty", Object.keys(reviewDifficultyByTopic([])).length === 0);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
