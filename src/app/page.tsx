@@ -39,10 +39,7 @@ export default async function Home() {
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="flex flex-col items-center gap-6 text-center">
         <div className="flex flex-col items-center gap-1.5">
-          <div
-            className="rounded-md px-4 py-2 text-2xl font-extrabold tracking-tight text-white shadow-sm"
-            style={{ backgroundColor: "#00509b" }}
-          >
+          <div className="rounded-md bg-brand px-4 py-2 text-2xl font-extrabold tracking-tight text-white shadow-sm">
             TUHH
           </div>
           <span className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
@@ -51,7 +48,8 @@ export default async function Home() {
         </div>
 
         <div className="flex flex-col items-center gap-4">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+          {/* Badge is decorative clutter on a phone — desktop only. */}
+          <span className="hidden items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 sm:inline-flex dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
             <span className="text-brand">⚡</span> {t("landing.badge")}
           </span>
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
@@ -59,7 +57,9 @@ export default async function Home() {
             <span className="text-brand">{t("landing.heroTitleHighlight")}</span>
             {t("landing.heroTitlePost")}
           </h1>
-          <p className="mx-auto max-w-lg text-pretty text-base text-gray-500 dark:text-gray-400 sm:text-lg">
+          {/* Subhead reinforces the hero on desktop; hidden on mobile to keep
+              the phone view to one scannable line + CTA. */}
+          <p className="mx-auto hidden max-w-lg text-pretty text-base text-gray-500 sm:block sm:text-lg dark:text-gray-400">
             {t("landing.heroSubtitle")}
           </p>
         </div>
@@ -98,7 +98,9 @@ export default async function Home() {
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {t("landing.featuresTitle")}
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
+          {/* Section subhead is desktop-only — on mobile the cards speak for
+              themselves. */}
+          <p className="mx-auto mt-2 hidden max-w-md text-pretty text-sm text-gray-500 sm:block sm:text-base dark:text-gray-400">
             {t("landing.featuresSubtitle")}
           </p>
         </div>
@@ -112,7 +114,9 @@ export default async function Home() {
                 {f.icon}
               </div>
               <h3 className="mt-3 font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+              {/* Card body is title-only on mobile to keep the page short and
+                  scannable; the supporting line returns on desktop. */}
+              <p className="mt-1 hidden text-sm leading-relaxed text-gray-500 sm:block dark:text-gray-400">
                 {f.body}
               </p>
             </Card>
@@ -121,7 +125,10 @@ export default async function Home() {
       </section>
 
       {/* ── Social proof ───────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-6">
+      {/* Testimonials are a desktop-only trust signal; on a phone they're a long
+          scroll between the user and the program picker, so the whole section is
+          hidden below the sm breakpoint. */}
+      <section className="hidden flex-col gap-6 sm:flex">
         <div className="text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {t("landing.proofTitle")}

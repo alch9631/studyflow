@@ -8,7 +8,7 @@ export default function NotFound() {
     <main className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center gap-4 p-8 text-center">
       <div
         className="rounded-md px-3 py-1.5 text-lg font-extrabold tracking-tight text-white"
-        style={{ backgroundColor: "#00509b" }}
+        style={{ backgroundColor: "#00808f" }}
       >
         TUHH
       </div>
