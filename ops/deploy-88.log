@@ -1,0 +1,30 @@
+[2026-06-11 10:36:07] === deploy #88 start (HEAD dbf6615) ===
+[2026-06-11 10:36:10] building commit 04c4a04 : feat: difficulty rating, Prisma migrations, landing + UI trim (#88)
+  npm audit fix --force
+
+Run `npm audit` for details.
+[2026-06-11 10:37:20] applying DB schema (additive: difficulty column) via prisma db push
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+
+├ ƒ /settings
+├ ƒ /timetable
+└ ƒ /today
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[2026-06-11 10:38:44] build OK
+[2026-06-11 10:38:44] service restarted
+[2026-06-11 10:38:48] verify / -> 200
+[2026-06-11 10:38:48] verify /today -> 200
+[2026-06-11 10:38:48] verify /courses -> 200
+[2026-06-11 10:38:48] live commit: 04c4a04 feat: difficulty rating, Prisma migrations, landing + UI trim (#88)
+[2026-06-11 10:38:48] difficulty column present: ?
+[2026-06-11 10:38:48] === deploy #88 done ===

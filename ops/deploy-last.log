@@ -1,0 +1,19 @@
+[2026-06-10 13:25:11] === deploy start (HEAD 66dca30) ===
+[2026-06-10 13:25:14] building commit 181d8cb
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+├ ƒ /offline
+├ ƒ /search
+├ ƒ /settings
+├ ƒ /timetable
+└ ƒ /today
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[2026-06-10 13:27:35] build OK
+[2026-06-10 13:27:35] service restarted
+[2026-06-10 13:27:40] verify /courses -> HTTP 200 — DEPLOY OK

@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
 import CourseOptionsSheet from "./CourseOptionsSheet";
+import PageToast from "./PageToast";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
@@ -147,78 +148,13 @@ export default async function CoursePage({
 
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
+      <div className="mb-2 flex items-center justify-between gap-2">
       <Link
         href="/courses"
         className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
       >
         <span aria-hidden="true">←</span> {t("courseDetail.back")}
       </Link>
-
-      {banner && (
-        <div
-          aria-live="polite"
-          className={`mt-3 rounded-lg border p-3 text-sm ${
-            ["progress-none", "progress-error", "optimize-failed", "ai-unconfigured", "ai-offline", "heal-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "rate-limited"].includes(msg ?? "")
-              ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-              : "border-green-300 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
-          }`}
-        >
-          {banner}
-        </div>
-      )}
-
-      <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{course.name}</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                examInDays < 0
-                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                  : examInDays <= 7
-                    ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
-                    : examInDays <= 21
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-                      : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
-              }`}
-            >
-              ⏳ {examCountdownLabel(t, examInDays)}
-            </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {t("courseDetail.examOn", {
-                date: course.examDate.toISOString().slice(0, 10),
-                minutes: course.minutesPerDay,
-                done: doneCount,
-                total: course.topics.length,
-              })}
-            </span>
-          </div>
-        </div>
-        <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
-          {isSyllabusAIEnabled() && (
-            <form action={reoptimizeCourse} className="min-w-0 flex-1 sm:flex-none">
-              <input type="hidden" name="courseId" value={course.id} />
-              <SubmitButton
-                variant="primary"
-                size="md"
-                className="w-full sm:w-auto"
-                pendingLabel={t("courseDetail.optimizing")}
-              >
-                {t("courseDetail.optimizeWithAI")}
-              </SubmitButton>
-            </form>
-          )}
-          <form action={healCourse} className="min-w-0 flex-1 sm:flex-none">
-            <input type="hidden" name="courseId" value={course.id} />
-            <SubmitButton
-              variant="secondary"
-              size="md"
-              className="w-full sm:w-auto"
-              pendingLabel={t("courseDetail.replanning")}
-            >
-              {t("courseDetail.fellBehind")}
-            </SubmitButton>
-          </form>
           <CourseOptionsSheet>
             <form action={updateCourse} className="space-y-4">
               <input type="hidden" name="courseId" value={course.id} />
@@ -394,6 +330,71 @@ export default async function CoursePage({
               errorMessage={t("courseDetail.deleteError")}
             />
           </CourseOptionsSheet>
+      </div>
+
+      {banner && (
+        <PageToast
+          message={banner}
+          variant={
+            ["progress-none", "progress-error", "optimize-failed", "ai-unconfigured", "ai-offline", "heal-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "rate-limited"].includes(msg ?? "")
+              ? "error"
+              : "success"
+          }
+        />
+      )}
+
+      <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">{course.name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                examInDays < 0
+                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                  : examInDays <= 7
+                    ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                    : examInDays <= 21
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                      : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
+              }`}
+            >
+              ⏳ {examCountdownLabel(t, examInDays)}
+            </span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {t("courseDetail.examOn", {
+                date: course.examDate.toISOString().slice(0, 10),
+                minutes: course.minutesPerDay,
+                done: doneCount,
+                total: course.topics.length,
+              })}
+            </span>
+          </div>
+        </div>
+        <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
+          {isSyllabusAIEnabled() && (
+            <form action={reoptimizeCourse} className="min-w-0 flex-1 sm:flex-none">
+              <input type="hidden" name="courseId" value={course.id} />
+              <SubmitButton
+                variant="primary"
+                size="md"
+                className="w-full sm:w-auto"
+                pendingLabel={t("courseDetail.optimizing")}
+              >
+                {t("courseDetail.optimizeWithAI")}
+              </SubmitButton>
+            </form>
+          )}
+          <form action={healCourse} className="min-w-0 flex-1 sm:flex-none">
+            <input type="hidden" name="courseId" value={course.id} />
+            <SubmitButton
+              variant="secondary"
+              size="md"
+              className="w-full sm:w-auto"
+              pendingLabel={t("courseDetail.replanning")}
+            >
+              {t("courseDetail.fellBehind")}
+            </SubmitButton>
+          </form>
         </div>
       </div>
 
