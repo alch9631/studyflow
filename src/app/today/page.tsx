@@ -184,12 +184,6 @@ export default async function TodayPage({
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
         <StreakBadge streak={stats.currentStreak} t={t} />
       </div>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        {today}
-        {blocks.length > 0
-          ? ` · ${t("today.minDone", { done: doneMin, total: totalMin })} · ${t.n("today.courseCount", courseCount)}`
-          : ""}
-      </p>
       {nextExam && !examWeek && (
         <Link
           href={`/courses/${nextExam.id}`}
