@@ -31,6 +31,7 @@ type Row = {
   completed: boolean;
   kind: string;
   actualMinutes: number | null;
+  difficulty: string | null;
   course: { name: string; id: string };
 };
 
@@ -68,6 +69,7 @@ export default async function TodayPage({
         completed: true,
         kind: true,
         actualMinutes: true,
+        difficulty: true,
         course: { select: { name: true, id: true } },
       },
       orderBy: [{ kind: "asc" }, { minutes: "desc" }],
@@ -129,6 +131,7 @@ export default async function TodayPage({
           completed: true,
           kind: true,
           actualMinutes: true,
+          difficulty: true,
           course: { select: { name: true, id: true } },
         },
         orderBy: [{ kind: "asc" }, { minutes: "desc" }],

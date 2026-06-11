@@ -6,6 +6,7 @@ import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import { useT } from "@/components/i18n/I18nProvider";
 import { toggleBlock } from "../courses/actions";
 import FocusLogButton from "./FocusLogButton";
+import BlockDifficultyRating from "./BlockDifficultyRating";
 
 export type TodayBlock = {
   id: string;
@@ -14,8 +15,11 @@ export type TodayBlock = {
   completed: boolean;
   kind: string;
   actualMinutes: number | null;
+  difficulty: string | null;
   course: { name: string; id: string };
 };
+
+const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 
 /**
  * A single Today study-block row, with both affordances wired to the same
@@ -43,8 +47,12 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
   });
   const formRef = useRef<HTMLFormElement>(null);
   const formData = () => new FormData(formRef.current ?? undefined);
+  const initialDifficulty = DIFFICULTIES.has(b.difficulty ?? "")
+    ? (b.difficulty as "easy" | "medium" | "hard")
+    : null;
 
   return (
+    <div className="flex flex-col gap-1">
     <SwipeRow
       className="rounded-xl"
       contentClassName="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3"
@@ -103,5 +111,11 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
       </span>
       <FocusLogButton blockId={b.id} />
     </SwipeRow>
+      {/* Optional difficulty rating — only once the (study) block is done. It's a
+          separate control, so it never blocks/delays the done-toggle above. */}
+      {optimisticDone && !isReview && (
+        <BlockDifficultyRating blockId={b.id} initial={initialDifficulty} />
+      )}
+    </div>
   );
 }

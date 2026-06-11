@@ -248,17 +248,47 @@ export function addDaysISO(iso: string, n: number): string {
 /** Minutes for a spaced-repetition review session. */
 export const REVIEW_MINUTES = 25;
 
+/** How hard the student found a topic — drives how much review it earns. */
+export type Difficulty = "easy" | "medium" | "hard";
+
+/**
+ * Spaced-repetition intervals (days after the last study session) per perceived
+ * difficulty. Harder → MORE reviews at TIGHTER, earlier spacing (you forget hard
+ * material faster, so you revisit it sooner and more often); easier → fewer,
+ * later. Unrated topics behave exactly like "medium" — the original [1,3,7] — so
+ * difficulty is purely additive and a plan with no ratings is byte-for-byte the
+ * plan we generated before this feature. Kept bounded (≤4 reviews) so a wall of
+ * hard topics can't flood the schedule.
+ */
+export const REVIEW_INTERVALS_BY_DIFFICULTY: Record<Difficulty, number[]> = {
+  hard: [1, 2, 4, 7], // 4 reviews, earlier first touch
+  medium: [1, 3, 7], // unchanged baseline (== unrated)
+  easy: [3, 10], // 2 reviews, later — you already retain it
+};
+
+/** The baseline schedule used for unrated topics (identical to pre-difficulty behavior). */
+const DEFAULT_REVIEW_INTERVALS = REVIEW_INTERVALS_BY_DIFFICULTY.medium;
+
+function intervalsForDifficulty(d: Difficulty | null | undefined): number[] {
+  return d ? REVIEW_INTERVALS_BY_DIFFICULTY[d] : DEFAULT_REVIEW_INTERVALS;
+}
+
 /**
  * Spaced repetition: after a topic's last study session, schedule short recall
- * reviews at EXPANDING intervals (+1, +3, +7 days), snapped to the next study
- * day and kept before the exam. This is the #1 evidence-backed retention lever.
+ * reviews at EXPANDING intervals, snapped to the next study day and kept before
+ * the exam. This is the #1 evidence-backed retention lever.
+ *
+ * `difficultyByTopic` (optional) tunes the spacing PER topic from how hard the
+ * student found it: hard topics get more/earlier reviews, easy fewer/later, and
+ * anything unrated keeps the original [1,3,7] — so passing `{}` (or nothing)
+ * reproduces the pre-difficulty plan exactly (no regression).
  */
 export function buildReviewBlocks(
   study: StudyBlock[] | null | undefined,
   dates: string[],
+  difficultyByTopic: Record<string, Difficulty> = {},
 ): StudyBlock[] {
   if (dates.length === 0) return [];
-  const intervals = [1, 3, 7];
   const lastByTopic = new Map<string, { date: string; title: string }>();
   for (const b of study ?? []) {
     const cur = lastByTopic.get(b.topicId);
@@ -267,6 +297,7 @@ export function buildReviewBlocks(
 
   const reviews: StudyBlock[] = [];
   for (const [topicId, { date, title }] of lastByTopic) {
+    const intervals = intervalsForDifficulty(difficultyByTopic[topicId]);
     const used = new Set<string>();
     for (const iv of intervals) {
       const target = addDaysISO(date, iv);

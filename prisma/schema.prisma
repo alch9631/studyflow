@@ -193,6 +193,11 @@ model StudyBlock {
   completed     Boolean  @default(false)
   kind          String   @default("study") // "study" | "review" (spaced repetition)
   actualMinutes Int? // logged via the Pomodoro timer — feeds adaptive estimates
+  // How hard the student found this session, set on completion (optional). One of
+  // "easy" | "medium" | "hard"; null = unrated. Feeds the planner: harder topics
+  // earn more/earlier spaced reviews, easier ones fewer. Kept as a string (not an
+  // enum) to stay provider-agnostic — SQLite has no native enums.
+  difficulty    String?
 
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String

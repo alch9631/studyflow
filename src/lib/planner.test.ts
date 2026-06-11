@@ -10,6 +10,7 @@ import {
   INTENSE_MINUTES_PER_DAY,
   MIN_MINUTES_PER_EFFORT,
   planForDeadline,
+  REVIEW_INTERVALS_BY_DIFFICULTY,
   studyDatesBetween,
   type Course,
   type StudyBlock,
@@ -723,6 +724,94 @@ try {
 }
 check("buildReviewBlocks(null study) does not throw", brbNullOk);
 check("buildReviewBlocks(null study) yields no reviews", brbNull.length === 0);
+
+// ---- Difficulty-weighted spaced review ------------------------------------
+// A wide window of study days so EVERY interval (incl. easy's +10) lands on a
+// real study day — keeps the test about counts, not calendar clipping.
+const revDates = studyDatesBetween("2026-06-01", "2026-07-15", [0, 1, 2, 3, 4, 5, 6]);
+// One study session per topic on the same day; difficulty is supplied per topic.
+const revStudy: StudyBlock[] = [
+  { date: "2026-06-01", topicId: "hardT", topicTitle: "Hard", minutes: 30, completed: true, kind: "study" },
+  { date: "2026-06-01", topicId: "easyT", topicTitle: "Easy", minutes: 30, completed: true, kind: "study" },
+  { date: "2026-06-01", topicId: "medT", topicTitle: "Med", minutes: 30, completed: true, kind: "study" },
+  { date: "2026-06-01", topicId: "unratedT", topicTitle: "Unrated", minutes: 30, completed: true, kind: "study" },
+];
+
+const countFor = (revs: StudyBlock[], topicId: string) =>
+  revs.filter((r) => r.topicId === topicId && r.kind === "review").length;
+
+// Baseline (no ratings) == exactly the medium schedule, and matches the
+// number of intervals — proving "unrated behaves like today" (no regression).
+const baselineRev = buildReviewBlocks(revStudy, revDates);
+check(
+  "unrated review count == baseline [1,3,7] (no regression)",
+  countFor(baselineRev, "unratedT") === REVIEW_INTERVALS_BY_DIFFICULTY.medium.length,
+);
+
+const weightedRev = buildReviewBlocks(revStudy, revDates, {
+  hardT: "hard",
+  easyT: "easy",
+  medT: "medium",
+  // unratedT intentionally omitted → falls back to baseline
+});
+const hardCount = countFor(weightedRev, "hardT");
+const mediumCount = countFor(weightedRev, "medT");
+const easyCount = countFor(weightedRev, "easyT");
+const unratedCount = countFor(weightedRev, "unratedT");
+
+check("hard topic gets MORE reviews than medium", hardCount > mediumCount);
+check("hard topic gets MORE reviews than easy", hardCount > easyCount);
+check("easy topic gets FEWER reviews than medium", easyCount < mediumCount);
+check("easy topic gets FEWER reviews than hard", easyCount < hardCount);
+check(
+  "hard count == hard interval count (4)",
+  hardCount === REVIEW_INTERVALS_BY_DIFFICULTY.hard.length,
+);
+check(
+  "easy count == easy interval count (2)",
+  easyCount === REVIEW_INTERVALS_BY_DIFFICULTY.easy.length,
+);
+check(
+  "explicit medium == baseline medium",
+  mediumCount === REVIEW_INTERVALS_BY_DIFFICULTY.medium.length,
+);
+check(
+  "unrated (omitted from map) still == baseline medium",
+  unratedCount === REVIEW_INTERVALS_BY_DIFFICULTY.medium.length,
+);
+
+// Hard's FIRST review must land no later than medium's — "earlier" review, the
+// other half of the difficulty lever (first interval 1 vs 1, but second 2 vs 3).
+const firstReviewDate = (revs: StudyBlock[], topicId: string) =>
+  revs
+    .filter((r) => r.topicId === topicId && r.kind === "review")
+    .map((r) => r.date)
+    .sort()[0];
+const hardDates = weightedRev
+  .filter((r) => r.topicId === "hardT")
+  .map((r) => r.date)
+  .sort();
+const medDates = weightedRev
+  .filter((r) => r.topicId === "medT")
+  .map((r) => r.date)
+  .sort();
+check(
+  "hard's first review is on/before medium's first",
+  (firstReviewDate(weightedRev, "hardT") ?? "9") <= (firstReviewDate(weightedRev, "medT") ?? "0"),
+);
+// The hard schedule is strictly tighter from the 2nd touch on: hard's 2nd review
+// (+2) precedes medium's 2nd (+3).
+check(
+  "hard's second review is earlier than medium's second",
+  !!hardDates[1] && !!medDates[1] && hardDates[1] < medDates[1],
+);
+
+// Passing an empty difficulty map reproduces the baseline byte-for-byte.
+const emptyMapRev = buildReviewBlocks(revStudy, revDates, {});
+check(
+  "empty difficulty map == baseline (deep-equal)",
+  JSON.stringify(emptyMapRev) === JSON.stringify(baselineRev),
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
