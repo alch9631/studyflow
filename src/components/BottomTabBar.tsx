@@ -89,7 +89,7 @@ export default function BottomTabBar() {
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-2 py-2 text-[11px] font-medium transition-colors ${
                   active
-                    ? "text-brand dark:text-white"
+                    ? "text-brand-ink dark:text-white"
                     : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
                 }`}
               >

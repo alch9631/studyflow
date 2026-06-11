@@ -39,7 +39,7 @@ export default async function Home() {
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="flex flex-col items-center gap-6 text-center">
         <div className="flex flex-col items-center gap-1.5">
-          <div className="rounded-md bg-brand px-4 py-2 text-2xl font-extrabold tracking-tight text-white shadow-sm">
+          <div className="rounded-md bg-brand px-4 py-2 text-2xl font-extrabold tracking-tight text-brand-foreground shadow-sm">
             TUHH
           </div>
           <span className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
@@ -50,11 +50,11 @@ export default async function Home() {
         <div className="flex flex-col items-center gap-4">
           {/* Badge is decorative clutter on a phone — desktop only. */}
           <span className="hidden items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 sm:inline-flex dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-            <span className="text-brand">⚡</span> {t("landing.badge")}
+            <span className="text-brand-ink">⚡</span> {t("landing.badge")}
           </span>
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
             {t("landing.heroTitlePre")}
-            <span className="text-brand">{t("landing.heroTitleHighlight")}</span>
+            <span className="text-brand-ink">{t("landing.heroTitleHighlight")}</span>
             {t("landing.heroTitlePost")}
           </h1>
           {/* Subhead reinforces the hero on desktop; hidden on mobile to keep

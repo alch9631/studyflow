@@ -43,10 +43,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Colours the mobile browser / PWA chrome. Theme-aware: TUHH turquoise on the
-  // light theme (the primary brand identity), the deep TUHH blue on dark.
+  // Colours the mobile browser / PWA chrome. Theme-aware: the true TUHH logo
+  // cyan (#00C1D4 — the brand fill) on light, the deep TUHH blue on dark.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#00808f" },
+    { media: "(prefers-color-scheme: light)", color: "#00C1D4" },
     { media: "(prefers-color-scheme: dark)", color: "#00509b" },
   ],
   // Draw under the iPhone notch / home indicator so our own env(safe-area-*)
@@ -81,7 +81,7 @@ export default async function RootLayout({
             straight to the page content. Visually hidden until focused. */}
         <a
           href="#main-content"
-          className="sr-only rounded-full bg-brand px-4 py-2 text-sm font-medium text-white shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
+          className="sr-only rounded-full bg-brand px-4 py-2 text-sm font-medium text-brand-foreground shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
         >
           {t("common.skipToContent")}
         </a>

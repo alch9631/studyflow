@@ -100,8 +100,8 @@ export default async function CoursesPage() {
         <ol className="mt-2 list-decimal space-y-1 pl-5">
           <li>
             {t("courses.how1Pre")}{" "}
-            <Link href="/catalog" className="text-brand hover:underline">{t("courses.how1Catalog")}</Link>{t("courses.how1Mid")}{" "}
-            <Link href="/courses/import" className="text-brand hover:underline">{t("courses.how1Upload")}</Link>{t("courses.how1Post")}
+            <Link href="/catalog" className="text-brand-ink hover:underline">{t("courses.how1Catalog")}</Link>{t("courses.how1Mid")}{" "}
+            <Link href="/courses/import" className="text-brand-ink hover:underline">{t("courses.how1Upload")}</Link>{t("courses.how1Post")}
           </li>
           <li>{t("courses.how2")}</li>
           <li>
@@ -112,7 +112,7 @@ export default async function CoursesPage() {
             <strong>{t("courses.how4SelfTest")}</strong> {t("courses.how4Post")}
           </li>
           <li>
-            {t("courses.how5Pre")} <Link href="/today" className="text-brand hover:underline">{t("courses.how5Today")}</Link>{" "}
+            {t("courses.how5Pre")} <Link href="/today" className="text-brand-ink hover:underline">{t("courses.how5Today")}</Link>{" "}
             {t("courses.how5Post")}
           </li>
         </ol>

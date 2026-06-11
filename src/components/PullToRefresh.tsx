@@ -122,7 +122,7 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
         }}
       >
         <span
-          className="mt-2 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-brand shadow-md dark:border-gray-800 dark:bg-gray-900"
+          className="mt-2 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-brand-ink shadow-md dark:border-gray-800 dark:bg-gray-900"
           role={refreshing ? "status" : undefined}
         >
           {refreshing ? (

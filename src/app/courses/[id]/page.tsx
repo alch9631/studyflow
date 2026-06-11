@@ -27,6 +27,7 @@ import { iconButtonClass } from "@/components/ui";
 import { Input } from "@/components/ui/input";
 import ProgressForm from "./ProgressForm";
 import AddDeadlineForm from "./AddDeadlineForm";
+import CourseOptionsSheet from "./CourseOptionsSheet";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 
 export const dynamic = "force-dynamic";
@@ -193,9 +194,9 @@ export default async function CoursePage({
             </span>
           </div>
         </div>
-        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-end">
+        <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
           {isSyllabusAIEnabled() && (
-            <form action={reoptimizeCourse} className="w-full sm:w-auto">
+            <form action={reoptimizeCourse} className="min-w-0 flex-1 sm:flex-none">
               <input type="hidden" name="courseId" value={course.id} />
               <SubmitButton
                 variant="primary"
@@ -207,7 +208,7 @@ export default async function CoursePage({
               </SubmitButton>
             </form>
           )}
-          <form action={healCourse} className="w-full sm:w-auto">
+          <form action={healCourse} className="min-w-0 flex-1 sm:flex-none">
             <input type="hidden" name="courseId" value={course.id} />
             <SubmitButton
               variant="secondary"
@@ -218,126 +219,189 @@ export default async function CoursePage({
               {t("courseDetail.fellBehind")}
             </SubmitButton>
           </form>
+          <CourseOptionsSheet>
+            <form action={updateCourse} className="space-y-4">
+              <input type="hidden" name="courseId" value={course.id} />
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {t("courseDetail.settingsSummary")}
+              </h3>
+              <div className="flex flex-wrap gap-4">
+                <div className="text-sm">
+                  <label htmlFor="settings-examDate" className="block font-medium">
+                    {t("courseDetail.examDate")}
+                  </label>
+                  <Input
+                    id="settings-examDate"
+                    type="date"
+                    name="examDate"
+                    defaultValue={course.examDate.toISOString().slice(0, 10)}
+                    className="mt-1"
+                  />
+                </div>
+                <p className="self-end text-xs text-gray-500 dark:text-gray-400">
+                  {t("courseDetail.dailyPaceHint", { minutes: course.minutesPerDay })}
+                </p>
+              </div>
+              <fieldset>
+                <legend className="block text-sm font-medium">{t("courseDetail.studyDays")}</legend>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  {DAY_OPTS.map((d) => (
+                    <label key={d.v} className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="checkbox"
+                        name="studyDays"
+                        value={d.v}
+                        defaultChecked={course.studyDays.split(",").includes(String(d.v))}
+                      />
+                      {t(`charts.weekdaysShort.${d.key}`)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <SubmitButton
+                variant="primary"
+                size="md"
+                className="w-full sm:w-auto"
+                pendingLabel={t("common.saving")}
+              >
+                {t("courseDetail.saveRebuild")}
+              </SubmitButton>
+            </form>
+
+            <form action={setGrade} className="mt-6 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-6 dark:border-gray-800">
+              <input type="hidden" name="courseId" value={course.id} />
+              <div className="text-sm">
+                <label htmlFor="settings-grade" className="block font-medium">
+                  {t("courseDetail.finalGrade")}
+                </label>
+                <Input
+                  id="settings-grade"
+                  type="number"
+                  name="grade"
+                  step="0.1"
+                  min="1"
+                  max="5"
+                  defaultValue={course.grade ?? ""}
+                  placeholder={t("courseDetail.gradePlaceholder")}
+                  className="mt-1 w-28"
+                />
+              </div>
+              <SubmitButton variant="secondary" size="md" pendingLabel={t("common.saving")}>
+                {t("courseDetail.saveGrade")}
+              </SubmitButton>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t("courseDetail.gradeHint")}
+              </span>
+            </form>
+
+            <section className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-800">
+              <h3 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                {t("courseDetail.deadlinesHeading")}
+              </h3>
+              <AddDeadlineForm courseId={course.id} />
+              {course.assignments.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t("courseDetail.noDeadlines")}</p>
+              ) : (
+                <AnimatedList className="space-y-2">
+                  {course.assignments.map((a) => {
+                    const days = daysUntil(a.dueDate, todayISO());
+                    const due = a.dueDate.toISOString().slice(0, 10);
+                    const urgent = !a.done && days <= 3;
+                    return (
+                      <AnimatedListItem
+                        key={a.id}
+                        id={`deadline-${a.id}`}
+                        className="flex scroll-mt-24 items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:border-brand [&:target]:ring-2 [&:target]:ring-brand"
+                      >
+                        <ToastForm
+                          action={toggleAssignment}
+                          successMessage={a.done ? t("courseDetail.deadlineNotDone") : t("courseDetail.deadlineDone")}
+                          errorMessage={t("courseDetail.deadlineUpdateError")}
+                        >
+                          <input type="hidden" name="assignmentId" value={a.id} />
+                          <input type="hidden" name="revalidate" value={`/courses/${course.id}`} />
+                          <SubmitButton
+                            aria-label={a.done ? t("block.markNotDone") : t("block.markDone")}
+                            className={`flex h-5 w-5 items-center justify-center rounded border ${
+                              a.done
+                                ? "border-green-500 bg-green-500 text-white"
+                                : "border-gray-300 dark:border-gray-700"
+                            }`}
+                          >
+                            {a.done ? "✓" : ""}
+                          </SubmitButton>
+                        </ToastForm>
+                        <span className="min-w-0 flex-1">
+                          <span className={`break-words ${a.done ? "text-gray-500 line-through dark:text-gray-400" : "font-medium"}`}>
+                            {a.title}
+                          </span>
+                          <span
+                            className={`ml-2 text-xs ${
+                              a.done
+                                ? "text-gray-500 dark:text-gray-400"
+                                : urgent
+                                  ? "font-medium text-red-600 dark:text-red-400"
+                                  : "text-gray-500 dark:text-gray-400"
+                            }`}
+                          >
+                            {t("courseDetail.due", { date: due })}
+                            {!a.done && ` · ${dueLabel(t, days)}`}
+                          </span>
+                        </span>
+                        <ConfirmDialog
+                          action={deleteAssignment}
+                          fields={{ assignmentId: a.id, courseId: course.id }}
+                          successMessage={t("courseDetail.deadlineRemoved")}
+                          errorMessage={t("courseDetail.deadlineRemoveError")}
+                          className="shrink-0"
+                          triggerLabel="✕"
+                          triggerAriaLabel={t("courseDetail.deleteDeadlineAria", { title: a.title })}
+                          triggerClassName={iconButtonClass(
+                            "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
+                          )}
+                          title={t("courseDetail.deleteDeadlineTitle")}
+                          message={
+                            <>
+                              {t("courseDetail.deleteDeadlineMsgPre")} <strong>{a.title}</strong>{" "}
+                              {t("courseDetail.deleteDeadlineMsgPost")}
+                            </>
+                          }
+                          confirmLabel={t("courseDetail.deleteDeadlineConfirm")}
+                          pendingLabel={t("courseDetail.removing")}
+                        />
+                      </AnimatedListItem>
+                    );
+                  })}
+                </AnimatedList>
+              )}
+            </section>
+
+            <ConfirmDialog
+              action={deleteCourse}
+              fields={{ courseId: course.id }}
+              className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-800"
+              triggerLabel={t("courseDetail.deleteCourse")}
+              triggerVariant="danger"
+              triggerSize="md"
+              title={t("courseDetail.deleteTitle")}
+              message={
+                <>
+                  {t("courseDetail.deleteMsgPre")} <strong>{course.name}</strong>{" "}
+                  {t("courseDetail.deleteMsgPost")}
+                </>
+              }
+              confirmLabel={t("courseDetail.deleteConfirm")}
+              errorMessage={t("courseDetail.deleteError")}
+            />
+          </CourseOptionsSheet>
         </div>
       </div>
 
-      <details id="settings" className="group mb-6 rounded-xl border border-gray-200 dark:border-gray-800 p-4 scroll-mt-20 [&:target]:ring-2 [&:target]:ring-brand">
-        <summary className="-m-4 mb-0 flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800 group-open:mb-2">
-          <span className="flex items-center gap-2">
-            {t("courseDetail.settingsSummary")}
-          </span>
-          <span aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-90">›</span>
-        </summary>
-        <form action={updateCourse} className="mt-4 space-y-4">
-          <input type="hidden" name="courseId" value={course.id} />
-          <div className="flex flex-wrap gap-4">
-            <div className="text-sm">
-              <label htmlFor="settings-examDate" className="block font-medium">
-                {t("courseDetail.examDate")}
-              </label>
-              <Input
-                id="settings-examDate"
-                type="date"
-                name="examDate"
-                defaultValue={course.examDate.toISOString().slice(0, 10)}
-                className="mt-1"
-              />
-            </div>
-            <p className="self-end text-xs text-gray-500 dark:text-gray-400">
-              {t("courseDetail.dailyPaceHint", { minutes: course.minutesPerDay })}
-            </p>
-          </div>
-          <fieldset>
-            <legend className="block text-sm font-medium">{t("courseDetail.studyDays")}</legend>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {DAY_OPTS.map((d) => (
-                <label key={d.v} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="checkbox"
-                    name="studyDays"
-                    value={d.v}
-                    defaultChecked={course.studyDays.split(",").includes(String(d.v))}
-                  />
-                  {t(`charts.weekdaysShort.${d.key}`)}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <SubmitButton
-            variant="primary"
-            size="md"
-            className="w-full sm:w-auto"
-            pendingLabel={t("common.saving")}
-          >
-            {t("courseDetail.saveRebuild")}
-          </SubmitButton>
-        </form>
-
-        <form action={setGrade} className="mt-4 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
-          <input type="hidden" name="courseId" value={course.id} />
-          <div className="text-sm">
-            <label htmlFor="settings-grade" className="block font-medium">
-              {t("courseDetail.finalGrade")}
-            </label>
-            <Input
-              id="settings-grade"
-              type="number"
-              name="grade"
-              step="0.1"
-              min="1"
-              max="5"
-              defaultValue={course.grade ?? ""}
-              placeholder={t("courseDetail.gradePlaceholder")}
-              className="mt-1 w-28"
-            />
-          </div>
-          <SubmitButton variant="secondary" size="md" pendingLabel={t("common.saving")}>
-            {t("courseDetail.saveGrade")}
-          </SubmitButton>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {t("courseDetail.gradeHint")}
-          </span>
-        </form>
-
-        <ConfirmDialog
-          action={deleteCourse}
-          fields={{ courseId: course.id }}
-          className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800"
-          triggerLabel={t("courseDetail.deleteCourse")}
-          triggerVariant="danger"
-          triggerSize="md"
-          title={t("courseDetail.deleteTitle")}
-          message={
-            <>
-              {t("courseDetail.deleteMsgPre")} <strong>{course.name}</strong>{" "}
-              {t("courseDetail.deleteMsgPost")}
-            </>
-          }
-          confirmLabel={t("courseDetail.deleteConfirm")}
-          errorMessage={t("courseDetail.deleteError")}
-        />
-      </details>
-
-      {overloaded ? (
+      {overloaded && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           {t("courseDetail.overloaded")}
         </div>
-      ) : (
-        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-          {t("courseDetail.planned", { minutes: course.minutesPerDay })}
-        </div>
       )}
-
-      <section className="mb-8">
-        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.updateProgressHeading")}</h2>
-        {isSyllabusAIEnabled() ? (
-          <ProgressForm courseId={course.id} />
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("courseDetail.apiKeyProgress")}
-          </p>
-        )}
-      </section>
 
       <section className="mb-8">
         <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.moduleFiles")}</h2>
@@ -380,86 +444,6 @@ export default async function CoursePage({
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.deadlinesHeading")}</h2>
-        <AddDeadlineForm courseId={course.id} />
-        {course.assignments.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t("courseDetail.noDeadlines")}</p>
-        ) : (
-          <AnimatedList className="space-y-2">
-            {course.assignments.map((a) => {
-              const days = daysUntil(a.dueDate, todayISO());
-              const due = a.dueDate.toISOString().slice(0, 10);
-              const urgent = !a.done && days <= 3;
-              return (
-                <AnimatedListItem
-                  key={a.id}
-                  id={`deadline-${a.id}`}
-                  className="flex scroll-mt-24 items-center gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:border-brand [&:target]:ring-2 [&:target]:ring-brand"
-                >
-                  <ToastForm
-                    action={toggleAssignment}
-                    successMessage={a.done ? t("courseDetail.deadlineNotDone") : t("courseDetail.deadlineDone")}
-                    errorMessage={t("courseDetail.deadlineUpdateError")}
-                  >
-                    <input type="hidden" name="assignmentId" value={a.id} />
-                    <input type="hidden" name="revalidate" value={`/courses/${course.id}`} />
-                    <SubmitButton
-                      aria-label={a.done ? t("block.markNotDone") : t("block.markDone")}
-                      className={`flex h-5 w-5 items-center justify-center rounded border ${
-                        a.done
-                          ? "border-green-500 bg-green-500 text-white"
-                          : "border-gray-300 dark:border-gray-700"
-                      }`}
-                    >
-                      {a.done ? "✓" : ""}
-                    </SubmitButton>
-                  </ToastForm>
-                  <span className="min-w-0 flex-1">
-                    <span className={`break-words ${a.done ? "text-gray-500 line-through dark:text-gray-400" : "font-medium"}`}>
-                      {a.title}
-                    </span>
-                    <span
-                      className={`ml-2 text-xs ${
-                        a.done
-                          ? "text-gray-500 dark:text-gray-400"
-                          : urgent
-                            ? "font-medium text-red-600 dark:text-red-400"
-                            : "text-gray-500 dark:text-gray-400"
-                      }`}
-                    >
-                      {t("courseDetail.due", { date: due })}
-                      {!a.done && ` · ${dueLabel(t, days)}`}
-                    </span>
-                  </span>
-                  <ConfirmDialog
-                    action={deleteAssignment}
-                    fields={{ assignmentId: a.id, courseId: course.id }}
-                    successMessage={t("courseDetail.deadlineRemoved")}
-                    errorMessage={t("courseDetail.deadlineRemoveError")}
-                    className="shrink-0"
-                    triggerLabel="✕"
-                    triggerAriaLabel={t("courseDetail.deleteDeadlineAria", { title: a.title })}
-                    triggerClassName={iconButtonClass(
-                      "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
-                    )}
-                    title={t("courseDetail.deleteDeadlineTitle")}
-                    message={
-                      <>
-                        {t("courseDetail.deleteDeadlineMsgPre")} <strong>{a.title}</strong>{" "}
-                        {t("courseDetail.deleteDeadlineMsgPost")}
-                      </>
-                    }
-                    confirmLabel={t("courseDetail.deleteDeadlineConfirm")}
-                    pendingLabel={t("courseDetail.removing")}
-                  />
-                </AnimatedListItem>
-              );
-            })}
-          </AnimatedList>
-        )}
-      </section>
-
-      <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.topics")}</h2>
         <AnimatedList className="space-y-2">
           {course.topics.map((topic) => {
@@ -486,7 +470,7 @@ export default async function CoursePage({
                 />
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
-                    <summary className="cursor-pointer text-xs text-brand">
+                    <summary className="cursor-pointer text-xs text-brand-ink">
                       {t("courseDetail.selfTest", { count: questions.length })}
                     </summary>
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
@@ -507,7 +491,7 @@ export default async function CoursePage({
         </AnimatedList>
       </section>
 
-      <section>
+      <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.studyPlan")}</h2>
         {byDate.size === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -544,6 +528,17 @@ export default async function CoursePage({
               );
             })}
           </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.updateProgressHeading")}</h2>
+        {isSyllabusAIEnabled() ? (
+          <ProgressForm courseId={course.id} />
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t("courseDetail.apiKeyProgress")}
+          </p>
         )}
       </section>
     </main>

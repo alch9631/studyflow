@@ -140,7 +140,7 @@ export default function InstallPrompt() {
     >
       <div className="mx-auto flex max-w-md items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-800 dark:bg-gray-900">
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-ink"
           aria-hidden="true"
         >
           <InstallIcon />
@@ -177,7 +177,7 @@ export default function InstallPrompt() {
             <>
               <p className="mt-0.5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 {t("installPrompt.iosTapPrefix")}{" "}
-                <ShareIcon className="-mt-0.5 inline-block h-4 w-4 align-middle text-brand" />{" "}
+                <ShareIcon className="-mt-0.5 inline-block h-4 w-4 align-middle text-brand-ink" />{" "}
                 {t("installPrompt.iosShareSuffix")}{" "}
                 <span className="font-medium text-gray-900 dark:text-gray-100">
                   {t("installPrompt.iosAddToHome")}
