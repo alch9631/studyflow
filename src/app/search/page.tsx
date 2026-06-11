@@ -71,10 +71,7 @@ export default async function SearchPage({
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight">{t("search.title")}</h1>
-      <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
-        {t("search.subtitle")}
-      </p>
+      <h1 className="mb-4 text-2xl font-bold tracking-tight">{t("search.title")}</h1>
       <GlobalSearch items={items} initialQuery={q ?? ""} />
     </main>
   );

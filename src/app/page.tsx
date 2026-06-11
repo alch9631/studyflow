@@ -57,7 +57,6 @@ export default async function Home() {
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
             {t("landing.heroTitlePre")}
             <span className="text-brand">{t("landing.heroTitleHighlight")}</span>
-            <br className="hidden sm:block" />
             {t("landing.heroTitlePost")}
           </h1>
           <p className="mx-auto max-w-lg text-pretty text-base text-gray-500 dark:text-gray-400 sm:text-lg">

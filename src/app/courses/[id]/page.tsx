@@ -380,10 +380,7 @@ export default async function CoursePage({
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.deadlinesHeading")}</h2>
-        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-          {t("courseDetail.deadlinesHint")}
-        </p>
+        <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.deadlinesHeading")}</h2>
         <AddDeadlineForm courseId={course.id} />
         {course.assignments.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">{t("courseDetail.noDeadlines")}</p>

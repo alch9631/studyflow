@@ -221,10 +221,7 @@ export default async function InsightsPage() {
           </section>
 
           <section className={`${panelClass} mt-6 p-5`}>
-            <h2 className="mb-1 font-semibold">{t("insights.consistency")}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t("insights.consistencyHint")}
-            </p>
+            <h2 className="font-semibold">{t("insights.consistency")}</h2>
             <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
               <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
               <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">

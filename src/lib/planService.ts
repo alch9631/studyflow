@@ -8,6 +8,7 @@ import {
   SESSION_MINUTES,
   type Course as EngineCourse,
   type StudyBlock as EngineBlock,
+  type Difficulty,
 } from "./planner";
 import { isSyllabusAIEnabled, optimizeStudyPlan, generateSelfTests } from "./syllabus";
 
@@ -61,6 +62,33 @@ export function foldCompletedSessions(
     if (b.completed) done[b.topicId] = (done[b.topicId] ?? 0) + minutes;
   }
   return applyCompletedWork(toEngineCourse(course), done, planned);
+}
+
+const VALID_DIFFICULTY = new Set<Difficulty>(["easy", "medium", "hard"]);
+/** Rank for picking the "worst" (most cautious) rating a topic has received. */
+const DIFFICULTY_RANK: Record<Difficulty, number> = { easy: 0, medium: 1, hard: 2 };
+
+/**
+ * Reduce a topic's completed-session difficulty ratings to ONE signal the review
+ * scheduler can act on. We take the HARDEST rating the student gave across that
+ * topic's done sessions (so a single "this was hard" earns the extra reviews —
+ * retention should be conservative, not averaged away). Only completed blocks
+ * count: an unrated topic (no done session carried a rating) is simply absent
+ * from the map, so the planner falls back to the unchanged baseline schedule.
+ */
+export function difficultyByTopic(
+  blocks: { topicId: string; completed: boolean; difficulty: string | null }[],
+): Record<string, Difficulty> {
+  const out: Record<string, Difficulty> = {};
+  for (const b of blocks) {
+    if (!b.completed) continue;
+    const d = b.difficulty;
+    if (!d || !VALID_DIFFICULTY.has(d as Difficulty)) continue;
+    const rated = d as Difficulty;
+    const cur = out[b.topicId];
+    if (!cur || DIFFICULTY_RANK[rated] > DIFFICULTY_RANK[cur]) out[b.topicId] = rated;
+  }
+  return out;
 }
 
 /** Map a persisted course into the shape the pure engine expects. */
@@ -177,6 +205,9 @@ export async function rebuildSchedule(
           minutes: true,
           completed: true,
           actualMinutes: true,
+          // Per-session difficulty rating — aggregated per topic to weight the
+          // spaced-review schedule (hard → more/earlier reviews, easy → fewer).
+          difficulty: true,
         },
       },
     },
@@ -282,7 +313,10 @@ export async function rebuildSchedule(
       c.examDate.toISOString().slice(0, 10),
       c.studyDays.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n)),
     );
-    const reviews = buildReviewBlocks(study, dates);
+    // Difficulty signal from the student's completed-session ratings: hard
+    // topics earn more/earlier reviews, easy fewer. Unrated topics aren't in the
+    // map, so they keep the unchanged baseline spacing (no regression).
+    const reviews = buildReviewBlocks(study, dates, difficultyByTopic(c.blocks));
     await persistBlocks(c.id, [...study, ...reviews]);
 
     const daysUsed = new Set(study.map((b) => b.date)).size || 1;
