@@ -150,7 +150,7 @@ export default async function CatalogPage({
                             <summary
                               aria-label={t("catalog.detailsFor", { name: m.name })}
                               title={t("catalog.details")}
-                              className="inline-flex cursor-pointer list-none items-center text-gray-400 transition-colors hover:text-brand"
+                              className="inline-flex cursor-pointer list-none items-center text-gray-400 transition-colors hover:text-brand-ink"
                             >
                               <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px] font-bold">
                                 ?

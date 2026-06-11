@@ -20,7 +20,7 @@ export default function ThemeSetting() {
             onClick={() => applyMode(o.v)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               active
-                ? "bg-brand text-white"
+                ? "bg-brand text-brand-foreground"
                 : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             }`}
           >

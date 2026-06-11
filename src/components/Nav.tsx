@@ -148,7 +148,7 @@ export default function Nav() {
           className="mx-auto flex max-w-3xl items-center gap-1 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm"
         >
           <Link href="/" className="mr-auto flex items-center gap-2 font-bold tracking-tight">
-            <span className="rounded bg-brand px-1.5 py-0.5 text-xs font-extrabold text-white">
+            <span className="rounded bg-brand px-1.5 py-0.5 text-xs font-extrabold text-brand-foreground">
               TUHH
             </span>
             {t("common.appName")}
@@ -160,7 +160,7 @@ export default function Nav() {
               const active = isActive(pathname, tab);
               const cls = `rounded-full px-3 py-1.5 font-medium transition-colors ${
                 active
-                  ? "bg-brand text-white"
+                  ? "bg-brand text-brand-foreground"
                   : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               }`;
               return tab.external ? (
@@ -184,7 +184,7 @@ export default function Nav() {
             className={iconButtonClass(
               `inline-flex ${
                 isActive(pathname, SEARCH)
-                  ? "bg-brand text-white"
+                  ? "bg-brand text-brand-foreground"
                   : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               }`,
             )}
@@ -255,7 +255,7 @@ export default function Nav() {
               const active = isActive(pathname, tab);
               const cls = `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-brand text-white"
+                  ? "bg-brand text-brand-foreground"
                   : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
               }`;
               const inner = (

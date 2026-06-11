@@ -12,19 +12,24 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* TUHH corporate turquoise (Pantone 3115C, #00C1D4) is the light-theme brand
-     hue. The pure #00C1D4 is only 2.19:1 on white — it fails WCAG AA for text
-     and even the 3:1 non-text bar — so the solid/text token is a darker member
-     of the same turquoise family: #00808f = 4.68:1 on white (AA for normal text,
-     used both as a white-on-brand button fill and as brand-on-white link text).
-     The bright #00C1D4 survives only inside soft low-opacity decorative tints. */
-  --brand: #00808f;
-  --brand-dark: #006b78; /* hover — 6.22:1 on white */
-  /* One keyboard focus ring for the whole app — TUHH turquoise on light. */
+  /* TUHH corporate turquoise (Pantone 3115C) is the light-theme brand. The true
+     logo cyan #00C1D4 is the BRAND FILL (bg-brand, selection, decorative tints).
+     It's only 2.19:1 on white, so white text on it fails WCAG AA — therefore the
+     text that sits ON the cyan fill is a near-black dark-teal (--brand-foreground
+     = #062a30, 6.9:1 on #00C1D4), not white. For brand-coloured TEXT on the white
+     page (links, accents → text-brand-ink) we use the darker family member
+     #00808f (4.68:1 on white, AA), since the bright cyan would fail as text. */
+  --brand: #00C1D4; /* true TUHH logo cyan — the brand fill */
+  --brand-dark: #00a7b8; /* hover — slightly deeper cyan, dark fg stays AA */
+  --brand-foreground: #062a30; /* near-black dark-teal: 6.9:1 on #00C1D4 (AA) */
+  --brand-ink: #00808f; /* readable brand TEXT on white (AA): links & accents */
+  /* One keyboard focus ring for the whole app — TUHH turquoise on light. The
+     readable ink shade keeps the ring ≥3:1 on white (the bright cyan is 2.19:1). */
   --focus-ring: #00808f;
-  /* Data-viz palette (recharts on the Insights page). Brand blue for the active
-     series, neutral gray for empty/track, muted gray for axis ticks & gridlines. */
-  --chart-series: #00808f; /* matches the light-theme TUHH turquoise brand */
+  /* Data-viz palette (recharts on the Insights page). Brand turquoise for the
+     active series (the readable ink shade so it stays AA against axis/track on
+     white), neutral gray for empty/track, muted gray for axis ticks & gridlines. */
+  --chart-series: #00808f; /* readable member of the TUHH turquoise family */
   /* Secondary data series (e.g. the running Notenschnitt overlay) — amber reads
      clearly against the brand series and stays AA on white. */
   --chart-series-2: #d97706;
@@ -40,8 +45,8 @@
   --card-foreground: var(--foreground);
   --popover: #ffffff;
   --popover-foreground: var(--foreground);
-  --primary: #00808f; /* TUHH turquoise (AA-safe member of the #00C1D4 family) */
-  --primary-foreground: #ffffff;
+  --primary: #00C1D4; /* true TUHH logo cyan — matches --brand fill */
+  --primary-foreground: #062a30; /* near-black dark-teal, 6.9:1 on cyan (AA) */
   --secondary: #f3f4f6; /* gray-100 */
   --secondary-foreground: #111827; /* gray-900 */
   --muted: #f3f4f6;
@@ -61,6 +66,10 @@
   /* Dark theme is unchanged: it keeps the original TUHH brand blue. */
   --brand: #00509b;
   --brand-dark: #003d75;
+  /* On dark, brand fills pair with white text (the deep blue is dark enough),
+     and brand-coloured text on the near-black page lifts to the focus-ring blue. */
+  --brand-foreground: #ffffff;
+  --brand-ink: #4d94d6;
   /* A lighter brand blue for dark mode: the deep #00509b only reaches ~2.4:1
      against the near-black background (below the 3:1 WCAG non-text bar), so the
      ring would be hard to see. This lifts it comfortably past 3:1. */
@@ -105,6 +114,10 @@
      TUHH blue on dark (see :root / .dark for the values and contrast notes). */
   --color-brand: var(--brand);
   --color-brand-dark: var(--brand-dark);
+  /* Text that sits ON the brand fill (dark-teal on cyan / white on blue). */
+  --color-brand-foreground: var(--brand-foreground);
+  /* Brand-coloured TEXT on the page background (links, accents) — AA-safe. */
+  --color-brand-ink: var(--brand-ink);
 
   /* shadcn/ui token → Tailwind utility bridge (enables bg-primary, text-muted-
      foreground, border-border, etc. for shadcn-style components). */
@@ -173,10 +186,12 @@ body {
 }
 
 /* Branded text selection — a small cohesive touch. Uses the per-theme brand
-   token (turquoise on light, blue on dark); white text stays AA on both. */
+   fill (cyan on light, blue on dark) with the matching readable foreground
+   (dark-teal on the light cyan, white on the dark blue) so selected text stays
+   AA-legible on both. */
 ::selection {
   background-color: var(--brand);
-  color: #ffffff;
+  color: var(--brand-foreground);
 }
 
 /* Smooth in-page anchor scrolling, but respect reduced-motion preferences. */

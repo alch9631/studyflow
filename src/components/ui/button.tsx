@@ -23,7 +23,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-brand text-white shadow-sm hover:bg-brand-dark",
+        primary: "bg-brand text-brand-foreground shadow-sm hover:bg-brand-dark",
         secondary:
           "border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
         // Quiet outline danger — for triggers that *open* a destructive flow.

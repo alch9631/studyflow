@@ -223,7 +223,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
                   onClick={() => applyDurations(p.f, p.b)}
                   className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors active:scale-[.97] ${
                     focusMin === p.f && breakMin === p.b
-                      ? "border-brand bg-brand text-white"
+                      ? "border-brand bg-brand text-brand-foreground"
                       : "border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
                   }`}
                 >
