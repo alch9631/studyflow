@@ -144,7 +144,6 @@ export default async function TodayPage({
 
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
-  const courseCount = new Set(blocks.map((b) => b.course.id)).size;
   const remainingMin = Math.max(0, totalMin - doneMin);
 
   // Realistic focus time left today: minutes until a 22:00 wind-down (Europe/
