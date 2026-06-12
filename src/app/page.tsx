@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { PROGRAMS } from "@/lib/programs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getT } from "@/components/i18n/server";
@@ -66,7 +65,7 @@ export default async function Home() {
 
         <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="#programs">{t("landing.buildPlan")}</Link>
+            <Link href="/catalog">{t("landing.buildPlan")}</Link>
           </Button>
           <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
             <Link href="/courses">{t("landing.havePlan")}</Link>
@@ -162,37 +161,6 @@ export default async function Home() {
         </p>
       </section>
 
-      {/* ── Primary action: choose your Studiengang ────────────────────── */}
-      <section id="programs" className="scroll-mt-20 text-left">
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="text-lg font-bold tracking-tight">
-            {t("landing.chooseProgram")}
-          </h2>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {t("landing.programCount", { count: PROGRAMS.length })}
-          </span>
-        </div>
-        <div className="max-h-[44vh] divide-y divide-gray-100 overflow-y-auto rounded-2xl border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-          {PROGRAMS.map((p) => (
-            <Link
-              key={p.code}
-              href={`/catalog?program=${p.code}`}
-              className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{p.name}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {p.code}
-                </span>
-              </span>
-              <span className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600">
-                ›
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* ── Secondary action: jump back into existing courses ──────────── */}
       <section className="flex flex-col gap-3">
         <Link
@@ -228,7 +196,7 @@ export default async function Home() {
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="#programs">{t("landing.buildPlan")}</Link>
+            <Link href="/catalog">{t("landing.buildPlan")}</Link>
           </Button>
           <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
             <Link href="/today">{t("landing.seeToday")}</Link>

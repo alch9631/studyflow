@@ -152,6 +152,36 @@ export default async function SettingsPage({
           </span>
         </Section>
       </div>
+      <details className="mt-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 text-sm text-gray-600 dark:text-gray-300">
+        <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
+          {t("courses.howTitle")}
+        </summary>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>
+            {t("courses.how1Pre")}{" "}
+            <Link href="/catalog" className="text-brand-ink hover:underline">{t("courses.how1Catalog")}</Link>{t("courses.how1Mid")}{" "}
+            <Link href="/courses/import" className="text-brand-ink hover:underline">{t("courses.how1Upload")}</Link>{t("courses.how1Post")}
+          </li>
+          <li>{t("courses.how2")}</li>
+          <li>
+            {t("courses.how3Pre")} <strong>{t("courses.how3Strong")}</strong> {t("courses.how3Post")}
+          </li>
+          <li>
+            {t("courses.how4Pre")} <strong>{t("courses.how4Spaced")}</strong> {t("courses.how4Mid")}{" "}
+            <strong>{t("courses.how4SelfTest")}</strong> {t("courses.how4Post")}
+          </li>
+          <li>
+            {t("courses.how5Pre")} <Link href="/today" className="text-brand-ink hover:underline">{t("courses.how5Today")}</Link>{" "}
+            {t("courses.how5Post")}
+          </li>
+        </ol>
+        <p className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-2">
+          <strong>{t("courses.appleTitle")}</strong> {t("courses.appleBody")}{" "}
+          <span className="font-medium text-green-700 dark:text-green-400">{t("courses.appleOnTrack")}</span>,
+          <span className="font-medium text-yellow-800 dark:text-yellow-300"> {t("courses.appleMedium")}</span>,
+          <span className="font-medium text-red-700 dark:text-red-400"> {t("courses.appleHigh")}</span>{t("courses.appleTail")}
+        </p>
+      </details>
     </main>
   );
 }

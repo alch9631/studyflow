@@ -466,6 +466,7 @@ export default async function CoursePage({
                   title={topic.title}
                   done={topic.done}
                 />
+                {topic.done && (
                 <TopicConfidence
                   topicId={topic.id}
                   initial={
@@ -476,6 +477,7 @@ export default async function CoursePage({
                       : null
                   }
                 />
+                )}
                 <NoteEditor
                   topicId={topic.id}
                   topicTitle={topic.title}
