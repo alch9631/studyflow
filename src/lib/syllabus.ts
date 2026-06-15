@@ -79,6 +79,22 @@ export function stripToJson(text: string): string {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Shared instruction appended to every prompt that produces human-readable text
+ * (titles, summaries, concepts, questions…). The model must write those VALUES
+ * in the SAME language as the supplied study material — German source material
+ * yields German topics, English yields English, etc. The JSON keys/schema and
+ * any enum values (e.g. category codes) always stay English; only the free-text
+ * values follow the content's language. We never hardcode a target language so
+ * the output always matches whatever the student actually uploaded.
+ */
+export const LANGUAGE_MATCH_INSTRUCTION =
+  "IMPORTANT: Write every human-readable value (topic titles, summary, concepts, " +
+  "prerequisites, questions) in the SAME language as the study material / content below " +
+  "(e.g. German material → German titles and summary, English material → English). " +
+  "Do not translate the content's language. Keep the JSON keys and any fixed enum codes " +
+  "(such as the category value) exactly as specified in English.";
+
 export type ExtractedSyllabus = {
   courseName: string;
   examDate: string; // ISO YYYY-MM-DD, or ""
@@ -110,11 +126,12 @@ const SYLLABUS_SCHEMA = {
   required: ["courseName", "examDate", "topics"],
 };
 
-const SYLLABUS_SYSTEM =
+export const SYLLABUS_SYSTEM =
   "You extract a study structure from course material (a syllabus, module handbook, or lecture script). " +
   "Return the course name, the main/final exam date if stated (ISO YYYY-MM-DD, else empty string), " +
   "and an ordered list of the topics/chapters a student must study, each with a relative effort " +
-  "(1 = normal, 2 = heavy). Keep titles short. Never invent a date that isn't in the text.";
+  "(1 = normal, 2 = heavy). Keep titles short. Never invent a date that isn't in the text. " +
+  LANGUAGE_MATCH_INSTRUCTION;
 
 /**
  * Coerce a raw model object into a safe ExtractedSyllabus. Never throws: a
@@ -266,12 +283,62 @@ const ANALYZE_SCHEMA = {
   required: ["summary", "category", "concepts", "prerequisites", "topics"],
 };
 
-const ANALYZE_SYSTEM =
+const ANALYZE_SYSTEM_BASE =
   "You analyze a university module's study material (lecture script/notes). Extract a short summary, " +
   "classify the material's type (uebung / altklausur / slides / skript / mockexam / sonstiges), " +
   "the key concepts, any prerequisites, and the list of topics a student must master IN THE BEST " +
   "LEARNING ORDER (foundations first). For each topic give a difficulty (1 easy – 3 hard) and an " +
   "estimated study time in minutes. Base everything on the actual content, not just the title.";
+
+/**
+ * Type-specific guidance that shapes the GENERATED TOPICS for the plan (Feature
+ * 2). The user tells us what kind of document they uploaded; we steer the model
+ * to produce topics that fit how that material is studied:
+ *
+ *  • skript / slides → a comprehensive FIRST-PASS LEARNING breakdown (the topics
+ *    you work through to learn the subject the first time).
+ *  • uebung          → practice/exercise-oriented topics (working problems).
+ *  • altklausur / mockexam → a small number of heavier EXAM-PRACTICE items meant
+ *    for the run-up to the exam ("Probeklausur durcharbeiten" style). Fewer,
+ *    weightier topics so the existing scheduler naturally allots them more time.
+ *
+ * The instruction is phrased in English (it's a model instruction), but the
+ * topic VALUES the model produces still follow the content language via
+ * {@link LANGUAGE_MATCH_INSTRUCTION}.
+ */
+const DOC_TYPE_GUIDANCE: Record<FileCategory, string> = {
+  skript:
+    "The user uploaded a SKRIPT (full lecture script/notes). Produce a comprehensive first-pass " +
+    "LEARNING breakdown: the topics a student must study to understand the subject for the first time, " +
+    "in foundations-first order.",
+  slides:
+    "The user uploaded SLIDES (lecture slides/handout). Produce a comprehensive first-pass LEARNING " +
+    "breakdown of the topics covered, in foundations-first order.",
+  uebung:
+    "The user uploaded an ÜBUNG (exercise/problem sheet). Produce PRACTICE-oriented topics: the skills " +
+    "and problem types the student should drill and work through, rather than first-time reading topics.",
+  altklausur:
+    "The user uploaded an ALTKLAUSUR (past exam paper). Produce a SMALL number of heavier EXAM-PRACTICE " +
+    "items meant for the run-up to the exam — e.g. working through the past paper and the question types " +
+    "it covers. Prefer FEWER, weightier topics with higher estimated study time over many small ones.",
+  mockexam:
+    "The user uploaded a MOCKEXAM / Probeklausur (practice exam). Produce a SMALL number of heavier " +
+    "EXAM-PRACTICE items meant for the run-up to the exam — e.g. working the mock exam under timed " +
+    "conditions and reviewing weak spots. Prefer FEWER, weightier topics over many small ones.",
+  sonstiges:
+    "The user uploaded material of an unspecified type. Produce a sensible learning breakdown from the " +
+    "actual content.",
+};
+
+/**
+ * Build the analyze-module system prompt. When the caller knows the user-chosen
+ * document type we append type-specific topic-shaping guidance; the language
+ * instruction is always appended last so produced text matches the content.
+ */
+export function buildAnalyzeSystem(docType?: FileCategory | null): string {
+  const guidance = docType && DOC_TYPE_GUIDANCE[docType] ? " " + DOC_TYPE_GUIDANCE[docType] : "";
+  return ANALYZE_SYSTEM_BASE + guidance + " " + LANGUAGE_MATCH_INSTRUCTION;
+}
 
 export type ModuleAnalysis = {
   summary: string;
@@ -320,13 +387,22 @@ export function normalizeModuleAnalysis(
   };
 }
 
-/** Analyze uploaded module content into a structured, plannable breakdown. */
+/**
+ * Analyze uploaded module content into a structured, plannable breakdown.
+ *
+ * `docType` is the user-chosen document type (skript/slides/uebung/altklausur/
+ * mockexam/sonstiges). When provided it steers the GENERATED TOPICS so they fit
+ * how that kind of material is studied (see {@link DOC_TYPE_GUIDANCE}); the
+ * existing scheduler then spreads those topics/efforts as usual — no planner
+ * rewrite needed. Omitted/null → the generic learning breakdown.
+ */
 export async function analyzeModuleContent(
   courseName: string,
   text: string,
+  docType?: FileCategory | null,
 ): Promise<ModuleAnalysis> {
   const parsed = await jsonComplete<ModuleAnalysis>(
-    ANALYZE_SYSTEM,
+    buildAnalyzeSystem(docType),
     `Module: ${courseName}\n\nMaterial:\n${text.slice(0, 120_000)}`,
     ANALYZE_SCHEMA,
     "moduleanalysis",
@@ -354,9 +430,10 @@ const SELFTEST_SCHEMA = {
   required: ["items"],
 };
 
-const SELFTEST_SYSTEM =
+export const SELFTEST_SYSTEM =
   "For each study topic, write 3 short active-recall self-test questions that make the student " +
-  "retrieve and explain key ideas (concept understanding, not trivia). Use each topic's exact title.";
+  "retrieve and explain key ideas (concept understanding, not trivia). Use each topic's exact title. " +
+  "Write the QUESTIONS in the same language as the topic titles below (German topics → German questions).";
 
 export type TopicQuestions = { title: string; questions: string[] };
 

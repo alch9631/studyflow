@@ -274,6 +274,10 @@ const en = {
       sonstiges: "Other",
       uncategorized: "Uncategorized",
     },
+    docType: {
+      label: "Document type",
+      hint: "We pre-fill this from the filename — adjust it so the plan fits the material (script/slides → learning topics, exercise → practice, past/mock exam → exam prep).",
+    },
     noFiles: "No files uploaded yet. Add a lecture script or PDF above to get an AI analysis.",
     fileUploaded: "uploaded {date}",
     fileChars: "{count} characters read",
@@ -949,6 +953,10 @@ const de: Messages = {
       mockexam: "Probeklausur",
       sonstiges: "Sonstiges",
       uncategorized: "Nicht kategorisiert",
+    },
+    docType: {
+      label: "Dokumenttyp",
+      hint: "Wir füllen das aus dem Dateinamen vor — passe es an, damit der Plan zum Material passt (Skript/Folien → Lernthemen, Übung → Üben, Alt-/Probeklausur → Prüfungsvorbereitung).",
     },
     noFiles: "Noch keine Dateien hochgeladen. Lade oben ein Skript oder PDF hoch, um eine KI-Analyse zu erhalten.",
     fileUploaded: "hochgeladen am {date}",

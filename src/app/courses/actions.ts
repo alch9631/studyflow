@@ -12,7 +12,7 @@ import {
   analyzeModuleContent,
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
-import { classifyFile } from "@/lib/fileCategory";
+import { classifyFile, isFileCategory, type FileCategory } from "@/lib/fileCategory";
 import {
   enforceRateLimit,
   RateLimitError,
@@ -321,12 +321,22 @@ export async function analyzeModuleUpload(formData: FormData) {
   const course = await findOwnedCourse(userId, courseId);
   if (!course) redirect("/courses");
 
+  // The user explicitly picks the document type in the upload form (pre-filled
+  // with the filename auto-detect). We honour their choice if it's a valid
+  // category; an empty/unknown value falls back to the auto-detect below.
+  const docTypeRaw = formData.get("docType");
+  const chosenType: FileCategory | null = isFileCategory(docTypeRaw) ? docTypeRaw : null;
+
   let result = "analyze-error";
   let n = 0;
   try {
     const text = await extractTextFromFile(file as File);
     if (!text.trim()) throw new Error("No readable text in that file");
-    const analysis = await analyzeModuleContent(course.name, text);
+    // Feed the chosen type into analysis so the AI generates type-appropriate
+    // topics (skript/slides → learning, uebung → practice, altklausur/mockexam
+    // → exam-practice). Falls back to the filename auto-detect when unset.
+    const analysisType = chosenType ?? classifyFile(file.name);
+    const analysis = await analyzeModuleContent(course.name, text, analysisType);
     if (analysis.topics.length > 0) {
       // Bound the content-derived topics to the per-course cap before writing.
       const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
@@ -344,9 +354,10 @@ export async function analyzeModuleUpload(formData: FormData) {
         }),
       ]);
       n = newTopics.length;
-      // Auto-classify: filename heuristics win (the student's own naming is a
-      // strong signal), with the AI-derived category as a fallback.
-      const category = classifyFile(file.name, analysis.category);
+      // Stored category: the user's explicit choice wins; if they left it on a
+      // value we can't read, fall back to the auto-classifier (filename
+      // heuristics, then the AI-derived category).
+      const category = chosenType ?? classifyFile(file.name, analysis.category);
       await prisma.moduleFile.create({
         data: {
           courseId,
