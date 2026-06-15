@@ -24,14 +24,26 @@ import { analyzeModuleUpload } from "@/app/courses/actions";
  *
  * Kept as one client island wrapping the native file input + native <select> so
  * the whole thing still submits via the server action's FormData.
+ *
+ * `collapsible` (used inside the course page's compact "Materials" disclosure)
+ * hides the full uploader behind a small "+ Add file" trigger so the box takes
+ * almost no room until the user actually wants to upload.
  */
-export default function ModuleUploadForm({ courseId }: { courseId: string }) {
+export default function ModuleUploadForm({
+  courseId,
+  collapsible = false,
+}: {
+  courseId: string;
+  collapsible?: boolean;
+}) {
   const t = useT();
   const [name, setName] = useState("");
   // The currently-selected type. "" until a file is picked / user chooses.
   const [docType, setDocType] = useState<FileCategory | "">("");
   // Once the user manually edits the select we stop auto-overwriting it.
   const [userPicked, setUserPicked] = useState(false);
+  // When collapsible, the form stays hidden behind a small trigger until opened.
+  const [open, setOpen] = useState(false);
 
   function onFile(file: File | undefined) {
     setName(file?.name ?? "");
@@ -40,6 +52,19 @@ export default function ModuleUploadForm({ courseId }: { courseId: string }) {
       // control always has a concrete default the server can read).
       setDocType(file ? categorizeByFilename(file.name) ?? "sonstiges" : "");
     }
+  }
+
+  if (collapsible && !open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-expanded={false}
+        className={buttonClasses("secondary", "sm")}
+      >
+        <span aria-hidden="true">＋</span> {t("courseDetail.addFile")}
+      </button>
+    );
   }
 
   return (
