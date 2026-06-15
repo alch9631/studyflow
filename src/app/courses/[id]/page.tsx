@@ -13,13 +13,12 @@ import {
   updateCourse,
   deleteCourse,
   reoptimizeCourse,
-  analyzeModuleUpload,
   deleteModuleFile,
   toggleAssignment,
   deleteAssignment,
   setGrade,
 } from "../actions";
-import FilePicker from "@/components/FilePicker";
+import ModuleUploadForm from "@/components/ModuleUploadForm";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
 import TopicMeta from "./TopicMeta";
@@ -516,18 +515,7 @@ export default async function CoursePage({
       <section className="mb-8">
         <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.moduleFiles")}</h2>
         {isSyllabusAIEnabled() ? (
-          <form action={analyzeModuleUpload} className="space-y-3">
-            <input type="hidden" name="courseId" value={course.id} />
-            <FilePicker />
-            <SubmitButton
-              variant="primary"
-              size="md"
-              className="w-full sm:w-auto"
-              pendingLabel={t("courseDetail.analyzing")}
-            >
-              {t("courseDetail.analyzeFile")}
-            </SubmitButton>
-          </form>
+          <ModuleUploadForm courseId={course.id} />
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t("courseDetail.apiKeyFiles")}
