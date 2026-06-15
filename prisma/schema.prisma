@@ -197,10 +197,11 @@ model StudyBlock {
   completed     Boolean  @default(false)
   kind          String   @default("study") // "study" | "review" (spaced repetition)
   actualMinutes Int? // logged via the Pomodoro timer — feeds adaptive estimates
-  // How hard the student found this session, set on completion (optional). One of
-  // "easy" | "medium" | "hard"; null = unrated. Feeds the planner: harder topics
-  // earn more/earlier spaced reviews, easier ones fewer. Kept as a string (not an
-  // enum) to stay provider-agnostic — SQLite has no native enums.
+  // DEPRECATED (no longer read by any code path). Was a per-session difficulty
+  // rating; review weighting is now driven by per-topic confidence
+  // (Topic.confidence → reviewDifficultyByTopic). Kept as a nullable column so we
+  // don't force a data-loss migration on existing rows; safe to drop in a future
+  // dedicated migration once historical rows no longer matter.
   difficulty    String?
 
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)

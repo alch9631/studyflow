@@ -74,6 +74,17 @@ type Props = {
 
   /** Classes for the wrapping <form> (e.g. layout helpers like `shrink-0`). */
   className?: string;
+
+  /**
+   * Set when this ConfirmDialog lives INSIDE another modal Radix Dialog (e.g. the
+   * CourseOptionsSheet). It makes the inner dialog non-modal so Radix doesn't add
+   * a SECOND scroll-lock / `pointer-events:none` guard on top of the parent's —
+   * stacking those is what can leave the page with a stuck scroll-lock or a
+   * leaked pointer-events block if the inner one closes mid-animation. The parent
+   * sheet already provides the modal focus trap + scroll lock for the whole
+   * surface, so the inner dialog loses nothing it needs.
+   */
+  nested?: boolean;
 };
 
 export default function ConfirmDialog({
@@ -92,6 +103,7 @@ export default function ConfirmDialog({
   pendingLabel = "Deleting…",
   cancelLabel = "Cancel",
   className,
+  nested = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   // The confirm button is portaled out of the <form> by Radix, so it's wired
@@ -129,6 +141,7 @@ export default function ConfirmDialog({
         confirmLabel={confirmLabel}
         pendingLabel={pendingLabel}
         cancelLabel={cancelLabel}
+        nested={nested}
       />
     </ToastForm>
   );
@@ -146,6 +159,7 @@ function ConfirmModal({
   confirmLabel,
   pendingLabel,
   cancelLabel,
+  nested,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -158,6 +172,7 @@ function ConfirmModal({
   confirmLabel: string;
   pendingLabel: string;
   cancelLabel: string;
+  nested: boolean;
 }) {
   // Read the parent form's status (this component renders inside the ToastForm,
   // so the status flows through Radix's portal via React context). While the
@@ -170,7 +185,13 @@ function ConfirmModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+    // When nested inside another modal Dialog, render non-modal so we don't stack
+    // a second scroll-lock / pointer-events guard (the parent sheet provides it).
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !pending && setOpen(next)}
+      modal={nested ? false : undefined}
+    >
       <DialogTrigger
         type="button"
         aria-label={triggerAriaLabel}

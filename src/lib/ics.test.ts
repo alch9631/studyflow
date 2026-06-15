@@ -119,7 +119,60 @@ const multiDay = buildCalendar([
 ]);
 check("day 1 starts 09:00", multiDay.includes("DTSTART:20260608T090000"));
 check("day 2 also starts 09:00", multiDay.includes("DTSTART:20260610T090000"));
-check("per-day UID carries that day's date", multiDay.includes("@studyflow") && /UID:sf-\d+-20260610@studyflow/.test(multiDay));
+check("UIDs use the stable sf-<hash>@studyflow form", /UID:sf-[0-9a-f]{8}@studyflow/.test(multiDay));
+
+// ── stable UID: the SAME logical block hashes to the SAME UID across builds ───
+// (so a subscribed feed updates events in place instead of churning new ones).
+const uidOf = (cal: string) => (cal.match(/UID:[^\r\n]+/g) || []).slice().sort();
+const buildOne = () =>
+  buildCalendar([
+    block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: "Graphs", kind: "study" }),
+    block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: "Graphs", kind: "review" }),
+    block({ date: new Date("2026-06-09T00:00:00Z"), topicTitle: "DP", kind: "study" }),
+  ]);
+check(
+  "same logical blocks → identical UIDs across two independent builds",
+  JSON.stringify(uidOf(buildOne())) === JSON.stringify(uidOf(buildOne())),
+);
+// A different logical identity (kind flips study↔review) must change the UID,
+// so a study block and its review on one topic+day don't collide.
+const sameDay = buildCalendar([
+  block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: "Graphs", kind: "study" }),
+  block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: "Graphs", kind: "review" }),
+]);
+check("study vs review on same topic+day get distinct UIDs", (() => {
+  const uids = sameDay.match(/UID:[^\r\n]+/g) || [];
+  return new Set(uids).size === 2;
+})());
+// Two identical-identity sessions on one day (a topic split into chunks) stay
+// unique via the per-identity occurrence index.
+const splitDay = buildCalendar([
+  block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: "Graphs", kind: "study", minutes: 30 }),
+  block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: "Graphs", kind: "study", minutes: 30 }),
+]);
+check("two identical-identity sessions on one day still get unique UIDs", (() => {
+  const uids = splitDay.match(/UID:[^\r\n]+/g) || [];
+  return new Set(uids).size === 2;
+})());
+
+// ── same-day overflow: a packed day never emits a zero-length event ──────────
+// Many long sessions on one day used to push the cursor to 23:59, after which
+// every later event became DTSTART == DTEND (a malformed zero-length stack).
+const overflow = buildCalendar(
+  Array.from({ length: 30 }, (_, i) =>
+    block({ date: new Date("2026-06-08T00:00:00Z"), topicTitle: `T${i}`, minutes: 120 }),
+  ),
+);
+check("overflow day emits one event per block", (overflow.match(/BEGIN:VEVENT/g) || []).length === 30);
+check("no event is zero-length (DTSTART != DTEND) even when the day overflows", (() => {
+  const starts = (overflow.match(/DTSTART:(\d{8}T\d{6})/g) || []).map((s) => s.slice(8));
+  const ends = (overflow.match(/DTEND:(\d{8}T\d{6})/g) || []).map((s) => s.slice(6));
+  return starts.length === ends.length && starts.every((s, i) => s !== ends[i]);
+})());
+check("no event spills past 23:59 on an overflow day", (() => {
+  const ends = (overflow.match(/DTEND:\d{8}T(\d{6})/g) || []).map((s) => s.slice(-6));
+  return ends.every((e) => e <= "235900");
+})());
 
 // ── duration clamps to 23:59, never spilling into the next day ───────────────
 const huge = buildCalendar([block({ minutes: 10_000 })]); // ~7 days of minutes

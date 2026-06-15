@@ -40,9 +40,14 @@ type DbCourseWithTopics = {
 
 type DbBlock = { topicId: string; topicTitle: string; date: Date; minutes: number; completed: boolean };
 
-/** Stable identity for a session, so completion survives a wipe-and-recreate. */
-export const blockKey = (topicTitle: string, date: Date) =>
-  `${topicTitle}|${date.toISOString().slice(0, 10)}`;
+/**
+ * Stable identity for a session, so completion survives a wipe-and-recreate.
+ * Includes `kind` so a scheduled "review" can't collide with a completed
+ * "study" block on the same topic+date (which would otherwise make the replan
+ * silently drop the review as "already covered").
+ */
+export const blockKey = (topicTitle: string, date: Date, kind: string) =>
+  `${topicTitle}|${date.toISOString().slice(0, 10)}|${kind}`;
 
 /**
  * Fold per-session completion into the course the engine sees: a topic with
@@ -62,33 +67,6 @@ export function foldCompletedSessions(
     if (b.completed) done[b.topicId] = (done[b.topicId] ?? 0) + minutes;
   }
   return applyCompletedWork(toEngineCourse(course), done, planned);
-}
-
-const VALID_DIFFICULTY = new Set<Difficulty>(["easy", "medium", "hard"]);
-/** Rank for picking the "worst" (most cautious) rating a topic has received. */
-const DIFFICULTY_RANK: Record<Difficulty, number> = { easy: 0, medium: 1, hard: 2 };
-
-/**
- * Reduce a topic's completed-session difficulty ratings to ONE signal the review
- * scheduler can act on. We take the HARDEST rating the student gave across that
- * topic's done sessions (so a single "this was hard" earns the extra reviews —
- * retention should be conservative, not averaged away). Only completed blocks
- * count: an unrated topic (no done session carried a rating) is simply absent
- * from the map, so the planner falls back to the unchanged baseline schedule.
- */
-export function difficultyByTopic(
-  blocks: { topicId: string; completed: boolean; difficulty: string | null }[],
-): Record<string, Difficulty> {
-  const out: Record<string, Difficulty> = {};
-  for (const b of blocks) {
-    if (!b.completed) continue;
-    const d = b.difficulty;
-    if (!d || !VALID_DIFFICULTY.has(d as Difficulty)) continue;
-    const rated = d as Difficulty;
-    const cur = out[b.topicId];
-    if (!cur || DIFFICULTY_RANK[rated] > DIFFICULTY_RANK[cur]) out[b.topicId] = rated;
-  }
-  return out;
 }
 
 /** Student confidence → review difficulty. Struggling earns more/earlier reviews
@@ -142,13 +120,13 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   // topic+date a completed session already covers (matching on topic+date).
   const existing = await prisma.studyBlock.findMany({
     where: { courseId },
-    select: { completed: true, topicTitle: true, date: true },
+    select: { completed: true, topicTitle: true, date: true, kind: true },
   });
   const completedKeys = new Set(
-    existing.filter((b) => b.completed).map((b) => blockKey(b.topicTitle, b.date)),
+    existing.filter((b) => b.completed).map((b) => blockKey(b.topicTitle, b.date, b.kind)),
   );
   const fresh = blocks.filter(
-    (b) => !completedKeys.has(blockKey(b.topicTitle, new Date(b.date + "T00:00:00Z"))),
+    (b) => !completedKeys.has(blockKey(b.topicTitle, new Date(b.date + "T00:00:00Z"), b.kind)),
   );
   // Atomic swap: a crash between the delete and the create must never leave a
   // course with no plan, so both run in one transaction.
@@ -196,13 +174,41 @@ type Work = {
 };
 
 /**
+ * Per-user serialization of the global rebuild. Every confidence tap / topic
+ * toggle triggers a full delete-and-recreate of that user's unfinished plan; on
+ * rapid taps those overlap, racing the same rows (and on SQLite, contending for
+ * the write lock → SQLITE_BUSY). We chain rebuilds for a given user so they run
+ * one after another instead of concurrently. Each link still runs its OWN fresh
+ * rebuild AFTER the previous finishes, so it always reads post-write data — no
+ * coalescing that could miss a write, no correctness regression. In-process only
+ * (single-instance deployment); it bounds the thundering herd from one user's
+ * optimistic taps without changing what any single rebuild computes.
+ */
+const rebuildChain = new Map<string, Promise<unknown>>();
+
+export function rebuildSchedule(
+  userId: string,
+): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
+  const prev = rebuildChain.get(userId) ?? Promise.resolve();
+  // Run after any in-flight rebuild for this user (ignoring its outcome), so two
+  // rapid taps don't delete+recreate the same rows at the same time.
+  const next = prev.catch(() => {}).then(() => rebuildScheduleInner(userId));
+  rebuildChain.set(userId, next);
+  // Clean up once we're the tail of the chain, so the map doesn't grow forever.
+  void next.finally(() => {
+    if (rebuildChain.get(userId) === next) rebuildChain.delete(userId);
+  });
+  return next;
+}
+
+/**
  * GLOBAL realistic scheduler. Plans ALL of a student's courses together against a
  * single daily budget (~3h), so the total daily load is humanly realistic — not
  * 8 modules each demanding their own hours. Prioritises by exam proximity, caps
  * any one topic per day (keeps days interleaved), and never schedules past an
  * exam. Each course is flagged `intense` if its work can't fit before its exam.
  */
-export async function rebuildSchedule(
+async function rebuildScheduleInner(
   userId: string,
 ): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
   const courses = await prisma.course.findMany({
@@ -227,9 +233,6 @@ export async function rebuildSchedule(
           minutes: true,
           completed: true,
           actualMinutes: true,
-          // Per-session difficulty rating — aggregated per topic to weight the
-          // spaced-review schedule (hard → more/earlier reviews, easy → fewer).
-          difficulty: true,
         },
       },
     },
