@@ -11,7 +11,6 @@ import EmptyState from "@/components/EmptyState";
 import InfoToast from "@/components/InfoToast";
 import Onboarding from "@/components/Onboarding";
 import { StreakBadge } from "@/components/StreakBadge";
-import PullToRefresh from "@/components/PullToRefresh";
 import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
 import { recoverPlan } from "./actions";
@@ -174,7 +173,9 @@ export default async function TodayPage({
     upcomingDeadlines.length === 0;
 
   return (
-    <PullToRefresh>
+    // Pull-to-refresh now lives in the root layout (wraps every route once), so
+    // this page must NOT wrap it again — that would double the touch listeners.
+    <>
     {/* First-run intro for brand-new users with no plan yet. It self-gates on a
         localStorage "seen" flag, so it shows at most once and never for users
         who already have courses. */}
@@ -380,7 +381,7 @@ export default async function TodayPage({
         </div>
       )}
     </main>
-    </PullToRefresh>
+    </>
   );
 }
 

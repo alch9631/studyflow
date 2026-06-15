@@ -7,6 +7,7 @@ import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import { daysUntil } from "@/lib/dates";
 import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, dueLabel, type MessageKey } from "@/components/i18n/messages";
+import { FILE_CATEGORIES, isFileCategory, type FileCategory } from "@/lib/fileCategory";
 import {
   healCourse,
   updateCourse,
@@ -21,8 +22,7 @@ import {
 import FilePicker from "@/components/FilePicker";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
-import TopicConfidence from "./TopicConfidence";
-import NoteEditor from "./NoteEditor";
+import TopicMeta from "./TopicMeta";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { iconButtonClass } from "@/components/ui";
@@ -112,6 +112,42 @@ function topicLabel(entry: string | { title?: string }): string {
   return typeof entry === "string" ? entry : (entry.title ?? "");
 }
 
+/**
+ * Display order for the auto-classified file categories (#5). Uncategorized
+ * (legacy / unrecognized) sorts last. `FILE_CATEGORIES` is the source of truth
+ * for the set; this just fixes a sensible reading order for the grouped list.
+ */
+const CATEGORY_ORDER: (FileCategory | "uncategorized")[] = [
+  "skript",
+  "slides",
+  "uebung",
+  "altklausur",
+  "mockexam",
+  "sonstiges",
+  "uncategorized",
+];
+
+/** Per-category badge colours — mirrors the topic-confidence badge palette. */
+const CATEGORY_BADGE: Record<FileCategory | "uncategorized", string> = {
+  skript:
+    "border-sky-300 bg-sky-100 text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300",
+  slides:
+    "border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300",
+  uebung:
+    "border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300",
+  altklausur:
+    "border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300",
+  mockexam:
+    "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300",
+  sonstiges:
+    "border-gray-300 bg-gray-100 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  uncategorized:
+    "border-gray-300 bg-gray-100 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300",
+};
+
+// Compile-time guard: every known category has display order + a badge tone.
+void (FILE_CATEGORIES satisfies readonly FileCategory[]);
+
 const BANNER_KEYS = new Set([
   "healed",
   "healed-over",
@@ -178,6 +214,7 @@ export default async function CoursePage({
           sizeBytes: true,
           extractedChars: true,
           analysis: true,
+          category: true,
           createdAt: true,
         },
       },
@@ -200,6 +237,21 @@ export default async function CoursePage({
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key)!.push(b);
   }
+
+  // #5 — Group uploaded files by auto-classified category, then render the
+  // groups in CATEGORY_ORDER. Files keep their newest-first order within a
+  // group (the query already sorts by createdAt desc). Legacy/unknown rows fall
+  // into "uncategorized".
+  type CourseFile = (typeof course.files)[number];
+  const filesByCategory = new Map<FileCategory | "uncategorized", CourseFile[]>();
+  for (const f of course.files) {
+    const key = isFileCategory(f.category) ? f.category : "uncategorized";
+    if (!filesByCategory.has(key)) filesByCategory.set(key, []);
+    filesByCategory.get(key)!.push(f);
+  }
+  const fileGroups = CATEGORY_ORDER.filter((c) => filesByCategory.has(c)).map(
+    (c) => [c, filesByCategory.get(c)!] as const,
+  );
 
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
@@ -490,113 +542,132 @@ export default async function CoursePage({
             {t("courseDetail.noFiles")}
           </p>
         ) : (
-          <AnimatedList className="space-y-2">
-            {course.files.map((file) => {
-              const analysis = parseAnalysis(file.analysis);
-              const typeHint = fileTypeHint(file.filename, file.mimeType);
-              const uploaded = file.createdAt.toISOString().slice(0, 10);
-              const concepts = analysis?.concepts?.filter(Boolean) ?? [];
-              const prerequisites = analysis?.prerequisites?.filter(Boolean) ?? [];
-              const topics = (analysis?.topics ?? []).map(topicLabel).filter(Boolean);
-              const hasAnalysis =
-                Boolean(analysis?.summary) ||
-                concepts.length > 0 ||
-                prerequisites.length > 0 ||
-                topics.length > 0;
-              return (
-                <AnimatedListItem
-                  key={file.id}
-                  className="rounded-xl border border-gray-200 p-3 dark:border-gray-800"
-                >
-                  <div className="flex items-start gap-3">
-                    <span aria-hidden="true" className="mt-0.5 text-base leading-none">
-                      📄
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="break-words font-medium">{file.filename}</div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          {typeHint}
-                        </span>
-                        <span>{formatBytes(file.sizeBytes)}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{t("courseDetail.fileUploaded", { date: uploaded })}</span>
-                        {file.extractedChars > 0 && (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span>
-                              {t("courseDetail.fileChars", {
-                                count: file.extractedChars.toLocaleString(t.locale),
-                              })}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <ConfirmDialog
-                      action={deleteModuleFile}
-                      fields={{ moduleFileId: file.id }}
-                      successMessage={t("courseDetail.fileRemoved")}
-                      errorMessage={t("courseDetail.fileRemoveError")}
-                      className="shrink-0"
-                      triggerLabel="🗑"
-                      triggerAriaLabel={t("courseDetail.deleteFileAria", { filename: file.filename })}
-                      triggerClassName={iconButtonClass(
-                        "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
-                      )}
-                      title={t("courseDetail.deleteFileTitle")}
-                      message={
-                        <>
-                          {t("courseDetail.deleteFileMsgPre")} <strong>{file.filename}</strong>{" "}
-                          {t("courseDetail.deleteFileMsgPost")}
-                        </>
-                      }
-                      confirmLabel={t("courseDetail.deleteFileConfirm")}
-                      pendingLabel={t("courseDetail.removing")}
-                    />
-                  </div>
+          <div className="space-y-4">
+            {fileGroups.map(([category, files]) => (
+              <div key={category}>
+                <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium normal-case tracking-normal ${CATEGORY_BADGE[category]}`}
+                  >
+                    {t(`courseDetail.fileCategory.${category}` as MessageKey)}
+                  </span>
+                  <span className="text-gray-400 dark:text-gray-500">({files.length})</span>
+                </h4>
+                <AnimatedList className="space-y-2">
+                  {files.map((file) => {
+                    const analysis = parseAnalysis(file.analysis);
+                    const typeHint = fileTypeHint(file.filename, file.mimeType);
+                    const uploaded = file.createdAt.toISOString().slice(0, 10);
+                    const concepts = analysis?.concepts?.filter(Boolean) ?? [];
+                    const prerequisites = analysis?.prerequisites?.filter(Boolean) ?? [];
+                    const topics = (analysis?.topics ?? []).map(topicLabel).filter(Boolean);
+                    const hasAnalysis =
+                      Boolean(analysis?.summary) ||
+                      concepts.length > 0 ||
+                      prerequisites.length > 0 ||
+                      topics.length > 0;
+                    return (
+                      <AnimatedListItem
+                        key={file.id}
+                        className="rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span aria-hidden="true" className="mt-0.5 text-base leading-none">
+                            📄
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="break-words font-medium">{file.filename}</div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${CATEGORY_BADGE[category]}`}
+                              >
+                                {t(`courseDetail.fileCategory.${category}` as MessageKey)}
+                              </span>
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                {typeHint}
+                              </span>
+                              <span>{formatBytes(file.sizeBytes)}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{t("courseDetail.fileUploaded", { date: uploaded })}</span>
+                              {file.extractedChars > 0 && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>
+                                    {t("courseDetail.fileChars", {
+                                      count: file.extractedChars.toLocaleString(t.locale),
+                                    })}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <ConfirmDialog
+                            action={deleteModuleFile}
+                            fields={{ moduleFileId: file.id }}
+                            successMessage={t("courseDetail.fileRemoved")}
+                            errorMessage={t("courseDetail.fileRemoveError")}
+                            className="shrink-0"
+                            triggerLabel="🗑"
+                            triggerAriaLabel={t("courseDetail.deleteFileAria", { filename: file.filename })}
+                            triggerClassName={iconButtonClass(
+                              "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
+                            )}
+                            title={t("courseDetail.deleteFileTitle")}
+                            message={
+                              <>
+                                {t("courseDetail.deleteFileMsgPre")} <strong>{file.filename}</strong>{" "}
+                                {t("courseDetail.deleteFileMsgPost")}
+                              </>
+                            }
+                            confirmLabel={t("courseDetail.deleteFileConfirm")}
+                            pendingLabel={t("courseDetail.removing")}
+                          />
+                        </div>
 
-                  {hasAnalysis ? (
-                    <details className="group mt-2">
-                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-brand-ink">
-                        <span
-                          aria-hidden="true"
-                          className="transition-transform group-open:rotate-90"
-                        >
-                          ›
-                        </span>
-                        {t("courseDetail.fileShowAnalysis")}
-                      </summary>
-                      <div className="mt-2 space-y-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
-                        {analysis?.summary && (
-                          <p className="text-gray-600 dark:text-gray-300">{analysis.summary}</p>
-                        )}
-                        {concepts.length > 0 && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t("courseDetail.concepts", { list: concepts.slice(0, 12).join(", ") })}
+                        {hasAnalysis ? (
+                          <details className="group mt-2">
+                            <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-brand-ink">
+                              <span
+                                aria-hidden="true"
+                                className="transition-transform group-open:rotate-90"
+                              >
+                                ›
+                              </span>
+                              {t("courseDetail.fileShowAnalysis")}
+                            </summary>
+                            <div className="mt-2 space-y-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
+                              {analysis?.summary && (
+                                <p className="text-gray-600 dark:text-gray-300">{analysis.summary}</p>
+                              )}
+                              {concepts.length > 0 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {t("courseDetail.concepts", { list: concepts.slice(0, 12).join(", ") })}
+                                </p>
+                              )}
+                              {prerequisites.length > 0 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {t("courseDetail.prerequisites", { list: prerequisites.join(", ") })}
+                                </p>
+                              )}
+                              {topics.length > 0 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {t("courseDetail.detectedTopics", { list: topics.slice(0, 12).join(", ") })}
+                                </p>
+                              )}
+                            </div>
+                          </details>
+                        ) : (
+                          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                            {t("courseDetail.fileNoAnalysis")}
                           </p>
                         )}
-                        {prerequisites.length > 0 && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t("courseDetail.prerequisites", { list: prerequisites.join(", ") })}
-                          </p>
-                        )}
-                        {topics.length > 0 && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t("courseDetail.detectedTopics", { list: topics.slice(0, 12).join(", ") })}
-                          </p>
-                        )}
-                      </div>
-                    </details>
-                  ) : (
-                    <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                      {t("courseDetail.fileNoAnalysis")}
-                    </p>
-                  )}
-                </AnimatedListItem>
-              );
-            })}
-          </AnimatedList>
+                      </AnimatedListItem>
+                    );
+                  })}
+                </AnimatedList>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
@@ -620,22 +691,18 @@ export default async function CoursePage({
                   title={topic.title}
                   done={topic.done}
                 />
-                {topic.done && (
-                <TopicConfidence
+                <TopicMeta
                   topicId={topic.id}
-                  initial={
+                  topicTitle={topic.title}
+                  showConfidence={topic.done}
+                  initialConfidence={
                     topic.confidence === "solid" ||
                     topic.confidence === "practice" ||
                     topic.confidence === "struggling"
                       ? topic.confidence
                       : null
                   }
-                />
-                )}
-                <NoteEditor
-                  topicId={topic.id}
-                  topicTitle={topic.title}
-                  initialBody={topic.note?.body ?? ""}
+                  initialNote={topic.note?.body ?? ""}
                 />
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">

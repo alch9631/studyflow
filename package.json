@@ -15,6 +15,7 @@
     "test:dates": "tsx src/lib/dates.test.ts",
     "test:ics": "tsx src/lib/ics.test.ts",
     "test:syllabus": "tsx src/lib/syllabus.test.ts",
+    "test:filecategory": "tsx src/lib/fileCategory.test.ts",
     "test:stats": "tsx src/lib/stats.test.ts",
     "test:streak-ui": "tsx src/components/lib/streak.test.ts",
     "test:action-queue": "tsx src/components/lib/actionQueue.test.ts",
