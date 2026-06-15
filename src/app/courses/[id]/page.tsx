@@ -513,25 +513,38 @@ export default async function CoursePage({
       )}
 
       <section className="mb-8">
-        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.moduleFiles")}</h2>
-        {isSyllabusAIEnabled() ? (
-          <ModuleUploadForm courseId={course.id} />
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("courseDetail.apiKeyFiles")}
-          </p>
-        )}
+        <details className="group rounded-xl border border-gray-200 dark:border-gray-800">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-lg font-semibold transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="text-gray-400 transition-transform group-open:rotate-90"
+              >
+                ›
+              </span>
+              {t("courseDetail.materials")}
+            </span>
+            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+              {course.files.length}
+            </span>
+          </summary>
 
-        <h3 className="mt-5 mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-          {t("courseDetail.uploadedFiles")}
-        </h3>
-        {course.files.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-            {t("courseDetail.noFiles")}
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {fileGroups.map(([category, files]) => (
+          <div className="space-y-4 border-t border-gray-100 px-4 pb-4 pt-4 dark:border-gray-800">
+            {isSyllabusAIEnabled() ? (
+              <ModuleUploadForm courseId={course.id} collapsible />
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("courseDetail.apiKeyFiles")}
+              </p>
+            )}
+
+            {course.files.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                {t("courseDetail.noFiles")}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {fileGroups.map(([category, files]) => (
               <div key={category}>
                 <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   <span
@@ -655,8 +668,10 @@ export default async function CoursePage({
                 </AnimatedList>
               </div>
             ))}
+              </div>
+            )}
           </div>
-        )}
+        </details>
       </section>
 
       <section className="mb-8">
