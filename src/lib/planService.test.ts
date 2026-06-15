@@ -3,7 +3,7 @@
  * Run with: npx tsx src/lib/planService.test.ts
  * (Dependency-free, same style as planner.test.ts.)
  */
-import { toEngineCourse, foldCompletedSessions, blockKey, difficultyByTopic, reviewDifficultyByTopic } from "./planService";
+import { toEngineCourse, foldCompletedSessions, blockKey, reviewDifficultyByTopic } from "./planService";
 
 let passed = 0;
 let failed = 0;
@@ -69,17 +69,26 @@ check("empty studyDays -> []", JSON.stringify(emptyDays.studyDays) === JSON.stri
 // ---- blockKey -------------------------------------------------------------
 
 check(
-  "blockKey is topicTitle|YYYY-MM-DD",
-  blockKey("Sorting", new Date("2026-06-20T00:00:00Z")) === "Sorting|2026-06-20",
+  "blockKey is topicTitle|YYYY-MM-DD|kind",
+  blockKey("Sorting", new Date("2026-06-20T00:00:00Z"), "study") === "Sorting|2026-06-20|study",
 );
 check(
   "blockKey ignores time-of-day component",
-  blockKey("Graphs", new Date("2026-06-20T23:59:59Z")) === "Graphs|2026-06-20",
+  blockKey("Graphs", new Date("2026-06-20T23:59:59Z"), "study") === "Graphs|2026-06-20|study",
 );
 check(
-  "blockKey is stable for same title+date",
-  blockKey("DP", new Date("2026-06-07T00:00:00Z")) ===
-    blockKey("DP", new Date("2026-06-07T00:00:00Z")),
+  "blockKey is stable for same title+date+kind",
+  blockKey("DP", new Date("2026-06-07T00:00:00Z"), "study") ===
+    blockKey("DP", new Date("2026-06-07T00:00:00Z"), "study"),
+);
+// Regression (replan dropping a review): a scheduled "review" and a completed
+// "study" on the SAME topic+date are DISTINCT keys, so persistBlocks no longer
+// treats the freshly-planned review as "already covered" by the done study
+// block and drops it.
+check(
+  "blockKey separates kinds on the same topic+date",
+  blockKey("DP", new Date("2026-06-07T00:00:00Z"), "study") !==
+    blockKey("DP", new Date("2026-06-07T00:00:00Z"), "review"),
 );
 
 // ---- foldCompletedSessions ------------------------------------------------
@@ -346,61 +355,6 @@ check(
   "foldCompletedSessions(null/NaN minutes) keeps every effort finite",
   foldNullMinutes.topics.every((t) => Number.isFinite(t.effort) && t.effort >= 0),
 );
-
-// ---- difficultyByTopic ----------------------------------------------------
-// Aggregates per-topic difficulty from COMPLETED sessions only, taking the
-// hardest rating (conservative). Drives the review-weighting in rebuildSchedule.
-
-const diff1 = difficultyByTopic([
-  { topicId: "t1", completed: true, difficulty: "hard" },
-  { topicId: "t2", completed: true, difficulty: "easy" },
-]);
-check("difficultyByTopic maps a hard rating", diff1.t1 === "hard");
-check("difficultyByTopic maps an easy rating", diff1.t2 === "easy");
-
-// Only completed sessions count — an unfinished rated block is ignored.
-const diff2 = difficultyByTopic([
-  { topicId: "t1", completed: false, difficulty: "hard" },
-]);
-check("difficultyByTopic ignores incomplete sessions", diff2.t1 === undefined);
-
-// Unrated completed sessions leave the topic absent (→ planner baseline).
-const diff3 = difficultyByTopic([
-  { topicId: "t1", completed: true, difficulty: null },
-]);
-check("difficultyByTopic omits unrated topics", diff3.t1 === undefined);
-
-// Takes the HARDEST rating across a topic's sessions (conservative retention).
-const diff4 = difficultyByTopic([
-  { topicId: "t1", completed: true, difficulty: "easy" },
-  { topicId: "t1", completed: true, difficulty: "hard" },
-  { topicId: "t1", completed: true, difficulty: "medium" },
-]);
-check("difficultyByTopic keeps the hardest rating", diff4.t1 === "hard");
-
-const diff5 = difficultyByTopic([
-  { topicId: "t1", completed: true, difficulty: "easy" },
-  { topicId: "t1", completed: true, difficulty: "medium" },
-]);
-check("difficultyByTopic medium beats easy", diff5.t1 === "medium");
-
-// Junk values never persist into the signal.
-const diff6 = difficultyByTopic([
-  { topicId: "t1", completed: true, difficulty: "extreme" },
-  { topicId: "t1", completed: true, difficulty: "" },
-]);
-check("difficultyByTopic drops junk difficulty values", diff6.t1 === undefined);
-
-// Empty input → empty map (no throw).
-let diffEmptyOk = true;
-let diffEmpty: Record<string, string> = { x: "y" };
-try {
-  diffEmpty = difficultyByTopic([]);
-} catch {
-  diffEmptyOk = false;
-}
-check("difficultyByTopic([]) does not throw", diffEmptyOk);
-check("difficultyByTopic([]) is empty", Object.keys(diffEmpty).length === 0);
 
 // ---- reviewDifficultyByTopic (per-topic confidence → review difficulty) ----
 

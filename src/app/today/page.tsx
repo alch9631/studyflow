@@ -31,7 +31,6 @@ type Row = {
   completed: boolean;
   kind: string;
   actualMinutes: number | null;
-  difficulty: string | null;
   course: { name: string; id: string };
 };
 
@@ -69,10 +68,12 @@ export default async function TodayPage({
         completed: true,
         kind: true,
         actualMinutes: true,
-        difficulty: true,
         course: { select: { name: true, id: true } },
       },
-      orderBy: [{ kind: "asc" }, { minutes: "desc" }],
+      // First-pass STUDY before its REVIEW within a day. "kind desc" puts
+      // "study" before "review" (s > r), so you learn a topic before revising
+      // it; the longest session leads each kind.
+      orderBy: [{ kind: "desc" }, { minutes: "desc" }],
     }),
     // Nearest upcoming exam, for a motivating header line / focus banner.
     prisma.course.findFirst({
@@ -131,10 +132,10 @@ export default async function TodayPage({
           completed: true,
           kind: true,
           actualMinutes: true,
-          difficulty: true,
           course: { select: { name: true, id: true } },
         },
-        orderBy: [{ kind: "asc" }, { minutes: "desc" }],
+        // STUDY before REVIEW within a day (see Today's main query above).
+        orderBy: [{ kind: "desc" }, { minutes: "desc" }],
       });
     }
   }

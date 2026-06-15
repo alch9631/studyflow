@@ -560,39 +560,7 @@ export async function toggleBlock(formData: FormData) {
   revalidatePath(path);
 }
 
-const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 const CONFIDENCE = new Set(["solid", "practice", "struggling"]);
-
-/**
- * Rate how hard a finished session felt (easy | medium | hard, or "" to clear).
- * An OPTIONAL follow-up to marking a block done — it must never block or delay
- * completion. The rating feeds the planner: the next heal/replan weights spaced
- * reviews by it (hard topics earn more/earlier reviews, easy fewer). We don't
- * replan here on purpose — rating is a fast, low-friction tap, and reshuffling
- * the schedule under the student's thumb on every tap would be jarring; the
- * weighting is picked up on the next heal/replan instead.
- */
-export async function rateBlock(formData: FormData) {
-  const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
-  let id: string;
-  try {
-    id = requireId(formData.get("blockId"), "Block");
-  } catch {
-    return;
-  }
-  const raw = str(formData.get("difficulty"));
-  // "" clears the rating; anything else must be one of the known levels.
-  const difficulty = raw === "" ? null : DIFFICULTIES.has(raw) ? raw : undefined;
-  if (difficulty === undefined) return; // junk value → ignore, never persist garbage
-  const path = str(formData.get("revalidate")) || "/today";
-  // Scoped: a non-owner rating another user's block id is a silent no-op.
-  const block = await findOwnedBlock(userId, id);
-  if (block) {
-    await prisma.studyBlock.update({ where: { id }, data: { difficulty } });
-  }
-  revalidatePath(path);
-}
 
 /**
  * Save a topic's self-rated confidence (solid | practice | struggling, or "" to

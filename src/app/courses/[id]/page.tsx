@@ -287,6 +287,7 @@ export default async function CoursePage({
                           </span>
                         </span>
                         <ConfirmDialog
+                          nested
                           action={deleteAssignment}
                           fields={{ assignmentId: a.id, courseId: course.id }}
                           successMessage={t("courseDetail.deadlineRemoved")}
@@ -315,6 +316,7 @@ export default async function CoursePage({
             </section>
 
             <ConfirmDialog
+              nested
               action={deleteCourse}
               fields={{ courseId: course.id }}
               className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-800"
