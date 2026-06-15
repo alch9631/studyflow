@@ -3,7 +3,6 @@ import {
   applyCompletedWork,
   buildReviewBlocks,
   studyDatesBetween,
-  addDaysISO,
   MINUTES_PER_EFFORT,
   SESSION_MINUTES,
   type Course as EngineCourse,
@@ -12,10 +11,35 @@ import {
 } from "./planner";
 import { isSyllabusAIEnabled, optimizeStudyPlan, generateSelfTests } from "./syllabus";
 
-/** Realistic total study time per day across ALL of a student's courses. */
-export const GLOBAL_DAILY_MINUTES = 180; // ~3h
-/** Cap on one topic's time in a single day, so days stay interleaved/realistic. */
-const MAX_TOPIC_MINUTES_PER_DAY = 60;
+/**
+ * Realistic MAX total study time per day across ALL of a student's courses. This
+ * is now a CEILING, not a target: the scheduler paces each course to its exam
+ * (see TARGET pace below) and only fills up to this cap when several courses
+ * overlap. Raised to ~6h so the even-spread plan (multiple courses, each touched
+ * a little every study day) fits the student's real Mon–Fri capacity instead of
+ * being squeezed into 3h and front-packed.
+ */
+export const GLOBAL_DAILY_MINUTES = 360; // ~6h ceiling
+/**
+ * Cap on one topic's time in a single day. Lowered so a substantial topic is
+ * TOUCHED ACROSS SEVERAL DAYS (progressing over time) instead of being finished
+ * in one or two sittings — the per-topic half of the "spread, don't cram" goal.
+ */
+const MAX_TOPIC_MINUTES_PER_DAY = 45;
+/**
+ * Smallest study block we'll emit. When a course's even pace is below this (a
+ * light course over a long runway), we don't sprinkle sub-minute slivers on every
+ * day — we accrue the pace as "credit" and spend it as a real block once it
+ * reaches this floor, which SPACES sessions out across the runway instead of
+ * front-loading them. Sized below a full session so even modest pacing still
+ * lands several sessions a week.
+ */
+const MIN_BLOCK_MINUTES = 15;
+/**
+ * Safety bound on how far ahead we ever schedule. A pathological far-future exam
+ * (years out) would otherwise make studyDatesBetween enumerate an enormous date
+ * list; we cap the runway each course is spread over to keep the rebuild bounded.
+ */
 const MAX_SCHEDULE_DAYS = 400;
 /** Even on a heavy lecture day, still allow at least this much study time. */
 const MIN_DAILY_AFTER_LECTURES = 30;
@@ -169,8 +193,28 @@ type Work = {
   topicId: string;
   title: string;
   rem: number; // minutes still to schedule
+  /** Topic's position in the course (order asc); drives early/late interleaving. */
+  order: number;
   exam: string; // ISO date
   studyDays: number[];
+};
+
+/**
+ * One course's day-by-day pacing state. We pre-compute a TARGET per-study-day
+ * budget (≈ remaining work / remaining study days) so the course's work is
+ * spread evenly across its whole runway to the exam instead of front-packed into
+ * the first few days. The day loop never gives a course more than this target on
+ * a normal day, so a course with a long runway gets a little every study day and
+ * still has study/review near the exam.
+ */
+type CoursePace = {
+  courseId: string;
+  exam: string;
+  studyDays: number[];
+  /** Topics of this course still owing time, in course order. */
+  work: Work[];
+  /** Even-spread minutes/day to finish exactly on time (>= a one-session floor). */
+  targetPerDay: number;
 };
 
 /**
@@ -202,11 +246,21 @@ export function rebuildSchedule(
 }
 
 /**
- * GLOBAL realistic scheduler. Plans ALL of a student's courses together against a
- * single daily budget (~3h), so the total daily load is humanly realistic — not
- * 8 modules each demanding their own hours. Prioritises by exam proximity, caps
- * any one topic per day (keeps days interleaved), and never schedules past an
- * exam. Each course is flagged `intense` if its work can't fit before its exam.
+ * GLOBAL realistic scheduler — EVEN-SPREAD edition.
+ *
+ * Plans ALL of a student's courses together, but instead of front-packing the
+ * earliest days to a fixed daily budget, it PACES each course evenly to its exam:
+ * each course gets a target ≈ remainingWork / remainingStudyDays, so a subject is
+ * present a little on every study day across the whole runway (steady study the
+ * whole way, not a wall of work up front and an empty tail). Within a course,
+ * topics are interleaved in course order so foundational topics lead and later
+ * topics follow, each touched across several days rather than crammed into one.
+ *
+ * A global daily CEILING (`GLOBAL_DAILY_MINUTES`, ~6h, minus the day's lectures)
+ * still bounds the total so overlapping courses can't exceed a realistic day; on
+ * such crowded days, nearer exams win the contested minutes. Work that genuinely
+ * cannot fit before its exam is piled onto the last study day (never dropped) and
+ * the course is flagged `intense`.
  */
 async function rebuildScheduleInner(
   userId: string,
@@ -249,7 +303,17 @@ async function rebuildScheduleInner(
     lectureMinByDow[l.weekday] += Math.max(0, l.endMin - l.startMin);
   }
 
-  const pool: Work[] = [];
+  const today = todayISO();
+  // Study dates from today to the exam, capped at MAX_SCHEDULE_DAYS so a far-future
+  // exam can't enumerate an unbounded list. The cap only bites on pathological
+  // horizons (>~400 study days); normal courses are unaffected and still spread
+  // across their entire real runway.
+  const runwayDates = (start: string, exam: string, days: number[]) =>
+    studyDatesBetween(start, exam, days).slice(0, MAX_SCHEDULE_DAYS);
+
+  // Build a per-course pacing plan: its remaining topic-work and the even-spread
+  // target/day needed to finish exactly on its exam over its remaining study days.
+  const paces: CoursePace[] = [];
   for (const c of courses) {
     const folded = foldCompletedSessions(c); // effort reduced by completed work
     const calibration = calibrationFromHistory(c.blocks);
@@ -258,75 +322,146 @@ async function rebuildScheduleInner(
       .split(",")
       .map((s) => parseInt(s.trim(), 10))
       .filter((n) => !Number.isNaN(n));
+
+    const work: Work[] = [];
+    let order = 0;
     for (const t of folded.topics) {
+      const o = order++;
       if (t.done) continue;
       const minutes = Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration);
       if (minutes > 0) {
-        pool.push({ courseId: c.id, topicId: t.id, title: t.title, rem: minutes, exam, studyDays: days });
+        work.push({ courseId: c.id, topicId: t.id, title: t.title, rem: minutes, order: o, exam, studyDays: days });
       }
     }
+    if (work.length === 0) {
+      paces.push({ courseId: c.id, exam, studyDays: days, work, targetPerDay: 0 });
+      continue;
+    }
+
+    // Even-spread pace: total remaining work / number of study days before the
+    // exam. This is the daily budget that finishes the course EXACTLY on time if
+    // applied every study day — the heart of "spread to the exam, don't front
+    // pack". Capped at the global ceiling so a single huge course can't claim a
+    // whole (impossible) day on its own (its overflow then piles + flags intense).
+    // NOT floored up to a full session: a light course over a long runway must be
+    // allowed a SHORT daily target (e.g. 15 min/day) so it spans the whole runway
+    // instead of finishing early — we only enforce a sensible minimum on the size
+    // of an individual block, not on the daily target.
+    const runway = runwayDates(today, exam, days).length;
+    const totalRem = work.reduce((s, w) => s + w.rem, 0);
+    const evenPace = runway > 0 ? Math.ceil(totalRem / runway) : totalRem;
+    const targetPerDay = Math.min(GLOBAL_DAILY_MINUTES, Math.max(1, evenPace));
+    paces.push({ courseId: c.id, exam, studyDays: days, work, targetPerDay });
   }
 
   const studyByCourse = new Map<string, EngineBlock[]>();
   for (const c of courses) studyByCourse.set(c.id, []);
+  // Running per-day total across ALL courses, so we can honour the global daily
+  // ceiling (a crowded day can't exceed ~6h minus that day's lectures).
+  const dayLoad = new Map<string, number>();
+  const ceilingFor = (date: string) => {
+    const dow = new Date(date + "T00:00:00Z").getUTCDay();
+    return Math.max(MIN_DAILY_AFTER_LECTURES, GLOBAL_DAILY_MINUTES - lectureMinByDow[dow]);
+  };
 
-  // Day-by-day allocation within the global daily budget.
-  let day = todayISO();
-  for (let d = 0; d < MAX_SCHEDULE_DAYS && pool.some((w) => w.rem > 0); d++) {
-    const dow = new Date(day + "T00:00:00Z").getUTCDay();
-    // Subtract the day's lecture load from the study budget (floored), so study
-    // is planned around real classes rather than on top of them.
-    let budget = Math.max(MIN_DAILY_AFTER_LECTURES, GLOBAL_DAILY_MINUTES - lectureMinByDow[dow]);
-    const perTopicToday: Record<string, number> = {};
-    while (budget > 0) {
-      const elig = pool.filter(
-        (w) =>
-          w.rem > 0 &&
-          w.studyDays.includes(dow) &&
-          day < w.exam &&
-          (perTopicToday[w.topicId] ?? 0) < MAX_TOPIC_MINUTES_PER_DAY,
-      );
-      if (elig.length === 0) break;
-      elig.sort((a, b) => a.exam.localeCompare(b.exam) || b.rem - a.rem); // soonest exam first
-      const w = elig[0];
-      const chunk = Math.min(
-        SESSION_MINUTES,
-        w.rem,
-        budget,
-        MAX_TOPIC_MINUTES_PER_DAY - (perTopicToday[w.topicId] ?? 0),
-      );
+  // EVEN-SPREAD per course, ACROSS THE FULL RUNWAY. The core change vs the old
+  // front-packer: we don't pour each course into the earliest days until its work
+  // is gone. Instead we walk EVERY study day from today to the exam and give the
+  // course its even target on each, so a light course with a long runway gets a
+  // short session spaced out the whole way (steady study, no empty tail) and a
+  // heavy course fills more per day. Nearer exams are processed first so they win
+  // contested minutes when the global ceiling binds on a crowded day.
+  const overloaded = new Set<string>();
+  const orderedPaces = [...paces].sort((a, b) => a.exam.localeCompare(b.exam));
+  for (const p of orderedPaces) {
+    if (p.work.length === 0) continue;
+    const dates = runwayDates(today, p.exam, p.studyDays);
+    // No runway at all → everything is overload; piled onto the last day below.
+    let ti = 0; // round-robin cursor across this course's topics (course order)
+    // "Credit" accrues the even daily pace; we only spend it as a real block once
+    // it reaches MIN_BLOCK_MINUTES. For a heavy course (pace >= a session) this is
+    // a no-op — it spends every day. For a LIGHT course (pace < a block) it makes
+    // the course study on a SPACED subset of days across the whole runway (real
+    // sessions, not slivers, and no empty tail), which is the spread we want.
+    let credit = 0;
+    for (let di = 0; di < dates.length; di++) {
+      const date = dates[di];
+      credit += p.targetPerDay;
+      const daysLeft = dates.length - di;
+      const remTotal = p.work.reduce((s, w) => s + w.rem, 0);
+      // Spend once we've banked a real block — or unconditionally near the exam,
+      // so the run-up days still carry study and nothing slides past the deadline.
+      if (credit < MIN_BLOCK_MINUTES && remTotal > 0 && daysLeft > credit / Math.max(1, p.targetPerDay)) {
+        continue;
+      }
+      // What this course may use today: the credit it has banked, but never
+      // pushing the day's combined load past the global ceiling (nearer exams
+      // already took their share first, so a later exam yields on a crowded day).
+      const used = dayLoad.get(date) ?? 0;
+      const room = Math.max(0, ceilingFor(date) - used);
+      let courseBudget = Math.min(credit, room);
+      const spentBefore = courseBudget;
+      const perTopicToday: Record<string, number> = {};
+      let guard = 0;
+      while (courseBudget > 0 && guard++ < 1000) {
+        if (!p.work.some((w) => w.rem > 0)) break;
+        // Next still-owing topic from the round-robin cursor, in course order, so
+        // foundational topics lead, later topics follow, and each is touched
+        // across several days (no single-day cram) — bounded by the per-topic cap.
+        let pick: Work | null = null;
+        for (let k = 0; k < p.work.length; k++) {
+          const w = p.work[(ti + k) % p.work.length];
+          if (w.rem > 0 && (perTopicToday[w.topicId] ?? 0) < MAX_TOPIC_MINUTES_PER_DAY) {
+            pick = w;
+            ti = (ti + k + 1) % p.work.length;
+            break;
+          }
+        }
+        if (!pick) break;
+        const chunk = Math.min(
+          SESSION_MINUTES,
+          pick.rem,
+          courseBudget,
+          MAX_TOPIC_MINUTES_PER_DAY - (perTopicToday[pick.topicId] ?? 0),
+        );
+        studyByCourse.get(pick.courseId)!.push({
+          date,
+          topicId: pick.topicId,
+          topicTitle: pick.title,
+          minutes: chunk,
+          completed: false,
+          kind: "study",
+        });
+        pick.rem -= chunk;
+        courseBudget -= chunk;
+        perTopicToday[pick.topicId] = (perTopicToday[pick.topicId] ?? 0) + chunk;
+        dayLoad.set(date, (dayLoad.get(date) ?? 0) + chunk);
+      }
+      // Consume only what we actually placed today; carry the rest forward so the
+      // even pace is preserved (an unspendable day — ceiling full, topic caps hit —
+      // banks its budget for the next day rather than losing it).
+      credit -= spentBefore - courseBudget;
+    }
+
+    // Anything still owing couldn't fit before this course's exam (runway too
+    // short, or the global ceiling kept squeezing it out) → pile onto its last
+    // study day (visible, never dropped) and flag the course intense.
+    for (const w of p.work) {
+      if (w.rem <= 0) continue;
+      overloaded.add(w.courseId);
+      const dates2 = studyDatesBetween(today, w.exam, w.studyDays);
+      const target = dates2.length ? dates2[dates2.length - 1] : today;
       studyByCourse.get(w.courseId)!.push({
-        date: day,
+        date: target,
         topicId: w.topicId,
         topicTitle: w.title,
-        minutes: chunk,
+        minutes: w.rem,
         completed: false,
         kind: "study",
       });
-      w.rem -= chunk;
-      budget -= chunk;
-      perTopicToday[w.topicId] = (perTopicToday[w.topicId] ?? 0) + chunk;
+      dayLoad.set(target, (dayLoad.get(target) ?? 0) + w.rem);
+      w.rem = 0;
     }
-    day = addDaysISO(day, 1);
-  }
-
-  // Anything still unscheduled couldn't fit before its exam → pile onto the last
-  // study day before that exam (visible, never dropped) and flag the course.
-  const overloaded = new Set<string>();
-  for (const w of pool) {
-    if (w.rem <= 0) continue;
-    overloaded.add(w.courseId);
-    const dates = studyDatesBetween(todayISO(), w.exam, w.studyDays);
-    const target = dates.length ? dates[dates.length - 1] : todayISO();
-    studyByCourse.get(w.courseId)!.push({
-      date: target,
-      topicId: w.topicId,
-      topicTitle: w.title,
-      minutes: w.rem,
-      completed: false,
-      kind: "study",
-    });
-    w.rem = 0;
   }
 
   // Persist per course: study blocks + spaced reviews; record pace + intensity.
@@ -334,7 +469,7 @@ async function rebuildScheduleInner(
   for (const c of courses) {
     const study = studyByCourse.get(c.id) ?? [];
     const dates = studyDatesBetween(
-      todayISO(),
+      today,
       c.examDate.toISOString().slice(0, 10),
       c.studyDays.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n)),
     );

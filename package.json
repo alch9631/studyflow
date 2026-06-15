@@ -12,6 +12,7 @@
     "test": "node scripts/test-all.mjs",
     "test:engine": "tsx src/lib/planner.test.ts",
     "test:service": "tsx src/lib/planService.test.ts",
+    "test:spread": "tsx src/lib/planSpread.test.ts",
     "test:dates": "tsx src/lib/dates.test.ts",
     "test:ics": "tsx src/lib/ics.test.ts",
     "test:syllabus": "tsx src/lib/syllabus.test.ts",
