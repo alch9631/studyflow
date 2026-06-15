@@ -144,7 +144,7 @@ export default function Nav() {
           the inner row pads its content clear of the top + a landscape side notch. */}
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-gray-800 dark:bg-gray-950/90">
         <nav
-          aria-label="Primary"
+          aria-label={t("nav.primary")}
           className="mx-auto flex max-w-3xl items-center gap-1 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm"
         >
           <Link href="/" className="mr-auto flex items-center gap-2 font-bold tracking-tight">

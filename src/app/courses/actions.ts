@@ -12,6 +12,7 @@ import {
   analyzeModuleContent,
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
+import { classifyFile } from "@/lib/fileCategory";
 import {
   enforceRateLimit,
   RateLimitError,
@@ -288,6 +289,13 @@ export async function reoptimizeCourse(formData: FormData) {
       outcome = aiFailureBanner(e, "optimize-failed");
     }
   }
+  // The optimizer rebuilt the plan — refresh Today (and the course page) so the
+  // new schedule shows immediately without a manual reload. Skipped on no-op
+  // outcomes (nothing changed), but harmless either way.
+  if (outcome === "optimized") {
+    revalidatePath("/today");
+    revalidatePath(`/courses/${id}`);
+  }
   redirect(`/courses/${id}?msg=${outcome}`);
 }
 
@@ -336,6 +344,9 @@ export async function analyzeModuleUpload(formData: FormData) {
         }),
       ]);
       n = newTopics.length;
+      // Auto-classify: filename heuristics win (the student's own naming is a
+      // strong signal), with the AI-derived category as a fallback.
+      const category = classifyFile(file.name, analysis.category);
       await prisma.moduleFile.create({
         data: {
           courseId,
@@ -343,6 +354,7 @@ export async function analyzeModuleUpload(formData: FormData) {
           mimeType: file.type || null,
           sizeBytes: file.size,
           extractedChars: text.length,
+          category,
           analysis: JSON.stringify({
             summary: analysis.summary,
             concepts: analysis.concepts,
@@ -352,6 +364,10 @@ export async function analyzeModuleUpload(formData: FormData) {
       });
       await prisma.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
       await regeneratePlan(courseId);
+      // New material rebuilt the topics + plan — refresh Today (and the course
+      // page) so the new schedule shows immediately without a manual reload.
+      revalidatePath("/today");
+      revalidatePath(`/courses/${courseId}`);
       result = "analyzed";
     }
   } catch (e) {

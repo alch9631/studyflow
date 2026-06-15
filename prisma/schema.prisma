@@ -127,6 +127,10 @@ model ModuleFile {
   sizeBytes      Int      @default(0)
   extractedChars Int      @default(0)
   analysis       String? // JSON: summary, concepts, prerequisites, detected topics
+  // Auto-classified material type. String union (nullable, no DB enum so the
+  // schema stays Postgres-portable): "uebung" | "altklausur" | "slides" |
+  // "skript" | "mockexam" | "sonstiges". Null = unclassified (old rows).
+  category       String?
   createdAt      DateTime @default(now())
 
   @@index([courseId])

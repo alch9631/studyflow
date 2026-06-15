@@ -20,6 +20,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useT } from "./i18n/I18nProvider";
+import type { Translator } from "./i18n/messages";
 
 /** Same h/m formatting the Insights page uses, so chart labels read identically. */
 function fmtMin(min: number): string {
@@ -36,9 +38,11 @@ export type DayPoint = { label: string; min: number; full: string };
 function ActivityTooltip({
   active,
   payload,
+  t,
 }: {
   active?: boolean;
   payload?: { payload: DayPoint }[];
+  t: Translator;
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -46,7 +50,9 @@ function ActivityTooltip({
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md dark:border-gray-700 dark:bg-gray-900">
       <div className="font-medium">{d.full}</div>
       <div className="mt-0.5 text-gray-500 dark:text-gray-400">
-        {d.min > 0 ? `${fmtMin(d.min)} studied` : "No study logged"}
+        {d.min > 0
+          ? t("insights.chartStudiedSuffix", { time: fmtMin(d.min) })
+          : t("insights.chartNoStudyLogged")}
       </div>
     </div>
   );
@@ -58,10 +64,11 @@ function ActivityTooltip({
  * a value tooltip, and empty days rendered as a faint placeholder bar.
  */
 export function WeeklyActivityChart({ data }: { data: DayPoint[] }) {
+  const t = useT();
   const total = data.reduce((s, d) => s + d.min, 0);
   return (
     <figure className="m-0">
-      <div className="h-28 w-full" role="img" aria-label="Study minutes completed over the last 7 days">
+      <div className="h-28 w-full" role="img" aria-label={t("insights.chartWeeklyAria")}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="20%">
             <XAxis
@@ -73,7 +80,7 @@ export function WeeklyActivityChart({ data }: { data: DayPoint[] }) {
             />
             <YAxis hide domain={[0, "dataMax"]} />
             <Tooltip
-              content={<ActivityTooltip />}
+              content={<ActivityTooltip t={t} />}
               cursor={{ fill: "var(--chart-grid)" }}
             />
             <Bar dataKey="min" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false}>
@@ -89,7 +96,7 @@ export function WeeklyActivityChart({ data }: { data: DayPoint[] }) {
       </div>
       {total === 0 && (
         <figcaption className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-          No study logged in the last 7 days yet.
+          {t("insights.chartNoneLast7")}
         </figcaption>
       )}
     </figure>
@@ -108,13 +115,14 @@ export function ConsistencyGauge({
   consistency: number;
   activeDays: number;
 }) {
+  const t = useT();
   const data = [{ name: "consistency", value: consistency }];
   return (
     <div className="relative mx-auto h-40 w-40">
       <div
         className="h-full w-full"
         role="img"
-        aria-label={`Consistency ${consistency} percent — active on ${activeDays} of the last 14 days`}
+        aria-label={t("insights.chartConsistencyAria", { pct: consistency, days: activeDays })}
       >
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart
@@ -139,7 +147,7 @@ export function ConsistencyGauge({
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-bold tabular-nums">{consistency}%</span>
         <span className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-          {activeDays}/14 days active
+          {t("insights.chartDaysActive", { days: activeDays })}
         </span>
       </div>
     </div>
@@ -155,28 +163,34 @@ export type GradePoint = { label: string; grade: number; running: number; full: 
 function GradeTooltip({
   active,
   payload,
+  t,
 }: {
   active?: boolean;
   payload?: { payload: GradePoint }[];
+  t: Translator;
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md dark:border-gray-700 dark:bg-gray-900">
       <div className="font-medium">{d.full}</div>
-      <div className="mt-0.5 text-gray-500 dark:text-gray-400">Grade {d.grade.toFixed(1)}</div>
-      <div className="text-gray-500 dark:text-gray-400">Avg so far {d.running.toFixed(2)}</div>
+      <div className="mt-0.5 text-gray-500 dark:text-gray-400">
+        {t("insights.chartGrade", { grade: d.grade.toFixed(1) })}
+      </div>
+      <div className="text-gray-500 dark:text-gray-400">
+        {t("insights.chartAvgSoFar", { avg: d.running.toFixed(2) })}
+      </div>
     </div>
   );
 }
 
 /** Tiny inline legend swatch for the two grade-trend series. */
-function GradeLegend() {
+function GradeLegend({ t }: { t: Translator }) {
   return (
     <div className="mt-2 flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
       <span className="inline-flex items-center gap-1.5">
         <span className="h-0.5 w-3.5 rounded-full" style={{ background: "var(--chart-series)" }} />
-        Per course
+        {t("insights.chartLegendPerCourse")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
@@ -186,7 +200,7 @@ function GradeLegend() {
               "repeating-linear-gradient(to right, var(--chart-series-2) 0 4px, transparent 4px 7px)",
           }}
         />
-        Running average
+        {t("insights.chartLegendRunningAvg")}
       </span>
     </div>
   );
@@ -208,12 +222,16 @@ export function GradeTrendChart({
   data: GradePoint[];
   average: number;
 }) {
+  const t = useT();
   return (
     <figure className="m-0">
       <div
         className="h-36 w-full"
         role="img"
-        aria-label={`Grade trend across ${data.length} graded courses in exam-date order: each course's grade and the running average, ending at ${average.toFixed(2)} on the German 1.0 to 5.0 scale, where lower is better.`}
+        aria-label={t("insights.chartGradeTrendAria", {
+          count: data.length,
+          avg: average.toFixed(2),
+        })}
       >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -235,7 +253,7 @@ export function GradeTrendChart({
               tick={{ fill: "var(--chart-axis)", fontSize: 12 }}
               width={28}
             />
-            <Tooltip content={<GradeTooltip />} cursor={{ stroke: "var(--chart-grid)" }} />
+            <Tooltip content={<GradeTooltip t={t} />} cursor={{ stroke: "var(--chart-grid)" }} />
             <Line
               type="monotone"
               dataKey="running"
@@ -258,7 +276,7 @@ export function GradeTrendChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <GradeLegend />
+      <GradeLegend t={t} />
       <figcaption className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
         Grade over time (1.0 best). The amber line is your running {average.toFixed(2)} average.
       </figcaption>

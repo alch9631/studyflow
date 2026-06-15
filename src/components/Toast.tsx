@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * Lightweight, dependency-free toast system for action feedback.
@@ -116,6 +117,7 @@ function ToastView({
   item: ToastItem;
   onDismiss: (id: number) => void;
 }) {
+  const t = useT();
   useEffect(() => {
     const handle = setTimeout(() => onDismiss(item.id), item.duration);
     return () => clearTimeout(handle);
@@ -145,7 +147,7 @@ function ToastView({
       <button
         type="button"
         onClick={() => onDismiss(item.id)}
-        aria-label="Dismiss"
+        aria-label={t("common.dismiss")}
         className="-mr-1 shrink-0 rounded px-1 text-current/70 transition-colors hover:text-current"
       >
         ✕

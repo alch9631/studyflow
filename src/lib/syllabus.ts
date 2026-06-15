@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { isFileCategory, type FileCategory } from "./fileCategory";
 
 /**
  * AI extraction layer — provider-flexible. Uses OpenAI if OPENAI_API_KEY is set,
@@ -238,6 +239,14 @@ const ANALYZE_SCHEMA = {
   additionalProperties: false,
   properties: {
     summary: { type: "string", description: "1-2 sentence summary of what this material covers" },
+    category: {
+      type: "string",
+      enum: ["uebung", "altklausur", "slides", "skript", "mockexam", "sonstiges"],
+      description:
+        "Type of study material: uebung (exercise/problem sheet), altklausur (past exam paper), " +
+        "slides (lecture slides/handout), skript (full lecture script/notes), mockexam " +
+        "(practice/mock exam), or sonstiges (anything else).",
+    },
     concepts: { type: "array", items: { type: "string" }, description: "key concepts" },
     prerequisites: { type: "array", items: { type: "string" } },
     topics: {
@@ -254,17 +263,19 @@ const ANALYZE_SCHEMA = {
       },
     },
   },
-  required: ["summary", "concepts", "prerequisites", "topics"],
+  required: ["summary", "category", "concepts", "prerequisites", "topics"],
 };
 
 const ANALYZE_SYSTEM =
   "You analyze a university module's study material (lecture script/notes). Extract a short summary, " +
+  "classify the material's type (uebung / altklausur / slides / skript / mockexam / sonstiges), " +
   "the key concepts, any prerequisites, and the list of topics a student must master IN THE BEST " +
   "LEARNING ORDER (foundations first). For each topic give a difficulty (1 easy – 3 hard) and an " +
   "estimated study time in minutes. Base everything on the actual content, not just the title.";
 
 export type ModuleAnalysis = {
   summary: string;
+  category: FileCategory | null;
   concepts: string[];
   prerequisites: string[];
   topics: { title: string; difficulty: number; estMinutes: number }[];
@@ -279,6 +290,7 @@ export function normalizeModuleAnalysis(
   parsed:
     | {
         summary?: unknown;
+        category?: unknown;
         concepts?: unknown;
         prerequisites?: unknown;
         topics?: unknown;
@@ -301,6 +313,7 @@ export function normalizeModuleAnalysis(
   }
   return {
     summary: typeof p.summary === "string" ? p.summary : "",
+    category: isFileCategory(p.category) ? (p.category as FileCategory) : null,
     concepts: Array.isArray(p.concepts) ? (p.concepts as string[]) : [],
     prerequisites: Array.isArray(p.prerequisites) ? (p.prerequisites as string[]) : [],
     topics,

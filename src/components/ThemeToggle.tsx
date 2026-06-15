@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { iconButtonClass } from "./ui";
+import { useT } from "./i18n/I18nProvider";
 
 /** Subscribe to changes of the `.dark` class on <html>. */
 function subscribe(cb: () => void) {
@@ -14,6 +15,7 @@ const isDark = () => document.documentElement.classList.contains("dark");
 
 /** Night-mode toggle: flips `.dark` on <html> and remembers the choice. */
 export default function ThemeToggle() {
+  const t = useT();
   // Reads the real DOM state (set pre-paint by the no-flash script in layout)
   // without setState-in-effect; the server snapshot is "light".
   const dark = useSyncExternalStore(subscribe, isDark, () => false);
@@ -29,8 +31,8 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      aria-label="Toggle night mode"
-      title="Toggle night mode"
+      aria-label={t("theme.toggleNightMode")}
+      title={t("theme.toggleNightMode")}
       className={iconButtonClass(
         "inline-flex border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
       )}

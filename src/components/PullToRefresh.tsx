@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReducedMotion } from "framer-motion";
 import { haptics } from "./haptics";
+import { useT } from "./i18n/I18nProvider";
 
 /**
  * Pull-to-refresh for a scrollable page. When the page is scrolled to the very
@@ -23,6 +24,7 @@ const SPINNER_MS = 650; // minimum spinner dwell so the refresh reads as deliber
 export default function PullToRefresh({ children }: { children: ReactNode }) {
   const router = useRouter();
   const reduce = useReducedMotion();
+  const t = useT();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -126,7 +128,7 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
           role={refreshing ? "status" : undefined}
         >
           {refreshing ? (
-            <span className="sr-only">Refreshing…</span>
+            <span className="sr-only">{t("common.refreshing")}</span>
           ) : null}
           <svg
             viewBox="0 0 24 24"
