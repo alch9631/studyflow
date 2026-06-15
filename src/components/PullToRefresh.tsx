@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useReducedMotion } from "framer-motion";
 import { haptics } from "./haptics";
 import { useT } from "./i18n/I18nProvider";
+import { isOverlayOpen } from "./lib/overlayOpen";
 
 /**
  * Pull-to-refresh for a scrollable page. When the page is scrolled to the very
@@ -40,8 +41,18 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
     const coarse = window.matchMedia?.("(pointer: coarse)").matches;
     if (!coarse) return;
 
+    function resetGesture() {
+      startY.current = null;
+      active.current = false;
+      pullRef.current = 0;
+      setPull(0);
+    }
+
     function onTouchStart(e: TouchEvent) {
       if (refreshingRef.current) return;
+      // A sheet/dialog is open — leave its own scrolling alone and never refresh
+      // the page behind it.
+      if (isOverlayOpen()) return;
       if (window.scrollY > 0) return; // only from the very top
       if (e.touches.length !== 1) return;
       startY.current = e.touches[0].clientY;
@@ -50,6 +61,12 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
 
     function onTouchMove(e: TouchEvent) {
       if (startY.current === null || refreshingRef.current) return;
+      // If a dialog opened mid-gesture (or one was already open), bail out and
+      // drop any pull state so we never preventDefault() a sheet's own scroll.
+      if (isOverlayOpen()) {
+        resetGesture();
+        return;
+      }
       const dy = e.touches[0].clientY - startY.current;
       if (dy <= 0) {
         // Pulling up / scrolling — not our gesture.
