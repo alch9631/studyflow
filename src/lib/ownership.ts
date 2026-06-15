@@ -78,6 +78,36 @@ export async function deleteOwnedAssignment(userId: string, assignmentId: string
 }
 
 /**
+ * The module file's revalidation-relevant fields only if its course is owned by
+ * `userId`, else null. The owning `courseId` comes from the row, so the delete +
+ * revalidate always target the file's real course (never a form-supplied one).
+ */
+export function findOwnedModuleFile(userId: string, moduleFileId: string) {
+  return prisma.moduleFile.findFirst({
+    where: { id: moduleFileId, course: { userId } },
+    select: { id: true, courseId: true },
+  });
+}
+
+/**
+ * Delete a module file only if its course is owned. Returns the owning
+ * `courseId` (for revalidation) when a row was removed, else null — so a guessed
+ * moduleFileId can never delete another user's upload.
+ */
+export async function deleteOwnedModuleFile(
+  userId: string,
+  moduleFileId: string,
+): Promise<string | null> {
+  const file = await prisma.moduleFile.findFirst({
+    where: { id: moduleFileId, course: { userId } },
+    select: { courseId: true },
+  });
+  if (!file) return null;
+  await prisma.moduleFile.deleteMany({ where: { id: moduleFileId } });
+  return file.courseId;
+}
+
+/**
  * Upsert the (single) note on a topic the current user owns — create on first
  * save, overwrite the body thereafter. No-op (returns null) when the topic isn't
  * owned, so a guessed topicId can never attach a note to another user's course.

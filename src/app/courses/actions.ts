@@ -43,6 +43,7 @@ import {
   findOwnedBlock,
   findOwnedAssignment,
   deleteOwnedAssignment,
+  deleteOwnedModuleFile,
   upsertOwnedTopicNote,
   deleteOwnedTopicNote,
 } from "@/lib/ownership";
@@ -364,6 +365,28 @@ export async function analyzeModuleUpload(formData: FormData) {
     }
   }
   redirect(`/courses/${courseId}?msg=${result}&n=${n}`);
+}
+
+/**
+ * Remove an uploaded module file (its stored content analysis) from a course.
+ * The upload's topics/plan are NOT rebuilt — deleting the file just drops the
+ * stored record, mirroring how deleting a deadline leaves the rest intact.
+ * Ownership-scoped: the owning courseId is derived from the row (never trusted
+ * from the form), so a guessed moduleFileId is a silent no-op.
+ */
+export async function deleteModuleFile(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let id: string;
+  try {
+    id = requireId(formData.get("moduleFileId"), "Module file");
+  } catch {
+    return;
+  }
+  // Scoped delete: only removes the file if its course is owned; the returned
+  // courseId (or "" no-op) drives revalidation of the right course page.
+  const courseId = await deleteOwnedModuleFile(userId, id);
+  revalidatePath(`/courses/${courseId ?? ""}`);
 }
 
 /** Delete a course (cascades to its topics + study blocks). */
