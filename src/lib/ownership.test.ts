@@ -30,6 +30,8 @@ import {
   findOwnedBlock,
   findOwnedAssignment,
   deleteOwnedAssignment,
+  findOwnedModuleFile,
+  deleteOwnedModuleFile,
   upsertOwnedTopicNote,
   deleteOwnedTopicNote,
 } from "./ownership";
@@ -90,12 +92,23 @@ async function seedUser(tag: string) {
   const assignment = await prisma.assignment.create({
     data: { courseId: course.id, title: `${tag} Assignment`, dueDate: FUTURE_EXAM },
   });
+  const moduleFile = await prisma.moduleFile.create({
+    data: {
+      courseId: course.id,
+      filename: `${tag}-script.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: 1234,
+      extractedChars: 500,
+      analysis: JSON.stringify({ summary: `${tag} summary`, concepts: ["x"], prerequisites: [] }),
+    },
+  });
   return {
     userId: user.id,
     courseId: course.id,
     topicId: course.topics[0].id,
     blockId: block.id,
     assignmentId: assignment.id,
+    moduleFileId: moduleFile.id,
   };
 }
 
@@ -165,6 +178,26 @@ async function main() {
       (await deleteOwnedTopicNote(A.userId, A.topicId)) === A.courseId);
     check("A's note is gone after owner delete",
       (await prisma.note.count({ where: { topicId: A.topicId } })) === 0);
+
+    // ── find/deleteOwnedModuleFile: uploads are scoped through file→course ───
+    // A non-owner can neither see nor delete A's uploaded module file.
+    check("owner sees own module file", (await findOwnedModuleFile(A.userId, A.moduleFileId))?.id === A.moduleFileId);
+    check("non-owner cannot see other's module file", (await findOwnedModuleFile(B.userId, A.moduleFileId)) === null);
+    check("findOwnedModuleFile returns the owning courseId",
+      (await findOwnedModuleFile(A.userId, A.moduleFileId))?.courseId === A.courseId);
+
+    const foreignDelFile = await deleteOwnedModuleFile(B.userId, A.moduleFileId);
+    check("non-owner module-file delete is a no-op (null)", foreignDelFile === null);
+    check("A's module file still exists after B's delete attempt",
+      (await prisma.moduleFile.count({ where: { id: A.moduleFileId } })) === 1);
+    check("missing module-file id -> delete no-op (null)",
+      (await deleteOwnedModuleFile(A.userId, "does-not-exist")) === null);
+    check("owner delete returns the owning courseId (for revalidation)",
+      (await deleteOwnedModuleFile(A.userId, A.moduleFileId)) === A.courseId);
+    check("A's module file is gone after owner delete",
+      (await prisma.moduleFile.count({ where: { id: A.moduleFileId } })) === 0);
+    check("deleting A's module file did NOT touch B's module file",
+      (await prisma.moduleFile.count({ where: { id: B.moduleFileId } })) === 1);
 
     // ── planService: rebuildSchedule(userId) only touches that user ──────────
     // Snapshot B's pre-rebuild state, rebuild A's whole schedule, assert B intact.

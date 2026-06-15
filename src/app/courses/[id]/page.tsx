@@ -13,6 +13,7 @@ import {
   deleteCourse,
   reoptimizeCourse,
   analyzeModuleUpload,
+  deleteModuleFile,
   toggleAssignment,
   deleteAssignment,
   setGrade,
@@ -60,6 +61,56 @@ const DAY_OPTS = [
   { v: 6, key: "Sa" },
   { v: 0, key: "Su" },
 ] as const;
+
+/** Human-readable file size (e.g. "0 B", "12 KB", "3.4 MB"). Locale-agnostic. */
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / 1024 ** i;
+  // No decimals for plain bytes; one decimal (no trailing .0) for KB and up.
+  const rounded = i === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rounded} ${units[i]}`;
+}
+
+/**
+ * A short, friendly type label from a MIME type / filename — PDF, Word, Text…
+ * Falls back to the uppercased file extension, then a generic "File".
+ */
+function fileTypeHint(filename: string, mimeType: string | null): string {
+  const mt = (mimeType ?? "").toLowerCase();
+  if (mt.includes("pdf")) return "PDF";
+  if (mt.includes("word") || mt.includes("officedocument.wordprocessingml")) return "Word";
+  if (mt.includes("markdown")) return "Markdown";
+  if (mt.startsWith("text/")) return "Text";
+  const ext = filename.includes(".") ? filename.split(".").pop()! : "";
+  if (ext) return ext.slice(0, 8).toUpperCase();
+  return "File";
+}
+
+/** Shape of the stored analysis JSON; every field is optional/defensive. */
+type FileAnalysis = {
+  summary?: string;
+  concepts?: string[];
+  prerequisites?: string[];
+  topics?: Array<string | { title?: string }>;
+};
+
+/** Parse the stored analysis JSON, guarding against null / malformed strings. */
+function parseAnalysis(raw: string | null): FileAnalysis | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as FileAnalysis) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Normalize an analysis topic entry (string or {title}) to a display string. */
+function topicLabel(entry: string | { title?: string }): string {
+  return typeof entry === "string" ? entry : (entry.title ?? "");
+}
 
 const BANNER_KEYS = new Set([
   "healed",
@@ -120,7 +171,15 @@ export default async function CoursePage({
       },
       files: {
         orderBy: { createdAt: "desc" },
-        select: { filename: true, analysis: true },
+        select: {
+          id: true,
+          filename: true,
+          mimeType: true,
+          sizeBytes: true,
+          extractedChars: true,
+          analysis: true,
+          createdAt: true,
+        },
       },
       assignments: {
         orderBy: { dueDate: "asc" },
@@ -129,12 +188,6 @@ export default async function CoursePage({
     },
   });
   if (!course) notFound();
-
-  const latestFile = course.files[0];
-  let fileAnalysis: { summary?: string; concepts?: string[]; prerequisites?: string[] } | null = null;
-  try {
-    fileAnalysis = latestFile?.analysis ? JSON.parse(latestFile.analysis) : null;
-  } catch {}
 
   const overloaded = await isCourseOverloaded(course.id);
   const doneCount = course.topics.filter((t) => t.done).length;
@@ -428,23 +481,122 @@ export default async function CoursePage({
             {t("courseDetail.apiKeyFiles")}
           </p>
         )}
-        {latestFile && (
-          <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-800 p-3 text-sm">
-            <div className="font-medium">📄 {latestFile.filename}</div>
-            {fileAnalysis?.summary && (
-              <p className="mt-1 text-gray-600 dark:text-gray-300">{fileAnalysis.summary}</p>
-            )}
-            {fileAnalysis?.concepts && fileAnalysis.concepts.length > 0 && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t("courseDetail.concepts", { list: fileAnalysis.concepts.slice(0, 8).join(", ") })}
-              </p>
-            )}
-            {fileAnalysis?.prerequisites && fileAnalysis.prerequisites.length > 0 && (
-              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                {t("courseDetail.prerequisites", { list: fileAnalysis.prerequisites.join(", ") })}
-              </p>
-            )}
-          </div>
+
+        <h3 className="mt-5 mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+          {t("courseDetail.uploadedFiles")}
+        </h3>
+        {course.files.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+            {t("courseDetail.noFiles")}
+          </p>
+        ) : (
+          <AnimatedList className="space-y-2">
+            {course.files.map((file) => {
+              const analysis = parseAnalysis(file.analysis);
+              const typeHint = fileTypeHint(file.filename, file.mimeType);
+              const uploaded = file.createdAt.toISOString().slice(0, 10);
+              const concepts = analysis?.concepts?.filter(Boolean) ?? [];
+              const prerequisites = analysis?.prerequisites?.filter(Boolean) ?? [];
+              const topics = (analysis?.topics ?? []).map(topicLabel).filter(Boolean);
+              const hasAnalysis =
+                Boolean(analysis?.summary) ||
+                concepts.length > 0 ||
+                prerequisites.length > 0 ||
+                topics.length > 0;
+              return (
+                <AnimatedListItem
+                  key={file.id}
+                  className="rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                >
+                  <div className="flex items-start gap-3">
+                    <span aria-hidden="true" className="mt-0.5 text-base leading-none">
+                      📄
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words font-medium">{file.filename}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          {typeHint}
+                        </span>
+                        <span>{formatBytes(file.sizeBytes)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{t("courseDetail.fileUploaded", { date: uploaded })}</span>
+                        {file.extractedChars > 0 && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span>
+                              {t("courseDetail.fileChars", {
+                                count: file.extractedChars.toLocaleString(t.locale),
+                              })}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <ConfirmDialog
+                      action={deleteModuleFile}
+                      fields={{ moduleFileId: file.id }}
+                      successMessage={t("courseDetail.fileRemoved")}
+                      errorMessage={t("courseDetail.fileRemoveError")}
+                      className="shrink-0"
+                      triggerLabel="🗑"
+                      triggerAriaLabel={t("courseDetail.deleteFileAria", { filename: file.filename })}
+                      triggerClassName={iconButtonClass(
+                        "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
+                      )}
+                      title={t("courseDetail.deleteFileTitle")}
+                      message={
+                        <>
+                          {t("courseDetail.deleteFileMsgPre")} <strong>{file.filename}</strong>{" "}
+                          {t("courseDetail.deleteFileMsgPost")}
+                        </>
+                      }
+                      confirmLabel={t("courseDetail.deleteFileConfirm")}
+                      pendingLabel={t("courseDetail.removing")}
+                    />
+                  </div>
+
+                  {hasAnalysis ? (
+                    <details className="group mt-2">
+                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-brand-ink">
+                        <span
+                          aria-hidden="true"
+                          className="transition-transform group-open:rotate-90"
+                        >
+                          ›
+                        </span>
+                        {t("courseDetail.fileShowAnalysis")}
+                      </summary>
+                      <div className="mt-2 space-y-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
+                        {analysis?.summary && (
+                          <p className="text-gray-600 dark:text-gray-300">{analysis.summary}</p>
+                        )}
+                        {concepts.length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t("courseDetail.concepts", { list: concepts.slice(0, 12).join(", ") })}
+                          </p>
+                        )}
+                        {prerequisites.length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t("courseDetail.prerequisites", { list: prerequisites.join(", ") })}
+                          </p>
+                        )}
+                        {topics.length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t("courseDetail.detectedTopics", { list: topics.slice(0, 12).join(", ") })}
+                          </p>
+                        )}
+                      </div>
+                    </details>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                      {t("courseDetail.fileNoAnalysis")}
+                    </p>
+                  )}
+                </AnimatedListItem>
+              );
+            })}
+          </AnimatedList>
         )}
       </section>
 
