@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import { useSheetConfirm } from "./lib/confirmSheet";
 import ToastForm from "./ToastForm";
 import SubmitButton from "./SubmitButton";
 import { buttonClasses, type ButtonSize, type ButtonVariant } from "./ui";
@@ -76,13 +77,12 @@ type Props = {
   className?: string;
 
   /**
-   * Set when this ConfirmDialog lives INSIDE another modal Radix Dialog (e.g. the
-   * CourseOptionsSheet). It makes the inner dialog non-modal so Radix doesn't add
-   * a SECOND scroll-lock / `pointer-events:none` guard on top of the parent's —
-   * stacking those is what can leave the page with a stuck scroll-lock or a
-   * leaked pointer-events block if the inner one closes mid-animation. The parent
-   * sheet already provides the modal focus trap + scroll lock for the whole
-   * surface, so the inner dialog loses nothing it needs.
+   * Set when this ConfirmDialog lives INSIDE the CourseOptionsSheet. The confirm
+   * stays a normal modal (its own scroll-lock + focus trap), but opening it tells
+   * the sheet to close itself first (via {@link useCourseSheetConfirm}). That
+   * guarantees only ONE scroll-locking Radix dialog is ever active — two
+   * stacked locks were what left the page frozen with a leaked scroll-lock /
+   * pointer-events block. Outside the sheet (no provider) it's a no-op.
    */
   nested?: boolean;
 };
@@ -111,6 +111,16 @@ export default function ConfirmDialog({
   // hidden fields together while the dialog renders at the document root.
   const formId = useId();
 
+  // When `nested` inside the course options sheet, keep the sheet informed of
+  // this confirm's open state through every close path (Cancel/Escape/outside
+  // AND a successful submit's onDone) so it never gets stuck holding a hidden
+  // panel mounted. No-op when used standalone.
+  const notifySheet = useSheetConfirm();
+  const setConfirmOpen = (next: boolean) => {
+    setOpen(next);
+    if (nested) notifySheet(next);
+  };
+
   const triggerClasses = triggerVariant
     ? buttonClasses(triggerVariant, triggerSize, triggerClassName)
     : triggerClassName;
@@ -121,7 +131,7 @@ export default function ConfirmDialog({
       action={action}
       successMessage={successMessage}
       errorMessage={errorMessage}
-      onDone={() => setOpen(false)}
+      onDone={() => setConfirmOpen(false)}
       className={className}
     >
       {fields &&
@@ -131,7 +141,7 @@ export default function ConfirmDialog({
 
       <ConfirmModal
         open={open}
-        setOpen={setOpen}
+        setOpen={setConfirmOpen}
         formId={formId}
         triggerLabel={triggerLabel}
         triggerClasses={triggerClasses}
@@ -141,7 +151,6 @@ export default function ConfirmDialog({
         confirmLabel={confirmLabel}
         pendingLabel={pendingLabel}
         cancelLabel={cancelLabel}
-        nested={nested}
       />
     </ToastForm>
   );
@@ -159,7 +168,6 @@ function ConfirmModal({
   confirmLabel,
   pendingLabel,
   cancelLabel,
-  nested,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -172,7 +180,6 @@ function ConfirmModal({
   confirmLabel: string;
   pendingLabel: string;
   cancelLabel: string;
-  nested: boolean;
 }) {
   // Read the parent form's status (this component renders inside the ToastForm,
   // so the status flows through Radix's portal via React context). While the
@@ -185,13 +192,10 @@ function ConfirmModal({
   };
 
   return (
-    // When nested inside another modal Dialog, render non-modal so we don't stack
-    // a second scroll-lock / pointer-events guard (the parent sheet provides it).
-    <Dialog
-      open={open}
-      onOpenChange={(next) => !pending && setOpen(next)}
-      modal={nested ? false : undefined}
-    >
+    // Always a real modal (its own scroll-lock + focus trap). When `nested`, the
+    // host sheet steps aside (see ConfirmDialog → setConfirmOpen) the moment this
+    // opens, so the two scroll-locks never stack.
+    <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
       <DialogTrigger
         type="button"
         aria-label={triggerAriaLabel}

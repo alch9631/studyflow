@@ -19,6 +19,7 @@
     "test:filecategory": "tsx src/lib/fileCategory.test.ts",
     "test:stats": "tsx src/lib/stats.test.ts",
     "test:streak-ui": "tsx src/components/lib/streak.test.ts",
+    "test:overlay-open": "tsx src/components/lib/overlayOpen.test.ts",
     "test:action-queue": "tsx src/components/lib/actionQueue.test.ts",
     "test:cache": "tsx src/lib/statsCache.test.ts",
     "test:studytime": "tsx src/lib/studyTime.test.ts",
