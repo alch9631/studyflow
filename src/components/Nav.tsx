@@ -12,20 +12,47 @@ import type { MessageKey } from "./i18n/messages";
 
 type Tab = { href: string; labelKey: MessageKey; icon: string; external?: boolean };
 
-const TABS: Tab[] = [
+// The four core destinations. On mobile these live in the BottomTabBar, so the
+// drawer deliberately omits them to avoid duplicate affordances; on desktop the
+// inline top-bar tabs render the full list (core + secondary).
+const CORE_TABS: Tab[] = [
   { href: "/today", labelKey: "nav.today", icon: "🗓️" },
+  { href: "/calendar", labelKey: "nav.calendar", icon: "🗓️" },
   { href: "/courses", labelKey: "nav.courses", icon: "📚" },
+  { href: "/insights", labelKey: "nav.insights", icon: "📊" },
+];
+
+// Secondary destinations. Reachable from the desktop inline tabs and the mobile
+// drawer only — never the bottom bar. Catalog export route (/api/calendar) is
+// kept but hidden from nav for now.
+const SECONDARY_TABS: Tab[] = [
   { href: "/catalog", labelKey: "nav.modules", icon: "🎓" },
   // The planner schedules around the timetable — keep it discoverable in the
   // main nav, not buried behind Settings.
   { href: "/timetable", labelKey: "nav.timetable", icon: "📅" },
-  { href: "/calendar", labelKey: "nav.calendar", icon: "🗓️" },
-  { href: "/insights", labelKey: "nav.insights", icon: "📊" },
-  // Calendar export route (/api/calendar) is kept but hidden from nav for now.
+];
+
+// Full ordered list for the desktop inline tabs (core interleaved with secondary).
+const DESKTOP_TABS: Tab[] = [
+  CORE_TABS[0], // Today
+  CORE_TABS[2], // Courses
+  SECONDARY_TABS[0], // Modules
+  SECONDARY_TABS[1], // Timetable
+  CORE_TABS[1], // Calendar
+  CORE_TABS[3], // Insights
 ];
 
 const SEARCH: Tab = { href: "/search", labelKey: "nav.search", icon: "🔍" };
 const SETTINGS: Tab = { href: "/settings", labelKey: "nav.settings", icon: "⚙️" };
+
+// Mobile drawer entries: secondary routes + Dashboard + Settings. The four core
+// routes are excluded (they live in the BottomTabBar) and Search is excluded too
+// (it has a dedicated, always-visible icon in the top bar) — no duplicates.
+const DRAWER_TABS: Tab[] = [
+  ...SECONDARY_TABS,
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: "📈" },
+  SETTINGS,
+];
 
 function isActive(pathname: string, t: Tab) {
   if (t.external) return false;
@@ -157,7 +184,7 @@ export default function Nav() {
 
           {/* Desktop-only inline tabs */}
           <div className="mr-1 hidden items-center gap-1 lg:flex">
-            {TABS.map((tab) => {
+            {DESKTOP_TABS.map((tab) => {
               const active = isActive(pathname, tab);
               const cls = `rounded-full px-3 py-1.5 font-medium transition-colors ${
                 active
@@ -271,7 +298,7 @@ export default function Nav() {
           </div>
 
           <nav aria-label={t("nav.menu")} className="flex flex-col gap-1 overflow-y-auto p-3">
-            {[...TABS, SEARCH, SETTINGS].map((tab) => {
+            {DRAWER_TABS.map((tab) => {
               const active = isActive(pathname, tab);
               const cls = `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 active

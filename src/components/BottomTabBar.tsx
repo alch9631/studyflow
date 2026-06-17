@@ -80,10 +80,11 @@ function isActive(pathname: string, href: string) {
 }
 
 /**
- * Thumb-reachable bottom navigation for the primary destinations. Mobile
- * only (`lg:hidden`) — desktop keeps the inline top-bar tabs; the drawer still
- * carries the secondary items (Modules, Settings, Appearance). The app shell
- * adds matching bottom padding (layout.tsx) so this never overlaps content.
+ * Thumb-reachable bottom navigation for the four primary destinations. Mobile
+ * only (`lg:hidden`) — desktop keeps the inline top-bar tabs; the drawer carries
+ * the secondary items (Modules, Timetable, Dashboard, Settings) with no overlap.
+ * The app shell adds matching bottom padding (layout.tsx) so this never overlaps
+ * content.
  */
 export default function BottomTabBar() {
   const pathname = usePathname();

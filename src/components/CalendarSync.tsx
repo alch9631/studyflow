@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { resetCalendarToken } from "@/app/settings/actions";
 import ConfirmDialog from "./ConfirmDialog";
+import CopyButton from "./CopyButton";
 import { Button } from "./ui/button";
 import { useT } from "./i18n/I18nProvider";
 
@@ -18,7 +19,6 @@ const subscribeNoop = () => () => {};
  */
 export default function CalendarSync({ token }: { token: string }) {
   const t = useT();
-  const [copied, setCopied] = useState(false);
 
   const origin = useSyncExternalStore(
     subscribeNoop,
@@ -35,25 +35,12 @@ export default function CalendarSync({ token }: { token: string }) {
   const googleUrl = origin
     ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(`${origin}${path}`)}`
     : "";
-  const displayUrl = host ? webcalUrl : t("common.loading");
-
-  async function copy() {
-    if (!webcalUrl) return;
-    try {
-      await navigator.clipboard.writeText(webcalUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API blocked (e.g. insecure context) — user can copy manually.
-    }
-  }
 
   return (
     <div className="mt-3">
-      <code className="block overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-        {displayUrl}
-      </code>
-      <div className="mt-3 flex flex-wrap gap-2">
+      {/* The raw feed URL is kept off-screen — it's a private subscribe link.
+          Subscribe directly via Apple/Google, or copy it to paste elsewhere. */}
+      <div className="flex flex-wrap gap-2">
         {webcalUrl ? (
           <Button asChild size="sm">
             <a href={webcalUrl}>Apple Calendar</a>
@@ -79,15 +66,12 @@ export default function CalendarSync({ token }: { token: string }) {
             Google Calendar
           </Button>
         )}
-        <Button
-          type="button"
+        <CopyButton
+          value={webcalUrl}
+          label={t("calendarSync.copyLink")}
           variant="ghost"
           size="sm"
-          onClick={copy}
-          disabled={!webcalUrl}
-        >
-          {copied ? t("calendarSync.copied") : t("calendarSync.copyLink")}
-        </Button>
+        />
         <ConfirmDialog
           action={resetCalendarToken}
           successMessage={t("calendarSync.resetSuccess")}

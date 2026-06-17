@@ -31,8 +31,9 @@ function GroupLabel({ children }: { children: ReactNode }) {
   );
 }
 
-/** A titled settings panel: icon + heading, help text, then its control. */
-function Section({
+/** A titled row inside a grouped settings card: icon + heading, help text,
+    then its control. Padding only — the parent card owns the border/divider. */
+function Row({
   icon,
   title,
   description,
@@ -44,14 +45,14 @@ function Section({
   children?: ReactNode;
 }) {
   return (
-    <section className={`${panelClass} p-5`}>
+    <div className="p-5">
       <h3 className="flex items-center gap-2 font-semibold">
         <span aria-hidden>{icon}</span>
         {title}
       </h3>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
       {children}
-    </section>
+    </div>
   );
 }
 
@@ -95,13 +96,13 @@ export default async function SettingsPage({
         </div>
       )}
 
-      {/* High-value setup: get your real week + sync + nudges going first. */}
+      {/* STUDY SETUP — your real week + how the planner uses it. */}
       <GroupLabel>{t("settings.studySetup")}</GroupLabel>
-      <div className="space-y-4">
+      <div className={`${panelClass} divide-y divide-gray-200 dark:divide-gray-800`}>
         {/* Timetable entry point — a navigation row into /timetable. */}
         <Link
           href="/timetable"
-          className={`${panelClass} flex items-center justify-between gap-3 p-5 transition-colors hover:border-gray-400 dark:hover:border-gray-600`}
+          className="flex items-center justify-between gap-3 p-5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
         >
           <span className="min-w-0">
             <h3 className="flex items-center gap-2 font-semibold">
@@ -116,51 +117,78 @@ export default async function SettingsPage({
           </span>
         </Link>
 
-        {/* Calendar sync — live subscribe feed (auto-updates in Apple/Google Calendar). */}
-        <Section
-          icon="📆"
-          title={t("settings.calendarTitle")}
-          description={t("settings.calendarDesc")}
-        >
-          <CalendarSync token={calendarToken} />
-        </Section>
-
-        {/* Reminders — web-push opt-in (activates once deployed over https). */}
-        <Section
-          icon="🔔"
-          title={t("settings.remindersTitle")}
-          description={t("settings.remindersDesc")}
-        >
-          <PushReminders />
-        </Section>
-
         {/* Auto-schedule prefs — study window + energy, feed the calendar's
             "Auto-arrange times" placement (M3b). */}
-        <Section
+        <Row
           icon="⏰"
           title={t("settings.studyPrefsTitle")}
           description={t("settings.studyPrefsDesc")}
         >
           <StudyPrefsForm prefs={prefs} />
-        </Section>
+        </Row>
+
+        {/* How StudyFlow plans — the methodology explainer, collapsed by default. */}
+        <details className="group p-5 text-sm text-gray-600 dark:text-gray-300">
+          <summary className="flex cursor-pointer items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
+            <span aria-hidden>💡</span>
+            {t("courses.howTitle")}
+          </summary>
+          <ol className="mt-3 list-decimal space-y-1 pl-5">
+            <li>
+              {t("courses.how1Pre")}{" "}
+              <Link href="/catalog" className="text-brand-ink hover:underline">{t("courses.how1Catalog")}</Link>{t("courses.how1Mid")}{" "}
+              <Link href="/courses/import" className="text-brand-ink hover:underline">{t("courses.how1Upload")}</Link>{t("courses.how1Post")}
+            </li>
+            <li>{t("courses.how2")}</li>
+            <li>
+              {t("courses.how3Pre")} <strong>{t("courses.how3Strong")}</strong> {t("courses.how3Post")}
+            </li>
+            <li>
+              {t("courses.how4Pre")} <strong>{t("courses.how4Spaced")}</strong> {t("courses.how4Mid")}{" "}
+              <strong>{t("courses.how4SelfTest")}</strong> {t("courses.how4Post")}
+            </li>
+            <li>
+              {t("courses.how5Pre")} <Link href="/today" className="text-brand-ink hover:underline">{t("courses.how5Today")}</Link>{" "}
+              {t("courses.how5Post")}
+            </li>
+          </ol>
+          <p className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-2">
+            <strong>{t("courses.appleTitle")}</strong> {t("courses.appleBody")}{" "}
+            <span className="font-medium text-green-700 dark:text-green-400">{t("courses.appleOnTrack")}</span>,
+            <span className="font-medium text-yellow-800 dark:text-yellow-300"> {t("courses.appleMedium")}</span>,
+            <span className="font-medium text-red-700 dark:text-red-400"> {t("courses.appleHigh")}</span>{t("courses.appleTail")}
+          </p>
+        </details>
       </div>
 
-      {/* App-level preferences and account. */}
-      <GroupLabel>{t("settings.preferences")}</GroupLabel>
-      <div className="space-y-4">
-        {/* Language — DE / EN, persisted and applied app-wide. */}
-        <Section
-          icon="🌍"
-          title={t("settings.languageTitle")}
-          description={t("settings.languageDesc")}
+      {/* CALENDAR — live subscribe feed (auto-updates in Apple/Google Calendar). */}
+      <GroupLabel>{t("settings.calendarTitle")}</GroupLabel>
+      <div className={panelClass}>
+        <Row
+          icon="📆"
+          title={t("settings.calendarTitle")}
+          description={t("settings.calendarDesc")}
         >
-          <div className="mt-3">
-            <LanguageToggle />
-          </div>
-        </Section>
+          <CalendarSync token={calendarToken} />
+        </Row>
+      </div>
 
-        {/* Appearance — theme selector. */}
-        <Section
+      {/* REMINDERS — web-push opt-in (activates once deployed over https). */}
+      <GroupLabel>{t("settings.remindersTitle")}</GroupLabel>
+      <div className={panelClass}>
+        <Row
+          icon="🔔"
+          title={t("settings.remindersTitle")}
+          description={t("settings.remindersDesc")}
+        >
+          <PushReminders />
+        </Row>
+      </div>
+
+      {/* APPEARANCE — theme + language, persisted and applied app-wide. */}
+      <GroupLabel>{t("settings.appearance")}</GroupLabel>
+      <div className={`${panelClass} divide-y divide-gray-200 dark:divide-gray-800`}>
+        <Row
           icon="🎨"
           title={t("settings.appearanceTitle")}
           description={t("settings.appearanceDesc")}
@@ -168,60 +196,35 @@ export default async function SettingsPage({
           <div className="mt-3">
             <ThemeSetting />
           </div>
-        </Section>
-
+        </Row>
+        <Row
+          icon="🌍"
+          title={t("settings.languageTitle")}
+          description={t("settings.languageDesc")}
+        >
+          <div className="mt-3">
+            <LanguageToggle />
+          </div>
+        </Row>
       </div>
 
-      {/* Account — signed-in identity + sign out. When the app runs without auth
+      {/* ACCOUNT — signed-in identity + sign out. When the app runs without auth
           (ALLOW_DEV_USER=1) there is no real session, so we keep the original
           muted placeholder line instead of showing a sign-out control. */}
-      {session?.user ? (
-        <>
-          <GroupLabel>{t("settings.accountTitle")}</GroupLabel>
-          <Section icon="👤" title={t("settings.accountTitle")} description={session.user.email ?? ""}>
+      <GroupLabel>{t("settings.accountTitle")}</GroupLabel>
+      <div className={panelClass}>
+        {session?.user ? (
+          <Row icon="👤" title={t("settings.accountTitle")} description={session.user.email ?? ""}>
             <form action={signOutAction} className="mt-3">
               <Button type="submit" variant="secondary" size="md">
                 Sign out
               </Button>
             </form>
-          </Section>
-        </>
-      ) : (
-        <p className="mt-4 flex items-center gap-1.5 px-1 text-xs text-gray-500 dark:text-gray-400">
-          <span aria-hidden>👤</span>
-          {t("settings.accountTitle")} — {t("settings.loginSoon")}
-        </p>
-      )}
-      <details className="mt-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 text-sm text-gray-600 dark:text-gray-300">
-        <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
-          {t("courses.howTitle")}
-        </summary>
-        <ol className="mt-2 list-decimal space-y-1 pl-5">
-          <li>
-            {t("courses.how1Pre")}{" "}
-            <Link href="/catalog" className="text-brand-ink hover:underline">{t("courses.how1Catalog")}</Link>{t("courses.how1Mid")}{" "}
-            <Link href="/courses/import" className="text-brand-ink hover:underline">{t("courses.how1Upload")}</Link>{t("courses.how1Post")}
-          </li>
-          <li>{t("courses.how2")}</li>
-          <li>
-            {t("courses.how3Pre")} <strong>{t("courses.how3Strong")}</strong> {t("courses.how3Post")}
-          </li>
-          <li>
-            {t("courses.how4Pre")} <strong>{t("courses.how4Spaced")}</strong> {t("courses.how4Mid")}{" "}
-            <strong>{t("courses.how4SelfTest")}</strong> {t("courses.how4Post")}
-          </li>
-          <li>
-            {t("courses.how5Pre")} <Link href="/today" className="text-brand-ink hover:underline">{t("courses.how5Today")}</Link>{" "}
-            {t("courses.how5Post")}
-          </li>
-        </ol>
-        <p className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-2">
-          <strong>{t("courses.appleTitle")}</strong> {t("courses.appleBody")}{" "}
-          <span className="font-medium text-green-700 dark:text-green-400">{t("courses.appleOnTrack")}</span>,
-          <span className="font-medium text-yellow-800 dark:text-yellow-300"> {t("courses.appleMedium")}</span>,
-          <span className="font-medium text-red-700 dark:text-red-400"> {t("courses.appleHigh")}</span>{t("courses.appleTail")}
-        </p>
-      </details>
+          </Row>
+        ) : (
+          <Row icon="👤" title={t("settings.accountTitle")} description={t("settings.loginSoon")} />
+        )}
+      </div>
     </main>
   );
 }
