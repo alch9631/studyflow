@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { RotateCcw, Settings } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -172,7 +173,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
             "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
           )}
         >
-          <span aria-hidden="true">↺</span>
+          <RotateCcw className="h-5 w-5" aria-hidden="true" />
         </button>
         <button
           onClick={() => setShowCfg((s) => !s)}
@@ -182,7 +183,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
             "inline-flex border border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
           )}
         >
-          <span aria-hidden="true">⚙︎</span>
+          <Settings className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 

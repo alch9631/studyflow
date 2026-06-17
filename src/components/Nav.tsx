@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Search, Menu, X } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import SettingsMenu from "./SettingsMenu";
 import ThemeSetting from "./ThemeSetting";
@@ -57,59 +58,6 @@ const DRAWER_TABS: Tab[] = [
 function isActive(pathname: string, t: Tab) {
   if (t.external) return false;
   return pathname === t.href || pathname.startsWith(t.href + "/");
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
-
-function HamburgerIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <line x1="4" y1="7" x2="20" y2="7" />
-      <line x1="4" y1="12" x2="20" y2="12" />
-      <line x1="4" y1="17" x2="20" y2="17" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <line x1="6" y1="6" x2="18" y2="18" />
-      <line x1="18" y1="6" x2="6" y2="18" />
-    </svg>
-  );
 }
 
 export default function Nav() {
@@ -236,7 +184,7 @@ export default function Nav() {
               }`,
             )}
           >
-            <SearchIcon />
+            <Search className="h-5 w-5" aria-hidden="true" />
           </Link>
 
           {/* Desktop settings: a dropdown for the theme switch + a link through
@@ -255,7 +203,7 @@ export default function Nav() {
               "ml-1 inline-flex text-gray-600 hover:bg-gray-100 lg:hidden dark:text-gray-300 dark:hover:bg-gray-800",
             )}
           >
-            <HamburgerIcon />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
         </nav>
       </header>
@@ -293,7 +241,7 @@ export default function Nav() {
                 "inline-flex text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
               )}
             >
-              <CloseIcon />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 

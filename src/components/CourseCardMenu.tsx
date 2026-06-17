@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
+import { MoreHorizontal, Download, Trash2 } from "lucide-react";
 import { deleteCourse } from "@/app/courses/actions";
 import { iconButtonClass } from "./ui";
 import { Button } from "./ui/button";
@@ -75,7 +76,7 @@ export default function CourseCardMenu({
             "inline-flex bg-white/80 text-gray-600 shadow-sm backdrop-blur hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand dark:bg-gray-900/80 dark:text-gray-300 dark:hover:bg-gray-800",
           )}
         >
-          <span aria-hidden="true">⋯</span>
+          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end">
@@ -83,7 +84,7 @@ export default function CourseCardMenu({
 
           <DropdownMenuItem asChild>
             <a href="/api/export?format=json">
-              <span aria-hidden="true">⬇️</span>
+              <Download className="h-4 w-4" aria-hidden="true" />
               {t("courses.export")}
             </a>
           </DropdownMenuItem>
@@ -98,7 +99,7 @@ export default function CourseCardMenu({
             }}
             className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40 dark:focus:text-red-300"
           >
-            <span aria-hidden="true">🗑</span>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
             {t("courses.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>

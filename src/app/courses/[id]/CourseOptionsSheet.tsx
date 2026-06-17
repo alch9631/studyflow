@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Settings, X } from "lucide-react";
 
 import { cn } from "@/components/lib/utils";
 import { iconButtonClass } from "@/components/ui";
@@ -70,7 +71,7 @@ export default function CourseOptionsSheet({ children }: { children: React.React
             "inline-flex shrink-0 gap-1.5 border border-gray-300 px-0 text-gray-700 hover:bg-gray-100 sm:w-auto sm:px-4 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800",
           )}
         >
-          <span aria-hidden="true">⚙️</span>
+          <Settings className="h-5 w-5" aria-hidden="true" />
           <span className="hidden text-sm font-medium sm:inline">
             {t("courseDetail.optionsLabel")}
           </span>
@@ -127,9 +128,7 @@ export default function CourseOptionsSheet({ children }: { children: React.React
                       aria-label={t("common.close")}
                       className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                     >
-                      <span aria-hidden="true" className="text-base leading-none">
-                        ✕
-                      </span>
+                      <X className="h-4 w-4" aria-hidden="true" />
                     </DialogPrimitive.Close>
                   </div>
                   <DialogPrimitive.Description className="sr-only">

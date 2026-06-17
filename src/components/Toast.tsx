@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { X } from "lucide-react";
 import { useT } from "./i18n/I18nProvider";
 
 /**
@@ -150,7 +151,7 @@ function ToastView({
         aria-label={t("common.dismiss")}
         className="-mr-1 shrink-0 rounded px-1 text-current/70 transition-colors hover:text-current"
       >
-        ✕
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { X, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
@@ -427,7 +428,7 @@ export default async function CoursePage({
                           successMessage={t("courseDetail.deadlineRemoved")}
                           errorMessage={t("courseDetail.deadlineRemoveError")}
                           className="shrink-0"
-                          triggerLabel="✕"
+                          triggerLabel={<X className="h-4 w-4" aria-hidden="true" />}
                           triggerAriaLabel={t("courseDetail.deleteDeadlineAria", { title: a.title })}
                           triggerClassName={iconButtonClass(
                             "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",
@@ -643,7 +644,7 @@ export default async function CoursePage({
                             successMessage={t("courseDetail.fileRemoved")}
                             errorMessage={t("courseDetail.fileRemoveError")}
                             className="shrink-0"
-                            triggerLabel="🗑"
+                            triggerLabel={<Trash2 className="h-4 w-4" aria-hidden="true" />}
                             triggerAriaLabel={t("courseDetail.deleteFileAria", { filename: file.filename })}
                             triggerClassName={iconButtonClass(
                               "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",

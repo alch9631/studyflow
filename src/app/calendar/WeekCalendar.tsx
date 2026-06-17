@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -593,9 +594,9 @@ export default function WeekCalendar({
           <Link
             href={`/calendar?week=${prevWeekISO}`}
             aria-label={t("calendar.prevWeek")}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
           >
-            ‹
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
           <Link
             href="/calendar"
@@ -606,9 +607,9 @@ export default function WeekCalendar({
           <Link
             href={`/calendar?week=${nextWeekISO}`}
             aria-label={t("calendar.nextWeek")}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
           >
-            ›
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           <Button
             type="button"
@@ -630,9 +631,9 @@ export default function WeekCalendar({
             aria-label={t("calendar.prevDay")}
             disabled={dayIndex <= 0}
             onClick={() => dayIndex > 0 && setSelectedDay(dayISOs[dayIndex - 1])}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
+            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
           >
-            ‹
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
           <div className="flex flex-1 justify-between gap-1">
             {dayISOs.map((dayISO, i) => {
@@ -662,9 +663,9 @@ export default function WeekCalendar({
             aria-label={t("calendar.nextDay")}
             disabled={dayIndex >= dayISOs.length - 1}
             onClick={() => dayIndex < dayISOs.length - 1 && setSelectedDay(dayISOs[dayIndex + 1])}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
+            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
           >
-            ›
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>

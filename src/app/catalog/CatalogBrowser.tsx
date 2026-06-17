@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { Info } from "lucide-react";
 import { useT } from "@/components/i18n/I18nProvider";
 import SubmitButton from "@/components/SubmitButton";
 import { Button } from "@/components/ui/button";
@@ -249,7 +250,7 @@ function ModuleRow({
             title={t("catalog.details")}
             className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full border border-gray-300 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand hover:text-brand-ink dark:border-gray-700 dark:text-gray-400"
           >
-            <span aria-hidden="true">ⓘ</span>
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{t("catalog.info")}</span>
           </summary>
           <div className="absolute right-0 top-8 z-10 w-64 max-w-[75vw] rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">

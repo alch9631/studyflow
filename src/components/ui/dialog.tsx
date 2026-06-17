@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { X } from "lucide-react";
 
 import { cn } from "@/components/lib/utils";
 import { useT } from "@/components/i18n/I18nProvider";
@@ -115,9 +116,7 @@ function DialogContent({
                   aria-label={t("common.close")}
                   className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                 >
-                  <span aria-hidden="true" className="text-base leading-none">
-                    ✕
-                  </span>
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </DialogPrimitive.Close>
               )}
             </motion.div>

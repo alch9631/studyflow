@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { X } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { deleteLecture } from "./actions";
@@ -91,7 +92,7 @@ export default async function TimetablePage() {
                       successMessage={t("timetable.removeSuccess")}
                       errorMessage={t("timetable.removeError")}
                       className="shrink-0"
-                      triggerLabel="✕"
+                      triggerLabel={<X className="h-4 w-4" aria-hidden="true" />}
                       triggerAriaLabel={t("timetable.deleteAria", { title: l.title })}
                       triggerClassName={iconButtonClass(
                         "inline-flex text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-800",

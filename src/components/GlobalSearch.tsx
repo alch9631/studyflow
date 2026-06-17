@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Search } from "lucide-react";
 import { inputClass } from "./ui";
 import EmptyState from "./EmptyState";
 import { useT } from "./i18n/I18nProvider";
@@ -168,7 +169,10 @@ export default function GlobalSearch({
   return (
     <div>
       <div className="relative">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+          aria-hidden="true"
+        />
         <input
           ref={inputRef}
           type="search"
@@ -359,23 +363,5 @@ function SearchStart({ start, t }: { start?: SearchStartData; t: ReturnType<type
         </div>
       </section>
     </div>
-  );
-}
-
-function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Download, Share, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { useT } from "./i18n/I18nProvider";
 
@@ -143,7 +144,7 @@ export default function InstallPrompt() {
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-ink"
           aria-hidden="true"
         >
-          <InstallIcon />
+          <Download className="h-5 w-5" aria-hidden="true" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -177,7 +178,10 @@ export default function InstallPrompt() {
             <>
               <p className="mt-0.5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 {t("installPrompt.iosTapPrefix")}{" "}
-                <ShareIcon className="-mt-0.5 inline-block h-4 w-4 align-middle text-brand-ink" />{" "}
+                <Share
+                  className="-mt-0.5 inline-block h-4 w-4 align-middle text-brand-ink"
+                  aria-hidden="true"
+                />{" "}
                 {t("installPrompt.iosShareSuffix")}{" "}
                 <span className="font-medium text-gray-900 dark:text-gray-100">
                   {t("installPrompt.iosAddToHome")}
@@ -204,65 +208,9 @@ export default function InstallPrompt() {
           aria-label={t("installPrompt.dismissAria")}
           className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
         >
-          <CloseIcon />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </div>
-  );
-}
-
-function InstallIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3v12" />
-      <path d="m7 11 5 5 5-5" />
-      <path d="M5 21h14" />
-    </svg>
-  );
-}
-
-function ShareIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 16V4" />
-      <path d="m8 8 4-4 4 4" />
-      <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
   );
 }

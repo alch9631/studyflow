@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Settings } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import { applyMode, THEME_OPTIONS, useThemeMode, type Mode } from "./lib/theme";
 import { useLocale, useSetLocale, useT } from "./i18n/I18nProvider";
@@ -46,7 +47,7 @@ export default function SettingsMenu() {
           }`,
         )}
       >
-        <span aria-hidden="true">⚙️</span>
+        <Settings className="h-5 w-5" aria-hidden="true" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
@@ -81,7 +82,7 @@ export default function SettingsMenu() {
 
         <DropdownMenuItem asChild>
           <Link href="/settings" aria-current={onSettings ? "page" : undefined}>
-            <span aria-hidden="true">⚙️</span>
+            <Settings className="h-4 w-4" aria-hidden="true" />
             {t("nav.allSettings")}
           </Link>
         </DropdownMenuItem>
