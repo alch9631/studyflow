@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Self-contained server bundle (.next/standalone) — lets us ship a small
+  // Docker image and run `node server.js` on any host (Fly/Render/VPS), not just
+  // the Pi. Additive: `next start` still works locally/on the Pi.
+  output: "standalone",
   // Hide the Next.js dev indicator (the floating "N" button, bottom-left) — it
   // only shows in `next dev` and isn't part of StudyFlow.
   devIndicators: false,
