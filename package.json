@@ -41,6 +41,7 @@
     "test:ownership": "tsx src/lib/ownership.test.ts",
     "test:recovery": "tsx src/lib/recovery.test.ts",
     "test:testdb": "tsx src/lib/testDb.test.ts",
+    "test:timeplacer": "tsx src/lib/timePlacer.test.ts",
     "smoke": "tsx scripts/smoke.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:catalog": "tsx prisma/seedCatalog.ts",

@@ -34,7 +34,8 @@ import {
   isValidISODate,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
-import { checkBlockTimes, instantToDayMinutes } from "@/lib/calendarTime";
+import { checkBlockTimes, instantToDayMinutes, dayMinutesToInstant } from "@/lib/calendarTime";
+import { placeDayBlocks, parsePrefs } from "@/lib/timePlacer";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
   ownsCourse,
@@ -898,4 +899,115 @@ export async function deleteNote(formData: FormData) {
     return;
   }
   await deleteOwnedTopicNote(userId, topicId);
+}
+
+/** Local YYYY-MM-DD (zero-padded) — mirrors the calendar page's day key. */
+function isoDayLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Auto-assign clock times (startTime/endTime) to a week's study blocks. This is a
+ * PURELY ADDITIVE placement layer on top of the day-level scheduler: it never
+ * changes which day a block is on or how long it is — it just packs the day's
+ * already-planned blocks into concrete times inside the student's study window,
+ * flowing around their fixed lectures, honouring their energy preference.
+ *
+ * The week is Mon–Sun (same logic the calendar/dashboard use). `weekStart`
+ * (YYYY-MM-DD) is optional — defaults to the current week. Per day we collect the
+ * user's blocks on that day (ownership-scoped via course.userId), build `busy`
+ * from the user's lectures matching that weekday, load the user's prefs, and call
+ * the pure {@link placeDayBlocks}; placed blocks get startTime/endTime persisted
+ * as UTC instants (Europe/Berlin) via the calendarTime helpers.
+ *
+ * Idempotent / non-destructive: only blocks that currently have NO times are
+ * (re)placed, so re-running never stomps times the student set by hand on the
+ * calendar. Junk input is a silent no-op like rescheduleBlock.
+ */
+export async function autoScheduleWeekTimes(
+  formData: FormData,
+): Promise<{ placed: number; unplaced: number }> {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return { placed: 0, unplaced: 0 };
+
+  // Resolve the week's Monday. An explicit weekStart must be a real ISO date
+  // (allowing past/future weeks); anything malformed silently falls back to the
+  // current week — never a thrown error or a bogus Date in the query.
+  const weekStartRaw = str(formData.get("weekStart"));
+  let monday: Date;
+  if (weekStartRaw && isValidISODate(weekStartRaw)) {
+    const [y, m, d] = weekStartRaw.split("-").map(Number);
+    monday = new Date(y, m - 1, d);
+  } else {
+    const now = new Date();
+    const back = (now.getDay() + 6) % 7; // days since Monday
+    monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
+  }
+  const weekEnd = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
+
+  // Prefs (study window + energy) and the user's recurring lectures (busy).
+  const [user, lectures] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
+    prisma.lecture.findMany({
+      where: { userId },
+      select: { weekday: true, startMin: true, endMin: true },
+    }),
+  ]);
+  const prefs = parsePrefs(user?.preferences);
+  const window = { startMin: prefs.dayStartMin, endMin: prefs.dayEndMin };
+
+  // The week's blocks (ownership-scoped through course.userId), only the columns
+  // the placer needs. We re-place only the timeless ones (both times null) so a
+  // re-run is safe and never overwrites hand-set times.
+  const weekBlocks = await prisma.studyBlock.findMany({
+    where: { course: { userId }, date: { gte: monday, lt: weekEnd } },
+    select: { id: true, date: true, minutes: true, startTime: true, endTime: true },
+  });
+
+  let placedTotal = 0;
+  let unplacedTotal = 0;
+
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const dayISO = isoDayLocal(day);
+    const weekday = day.getDay(); // 0=Sun … 6=Sat, matching Lecture.weekday
+
+    // Blocks on this day that still have no time-of-day → candidates for placement.
+    const dayBlocks = weekBlocks.filter(
+      (b) => isoDayLocal(b.date) === dayISO && b.startTime == null && b.endTime == null,
+    );
+    if (dayBlocks.length === 0) continue;
+
+    // This weekday's lectures are the busy intervals to flow around.
+    const busy = lectures
+      .filter((l) => l.weekday === weekday)
+      .map((l) => ({ startMin: l.startMin, endMin: l.endMin }));
+
+    const { placed, unplaced } = placeDayBlocks(
+      dayBlocks.map((b) => ({ id: b.id, minutes: b.minutes })),
+      busy,
+      window,
+      prefs.energy,
+    );
+    unplacedTotal += unplaced.length;
+    if (placed.length === 0) continue;
+
+    // Persist the day's placements in one transaction: each placed block gets its
+    // start/end as a UTC instant on this local day (Europe/Berlin via calendarTime).
+    await prisma.$transaction(
+      placed.map((p) =>
+        prisma.studyBlock.update({
+          where: { id: p.id },
+          data: {
+            startTime: dayMinutesToInstant(dayISO, p.startMin),
+            endTime: dayMinutesToInstant(dayISO, p.endMin),
+          },
+        }),
+      ),
+    );
+    placedTotal += placed.length;
+  }
+
+  revalidatePath("/calendar");
+  return { placed: placedTotal, unplaced: unplacedTotal };
 }

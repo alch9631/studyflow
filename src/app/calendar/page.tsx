@@ -69,7 +69,12 @@ export default async function CalendarPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-5">
-      <WeekCalendar dayISOs={dayISOs} todayISO={isoDay(now)} blocks={blocks} />
+      <WeekCalendar
+        dayISOs={dayISOs}
+        todayISO={isoDay(now)}
+        weekStartISO={isoDay(weekStart)}
+        blocks={blocks}
+      />
     </main>
   );
 }

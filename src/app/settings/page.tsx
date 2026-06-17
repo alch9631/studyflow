@@ -5,9 +5,12 @@ import ThemeSetting from "@/components/ThemeSetting";
 import LanguageToggle from "@/components/LanguageToggle";
 import CalendarSync from "@/components/CalendarSync";
 import PushReminders from "@/components/PushReminders";
+import StudyPrefsForm from "@/components/StudyPrefs";
 import { panelClass } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { getCalendarToken } from "@/lib/devUser";
+import { getCalendarToken, getCurrentUserId } from "@/lib/devUser";
+import { prisma } from "@/lib/db";
+import { parsePrefs } from "@/lib/timePlacer";
 import { auth } from "@/auth";
 import { signOutAction } from "./actions";
 import { getT } from "@/components/i18n/server";
@@ -57,12 +60,15 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ msg?: string }>;
 }) {
-  const [calendarToken, { msg }, t, session] = await Promise.all([
+  const userId = await getCurrentUserId();
+  const [calendarToken, { msg }, t, session, user] = await Promise.all([
     getCalendarToken(),
     searchParams,
     getT(),
     auth(),
+    prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
   ]);
+  const prefs = parsePrefs(user?.preferences);
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
@@ -77,6 +83,15 @@ export default async function SettingsPage({
           className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
         >
           {t("settings.rateLimited")}
+        </div>
+      )}
+
+      {msg === "prefs-saved" && (
+        <div
+          role="status"
+          className="mt-4 rounded-xl border border-green-300 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
+        >
+          {t("settings.prefsSaved")}
         </div>
       )}
 
@@ -117,6 +132,16 @@ export default async function SettingsPage({
           description={t("settings.remindersDesc")}
         >
           <PushReminders />
+        </Section>
+
+        {/* Auto-schedule prefs — study window + energy, feed the calendar's
+            "Auto-arrange times" placement (M3b). */}
+        <Section
+          icon="⏰"
+          title={t("settings.studyPrefsTitle")}
+          description={t("settings.studyPrefsDesc")}
+        >
+          <StudyPrefsForm prefs={prefs} />
         </Section>
       </div>
 

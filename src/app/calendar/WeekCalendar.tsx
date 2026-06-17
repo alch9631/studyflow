@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -16,7 +16,9 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useT } from "@/components/i18n/I18nProvider";
-import { updateBlockTime } from "../courses/actions";
+import { useToast } from "@/components/Toast";
+import { Button } from "@/components/ui/button";
+import { updateBlockTime, autoScheduleWeekTimes } from "../courses/actions";
 import {
   dayMinutesToInstant,
   minutesToHHMM,
@@ -160,20 +162,46 @@ function UnscheduledLane({
  * Props are serializable so the page stays a server component:
  *   - `dayISOs`: the 7 day dates (YYYY-MM-DD, Mon→Sun)
  *   - `todayISO`: today's date for the highlighted column
+ *   - `weekStartISO`: the week's Monday (YYYY-MM-DD), passed to auto-arrange
  *   - `blocks`: the week's blocks (see {@link CalBlock})
  */
 export default function WeekCalendar({
   dayISOs,
   todayISO,
+  weekStartISO,
   blocks,
 }: {
   dayISOs: string[];
   todayISO: string;
+  weekStartISO: string;
   blocks: CalBlock[];
 }) {
   const t = useT();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isArranging, startArranging] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Auto-arrange: ask the server to pack this week's timeless blocks into clock
+  // times (study window + lectures + energy preference), then refresh + report.
+  function autoArrange() {
+    startArranging(async () => {
+      const fd = new FormData();
+      fd.set("weekStart", weekStartISO);
+      const { placed, unplaced } = await autoScheduleWeekTimes(fd);
+      router.refresh();
+      if (placed === 0 && unplaced === 0) {
+        toast(t("calendar.autoNone"), "info");
+      } else if (unplaced > 0) {
+        toast(
+          t("calendar.autoResultPartial", { placed: String(placed), unplaced: String(unplaced) }),
+          "info",
+        );
+      } else {
+        toast(t("calendar.autoResult", { placed: String(placed) }), "success");
+      }
+    });
+  }
 
   // Keyboard sensor gives the a11y win over the dashboard's native DnD: a block is
   // focusable, Space picks it up, arrows move between slots, Space drops.
@@ -236,11 +264,22 @@ export default function WeekCalendar({
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <h1 className="text-lg font-bold tracking-tight">{t("calendar.title")}</h1>
-        <p className="hidden text-xs text-gray-500 sm:block dark:text-gray-400">
-          {t("calendar.dragHint")}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="hidden text-xs text-gray-500 sm:block dark:text-gray-400">
+            {t("calendar.dragHint")}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={autoArrange}
+            disabled={isArranging}
+          >
+            {isArranging ? t("calendar.autoArranging") : t("calendar.autoArrange")}
+          </Button>
+        </div>
       </div>
 
       <DndContext
