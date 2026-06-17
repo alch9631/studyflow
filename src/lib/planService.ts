@@ -43,7 +43,22 @@ const MIN_BLOCK_MINUTES = 15;
  */
 const MAX_SCHEDULE_DAYS = 400;
 /** Even on a heavy lecture day, still allow at least this much study time. */
-const MIN_DAILY_AFTER_LECTURES = 30;
+export const MIN_DAILY_AFTER_LECTURES = 30;
+
+/**
+ * The study-time ceiling for one weekday, AFTER that day's lectures are
+ * subtracted from the global daily cap. A class-heavy day leaves less room to
+ * study; a free day keeps the full ceiling. Never drops below
+ * {@link MIN_DAILY_AFTER_LECTURES} (even a fully-booked day allows a little
+ * study) and never exceeds {@link GLOBAL_DAILY_MINUTES}. `lectureMinutes` is the
+ * total lecture minutes on that weekday; null/NaN/negative drift coerces to 0 so
+ * a bad timetable row can't inflate or break the budget. Pure so the
+ * timetable-awareness invariant is unit-testable without a DB.
+ */
+export function dailyStudyCeiling(lectureMinutes: number | null | undefined): number {
+  const busy = Number.isFinite(lectureMinutes as number) ? Math.max(lectureMinutes as number, 0) : 0;
+  return Math.max(MIN_DAILY_AFTER_LECTURES, GLOBAL_DAILY_MINUTES - busy);
+}
 
 /**
  * Today as an ISO date (YYYY-MM-DD) in the student's timezone (Europe/Berlin).
@@ -371,7 +386,7 @@ async function rebuildScheduleInner(
   const dayLoad = new Map<string, number>();
   const ceilingFor = (date: string) => {
     const dow = new Date(date + "T00:00:00Z").getUTCDay();
-    return Math.max(MIN_DAILY_AFTER_LECTURES, GLOBAL_DAILY_MINUTES - lectureMinByDow[dow]);
+    return dailyStudyCeiling(lectureMinByDow[dow]);
   };
 
   // EVEN-SPREAD per course, ACROSS THE FULL RUNWAY. The core change vs the old

@@ -3,7 +3,15 @@
  * Run with: npx tsx src/lib/planService.test.ts
  * (Dependency-free, same style as planner.test.ts.)
  */
-import { toEngineCourse, foldCompletedSessions, blockKey, reviewDifficultyByTopic } from "./planService";
+import {
+  toEngineCourse,
+  foldCompletedSessions,
+  blockKey,
+  reviewDifficultyByTopic,
+  dailyStudyCeiling,
+  MIN_DAILY_AFTER_LECTURES,
+  GLOBAL_DAILY_MINUTES,
+} from "./planService";
 
 let passed = 0;
 let failed = 0;
@@ -374,6 +382,38 @@ const conf2 = reviewDifficultyByTopic([
 check("unrated topic omitted (baseline spacing)", conf2.t1 === undefined);
 check("junk confidence omitted", conf2.t2 === undefined);
 check("reviewDifficultyByTopic([]) is empty", Object.keys(reviewDifficultyByTopic([])).length === 0);
+
+// ---- dailyStudyCeiling (timetable awareness — "lectures respected") --------
+// The scheduler subtracts a day's lecture minutes from the global cap so a
+// class-heavy day can't be over-booked with study. These invariants pin that
+// contract: free days keep the full ceiling, busy days shrink it proportionally,
+// and a fully-booked day still leaves a protected minimum — never zero/negative.
+check("ceiling: a free day keeps the full global cap", dailyStudyCeiling(0) === GLOBAL_DAILY_MINUTES);
+check(
+  "ceiling: lectures subtract from the day's study budget",
+  dailyStudyCeiling(120) === GLOBAL_DAILY_MINUTES - 120,
+);
+check(
+  "ceiling: more lectures never give MORE study room (monotonic)",
+  dailyStudyCeiling(60) >= dailyStudyCeiling(180),
+);
+check(
+  "ceiling: a fully-booked day still allows the protected minimum",
+  dailyStudyCeiling(GLOBAL_DAILY_MINUTES + 999) === MIN_DAILY_AFTER_LECTURES,
+);
+check(
+  "ceiling: never drops below the protected minimum",
+  [0, 100, 300, 360, 10_000].every((m) => dailyStudyCeiling(m) >= MIN_DAILY_AFTER_LECTURES),
+);
+check(
+  "ceiling: never exceeds the global cap",
+  [0, 100, 300, 360, 10_000].every((m) => dailyStudyCeiling(m) <= GLOBAL_DAILY_MINUTES),
+);
+// Drift (null / NaN / negative lecture minutes) coerces to a free day, not junk.
+check("ceiling: null lecture minutes → full cap", dailyStudyCeiling(null) === GLOBAL_DAILY_MINUTES);
+check("ceiling: undefined lecture minutes → full cap", dailyStudyCeiling(undefined) === GLOBAL_DAILY_MINUTES);
+check("ceiling: NaN lecture minutes → full cap", dailyStudyCeiling(NaN) === GLOBAL_DAILY_MINUTES);
+check("ceiling: negative lecture minutes → full cap (no inflation)", dailyStudyCeiling(-200) === GLOBAL_DAILY_MINUTES);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

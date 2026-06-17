@@ -843,5 +843,225 @@ check(
   JSON.stringify(emptyMapRev) === JSON.stringify(baselineRev),
 );
 
+// ===========================================================================
+// PLANNER INVARIANTS (P1) — the load-bearing promises the whole product rests
+// on. Unlike the edge-case probes above (which assert "doesn't crash on junk"),
+// these assert the engine's CORE CONTRACT over a spread of realistic courses:
+// 1. never schedule on/after the exam date — impossibility surfaces as the
+//    `intense`/`isOverloaded` flag, NOT as work placed past the deadline;
+// 2. no duplicate REVIEW blocks (one recall per topic per day) and no
+//    zero/negative-minute blocks anywhere;
+// 3. completing work only ever REDUCES the minutes left to schedule;
+// 4. low-priority (low-effort) work can slide — it earns less time and yields
+//    to heavier work, but is NEVER silently dropped;
+// 5. a "behind" course yields a SAFE, non-empty fallback plan (work piled,
+//    visibly flagged) — never an empty or crashing schedule;
+// 6. the study window is respected — every block lands on an allowed study day
+//    inside [today, exam).
+// Every check runs across the fixture matrix so the contract holds broadly, not
+// just for one hand-picked course. Any failure here is a real engine bug to fix.
+// ===========================================================================
+
+const wd = (iso: string) => new Date(iso + "T00:00:00Z").getUTCDay();
+const TODAY = "2026-06-08"; // a Monday
+
+/** A spread of realistic courses: roomy, tight, weekend-only, hard, many-topic. */
+const invariantFixtures: { label: string; course: Course }[] = [
+  {
+    label: "roomy weekday course",
+    course: {
+      id: "inv-roomy", name: "Roomy", examDate: "2026-07-15",
+      studyDays: [1, 2, 3, 4, 5], minutesPerDay: 120,
+      topics: [
+        { id: "a", title: "A", effort: 5, done: false },
+        { id: "b", title: "B", effort: 1, done: false },
+        { id: "c", title: "C", effort: 3, done: false },
+      ],
+    },
+  },
+  {
+    label: "tight one-week course",
+    course: {
+      id: "inv-tight", name: "Tight", examDate: "2026-06-15",
+      studyDays: [1, 2, 3, 4, 5], minutesPerDay: 120,
+      topics: [
+        { id: "a", title: "A", effort: 4, done: false },
+        { id: "b", title: "B", effort: 2, done: false },
+      ],
+    },
+  },
+  {
+    label: "weekend-only course",
+    course: {
+      id: "inv-weekend", name: "Weekend", examDate: "2026-07-20",
+      studyDays: [0, 6], minutesPerDay: 180,
+      topics: [
+        { id: "a", title: "A", effort: 3, done: false },
+        { id: "b", title: "B", effort: 3, done: false },
+      ],
+    },
+  },
+  {
+    label: "hard (difficulty 5) tight course",
+    course: {
+      id: "inv-hard", name: "Hard", examDate: "2026-06-19", difficulty: 5,
+      studyDays: [1, 2, 3, 4, 5], minutesPerDay: 120,
+      topics: [
+        { id: "a", title: "A", effort: 2, done: false },
+        { id: "b", title: "B", effort: 2, done: false },
+      ],
+    },
+  },
+  {
+    label: "many-topic course",
+    course: {
+      id: "inv-many", name: "Many", examDate: "2026-08-01",
+      studyDays: [1, 2, 3, 4, 5], minutesPerDay: 150,
+      topics: Array.from({ length: 9 }, (_, i) => ({
+        id: `t${i}`, title: `T${i}`, effort: 1 + (i % 4), done: false,
+      })),
+    },
+  },
+];
+
+// --- Invariant 1: nothing is ever scheduled on or after the exam date. ------
+let inv1Ok = true;
+for (const { course } of invariantFixtures) {
+  const blocks = [
+    ...generatePlan(course, TODAY),
+    ...planForDeadline(course, TODAY).blocks,
+    ...healPlan(course, TODAY).blocks,
+  ];
+  if (blocks.some((b) => b.date >= course.examDate)) inv1Ok = false;
+}
+check("INV1: no block is ever scheduled on/after the exam date", inv1Ok);
+
+// Even a hopelessly overloaded course keeps every block before the exam — the
+// impossibility shows up as the flag, never as work placed past the deadline.
+const inv1Overloaded: Course = {
+  id: "inv-over", name: "Over", examDate: "2026-06-15",
+  studyDays: [1, 2, 3, 4, 5], minutesPerDay: 120,
+  topics: Array.from({ length: 40 }, (_, i) => ({ id: `o${i}`, title: `O${i}`, effort: 5, done: false })),
+};
+const inv1OverPfd = planForDeadline(inv1Overloaded, TODAY);
+const inv1OverHeal = healPlan(inv1Overloaded, TODAY);
+check(
+  "INV1: overloaded course still places no block past the exam",
+  inv1OverPfd.blocks.every((b) => b.date < inv1Overloaded.examDate) &&
+    inv1OverHeal.blocks.every((b) => b.date < inv1Overloaded.examDate),
+);
+check(
+  "INV1: impossibility surfaces as the flag, not as work past the deadline",
+  inv1OverPfd.intense === true && inv1OverHeal.isOverloaded === true,
+);
+
+// --- Invariant 2: no duplicate reviews; no zero/negative-minute blocks. ------
+// Study sessions legitimately repeat (a topic can earn two 30-min sittings in a
+// day — that's interleaving, not a duplicate). The dedup contract is on REVIEWS:
+// at most one recall of a given topic per day. And NO block — study or review —
+// may carry non-positive minutes.
+let inv2DupReview = false;
+let inv2BadMinutes = false;
+for (const { course } of invariantFixtures) {
+  const { blocks } = planForDeadline(course, TODAY);
+  if (blocks.some((b) => !(b.minutes > 0) || !Number.isFinite(b.minutes))) inv2BadMinutes = true;
+  const reviews = blocks.filter((b) => b.kind === "review");
+  const keys = new Set(reviews.map((r) => `${r.date}|${r.topicId}`));
+  if (keys.size !== reviews.length) inv2DupReview = true;
+}
+check("INV2: never two reviews of the same topic on the same day", !inv2DupReview);
+check("INV2: every block carries positive, finite minutes", !inv2BadMinutes);
+
+// --- Invariant 3: completing work only reduces the minutes left to schedule. -
+// For each fixture, heal once with nothing done, then again after crediting a
+// chunk of every topic. The total scheduled minutes must never INCREASE, and it
+// must strictly DROP whenever there was schedulable work to begin with.
+let inv3Ok = true;
+const sumMinutes = (bl: StudyBlock[]) => bl.reduce((s, b) => s + b.minutes, 0);
+for (const { course } of invariantFixtures) {
+  const before = healPlan(course, TODAY);
+  const credited = Object.fromEntries(course.topics.map((t) => [t.id, 60]));
+  const after = healPlan(course, TODAY, credited);
+  const beforeMin = sumMinutes(before.blocks);
+  const afterMin = sumMinutes(after.blocks);
+  if (afterMin > beforeMin) inv3Ok = false;
+  if (beforeMin > 0 && afterMin >= beforeMin) inv3Ok = false;
+}
+check("INV3: completing work never increases remaining scheduled minutes", inv3Ok);
+check(
+  "INV3: completing work strictly reduces remaining work when work existed",
+  inv3Ok,
+);
+
+// --- Invariant 4: low-priority (low-effort) work slides but is never dropped. -
+// A heavy topic next to a light one: the light topic must earn STRICTLY LESS
+// time, yet still appear in the plan — both on a roomy runway and under overload
+// (falling behind reshapes the split, it never silently deletes a topic).
+const minutesOfTopic = (bl: StudyBlock[], id: string) =>
+  bl.filter((b) => b.topicId === id).reduce((s, b) => s + b.minutes, 0);
+const slideCourse = (examDate: string): Course => ({
+  id: "inv-slide", name: "Slide", examDate,
+  studyDays: [1, 2, 3, 4, 5], minutesPerDay: 120,
+  topics: [
+    { id: "heavy", title: "Heavy", effort: 5, done: false },
+    { id: "light", title: "Light", effort: 1, done: false },
+  ],
+});
+const roomySlide = healPlan(slideCourse("2026-07-15"), TODAY);
+const tightSlide = healPlan(slideCourse("2026-06-12"), TODAY);
+check(
+  "INV4: low-effort work earns strictly less time than heavy work",
+  minutesOfTopic(roomySlide.blocks, "light") < minutesOfTopic(roomySlide.blocks, "heavy"),
+);
+check(
+  "INV4: low-effort work is never dropped (roomy runway)",
+  roomySlide.blocks.some((b) => b.topicId === "light"),
+);
+check(
+  "INV4: low-effort work is never dropped even under overload",
+  tightSlide.blocks.some((b) => b.topicId === "light") &&
+    tightSlide.blocks.some((b) => b.topicId === "heavy"),
+);
+
+// --- Invariant 5: a "behind" course yields a safe, non-empty fallback. -------
+// With real study days left but far more work than fits, the engine must still
+// return a plan with blocks (the overflow is piled + flagged), never an empty or
+// throwing schedule, and the pace stays a finite number.
+const behindCourse: Course = {
+  id: "inv-behind", name: "Behind", examDate: "2026-06-15",
+  studyDays: [1, 2, 3, 4, 5], minutesPerDay: 120,
+  topics: Array.from({ length: 30 }, (_, i) => ({ id: `b${i}`, title: `B${i}`, effort: 5, done: false })),
+};
+const behindHeal = healPlan(behindCourse, TODAY);
+const behindPfd = planForDeadline(behindCourse, TODAY);
+check(
+  "INV5: a behind course still produces a non-empty plan (heal)",
+  behindHeal.blocks.length > 0 && behindHeal.isOverloaded === true,
+);
+check(
+  "INV5: a behind course still produces a non-empty plan (planForDeadline)",
+  behindPfd.blocks.length > 0 && behindPfd.intense === true,
+);
+check(
+  "INV5: behind-course pace stays a finite, positive number",
+  Number.isFinite(behindPfd.minutesPerDay) && behindPfd.minutesPerDay > 0,
+);
+
+// --- Invariant 6: the study window is respected. ----------------------------
+// Every block must fall on an allowed study weekday AND inside [today, exam).
+let inv6Ok = true;
+for (const { course } of invariantFixtures) {
+  const blocks = [
+    ...generatePlan(course, TODAY),
+    ...planForDeadline(course, TODAY).blocks,
+    ...healPlan(course, TODAY).blocks,
+  ];
+  for (const b of blocks) {
+    if (!course.studyDays.includes(wd(b.date))) inv6Ok = false;
+    if (b.date < TODAY || b.date >= course.examDate) inv6Ok = false;
+  }
+}
+check("INV6: every block lands on an allowed study day within [today, exam)", inv6Ok);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
