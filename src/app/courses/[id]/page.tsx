@@ -310,9 +310,6 @@ export default async function CoursePage({
                     ))}
                   </select>
                 </div>
-                <p className="self-end text-xs text-gray-500 dark:text-gray-400">
-                  {t("courseDetail.dailyPaceHint", { minutes: course.minutesPerDay })}
-                </p>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {t("courseDetail.difficultyHint")}

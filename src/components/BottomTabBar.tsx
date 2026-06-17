@@ -34,17 +34,6 @@ function TodayIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function DashboardIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...iconProps(props)}>
-      <rect x="3" y="3" width="7" height="9" rx="1" />
-      <rect x="14" y="3" width="7" height="5" rx="1" />
-      <rect x="14" y="12" width="7" height="9" rx="1" />
-      <rect x="3" y="16" width="7" height="5" rx="1" />
-    </svg>
-  );
-}
-
 function CalendarIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...iconProps(props)}>
@@ -82,7 +71,6 @@ function InsightsIcon(props: SVGProps<SVGSVGElement>) {
 const TABS: Tab[] = [
   { href: "/today", labelKey: "nav.today", Icon: TodayIcon },
   { href: "/calendar", labelKey: "nav.calendar", Icon: CalendarIcon },
-  { href: "/dashboard", labelKey: "nav.dashboard", Icon: DashboardIcon },
   { href: "/courses", labelKey: "nav.courses", Icon: CoursesIcon },
   { href: "/insights", labelKey: "nav.insights", Icon: InsightsIcon },
 ];
