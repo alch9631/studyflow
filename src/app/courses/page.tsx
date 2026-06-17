@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { appleFor } from "@/lib/apple";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
 import CourseCard, { type CourseHealth, type HealthStatus } from "@/components/CourseCard";
@@ -54,22 +53,37 @@ function deriveHealth(
     status = "attention";
   else status = "healthy";
 
-  // Build the one-line "why" from the same signals, joined with " · ".
-  const parts: string[] = [];
-  parts.push(
+  // Build ONE calm health sentence from the same signals: a plain status lead,
+  // an em-free " — ", then a couple of quiet facts joined by commas, ending in a
+  // period. e.g. "Needs attention — 4 days left, 14h remaining."
+  const lead =
+    status === "healthy"
+      ? t("courses.healthHealthy")
+      : status === "attention"
+        ? t("courses.healthAttention")
+        : status === "overloaded"
+          ? t("courses.healthOverloaded")
+          : status === "noPlan"
+            ? t("courses.healthNoPlan")
+            : t("courses.healthExamSoon");
+
+  const facts: string[] = [];
+  facts.push(
     examInDays < 0 ? t("courses.whyExamPassed") : t.n("courses.whyDaysLeft", examInDays),
   );
   if (!hasPlan) {
-    parts.push(t("courses.whyNoPlan"));
+    facts.push(t("courses.whyNoPlan"));
   } else if (workLeft) {
-    parts.push(t("courses.whyRemaining", { hours: remainingHours }));
+    facts.push(t("courses.whyRemaining", { hours: remainingHours }));
   } else {
-    parts.push(t("courses.whyNoRemaining"));
+    facts.push(t("courses.whyNoRemaining"));
   }
-  if (untouched > 0) parts.push(t.n("courses.whyUntouched", untouched));
+  if (untouched > 0) facts.push(t.n("courses.whyUntouched", untouched));
   if (status === "overloaded") {
-    parts.push(t("courses.whyPerDay", { hours: Math.max(Math.round(perDayHours), 1) }));
+    facts.push(t("courses.whyPerDay", { hours: Math.max(Math.round(perDayHours), 1) }));
   }
+
+  const line = t("courses.healthLine", { lead, facts: facts.join(t("courses.whySep")) });
 
   const next =
     status === "noPlan"
@@ -82,7 +96,7 @@ function deriveHealth(
             ? t("courses.nextKeepGoing")
             : t("courses.nextStayOnTrack");
 
-  return { status, why: parts.join(t("courses.whySep")), next };
+  return { status, line, next };
 }
 
 export default async function CoursesPage() {
@@ -95,8 +109,6 @@ export default async function CoursesPage() {
       id: true,
       name: true,
       examDate: true,
-      studyDays: true,
-      intense: true,
       // Card only needs each topic's done flag (count + total) and each block's
       // completed/kind/minutes (remaining-study estimate) — not full records.
       topics: { select: { done: true } },
@@ -134,11 +146,6 @@ export default async function CoursesPage() {
             const remainingMinutes = c.blocks
               .filter((b) => !b.completed && b.kind === "study")
               .reduce((s, b) => s + b.minutes, 0);
-            const apple = appleFor({
-              examDate: c.examDate,
-              intense: c.intense,
-              remainingMinutes,
-            });
             const examInDays = daysUntil(c.examDate, today);
             const health = deriveHealth(t, {
               examInDays,
@@ -159,7 +166,6 @@ export default async function CoursesPage() {
                       done,
                       total: c.topics.length,
                       progressCount: done + completedBlocks,
-                      apple: { emoji: apple.emoji, label: t(`apple.${apple.level}`), cls: apple.cls },
                       health,
                     }}
                   />

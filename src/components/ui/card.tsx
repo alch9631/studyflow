@@ -6,8 +6,10 @@ import { cn } from "@/components/lib/utils";
 /**
  * StudyFlow's card primitive, on the shadcn/ui foundation.
  *
- * The base surface is the app's existing `cardClass` token (one radius +
- * border + fill, light/dark) — kept verbatim so the swap is purely structural.
+ * Calm surface: a card is read by its subtle fill + spacing + gentle rounding,
+ * not a hard edge. We drop the border in favour of a quiet off-white / dark
+ * panel fill (light + dark mirror the same calm system). Callsites that need a
+ * true edge can still add their own `border` class.
  * Unlike stock shadcn, the root imposes NO padding/gap: callsites already own
  * their spacing (`<Card className="p-5">`), so this preserves every layout.
  *
@@ -20,7 +22,7 @@ import { cn } from "@/components/lib/utils";
  */
 
 const cardSurface =
-  "rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900";
+  "rounded-2xl bg-gray-50 dark:bg-gray-900/60";
 
 function Card({
   className,

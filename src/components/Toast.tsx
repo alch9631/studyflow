@@ -69,8 +69,8 @@ const KIND_STYLES: Record<ToastKind, string> = {
 
 const KIND_ICON: Record<ToastKind, string> = {
   success: "✓",
-  error: "⚠️",
-  info: "ℹ️",
+  error: "!",
+  info: "i",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
