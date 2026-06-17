@@ -643,35 +643,6 @@ export async function toggleBlock(formData: FormData) {
 }
 
 /**
- * Move a study block to a different day (drag-to-reschedule on the dashboard).
- * Ownership-scoped via findOwnedBlock so a guessed blockId can never move
- * another user's block. The date is a YYYY-MM-DD string stored at UTC midnight,
- * matching how every other study block date is persisted.
- */
-export async function rescheduleBlock(formData: FormData) {
-  const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
-  let id: string;
-  let dateISO: string;
-  try {
-    id = requireId(formData.get("blockId"), "Block");
-    // Allow moving a block into the past ("I'll catch up earlier" / drag back).
-    dateISO = requireDate(formData.get("date"), "Date", todayISO(), { allowPast: true });
-  } catch {
-    return;
-  }
-  // Scoped: a non-owner moving another user's block id is a silent no-op.
-  const block = await findOwnedBlock(userId, id);
-  if (block) {
-    await prisma.studyBlock.update({
-      where: { id },
-      data: { date: toUTCDate(dateISO) },
-    });
-    revalidatePath("/dashboard");
-  }
-}
-
-/**
  * Set (or move) a study block's time-of-day from the calendar's drag/keyboard
  * move. `date` is the target day (YYYY-MM-DD); `start`/`end` are ISO instants for
  * the block's start/end on that day. The two times are validated to be same-day,
