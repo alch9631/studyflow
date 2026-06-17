@@ -52,6 +52,10 @@ export default function CatalogBrowser({
   const [section, setSection] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Catalog is search-FIRST: until the student narrows down (search/section) or
+  // explicitly asks to browse everything, sections stay collapsed so the page
+  // reads as "find a module", not a 40-row database dump.
+  const [browseAll, setBrowseAll] = useState(false);
 
   // Sections for the filter dropdown — derived once, in display order.
   const sections = useMemo(() => {
@@ -91,6 +95,12 @@ export default function CatalogBrowser({
 
   const selectedCount = selected.size;
 
+  // The student has narrowed down once they search or pick a section — that's
+  // when we reveal the matching modules. Otherwise the list stays collapsed
+  // (counts only) unless they tap "Browse all".
+  const isNarrowing = query.trim() !== "" || section !== "";
+  const revealLists = isNarrowing || browseAll;
+
   return (
     <>
       {/* Search + section filter — sticky so they stay reachable while scrolling. */}
@@ -127,6 +137,13 @@ export default function CatalogBrowser({
       </div>
 
       <form id={formId} action={action} className="space-y-3 pb-28">
+        {/* Calm, search-first default: a short prompt instead of an open list. */}
+        {!revealLists && bySection.length > 0 && (
+          <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+            {t("catalog.findPrompt")}
+          </p>
+        )}
+
         {bySection.length === 0 ? (
           <p className="rounded-xl border border-gray-200 p-5 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
             {t("catalog.noMatches")}
@@ -135,7 +152,7 @@ export default function CatalogBrowser({
           bySection.map(([sec, mods]) => (
             <details
               key={sec}
-              open
+              open={revealLists}
               className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-gray-50 px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:bg-gray-900 dark:text-gray-300">
@@ -157,6 +174,18 @@ export default function CatalogBrowser({
               </ul>
             </details>
           ))
+        )}
+
+        {/* Opt-in escape hatch: expand the whole catalog for browsers who'd
+            rather scan than search. Hidden once they're already narrowing. */}
+        {!isNarrowing && bySection.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setBrowseAll((v) => !v)}
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            {browseAll ? t("catalog.collapseAll") : t("catalog.browseAll")}
+          </button>
         )}
 
         {/* Confirm modal lives INSIDE the form so the SubmitButton's pending
