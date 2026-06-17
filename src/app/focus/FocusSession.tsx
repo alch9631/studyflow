@@ -40,6 +40,7 @@ export default function FocusSession({
   const { toast } = useToast();
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const { optimisticDone, fire } = useOptimisticToggle({
     action: toggleBlock,
@@ -116,34 +117,49 @@ export default function FocusSession({
           </p>
         </div>
 
-        {/* The big timer (shared Pomodoro, logs sprints to this block). */}
-        <div className="mt-7">
+        {/* The big timer (shared Pomodoro, logs sprints to this block). A plain
+            timer in Focus: the reset/settings icon buttons are hidden so only
+            Start remains — this is a quiet room, not a control panel. */}
+        <div className="mt-7 [&_button[aria-label]]:hidden">
           <PomodoroTimer blocks={timerBlocks} />
         </div>
 
-        {/* Quick notes. */}
+        {/* Notes, collapsed under a quiet "Add note" until the student wants them. */}
         <div className="mt-5">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-            {t("focus.notesLabel")}
-          </label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={t("focus.notesPlaceholder")}
-            rows={3}
-            className="mt-1 w-full resize-none rounded-xl border border-gray-300 bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-900"
-          />
-          <div className="mt-2 flex justify-end">
-            <Button
+          {notesOpen ? (
+            <>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("focus.notesLabel")}
+              </label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t("focus.notesPlaceholder")}
+                rows={3}
+                autoFocus
+                className="mt-1 w-full resize-none rounded-xl border border-gray-300 bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+              />
+              <div className="mt-2 flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={savingNote || note.trim().length === 0}
+                  onClick={saveNote}
+                >
+                  {savingNote ? t("focus.notesSaving") : t("focus.notesSave")}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <button
               type="button"
-              size="sm"
-              variant="secondary"
-              disabled={savingNote || note.trim().length === 0}
-              onClick={saveNote}
+              onClick={() => setNotesOpen(true)}
+              className="text-sm font-medium text-gray-400 underline-offset-4 hover:text-gray-600 hover:underline dark:text-gray-500 dark:hover:text-gray-300"
             >
-              {savingNote ? t("focus.notesSaving") : t("focus.notesSave")}
-            </Button>
-          </div>
+              {t("focus.addNote")}
+            </button>
+          )}
         </div>
 
         {/* Done / Stop — pushed to the bottom. */}

@@ -14,36 +14,33 @@ import { useT } from "@/components/i18n/I18nProvider";
 import type { Translator } from "@/components/i18n/messages";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import SwipeRow from "@/components/SwipeRow";
-import PomodoroTimer, { type TimerBlock } from "@/components/PomodoroTimer";
 import { recoverPlan } from "./actions";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
 import {
   fmtDuration,
-  reorderByEnergy,
   type CockpitBlock,
   type Lane,
   type Capacity,
   type RiskVerdict,
-  type Energy,
-  type Triage,
-  type TriageBlock,
 } from "./cockpit";
 import type { PlanExplanation } from "@/lib/planExplain";
 
 /**
- * The Today cockpit — a guided, mobile-first island answering "what now / what
- * can wait / am I okay". The page computes the lanes + risk verdict (pure, in
- * cockpit.ts) and hands them down; this component owns only interaction:
+ * The Today cockpit — a calm "safe place" with one primary action.
  *
- *   - HERO: the next must-do block as one big primary card.
- *   - RISK LINE: one calm honest line (over / tight / on-track / clear).
- *   - QUEUE: blocks grouped Now / Next / Later / Can-slide.
- *   - SESSION SHEET: tapping a block opens a focused bottom sheet (mark done,
- *     move to tomorrow, start timer, quick note).
- *   - The shared PomodoroTimer lives at the bottom; "Start timer" scrolls to it.
+ * The page computes the lanes + risk verdict (pure, in cockpit.ts) and hands
+ * them down; this component shows exactly three things, in order:
  *
- * The recovery/respread "smart button" and the on-track InfoToast stay on the
- * page (server) — this island doesn't duplicate them.
+ *   1. HERO — the next task ("Start <Xm>: <topic>") with the course as subtitle
+ *      and ONE primary button "Start focus" (→ /focus).
+ *   2. STATUS LINE — one calm, honest line: over-capacity (with deferral) or
+ *      on-track. Never more than this single status surface.
+ *   3. The rest of today's blocks as a QUIET list of simple rows (tap → the
+ *      existing session sheet).
+ *
+ * Everything demoted — the why-this-plan explanation, the recover/respread
+ * action, and the full can-slide list — lives behind ONE secondary drawer
+ * ("Help me catch up"). No energy toggle, no persistent timer, no red banners.
  */
 export default function TodayCockpit({
   blocks,
@@ -52,7 +49,6 @@ export default function TodayCockpit({
   cap,
   risk,
   explain,
-  panic,
 }: {
   blocks: CockpitBlock[];
   /** Plain object map of blockId → lane (serializable across the boundary). */
@@ -62,234 +58,167 @@ export default function TodayCockpit({
   risk: RiskVerdict;
   /** Deterministic "why this plan?" reasons (from lib/planExplain). */
   explain: PlanExplanation;
-  /** Crunch-mode triage, present only when a near exam is over capacity. */
-  panic: { examName: string; examDays: number; triage: Triage } | null;
 }) {
   const t = useT();
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
-  // Energy of the day — CLIENT-ONLY reorder of the displayed queue (no persist).
-  const [energy, setEnergy] = useState<Energy>("normal");
-  const [explainOpen, setExplainOpen] = useState(false);
-  const [crunchOpen, setCrunchOpen] = useState(false);
-
-  // Pomodoro targets: still-open blocks (it logs a finished sprint against one).
-  const timerBlocks: TimerBlock[] = blocks
-    .filter((b) => !b.completed)
-    .map((b) => ({ id: b.id, topicTitle: b.topicTitle, completed: b.completed, course: { name: b.course.name } }));
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const openBlock = openId ? blocks.find((b) => b.id === openId) ?? null : null;
 
-  // "Start timer" now opens distraction-free Focus mode for the chosen block.
+  // Start distraction-free Focus mode for a chosen block (or today's next).
   function openFocus(blockId?: string) {
     router.push(blockId ? `/focus?blockId=${encodeURIComponent(blockId)}` : "/focus");
   }
 
-  const LANE_ORDER: Lane[] = ["now", "next", "later", "slide"];
-  const LANE_LABEL: Record<Lane, string> = {
-    now: t("today.queueNow"),
-    next: t("today.queueNext"),
-    later: t("today.queueLater"),
-    slide: t("today.queueCanSlide"),
-  };
-  // Reorder the displayed queue by the chosen energy (pure, client-side). The
-  // lane grouping is preserved; only the WITHIN-lane order changes.
-  const byLane = (lane: Lane) =>
-    reorderByEnergy(blocks.filter((b) => !b.completed && lanes[b.id] === lane), energy);
+  // The open blocks below the hero, in plan order, minus the hero itself. One
+  // quiet list — not four labelled lanes. The full can-slide list lives in the
+  // drawer; here we just show the day's remaining rows.
+  const restBlocks = blocks.filter((b) => !b.completed && b.id !== hero?.id);
+  // The deferred (slide) blocks, for the "Help me catch up" drawer.
+  const slideBlocks = blocks.filter((b) => !b.completed && lanes[b.id] === "slide");
 
   return (
     <div>
-      {/* ── ENERGY + drawer entry points ── */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <EnergyToggle energy={energy} onChange={setEnergy} />
-        <div className="ml-auto flex flex-wrap gap-2">
-          {panic && (
-            <button
-              type="button"
-              onClick={() => setCrunchOpen(true)}
-              className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-            >
-              ⚡ {t("today.crunchOpen")}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setExplainOpen(true)}
-            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            ? {t("today.explainOpen")}
-          </button>
-        </div>
-      </div>
-      {/* ── HERO: the next action ── */}
+      {/* ── HERO: the one next action ── */}
       {hero ? (
-        <HeroCard block={hero} onOpen={() => setOpenId(hero.id)} onTimer={() => openFocus(hero.id)} />
+        <HeroCard
+          block={hero}
+          onOpen={() => setOpenId(hero.id)}
+          onStartFocus={() => openFocus(hero.id)}
+        />
       ) : (
-        <div className="mb-4 rounded-2xl border border-green-300 bg-green-50 p-5 text-center dark:border-green-900 dark:bg-green-950/40">
-          <p className="text-lg font-bold text-green-800 dark:text-green-300">
-            🎉 {t("today.heroAllDone")}
+        <div className="mb-6 text-center">
+          <p className="text-lg font-semibold text-green-700 dark:text-green-400">
+            {t("today.heroAllDone")}
           </p>
-          <p className="mt-1 text-sm text-green-700 dark:text-green-400">{t("today.heroAllDoneSub")}</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("today.heroAllDoneSub")}</p>
         </div>
       )}
 
-      {/* ── RISK LINE: one calm honest line ── */}
-      <RiskLine cap={cap} risk={risk} />
+      {/* ── STATUS LINE: one calm honest line (the only status surface) ── */}
+      {hero && <StatusLine cap={cap} risk={risk} deferred={slideBlocks.length > 0} />}
 
-      {/* ── STUDY QUEUE: Now / Next / Later / Can-slide ── */}
-      <div className="mt-5 space-y-5">
-        {LANE_ORDER.map((lane) => {
-          const items = byLane(lane);
-          if (items.length === 0) return null;
-          return (
-            <section key={lane}>
-              <div className="mb-2 flex items-baseline justify-between gap-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {LANE_LABEL[lane]}
-                </h2>
-                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                  {items.length}
-                </span>
-              </div>
-              {lane === "slide" && (
-                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                  {t("today.queueCanSlideHint")}
-                </p>
-              )}
-              <ul className="space-y-2">
-                {items.map((b) => (
-                  // #12: a subtle move transition so an energy reorder / respread
-                  // settles smoothly rather than snapping.
-                  <li key={b.id} className="transition-all duration-300 ease-out">
-                    <QueueRow block={b} dim={lane === "slide"} onOpen={() => setOpenId(b.id)} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
+      {/* ── THE REST OF TODAY: one quiet list of simple rows ── */}
+      {restBlocks.length > 0 && (
+        <ul className="mt-7 space-y-1">
+          {restBlocks.map((b) => (
+            <li key={b.id}>
+              <QuietRow block={b} onOpen={() => setOpenId(b.id)} />
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {/* ── POMODORO (shared timer) ── */}
-      <div className="mt-6">
-        <PomodoroTimer blocks={timerBlocks} />
+      {/* ── ONE secondary affordance: everything demoted lives here ── */}
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="text-sm font-medium text-gray-500 underline-offset-4 hover:text-gray-700 hover:underline dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          {t("today.helpOpen")}
+        </button>
       </div>
 
       {/* ── SESSION SHEET ── */}
       <SessionSheet
         block={openBlock}
         onClose={() => setOpenId(null)}
-        onStartTimer={() => {
+        onStartFocus={() => {
           const id = openBlock?.id;
           setOpenId(null);
           openFocus(id);
         }}
       />
 
-      {/* ── EXPLAIN-MY-PLAN drawer ── */}
-      <ExplainDrawer open={explainOpen} explain={explain} onClose={() => setExplainOpen(false)} />
-
-      {/* ── PANIC / CRUNCH drawer ── */}
-      {panic && (
-        <CrunchDrawer
-          open={crunchOpen}
-          examName={panic.examName}
-          examDays={panic.examDays}
-          triage={panic.triage}
-          onClose={() => setCrunchOpen(false)}
-          onFocus={(id) => {
-            setCrunchOpen(false);
-            openFocus(id);
-          }}
-        />
-      )}
+      {/* ── HELP ME CATCH UP drawer: explanation + respread + can-slide list ── */}
+      <HelpDrawer
+        open={helpOpen}
+        explain={explain}
+        slideBlocks={slideBlocks}
+        onClose={() => setHelpOpen(false)}
+        onStartFocus={(id) => {
+          setHelpOpen(false);
+          openFocus(id);
+        }}
+      />
     </div>
   );
 }
 
-/** The big primary "Start <minutes>m: <topic>" hero card. */
+/** The big primary hero: "Start <minutes>m: <topic>" + ONE "Start focus" button. */
 function HeroCard({
   block,
   onOpen,
-  onTimer,
+  onStartFocus,
 }: {
   block: CockpitBlock;
   onOpen: () => void;
-  onTimer: () => void;
+  onStartFocus: () => void;
 }) {
   const t = useT();
   return (
-    <div className="mb-4 rounded-2xl border border-brand/40 bg-brand/5 p-5 shadow-sm dark:border-brand/30 dark:bg-brand/10">
+    <div className="mb-1">
       <button
         type="button"
         onClick={onOpen}
         className="block w-full text-left"
         aria-label={t("today.heroOpen")}
       >
-        <span className="block text-lg font-bold leading-snug sm:text-xl">
+        <span className="block text-2xl font-bold leading-snug sm:text-3xl">
           {t("today.heroNextAction", { minutes: block.minutes, topic: block.topicTitle })}
         </span>
-        <span className="mt-1 block text-sm text-gray-600 dark:text-gray-400">
-          📘 {block.course.name}
+        <span className="mt-1.5 block text-sm text-gray-500 dark:text-gray-400">
+          {block.course.name}
           {block.kind === "review" && <> · {t("today.sheetReview")}</>}
         </span>
       </button>
-      <div className="mt-4 flex gap-2">
-        <Button onClick={onTimer} className="flex-1">
-          {t("today.heroStartTimer")}
-        </Button>
-        <Button variant="secondary" onClick={onOpen} className="flex-1">
-          {t("today.heroOpen")}
+      <div className="mt-5">
+        <Button onClick={onStartFocus} size="lg" className="w-full sm:w-auto">
+          {t("today.heroStartFocus")}
         </Button>
       </div>
     </div>
   );
 }
 
-/** The one-line risk verdict — calm, not a red panel. */
-function RiskLine({ cap, risk }: { cap: Capacity; risk: RiskVerdict }) {
+/**
+ * The single status line — calm by default, honest when needed. Over capacity
+ * with lower-priority work set aside → say so gently; otherwise a calm,
+ * positive on-track line. Never invents a move that didn't happen.
+ */
+function StatusLine({
+  cap,
+  risk,
+  deferred,
+}: {
+  cap: Capacity;
+  risk: RiskVerdict;
+  deferred: boolean;
+}) {
   const t = useT();
-  const tone =
-    risk === "over"
-      ? "text-amber-700 dark:text-amber-400"
-      : risk === "tight"
-        ? "text-gray-700 dark:text-gray-300"
-        : "text-gray-500 dark:text-gray-400";
-  const dot =
-    risk === "over"
-      ? "bg-amber-500"
-      : risk === "tight"
-        ? "bg-amber-400"
-        : "bg-green-500";
+  // Honest over-capacity copy: only mention deferral if work was actually set
+  // aside (a slide block exists). Otherwise the calm/on-track line.
   const label =
-    risk === "over"
-      ? t("today.riskOver", { time: fmtDuration(cap.overMin) })
-      : risk === "tight"
-        ? t("today.riskTight", { time: fmtDuration(cap.freeMin) })
+    risk === "over" && deferred
+      ? t("today.statusDeferred")
+      : risk === "over"
+        ? t("today.statusOver", { time: fmtDuration(cap.overMin) })
         : risk === "clear"
-          ? t("today.riskClear")
-          : t("today.riskOnTrack", { time: fmtDuration(cap.freeMin) });
+          ? t("today.statusClear")
+          : t("today.statusOnTrack");
   return (
-    <p className={`flex items-center gap-2 text-sm font-medium ${tone}`}>
-      <span aria-hidden="true" className={`inline-block h-2 w-2 shrink-0 rounded-full ${dot}`} />
-      {label}
-    </p>
+    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{label}</p>
   );
 }
 
 /**
- * A queue row: tap the body to open the session sheet; tap the checkbox to mark
- * done inline; swipe to complete/reopen — reusing the shared optimistic toggle.
+ * A quiet row in the rest-of-today list: tap the body to open the session
+ * sheet; tap the checkbox to mark done inline; swipe to complete/reopen —
+ * reusing the shared optimistic toggle. Borderless: whitespace over edges.
  */
-function QueueRow({
-  block,
-  dim,
-  onOpen,
-}: {
-  block: CockpitBlock;
-  dim: boolean;
-  onOpen: () => void;
-}) {
+function QuietRow({ block, onOpen }: { block: CockpitBlock; onOpen: () => void }) {
   const t = useT();
   const isReview = block.kind === "review";
   const { optimisticDone, fire } = useOptimisticToggle({
@@ -306,7 +235,7 @@ function QueueRow({
   return (
     <SwipeRow
       className="rounded-xl"
-      contentClassName={`flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 ${dim ? "opacity-75" : ""}`}
+      contentClassName="flex items-center gap-3 rounded-xl bg-transparent px-1 py-2.5"
       right={
         optimisticDone
           ? undefined
@@ -324,7 +253,7 @@ function QueueRow({
         <button
           type="button"
           onClick={() => fire(formData(), !optimisticDone, true)}
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border transition-colors ${
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
             optimisticDone
               ? "border-green-500 bg-green-500 text-white"
               : "border-gray-300 dark:border-gray-700 hover:border-gray-500"
@@ -338,23 +267,14 @@ function QueueRow({
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span
           className={`block break-words ${
-            optimisticDone ? "text-gray-500 dark:text-gray-400 line-through" : "font-medium"
+            optimisticDone ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"
           }`}
         >
           {block.topicTitle}
         </span>
-        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="inline-flex shrink-0 items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 tabular-nums">
-            {fmtDuration(block.minutes)}
-          </span>
-          {isReview && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-              {t("block.review")}
-            </span>
-          )}
-          <span className="inline-flex min-w-0 items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            <span className="truncate">📘 {block.course.name}</span>
-          </span>
+        <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
+          {fmtDuration(block.minutes)} · {block.course.name}
+          {isReview && <> · {t("block.review")}</>}
         </span>
       </button>
     </SwipeRow>
@@ -364,17 +284,17 @@ function QueueRow({
 /**
  * Focused bottom-sheet for one study block: topic + course + est time, with
  * actions — Mark done (toggleBlock), Move to tomorrow (moveBlockToTomorrow),
- * Start timer (scroll to the Pomodoro), and a quick note (saveBlockNote). Built
- * on the shared Dialog primitive, pinned to the bottom on mobile.
+ * Start focus (→ /focus), and a quick note (saveBlockNote). Built on the shared
+ * Dialog primitive, pinned to the bottom on mobile.
  */
 function SessionSheet({
   block,
   onClose,
-  onStartTimer,
+  onStartFocus,
 }: {
   block: CockpitBlock | null;
   onClose: () => void;
-  onStartTimer: () => void;
+  onStartFocus: () => void;
 }) {
   const t = useT();
   const { toast } = useToast();
@@ -445,16 +365,16 @@ function SessionSheet({
           <>
             <DialogTitle className="pr-8">{block.topicTitle}</DialogTitle>
             <DialogDescription>
-              📘 {block.course.name} · {t("today.sheetEst", { time: fmtDuration(block.minutes) })}
+              {block.course.name} · {t("today.sheetEst", { time: fmtDuration(block.minutes) })}
               {block.kind === "review" && <> · {t("today.sheetReview")}</>}
             </DialogDescription>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button type="button" onClick={markDone} className="col-span-2">
-                {optimisticDone ? t("today.sheetMarkNotDone") : t("today.sheetMarkDone")}
+              <Button type="button" onClick={onStartFocus} className="col-span-2">
+                {t("today.heroStartFocus")}
               </Button>
-              <Button type="button" variant="secondary" onClick={onStartTimer}>
-                {t("today.sheetStartTimer")}
+              <Button type="button" variant="secondary" onClick={markDone}>
+                {optimisticDone ? t("today.sheetMarkNotDone") : t("today.sheetMarkDone")}
               </Button>
               <Button type="button" variant="secondary" disabled={pendingMove} onClick={move}>
                 {pendingMove ? t("today.sheetMoving") : t("today.sheetMoveTomorrow")}
@@ -491,81 +411,78 @@ function SessionSheet({
   );
 }
 
-/**
- * Energy of the day — a small segmented Low / Normal / High control. CLIENT-ONLY:
- * it never persists and never re-plans; it just reorders the queue the user sees
- * (see reorderByEnergy). A one-line hint explains the active mode.
- */
-function EnergyToggle({ energy, onChange }: { energy: Energy; onChange: (e: Energy) => void }) {
-  const t = useT();
-  const opts: { value: Energy; label: string }[] = [
-    { value: "low", label: t("today.energyLow") },
-    { value: "normal", label: t("today.energyNormal") },
-    { value: "high", label: t("today.energyHigh") },
-  ];
-  const hint =
-    energy === "high"
-      ? t("today.energyHintHigh")
-      : energy === "low"
-        ? t("today.energyHintLow")
-        : t("today.energyHintNormal");
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("today.energyLabel")}</span>
-      <div
-        role="radiogroup"
-        aria-label={t("today.energyAria")}
-        className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-800 dark:bg-gray-900"
-      >
-        {opts.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={energy === o.value}
-            onClick={() => onChange(o.value)}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-              energy === o.value
-                ? "bg-brand text-brand-foreground"
-                : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-      <span className="hidden text-xs text-gray-400 dark:text-gray-500 sm:inline">{hint}</span>
-    </div>
-  );
-}
-
 /** Shared bottom-sheet dialog content classes (mirrors the SessionSheet). */
 const SHEET_CONTENT_CLASS =
   "inset-x-0 bottom-0 top-auto m-0 max-h-[85vh] max-w-none overflow-y-auto rounded-b-none rounded-t-2xl sm:inset-0 sm:m-auto sm:max-w-md sm:rounded-2xl";
 
 /**
- * "Why this plan?" drawer — renders the DETERMINISTIC explanation built in
- * lib/planExplain (capacity reason + ordering reason). Every sentence is a
- * truthful read of the same signals the planner uses; nothing is generated.
+ * "Help me catch up" drawer — the ONE secondary affordance that holds everything
+ * demoted from Today: the deterministic why-this-plan explanation, the
+ * recover/respread action (reuses recoverPlan), and the full can-slide list of
+ * lower-priority work the student can push to tomorrow. Calm language only.
  */
-function ExplainDrawer({
+function HelpDrawer({
   open,
   explain,
+  slideBlocks,
   onClose,
+  onStartFocus,
 }: {
   open: boolean;
   explain: PlanExplanation;
+  slideBlocks: CockpitBlock[];
   onClose: () => void;
+  onStartFocus: (blockId: string) => void;
 }) {
   const t = useT();
   const { capacity, order } = explain;
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className={SHEET_CONTENT_CLASS}>
-        <DialogTitle>{t("explain.title")}</DialogTitle>
-        <DialogDescription>{t("explain.methodNote")}</DialogDescription>
+        <DialogTitle>{t("today.helpTitle")}</DialogTitle>
+        <DialogDescription>{t("today.helpSubtitle")}</DialogDescription>
 
-        <section className="mt-4">
+        {/* Respread — the one recovery action, calmly worded. */}
+        <form action={recoverPlan} className="mt-4">
+          <Button type="submit" className="w-full">
+            {t("today.helpRespreadCta")}
+          </Button>
+          <p className="mt-1.5 text-center text-xs text-gray-500 dark:text-gray-400">
+            {t("today.helpRespreadHint")}
+          </p>
+        </form>
+
+        {/* The full can-slide list — lower-priority work, fine to push to tomorrow. */}
+        {slideBlocks.length > 0 && (
+          <section className="mt-6">
+            <h3 className="text-sm font-semibold">{t("today.helpSlideTitle")}</h3>
+            <p className="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {t("today.helpSlideHint")}
+            </p>
+            <ul className="space-y-1">
+              {slideBlocks.map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    onClick={() => onStartFocus(b.id)}
+                    className="flex w-full items-center gap-3 rounded-xl px-1 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words font-medium">{b.topicTitle}</span>
+                      <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
+                        {fmtDuration(b.minutes)} · {b.course.name}
+                        {b.kind === "review" && <> · {t("block.review")}</>}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Why this plan — the deterministic explanation, demoted here. */}
+        <section className="mt-6">
           <h3 className="text-sm font-semibold">{t("explain.capacityHeading")}</h3>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{capacityReason(t, capacity)}</p>
         </section>
@@ -627,125 +544,4 @@ function orderReason(t: Translator, order: NonNullable<PlanExplanation["order"]>
     case "tie":
       return t("explain.orderTie", { before: order.before, after: order.after });
   }
-}
-
-/**
- * Crunch mode — a CALM triage drawer for when a near exam meets an over-capacity
- * day. Everything shown is the student's OWN data (no fabricated exam topics): a
- * minimum-viable "do these first" list (by exam proximity + effort), skim/skip
- * candidates (short / review / already-confident topics), and a practice-first
- * hint. The respread button reuses the existing recoverPlan action.
- */
-function CrunchDrawer({
-  open,
-  examName,
-  examDays,
-  triage,
-  onClose,
-  onFocus,
-}: {
-  open: boolean;
-  examName: string;
-  examDays: number;
-  triage: Triage;
-  onClose: () => void;
-  onFocus: (blockId: string) => void;
-}) {
-  const t = useT();
-  const empty = triage.mustDo.length === 0 && triage.skim.length === 0;
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className={SHEET_CONTENT_CLASS}>
-        <DialogTitle>⚡ {t("panic.title")}</DialogTitle>
-        <DialogDescription>
-          {t("panic.subtitle", { course: examName, days: examDays })}
-        </DialogDescription>
-
-        {empty ? (
-          <div className="mt-4 rounded-xl border border-green-300 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
-            <p className="font-semibold">{t("panic.nothingTitle")}</p>
-            <p className="mt-1">{t("panic.nothingBody")}</p>
-          </div>
-        ) : (
-          <>
-            {/* Practice-first hint (calm, generic study advice — not exam content). */}
-            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-800 dark:bg-gray-900">
-              <p className="font-semibold">{t("panic.practiceTitle")}</p>
-              <p className="mt-1 text-gray-600 dark:text-gray-300">{t("panic.practiceBody")}</p>
-            </div>
-
-            {triage.mustDo.length > 0 && (
-              <section className="mt-4">
-                <h3 className="text-sm font-semibold">{t("panic.mvpTitle")}</h3>
-                <p className="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t("panic.mvpHint")}</p>
-                <ul className="space-y-2">
-                  {triage.mustDo.map((b) => (
-                    <TriageRow key={b.id} block={b} onFocus={() => onFocus(b.id)} />
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {triage.skim.length > 0 && (
-              <section className="mt-4">
-                <h3 className="text-sm font-semibold">{t("panic.skimTitle")}</h3>
-                <p className="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t("panic.skimHint")}</p>
-                <ul className="space-y-2">
-                  {triage.skim.map((b) => (
-                    <TriageRow key={b.id} block={b} dim onFocus={() => onFocus(b.id)} />
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Reuse the existing recover/respread action — no new planner logic. */}
-            <form action={recoverPlan} className="mt-5">
-              <Button type="submit" variant="secondary" className="w-full">
-                ↻ {t("panic.respreadCta")}
-              </Button>
-              <p className="mt-1.5 text-center text-xs text-gray-500 dark:text-gray-400">
-                {t("panic.respreadHint")}
-              </p>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** One triage row: topic + course + est time + confidence tag; tap to Focus. */
-function TriageRow({
-  block,
-  dim,
-  onFocus,
-}: {
-  block: TriageBlock;
-  dim?: boolean;
-  onFocus: () => void;
-}) {
-  const t = useT();
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onFocus}
-        className={`flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600 ${
-          dim ? "opacity-75" : ""
-        }`}
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block break-words font-medium">{block.topicTitle}</span>
-          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <span className="tabular-nums">{fmtDuration(block.minutes)}</span>
-            <span className="truncate">· 📘 {block.courseName}</span>
-            {block.kind === "review" && <span>· {t("focus.review")}</span>}
-            {block.confidence === "solid" && (
-              <span className="text-green-600 dark:text-green-400">· {t("panic.confidentTag")}</span>
-            )}
-          </span>
-        </span>
-      </button>
-    </li>
-  );
 }

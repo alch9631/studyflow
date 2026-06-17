@@ -6,9 +6,8 @@ import { todayISO } from "@/lib/planService";
 import { daysUntil } from "@/lib/dates";
 import { getStatsCached } from "@/lib/statsCache";
 import { getT } from "@/components/i18n/server";
-import { examCountdownLabel, dueLabel } from "@/components/i18n/messages";
+import { dueLabel } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
-import InfoToast from "@/components/InfoToast";
 import Onboarding from "@/components/Onboarding";
 import { StreakBadge } from "@/components/StreakBadge";
 import SubmitButton from "@/components/SubmitButton";
@@ -21,14 +20,11 @@ import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList
 import { parsePrefs } from "@/lib/timePlacer";
 import {
   assignLanes,
-  buildTriage,
   computeCapacity,
   pickHero,
   riskVerdict,
   type CockpitBlock,
   type Lane,
-  type TriageBlock,
-  type Triage,
 } from "./cockpit";
 import {
   explainPlan,
@@ -173,9 +169,6 @@ export default async function TodayPage({
     }
   }
 
-  const nextExamDays = nextExam ? daysUntil(nextExam.examDate, today) : null;
-  const examWeek = nextExamDays !== null && nextExamDays <= 7; // focus mode
-
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const remainingMin = Math.max(0, totalMin - doneMin);
@@ -216,7 +209,6 @@ export default async function TodayPage({
   const laneMap = assignLanes(cockpitBlocks, cap);
   const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
   const hero = pickHero(cockpitBlocks, laneMap);
-  const achievable = cap.onTrack;
 
   // ── Explain-my-plan: truthful reasons from the SAME deterministic signals ──
   // Per-course remaining minutes today + days to exam → the ordering reason; the
@@ -250,39 +242,6 @@ export default async function TodayPage({
     explainCourses,
   );
 
-  // ── Panic / crunch gate: soonest exam is NEAR (≤ 7 days) AND today is over
-  // capacity. Triage is derived purely from today's own incomplete blocks. ──
-  const PANIC_EXAM_DAYS = 7;
-  const crunchActive =
-    !achievable && nextExamDays !== null && nextExamDays >= 0 && nextExamDays <= PANIC_EXAM_DAYS;
-  // StudyBlock has no Prisma relation to Topic (topicId is a bare column), so the
-  // skim/skip "confidence" signal is fetched in one extra scoped query over the
-  // open blocks' topic ids — only when there's something to triage.
-  const openBlocks = blocks.filter((b) => !b.completed);
-  const confidenceByTopic = new Map<string, string | null>();
-  if (openBlocks.length > 0) {
-    const topicIds = [...new Set(openBlocks.map((b) => b.topicId))];
-    const topics = await prisma.topic.findMany({
-      where: { id: { in: topicIds }, course: { userId } },
-      select: { id: true, confidence: true },
-    });
-    for (const tp of topics) confidenceByTopic.set(tp.id, tp.confidence);
-  }
-  const triageBlocks: TriageBlock[] = openBlocks.map((b) => ({
-    id: b.id,
-    topicTitle: b.topicTitle,
-    minutes: b.minutes,
-    kind: b.kind,
-    courseName: b.course.name,
-    examDays: daysUntil(b.course.examDate, today),
-    confidence: confidenceByTopic.get(b.topicId) ?? null,
-  }));
-  const triage: Triage = buildTriage(triageBlocks);
-  const panic =
-    crunchActive && nextExam
-      ? { examName: nextExam.name, examDays: nextExamDays!, triage }
-      : null;
-
   // Exam-countdown chips (soonest first), colored by urgency in the strip.
   const examChips: ExamChip[] = upcomingExams
     .map((c) => ({ id: c.id, name: c.name, days: daysUntil(c.examDate, today) }))
@@ -312,20 +271,9 @@ export default async function TodayPage({
         <StreakBadge streak={stats.currentStreak} t={t} />
       </div>
 
-      {/* Exam-countdown strip — a horizontal scrollable row of urgency-colored
-          chips at the very top ("OS 4d · Algorithms 24d"). */}
+      {/* Exam-countdown strip — a single quiet line of countdowns at the very top
+          ("OS 4d · Algorithms 24d"). The only urgency signal on the page. */}
       <ExamStrip exams={examChips} t={t} />
-
-      {nextExam && examWeek && (
-        <Link
-          href={`/courses/${nextExam.id}`}
-          className="mb-6 mt-2 block rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 transition-colors hover:border-red-400 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-        >
-          <span className="font-semibold">{t("today.focusModeExamWeek")}</span>{" "}
-          <span className="font-medium">{nextExam.name}</span> {examCountdownLabel(t, nextExamDays!)}.{" "}
-          {t("today.focusModeTail")}
-        </Link>
-      )}
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
           rebuilt; otherwise, when missed days have piled up overdue work, a
@@ -366,19 +314,11 @@ export default async function TodayPage({
         </div>
       )}
 
-      {/* On track → a quick auto-dismissing toast (no persistent box). The calm
-          one-line risk verdict inside the cockpit covers the over-capacity case;
-          this preserves the on-track confirmation pop. */}
-      {blocks.length > 0 && remainingMin > 0 && achievable && (
-        <InfoToast
-          message={`${t("today.goalAchievable")} — ${t("today.leftStudying", { remaining: fmtDuration(remainingMin) })} · ${t("today.focusTimeTail", { available: fmtDuration(availableMin) })}`}
-        />
-      )}
-
       {blocks.length > 0 ? (
         <>
-          {/* The cockpit spine: hero next action + one-line risk + study queue,
-              with the per-block session sheet and the shared focus timer. */}
+          {/* The calm spine: hero next action + one honest status line + a quiet
+              list of the rest of today, with the per-block session sheet and the
+              single "Help me catch up" drawer holding everything demoted. */}
           <TodayCockpit
             blocks={cockpitBlocks}
             lanes={lanes}
@@ -386,18 +326,7 @@ export default async function TodayPage({
             cap={cap}
             risk={risk}
             explain={explain}
-            panic={panic}
           />
-
-          {/* Over capacity → keep the one-tap respread reachable as a calm smart
-              button (the red panel is gone; the risk line carries the honesty). */}
-          {!achievable && (
-            <form action={recoverPlan} className="mt-4">
-              <SubmitButton variant="secondary" pendingLabel={t("today.recoveryPending")}>
-                ↻ {t("today.replanCta")}
-              </SubmitButton>
-            </form>
-          )}
 
           {/* Demoted secondary context: today's classes + upcoming deadlines. */}
           {todaysLectures.length > 0 && (
