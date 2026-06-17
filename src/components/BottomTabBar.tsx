@@ -90,6 +90,9 @@ export default function BottomTabBar() {
   const pathname = usePathname();
   const t = useT();
 
+  // Focus is a sealed, distraction-free room: no global app chrome there.
+  if (pathname === "/focus" || pathname.startsWith("/focus/")) return null;
+
   return (
     <nav
       aria-label={t("nav.primaryMobile")}

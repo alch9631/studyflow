@@ -54,6 +54,9 @@ export default function Nav() {
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Focus is a sealed, distraction-free room: no global app chrome there.
+  const onFocus = pathname === "/focus" || pathname.startsWith("/focus/");
+
   // While the drawer is open: trap focus inside it, close on Escape, lock body
   // scroll, and return focus to the toggle on close. (Selecting a link closes the
   // drawer via each link's onClick.)
@@ -99,6 +102,8 @@ export default function Nav() {
       toggle?.focus();
     };
   }, [open]);
+
+  if (onFocus) return null;
 
   return (
     <>

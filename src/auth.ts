@@ -15,6 +15,16 @@ import { prisma } from "@/lib/db";
  * callback copies the user's id onto `session.user.id` for getCurrentUserId().
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Session/JWT signing key. Production MUST supply a real AUTH_SECRET (stays
+  // undefined here if unset, so Auth.js still errors out — we never weaken prod).
+  // Outside production we fall back to a fixed dev-only secret so plain `npm run
+  // dev` doesn't trip the "missing AUTH_SECRET" warning (part of the Next dev
+  // "Issues" badge); this value is not a secret and must never be used in prod.
+  secret:
+    process.env.AUTH_SECRET ??
+    (process.env.NODE_ENV !== "production"
+      ? "studyflow-dev-only-insecure-auth-secret"
+      : undefined),
   adapter: PrismaAdapter(prisma),
   providers: [
     Google({

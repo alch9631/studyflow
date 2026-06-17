@@ -12,6 +12,7 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import OfflineQueueSync from "@/components/OfflineQueueSync";
 import InstallPrompt from "@/components/InstallPrompt";
 import PullToRefresh from "@/components/PullToRefresh";
+import MainContent from "@/app/focus/MainContent";
 import { ToastProvider } from "@/components/Toast";
 import { I18nProvider } from "@/components/i18n/I18nProvider";
 import { getLocale } from "@/components/i18n/server";
@@ -91,18 +92,14 @@ export default async function RootLayout({
           {/* Bottom padding clears the mobile tab bar (its 3.5rem height + the
               safe-area inset); desktop has no bottom bar, so reset to 0. The
               left/right insets keep content off a landscape notch (0 in
-              portrait, where viewport-fit=cover only adds top/bottom insets). */}
+              portrait, where viewport-fit=cover only adds top/bottom insets).
+              MainContent is path-aware: it drops the tab-bar padding on /focus,
+              the sealed room that carries no bottom bar. */}
           {/* Pull-to-refresh wraps every route once here (touch-only, fully
               additive on desktop). Pages must NOT wrap it again — that would
               double the global touch listeners. */}
           <PullToRefresh>
-            <div
-              id="main-content"
-              tabIndex={-1}
-              className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:pb-0"
-            >
-              {children}
-            </div>
+            <MainContent>{children}</MainContent>
           </PullToRefresh>
           <QuickAddFab />
           <BottomTabBar />
