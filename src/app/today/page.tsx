@@ -13,9 +13,20 @@ import Onboarding from "@/components/Onboarding";
 import { StreakBadge } from "@/components/StreakBadge";
 import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
+import TodayCockpit from "./TodayCockpit";
+import ExamStrip, { type ExamChip } from "./ExamStrip";
 import { recoverPlan } from "./actions";
 import { assessRecovery, needsRecovery } from "@/lib/recovery";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
+import { parsePrefs } from "@/lib/timePlacer";
+import {
+  assignLanes,
+  computeCapacity,
+  pickHero,
+  riskVerdict,
+  type CockpitBlock,
+  type Lane,
+} from "./cockpit";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -56,7 +67,8 @@ export default async function TodayPage({
   // These four reads are independent, so fire them concurrently in a single
   // round-trip batch instead of awaiting one after another (avoids a serial
   // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, todaysLectures, upcomingDeadlines, stats, recovery] = await Promise.all([
+  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, stats, recovery, prefUser] =
+    await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
       where: { date: { gte: start, lt: end }, course: { userId } },
@@ -78,6 +90,14 @@ export default async function TodayPage({
     prisma.course.findFirst({
       where: { userId, examDate: { gte: start } },
       orderBy: { examDate: "asc" },
+      select: { id: true, name: true, examDate: true },
+    }),
+    // All upcoming exams (soonest first) → the exam-countdown chip strip. Capped
+    // so the strip can't grow unbounded for a user with many courses.
+    prisma.course.findMany({
+      where: { userId, examDate: { gte: start } },
+      orderBy: { examDate: "asc" },
+      take: 12,
       select: { id: true, name: true, examDate: true },
     }),
     // Today's recurring classes (lectures/tutorials/labs).
@@ -108,6 +128,9 @@ export default async function TodayPage({
     // Overdue unfinished sessions from missed days — drives the proactive
     // "rebuild my plan" recovery banner.
     assessRecovery(userId, today),
+    // Study-window preferences (for today's capacity / risk line). Only the
+    // preferences blob is read; parsePrefs tolerates null/legacy values.
+    prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
   ]);
 
   let nextDate = "";
@@ -146,8 +169,17 @@ export default async function TodayPage({
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const remainingMin = Math.max(0, totalMin - doneMin);
 
-  // Realistic focus time left today: minutes until a 22:00 wind-down (Europe/
-  // Berlin), discounted by a focus factor — nobody studies every waking minute.
+  // Realistic focus time left today, for the cockpit's one-line risk verdict.
+  // Capacity = the student's study WINDOW today (prefs day-start…day-end) minus
+  // the minutes already spent in today's lectures, then discounted by a focus
+  // factor (nobody studies every waking minute) and bounded by the time left
+  // before a wind-down cutoff (Europe/Berlin). This is "how much can today really
+  // hold" — the denominator for "am I over capacity / on track".
+  const prefs = parsePrefs(prefUser?.preferences);
+  const todaysLectureMin = todaysLectures.reduce(
+    (s, l) => s + Math.max(0, l.endMin - l.startMin),
+    0,
+  );
   const nowParts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     hour: "2-digit",
@@ -156,11 +188,29 @@ export default async function TodayPage({
   }).format(new Date());
   const [hh, mm] = nowParts.split(":").map(Number);
   const minutesNow = hh * 60 + mm;
-  const CUTOFF = 22 * 60; // 22:00
-  const FOCUS_RATIO = 0.6; // ~60% of remaining hours is realistically focused study
-  const availableMin = Math.max(0, Math.round((CUTOFF - minutesNow) * FOCUS_RATIO));
-  const achievable = remainingMin === 0 || remainingMin <= availableMin;
-  const overBy = Math.max(0, remainingMin - availableMin);
+  const FOCUS_RATIO = 0.6; // ~60% of window hours is realistically focused study
+  // The window still open today: from now (or the window start) to the window end.
+  const windowLeft = Math.max(0, prefs.dayEndMin - Math.max(minutesNow, prefs.dayStartMin));
+  // Subtract lectures that fall in the remaining window before discounting; clamp
+  // at 0 so a heavy class day never yields negative capacity.
+  const availableMin = Math.max(
+    0,
+    Math.round((windowLeft - todaysLectureMin) * FOCUS_RATIO),
+  );
+
+  // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
+  const cockpitBlocks: CockpitBlock[] = blocks;
+  const cap = computeCapacity(remainingMin, availableMin);
+  const risk = riskVerdict(cap);
+  const laneMap = assignLanes(cockpitBlocks, cap);
+  const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
+  const hero = pickHero(cockpitBlocks, laneMap);
+  const achievable = cap.onTrack;
+
+  // Exam-countdown chips (soonest first), colored by urgency in the strip.
+  const examChips: ExamChip[] = upcomingExams
+    .map((c) => ({ id: c.id, name: c.name, days: daysUntil(c.examDate, today) }))
+    .filter((c) => Number.isFinite(c.days) && c.days >= 0);
 
   // No plan exists at all (no sessions today, none scheduled ahead, no upcoming
   // exam) → treat as a brand-new user and onboard them, rather than implying a
@@ -181,18 +231,15 @@ export default async function TodayPage({
         who already have courses. */}
     <Onboarding active={hasNoPlan} />
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <div className="flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
         <StreakBadge streak={stats.currentStreak} t={t} />
       </div>
-      {nextExam && !examWeek && (
-        <Link
-          href={`/courses/${nextExam.id}`}
-          className="mb-6 mt-1 inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
-        >
-          ⏳ {examCountdownLabel(t, nextExamDays!)}
-        </Link>
-      )}
+
+      {/* Exam-countdown strip — a horizontal scrollable row of urgency-colored
+          chips at the very top ("OS 4d · Algorithms 24d"). */}
+      <ExamStrip exams={examChips} t={t} />
+
       {nextExam && examWeek && (
         <Link
           href={`/courses/${nextExam.id}`}
@@ -203,7 +250,6 @@ export default async function TodayPage({
           {t("today.focusModeTail")}
         </Link>
       )}
-      {!nextExam && <div className="mb-6" />}
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
           rebuilt; otherwise, when missed days have piled up overdue work, a
@@ -244,101 +290,98 @@ export default async function TodayPage({
         </div>
       )}
 
-      {todaysLectures.length > 0 && (
-        <section className="mb-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            {t("today.classes")}
-          </h2>
-          <ul className="space-y-2">
-            {todaysLectures.map((l) => (
-              <li
-                key={l.id}
-                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
-              >
-                <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-gray-600 dark:text-gray-300">
-                  {fmtClock(l.startMin)}–{fmtClock(l.endMin)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{l.title}</span>
-                  {l.location && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">📍 {l.location}</span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {upcomingDeadlines.length > 0 && (
-        <section className="mb-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            {t("today.deadlines")}
-          </h2>
-          <ul className="space-y-2">
-            {upcomingDeadlines.map((a) => {
-              const days = daysUntil(a.dueDate, today);
-              const urgent = days <= 3;
-              return (
-                <li key={a.id}>
-                  <Link
-                    href={`/courses/${a.course.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{a.title}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{a.course.name}</span>
-                    </span>
-                    <span
-                      className={`shrink-0 whitespace-nowrap text-xs font-medium ${
-                        urgent ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
-                      }`}
-                    >
-                      {dueLabel(t, days)}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      {/* On track → a quick auto-dismissing toast (no persistent box). */}
+      {/* On track → a quick auto-dismissing toast (no persistent box). The calm
+          one-line risk verdict inside the cockpit covers the over-capacity case;
+          this preserves the on-track confirmation pop. */}
       {blocks.length > 0 && remainingMin > 0 && achievable && (
         <InfoToast
           message={`${t("today.goalAchievable")} — ${t("today.leftStudying", { remaining: fmtDuration(remainingMin) })} · ${t("today.focusTimeTail", { available: fmtDuration(availableMin) })}`}
         />
       )}
-      {/* Over capacity → keep the actionable box (it carries the one-tap replan). */}
-      {blocks.length > 0 && remainingMin > 0 && !achievable && (
-        <div
-          aria-live="polite"
-          className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-        >
-          <p className="font-semibold">{t("today.goalAtRisk")}</p>
-          <p className="mt-1">
-            {t("today.leftStudying", { remaining: fmtDuration(remainingMin) })} ·{" "}
-            {t("today.focusTimeTail", { available: fmtDuration(availableMin) })}
-          </p>
-          <p className="mt-2">{t("today.overBy", { over: fmtDuration(overBy) })}</p>
-          {/* One-tap fix: respread the remaining work across the days left. */}
-          <form action={recoverPlan} className="mt-3">
-            <SubmitButton variant="primary" pendingLabel={t("today.recoveryPending")}>
-              {t("today.replanCta")}
-            </SubmitButton>
-          </form>
-        </div>
-      )}
 
       {blocks.length > 0 ? (
-        <AnimatedList className="space-y-2">
-          {blocks.map((b) => (
-            <AnimatedListItem key={b.id}>
-              <TodayBlockRow b={b} />
-            </AnimatedListItem>
-          ))}
-        </AnimatedList>
+        <>
+          {/* The cockpit spine: hero next action + one-line risk + study queue,
+              with the per-block session sheet and the shared focus timer. */}
+          <TodayCockpit
+            blocks={cockpitBlocks}
+            lanes={lanes}
+            hero={hero}
+            cap={cap}
+            risk={risk}
+          />
+
+          {/* Over capacity → keep the one-tap respread reachable as a calm smart
+              button (the red panel is gone; the risk line carries the honesty). */}
+          {!achievable && (
+            <form action={recoverPlan} className="mt-4">
+              <SubmitButton variant="secondary" pendingLabel={t("today.recoveryPending")}>
+                ↻ {t("today.replanCta")}
+              </SubmitButton>
+            </form>
+          )}
+
+          {/* Demoted secondary context: today's classes + upcoming deadlines. */}
+          {todaysLectures.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("today.classes")}
+              </h2>
+              <ul className="space-y-2">
+                {todaysLectures.map((l) => (
+                  <li
+                    key={l.id}
+                    className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
+                  >
+                    <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-gray-600 dark:text-gray-300">
+                      {fmtClock(l.startMin)}–{fmtClock(l.endMin)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{l.title}</span>
+                      {l.location && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">📍 {l.location}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {upcomingDeadlines.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {t("today.deadlines")}
+              </h2>
+              <ul className="space-y-2">
+                {upcomingDeadlines.map((a) => {
+                  const days = daysUntil(a.dueDate, today);
+                  const urgent = days <= 3;
+                  return (
+                    <li key={a.id}>
+                      <Link
+                        href={`/courses/${a.course.id}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{a.title}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{a.course.name}</span>
+                        </span>
+                        <span
+                          className={`shrink-0 whitespace-nowrap text-xs font-medium ${
+                            urgent ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {dueLabel(t, days)}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </>
       ) : hasNoPlan ? (
         <EmptyState
           emoji="🚀"

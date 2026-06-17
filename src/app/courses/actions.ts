@@ -901,6 +901,69 @@ export async function deleteNote(formData: FormData) {
   await deleteOwnedTopicNote(userId, topicId);
 }
 
+/**
+ * Today cockpit — "Move to tomorrow": push a single study block forward by one
+ * day. Ownership-scoped via findOwnedBlock so a guessed blockId can never move
+ * another user's block. The block keeps its time-of-day (if any); only the day
+ * shifts +1, stored at UTC midnight like every other block date. Junk input is a
+ * silent no-op, matching rescheduleBlock. Revalidates /today so the queue re-reads.
+ */
+export async function moveBlockToTomorrow(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let id: string;
+  try {
+    id = requireId(formData.get("blockId"), "Block");
+  } catch {
+    return;
+  }
+  // Scoped: a non-owner moving another user's block id is a silent no-op.
+  const block = await findOwnedBlock(userId, id);
+  if (!block) return;
+  // Read the block's current day to compute "+1 day" at UTC midnight. The select
+  // is scoped through course.userId so this can't read another user's block.
+  const row = await prisma.studyBlock.findFirst({
+    where: { id, course: { userId } },
+    select: { date: true },
+  });
+  if (!row) return;
+  const next = new Date(row.date.getTime() + 86400_000);
+  await prisma.studyBlock.update({ where: { id }, data: { date: next } });
+  revalidatePath("/today");
+}
+
+/**
+ * Today cockpit — "Quick note" on a block: save free-text to the block's TOPIC
+ * note (StudyBlock has no note column; the note lives on the owning topic, the
+ * same store the course-detail note editor uses). Ownership-scoped: the block's
+ * topicId is derived from the row (never trusted from the form) and the upsert is
+ * itself owner-checked, so a guessed blockId is a silent no-op. An empty body
+ * clears the note. Revalidates /today so the saved state reflects on reload.
+ */
+export async function saveBlockNote(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let id: string;
+  try {
+    id = requireId(formData.get("blockId"), "Block");
+  } catch {
+    return;
+  }
+  // Ownership-scoped read of the block's owning topic (via course.userId).
+  const row = await prisma.studyBlock.findFirst({
+    where: { id, course: { userId } },
+    select: { topicId: true },
+  });
+  if (!row) return;
+  const body = optionalText(formData.get("body"), LIMITS.MAX_NOTE_LENGTH);
+  if (body === null) {
+    await deleteOwnedTopicNote(userId, row.topicId);
+  } else {
+    await upsertOwnedTopicNote(userId, row.topicId, body);
+  }
+  revalidatePath("/today");
+}
+
 /** Local YYYY-MM-DD (zero-padded) — mirrors the calendar page's day key. */
 function isoDayLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
