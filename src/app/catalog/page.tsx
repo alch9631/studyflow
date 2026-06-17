@@ -4,9 +4,9 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
-import SubmitButton from "@/components/SubmitButton";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/components/i18n/server";
+import CatalogBrowser, { type CatalogModule } from "./CatalogBrowser";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -23,7 +23,8 @@ export default async function CatalogPage({
   const program = programByCode(programParam ?? "IIW") ?? PROGRAMS[0];
   const t = await getT();
 
-  // Hide modules the student has already added as courses (by source code).
+  // Detect "already added": compare each module's `code` against the source code
+  // of the student's existing catalog-sourced courses (Course.sourceCode).
   const userId = await getCurrentUserId();
   const taken = await prisma.course.findMany({
     where: { userId, sourceCode: { not: null } },
@@ -45,14 +46,24 @@ export default async function CatalogPage({
       examDate: true,
     },
   });
-  const modules = allModules.filter((m) => !takenCodes.has(m.code));
 
-  // Group by section for a tidy, scannable list.
-  const bySection = new Map<string, typeof modules>();
-  for (const m of modules) {
-    if (!bySection.has(m.section)) bySection.set(m.section, []);
-    bySection.get(m.section)!.push(m);
-  }
+  // Shape for the client picker: pre-trim the handbook snippet, pre-serialize the
+  // exam date, and flag the already-added modules — so the island never carries
+  // the heavy `content` field or a Date across the RSC boundary.
+  const modules: CatalogModule[] = allModules.map((m) => ({
+    id: m.id,
+    code: m.code,
+    name: m.name,
+    section: m.section,
+    ects: m.ects,
+    examDate: m.examDate ? m.examDate.toISOString().slice(0, 10) : null,
+    snippet: (m.content ?? "").replace(/\s+/g, " ").trim().slice(0, 240),
+    added: takenCodes.has(m.code),
+  }));
+  const addableCount = modules.filter((m) => !m.added).length;
+
+  // Other programs we have a handbook for — let the student switch the catalog.
+  const seededPrograms = PROGRAMS.filter((p) => p.seeded);
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
@@ -61,6 +72,27 @@ export default async function CatalogPage({
           {t("catalog.modulesLabel")} · {program.code}
         </p>
         <h1 className="text-xl font-bold leading-tight sm:text-2xl">{program.name}</h1>
+
+        {/* Switch program (server-driven — modules are fetched per program). */}
+        {seededPrograms.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {seededPrograms.map((p) => (
+              <Link
+                key={p.code}
+                href={`/catalog?program=${p.code}`}
+                aria-current={p.code === program.code ? "page" : undefined}
+                className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  p.code === program.code
+                    ? "bg-brand text-brand-foreground"
+                    : "border border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                }`}
+              >
+                {p.code}
+              </Link>
+            ))}
+          </div>
+        )}
+
         {/* Pick official modules below, or take a manual / import route. */}
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
@@ -83,20 +115,21 @@ export default async function CatalogPage({
           <p className="font-medium">
             {t("catalog.notImportedTitle", { name: program.name, code: program.code })}
           </p>
-          <p className="mt-2">
-            {t("catalog.notImportedBody")}
-          </p>
+          <p className="mt-2">{t("catalog.notImportedBody")}</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <Button asChild>
               <Link href="/courses/new">{t("catalog.addCourse")}</Link>
             </Button>
-            <Link href="/courses/import" className="rounded-full border border-amber-400 px-4 py-2 font-medium transition-colors hover:bg-amber-100 active:scale-[.97] dark:border-amber-700 dark:hover:bg-amber-900/40">
+            <Link
+              href="/courses/import"
+              className="rounded-full border border-amber-400 px-4 py-2 font-medium transition-colors hover:bg-amber-100 active:scale-[.97] dark:border-amber-700 dark:hover:bg-amber-900/40"
+            >
               {t("catalog.importSyllabusLong")}
             </Link>
           </div>
         </div>
-      ) : modules.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800 p-5 text-sm text-gray-600 dark:text-gray-300">
+      ) : addableCount === 0 ? (
+        <div className="mt-6 rounded-xl border border-gray-200 p-5 text-sm text-gray-600 dark:border-gray-800 dark:text-gray-300">
           <p className="font-medium">{t("catalog.allAddedTitle")}</p>
           <Button asChild className="mt-3">
             <Link href="/courses">{t("catalog.goToCourses")}</Link>
@@ -106,7 +139,7 @@ export default async function CatalogPage({
         <>
           <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
             <strong className="font-semibold text-gray-800 dark:text-gray-100">
-              {t.n("catalog.moduleCount", modules.length)}
+              {t.n("catalog.moduleCount", addableCount)}
             </strong>{" "}
             {t("catalog.introTail")}
             <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
@@ -114,78 +147,7 @@ export default async function CatalogPage({
             </span>
           </div>
 
-          <form action={addFromCatalog} className="space-y-3 pb-8">
-            {[...bySection.entries()].map(([section, mods]) => (
-              <details
-                key={section}
-                open
-                className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-gray-50 px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-                  <span className="truncate">{section.replace(/^Fachmodule der /, "")}</span>
-                  <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                    {mods.length}
-                  </span>
-                </summary>
-                <ul className="space-y-1.5 p-2.5">
-                  {mods.map((m) => {
-                    const snippet = (m.content ?? "")
-                      .replace(/\s+/g, " ")
-                      .trim()
-                      .slice(0, 240);
-                    return (
-                      <li key={m.id}>
-                        <div className="relative rounded-lg border border-gray-200 p-3 pr-10 transition-colors hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600">
-                          <label className="flex cursor-pointer items-start gap-3">
-                            <input
-                              type="checkbox"
-                              name="moduleId"
-                              value={m.id}
-                              className="mt-0.5 h-4 w-4 shrink-0"
-                            />
-                            <span className="min-w-0 flex-1 font-medium leading-snug">{m.name}</span>
-                          </label>
-                          {/* Module details: a "?" info toggle in the top-right corner */}
-                          <details className="absolute right-2 top-2">
-                            <summary
-                              aria-label={t("catalog.detailsFor", { name: m.name })}
-                              title={t("catalog.details")}
-                              className="inline-flex cursor-pointer list-none items-center text-gray-400 transition-colors hover:text-brand-ink"
-                            >
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-[11px] font-bold">
-                                ?
-                              </span>
-                            </summary>
-                            <div className="absolute right-0 top-7 z-10 w-64 max-w-[75vw] rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-                              <div className="font-medium text-gray-700 dark:text-gray-200">
-                                {m.code} · {m.ects} LP
-                                {m.examDate ? ` · ${t("catalog.examShort", { date: m.examDate.toISOString().slice(0, 10) })}` : ""}
-                              </div>
-                              {snippet && (
-                                <p className="mt-1.5 leading-relaxed">{snippet}…</p>
-                              )}
-                            </div>
-                          </details>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </details>
-            ))}
-
-            {/* Primary action flows with the content at the end of the list. */}
-            <div className="mt-4">
-              <SubmitButton
-                variant="primary"
-                size="lg"
-                className="w-full"
-                pendingLabel={t("catalog.adding")}
-              >
-                {t("catalog.addSelected")}
-              </SubmitButton>
-            </div>
-          </form>
+          <CatalogBrowser modules={modules} action={addFromCatalog} />
         </>
       )}
     </main>
