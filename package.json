@@ -15,6 +15,7 @@
     "test:spread": "tsx src/lib/planSpread.test.ts",
     "test:dates": "tsx src/lib/dates.test.ts",
     "test:calendar-time": "tsx src/lib/calendarTime.test.ts",
+    "test:calendar-layout": "tsx src/lib/calendarLayout.test.ts",
     "test:ics": "tsx src/lib/ics.test.ts",
     "test:syllabus": "tsx src/lib/syllabus.test.ts",
     "test:filecategory": "tsx src/lib/fileCategory.test.ts",
