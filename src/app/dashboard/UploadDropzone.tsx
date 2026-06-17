@@ -17,7 +17,8 @@ const DOC_TYPE_LABEL: Record<string, string> = {
  *
  * Posts to the existing {@link analyzeModuleUpload} server action — so it runs
  * the real AI analysis pipeline (extract → topics) for the chosen course. That
- * action *replaces* the course's topics from the file, hence the inline note.
+ * action either *replaces* the course's topics from the file or *appends* to
+ * them depending on the chosen mode (default Replace), hence the inline note.
  */
 export default function UploadDropzone({
   courses,
@@ -103,6 +104,25 @@ export default function UploadDropzone({
         ))}
       </select>
 
+      {/* Replace (default) wipes the course's topics and rebuilds from the file;
+          Add keeps existing topics and appends the file's on top. */}
+      <fieldset className="flex gap-4 text-sm text-slate-300">
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input
+            type="radio"
+            name="mode"
+            value="replace"
+            defaultChecked
+            className="accent-indigo-500"
+          />
+          Replace topics
+        </label>
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input type="radio" name="mode" value="append" className="accent-indigo-500" />
+          Add to topics
+        </label>
+      </fieldset>
+
       <button
         type="submit"
         disabled={courses.length === 0}
@@ -111,7 +131,9 @@ export default function UploadDropzone({
         Analyze & build topics
       </button>
       <p className="text-[11px] leading-snug text-slate-500">
-        Runs AI analysis and replaces this course&rsquo;s topics from the file.
+        Runs AI analysis on the file. <span className="text-slate-400">Replace</span> rebuilds this
+        course&rsquo;s topics from it; <span className="text-slate-400">Add</span> keeps your current
+        topics and appends the new ones.
       </p>
     </form>
   );

@@ -5,6 +5,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
 import UploadDropzone from "./UploadDropzone";
+import WeeklyPlan, { type WeekBlock } from "./WeeklyPlan";
 import styles from "./dashboard.module.css";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +14,10 @@ export const metadata: Metadata = {
   description: "Experimental three-column desktop study cockpit.",
 };
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const ymd = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+// Local YYYY-MM-DD (zero-padded) — used both to bucket blocks into day columns
+// and as the serializable date key passed to <WeeklyPlan/>.
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export default async function DashboardPage() {
   const userId = await getCurrentUserId();
@@ -44,12 +47,13 @@ export default async function DashboardPage() {
       where: { course: { userId }, date: { gte: weekStart, lt: weekEnd } },
       orderBy: { date: "asc" },
       select: {
+        id: true,
         date: true,
         topicTitle: true,
         minutes: true,
         kind: true,
         completed: true,
-        course: { select: { name: true, aiOptimized: true } },
+        course: { select: { id: true, name: true, aiOptimized: true } },
       },
     }),
     prisma.studyBlock.findMany({
@@ -64,13 +68,25 @@ export default async function DashboardPage() {
   const topicsDone = courses.reduce((s, c) => s + c.topics.filter((t) => t.done).length, 0);
   const weekDoneCount = weekBlocks.filter((b) => b.completed).length;
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i);
-    return d;
-  });
+  const dayISOs = Array.from({ length: 7 }, (_, i) =>
+    isoDay(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i)),
+  );
 
   const nextExam = courses[0];
   const isAiBlock = (b: (typeof weekBlocks)[number]) => b.kind === "review" || b.course.aiOptimized;
+
+  // Serialize the week's blocks for the client island (no Date / relation objects).
+  const planBlocks: WeekBlock[] = weekBlocks.map((b) => ({
+    id: b.id,
+    dateISO: isoDay(b.date),
+    topicTitle: b.topicTitle,
+    minutes: b.minutes,
+    kind: b.kind,
+    courseId: b.course.id,
+    courseName: b.course.name,
+    ai: isAiBlock(b),
+    completed: b.completed,
+  }));
 
   return (
     <main className="min-h-screen bg-[#020617] px-4 py-5 text-slate-200 lg:px-6">
@@ -87,7 +103,9 @@ export default async function DashboardPage() {
         </Link>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20fr_55fr_25fr]">
+      {/* iPad portrait gets a 2-col step (md): sidebars side-by-side, the weekly
+          plan spanning the full width below. Desktop (lg) is the 20/55/25 trio. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[20fr_55fr_25fr]">
         {/* ── Left: Course & Material Hub ───────────────────────────────── */}
         <aside className="flex flex-col gap-4">
           <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -133,60 +151,12 @@ export default async function DashboardPage() {
           </section>
         </aside>
 
-        {/* ── Middle: Weekly Plan View ──────────────────────────────────── */}
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">This week</h2>
-            <span className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> AI-generated block
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            {days.map((d, i) => {
-              const dayBlocks = weekBlocks.filter((b) => ymd(b.date) === ymd(d));
-              const isToday = ymd(d) === ymd(now);
-              return (
-                <div key={i} className="flex flex-col gap-2">
-                  <div
-                    className={`rounded-md px-2 py-1 text-center text-xs font-semibold ${
-                      isToday ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"
-                    }`}
-                  >
-                    {WEEKDAYS[i]} {d.getDate()}
-                  </div>
-                  {dayBlocks.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-slate-800 px-2 py-3 text-center text-[10px] text-slate-600">
-                      —
-                    </div>
-                  )}
-                  {dayBlocks.map((b, j) => {
-                    const ai = isAiBlock(b);
-                    return (
-                      <div
-                        key={j}
-                        className={`rounded-lg bg-slate-900 px-2 py-2 ${
-                          ai ? styles.aiBlock : "border border-slate-800"
-                        } ${b.completed ? "opacity-50" : ""}`}
-                      >
-                        <p className="line-clamp-2 text-xs font-medium text-slate-100">
-                          {b.topicTitle}
-                        </p>
-                        <p className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
-                          <span className="truncate">{b.course.name}</span>
-                          <span
-                            className={`ml-1 shrink-0 ${ai ? "text-emerald-400" : "text-indigo-400"}`}
-                          >
-                            {b.minutes}m
-                          </span>
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        {/* ── Middle: Weekly Plan View (drag-to-reschedule client island) ─── */}
+        {/* On iPad portrait (md) it spans both columns and drops below the two
+            sidebars; on desktop (lg) it returns to the centre column. */}
+        <div className="md:order-last md:col-span-2 lg:order-none lg:col-span-1">
+          <WeeklyPlan dayISOs={dayISOs} todayISO={isoDay(now)} blocks={planBlocks} />
+        </div>
 
         {/* ── Right: AI Study Co-Pilot ──────────────────────────────────── */}
         <aside className="flex flex-col gap-4">

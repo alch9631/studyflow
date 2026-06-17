@@ -201,12 +201,6 @@ model StudyBlock {
   completed     Boolean  @default(false)
   kind          String   @default("study") // "study" | "review" (spaced repetition)
   actualMinutes Int? // logged via the Pomodoro timer — feeds adaptive estimates
-  // DEPRECATED (no longer read by any code path). Was a per-session difficulty
-  // rating; review weighting is now driven by per-topic confidence
-  // (Topic.confidence → reviewDifficultyByTopic). Kept as a nullable column so we
-  // don't force a data-loss migration on existing rows; safe to drop in a future
-  // dedicated migration once historical rows no longer matter.
-  difficulty    String?
 
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String

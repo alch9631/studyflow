@@ -327,6 +327,11 @@ export async function analyzeModuleUpload(formData: FormData) {
   const docTypeRaw = formData.get("docType");
   const chosenType: FileCategory | null = isFileCategory(docTypeRaw) ? docTypeRaw : null;
 
+  // Append vs replace. Default "replace" preserves existing callers that don't
+  // send a mode field (the course-detail ModuleUploadForm). "append" keeps the
+  // current topics and adds the file's topics after them.
+  const mode = str(formData.get("mode")) === "append" ? "append" : "replace";
+
   let result = "analyze-error";
   let n = 0;
   try {
@@ -340,19 +345,38 @@ export async function analyzeModuleUpload(formData: FormData) {
     if (analysis.topics.length > 0) {
       // Bound the content-derived topics to the per-course cap before writing.
       const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
-      // Replace topics with the content-derived ones (effort from estimated time).
-      // Atomic: a crash between delete and create must not destroy all topics.
-      await prisma.$transaction([
-        prisma.topic.deleteMany({ where: { courseId } }),
-        prisma.topic.createMany({
+      if (mode === "append") {
+        // Append: keep existing topics, create the new ones with `order`
+        // continuing after the current max order for this course.
+        const last = await prisma.topic.findFirst({
+          where: { courseId },
+          orderBy: { order: "desc" },
+          select: { order: true },
+        });
+        const base = (last?.order ?? -1) + 1;
+        await prisma.topic.createMany({
           data: newTopics.map((t, i) => ({
             courseId,
             title: t.title,
             effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
-            order: i,
+            order: base + i,
           })),
-        }),
-      ]);
+        });
+      } else {
+        // Replace topics with the content-derived ones (effort from estimated time).
+        // Atomic: a crash between delete and create must not destroy all topics.
+        await prisma.$transaction([
+          prisma.topic.deleteMany({ where: { courseId } }),
+          prisma.topic.createMany({
+            data: newTopics.map((t, i) => ({
+              courseId,
+              title: t.title,
+              effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
+              order: i,
+            })),
+          }),
+        ]);
+      }
       n = newTopics.length;
       // Stored category: the user's explicit choice wins; if they left it on a
       // value we can't read, fall back to the auto-classifier (filename
@@ -608,6 +632,35 @@ export async function toggleBlock(formData: FormData) {
     });
   }
   revalidatePath(path);
+}
+
+/**
+ * Move a study block to a different day (drag-to-reschedule on the dashboard).
+ * Ownership-scoped via findOwnedBlock so a guessed blockId can never move
+ * another user's block. The date is a YYYY-MM-DD string stored at UTC midnight,
+ * matching how every other study block date is persisted.
+ */
+export async function rescheduleBlock(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let id: string;
+  let dateISO: string;
+  try {
+    id = requireId(formData.get("blockId"), "Block");
+    // Allow moving a block into the past ("I'll catch up earlier" / drag back).
+    dateISO = requireDate(formData.get("date"), "Date", todayISO(), { allowPast: true });
+  } catch {
+    return;
+  }
+  // Scoped: a non-owner moving another user's block id is a silent no-op.
+  const block = await findOwnedBlock(userId, id);
+  if (block) {
+    await prisma.studyBlock.update({
+      where: { id },
+      data: { date: toUTCDate(dateISO) },
+    });
+    revalidatePath("/dashboard");
+  }
 }
 
 const CONFIDENCE = new Set(["solid", "practice", "struggling"]);

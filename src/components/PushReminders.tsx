@@ -75,7 +75,17 @@ export default function PushReminders() {
         return;
       }
       try {
-        const res = await fetch("/api/push/status");
+        // Guard against a hanging/404 status endpoint leaving the UI stuck on
+        // "Checking…" forever: abort after ~5s so we fall through to the graceful
+        // disabled state below instead of spinning.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        let res: Response;
+        try {
+          res = await fetch("/api/push/status", { signal: controller.signal });
+        } finally {
+          clearTimeout(timeout);
+        }
         const data = (await res.json()) as { configured?: boolean };
         if (!active) return;
         if (!data.configured) {

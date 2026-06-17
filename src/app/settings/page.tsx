@@ -141,17 +141,14 @@ export default async function SettingsPage({
           </div>
         </Section>
 
-        {/* Account — placeholder for future login-based personalization. */}
-        <Section
-          icon="👤"
-          title={t("settings.accountTitle")}
-          description={t("settings.accountDesc")}
-        >
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-            {t("settings.loginSoon")}
-          </span>
-        </Section>
       </div>
+
+      {/* Account — minor placeholder for future login-based personalization;
+          kept as a small muted line rather than a full panel to reduce noise. */}
+      <p className="mt-4 flex items-center gap-1.5 px-1 text-xs text-gray-500 dark:text-gray-400">
+        <span aria-hidden>👤</span>
+        {t("settings.accountTitle")} — {t("settings.loginSoon")}
+      </p>
       <details className="mt-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 text-sm text-gray-600 dark:text-gray-300">
         <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
           {t("courses.howTitle")}

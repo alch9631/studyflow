@@ -22,3 +22,13 @@ export function rateLimit(key: string, max = 8, windowMs = 60_000): boolean {
   buckets.set(key, b);
   return true;
 }
+
+/**
+ * Drop all buckets (or just one key). Test-only: the buckets are per-process
+ * module state, so tests use this to start from a known-empty slate. Not used by
+ * application code.
+ */
+export function resetRateLimit(key?: string): void {
+  if (key === undefined) buckets.clear();
+  else buckets.delete(key);
+}

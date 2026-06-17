@@ -55,6 +55,23 @@ function contentCacheKey(req) {
   return url.toString();
 }
 
+// Cap on how many page-content entries we keep offline. DATA_CACHE would
+// otherwise grow once per distinct route visited (and per RSC variant), so we
+// evict the oldest entries (cache keys are returned in insertion order) once we
+// exceed the cap.
+const DATA_CACHE_MAX = 50;
+
+// Trim DATA_CACHE down to DATA_CACHE_MAX entries, deleting the oldest first.
+async function trimDataCache() {
+  try {
+    const c = await caches.open(DATA_CACHE);
+    const keys = await c.keys();
+    for (let i = 0; i < keys.length - DATA_CACHE_MAX; i++) {
+      await c.delete(keys[i]);
+    }
+  } catch {}
+}
+
 // Network-first for page content, falling back to the last-synced copy offline.
 async function networkFirstContent(req) {
   const key = contentCacheKey(req);
@@ -62,7 +79,11 @@ async function networkFirstContent(req) {
     const res = await fetch(req);
     if (res && res.ok) {
       const copy = res.clone();
-      caches.open(DATA_CACHE).then((c) => c.put(key, copy)).catch(() => {});
+      caches
+        .open(DATA_CACHE)
+        .then((c) => c.put(key, copy))
+        .then(() => trimDataCache())
+        .catch(() => {});
     }
     return res;
   } catch {

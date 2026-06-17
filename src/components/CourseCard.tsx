@@ -11,6 +11,7 @@ export type CardCourse = {
   examInDays: number;
   done: number;
   total: number;
+  progressCount: number;
   apple: { emoji: string; label: string; cls: string };
 };
 
@@ -89,7 +90,7 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
 
       {/* Overlay menu — sibling of the Link, never nested inside the anchor. */}
       <div className="absolute right-2 top-2">
-        <CourseCardMenu courseId={course.id} courseName={course.name} />
+        <CourseCardMenu courseId={course.id} courseName={course.name} progressCount={course.progressCount} />
       </div>
     </div>
   );

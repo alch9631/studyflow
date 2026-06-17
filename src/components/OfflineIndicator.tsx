@@ -46,7 +46,7 @@ export default function OfflineIndicator() {
     <div
       role="status"
       aria-live="polite"
-      className="border-b border-amber-300 bg-amber-50 text-amber-800 motion-safe:animate-[toast-in_180ms_ease-out] dark:border-amber-900 dark:bg-amber-950/70 dark:text-amber-200"
+      className="border-b border-gray-200 bg-gray-100 text-gray-700 motion-safe:animate-[toast-in_180ms_ease-out] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
     >
       <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-4 py-2 text-sm font-medium">
         <WifiOffIcon />

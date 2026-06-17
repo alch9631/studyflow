@@ -513,6 +513,7 @@ const en = {
     weeksLeft: "{weeks} weeks left",
   },
   landing: {
+    brand: "TUHH",
     uni: "Technische Universität Hamburg",
     badge: "Made for TUHH students",
     heroTitlePre: "A study plan that ",
@@ -616,6 +617,7 @@ const en = {
     deleteMsgPost: "from your weekly timetable? This can't be undone.",
     deleteConfirm: "Delete class",
     removing: "Removing…",
+    syncCalendar: "📆 Add to calendar / sync",
     backToToday: "← Back to Today",
     endAfterStart: "End time must be after the start time.",
     addSuccess: "Class added to your timetable.",
@@ -1195,6 +1197,7 @@ const de: Messages = {
     weeksLeft: "noch {weeks} Wochen",
   },
   landing: {
+    brand: "TUHH",
     uni: "Technische Universität Hamburg",
     badge: "Für TUHH-Studierende gemacht",
     heroTitlePre: "Ein Lernplan, der sich ",
@@ -1298,6 +1301,7 @@ const de: Messages = {
     deleteMsgPost: "aus deinem Wochenplan entfernen? Das kann nicht rückgängig gemacht werden.",
     deleteConfirm: "Veranstaltung löschen",
     removing: "Entfernen…",
+    syncCalendar: "📆 Zum Kalender hinzufügen / synchronisieren",
     backToToday: "← Zurück zu Heute",
     endAfterStart: "Die Endzeit muss nach der Startzeit liegen.",
     addSuccess: "Veranstaltung zu deinem Stundenplan hinzugefügt.",

@@ -39,7 +39,7 @@ export default async function Home() {
       <section className="flex flex-col items-center gap-6 text-center">
         <div className="flex flex-col items-center gap-1.5">
           <div className="rounded-md bg-brand px-4 py-2 text-2xl font-extrabold tracking-tight text-brand-foreground shadow-sm">
-            TUHH
+            {t("landing.brand")}
           </div>
           <span className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">
             {t("landing.uni")}

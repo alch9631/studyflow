@@ -173,6 +173,25 @@ export default function Nav() {
                 </Link>
               );
             })}
+            {/* Experimental desktop study cockpit. Literal label (no i18n key yet)
+                so it stays out of the typed TABS list above. */}
+            {(() => {
+              const active =
+                pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+              return (
+                <Link
+                  href="/dashboard"
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+                    active
+                      ? "bg-brand text-brand-foreground"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  Dashboard
+                </Link>
+              );
+            })()}
           </div>
 
           {/* Global search — always visible (incl. mobile) so it's reachable

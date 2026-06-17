@@ -114,12 +114,22 @@ export default async function TimetablePage() {
         </div>
       )}
 
-      <Link
-        href="/today"
-        className="mt-6 inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
-      >
-        {t("timetable.backToToday")}
-      </Link>
+      {/* Calendar sync lives in Settings (CalendarSync → /api/calendar feed);
+          link there rather than duplicate the subscribe logic here. */}
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Link
+          href="/settings"
+          className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          {t("timetable.syncCalendar")}
+        </Link>
+        <Link
+          href="/today"
+          className="inline-block text-sm text-gray-500 hover:underline dark:text-gray-400"
+        >
+          {t("timetable.backToToday")}
+        </Link>
+      </div>
     </main>
   );
 }

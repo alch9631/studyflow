@@ -62,6 +62,7 @@ export default async function CoursesPage() {
         <ul className="space-y-3">
           {courses.map((c) => {
             const done = c.topics.filter((t) => t.done).length;
+            const completedBlocks = c.blocks.filter((b) => b.completed).length;
             const remainingMinutes = c.blocks
               .filter((b) => !b.completed && b.kind === "study")
               .reduce((s, b) => s + b.minutes, 0);
@@ -82,6 +83,7 @@ export default async function CoursesPage() {
                       examInDays: daysUntil(c.examDate, today),
                       done,
                       total: c.topics.length,
+                      progressCount: done + completedBlocks,
                       apple: { emoji: apple.emoji, label: t(`apple.${apple.level}`), cls: apple.cls },
                     }}
                   />

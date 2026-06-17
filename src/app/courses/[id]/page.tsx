@@ -202,7 +202,7 @@ export default async function CoursePage({
       },
       blocks: {
         orderBy: { date: "asc" },
-        select: { id: true, date: true, topicTitle: true, minutes: true },
+        select: { id: true, date: true, topicTitle: true, minutes: true, completed: true },
       },
       files: {
         orderBy: { createdAt: "desc" },
@@ -228,6 +228,18 @@ export default async function CoursePage({
   const overloaded = await isCourseOverloaded(course.id);
   const doneCount = course.topics.filter((t) => t.done).length;
   const examInDays = daysUntil(course.examDate, todayISO());
+
+  // Delete guardrail: real progress (completed study sessions + done topics) that
+  // would be lost. Surfaced as a stronger warning line in the delete confirm so a
+  // course with history isn't dropped on a careless tap.
+  const completedSessions = course.blocks.filter((b) => b.completed).length;
+  const progressCount = completedSessions + doneCount;
+  const deleteProgressWarning =
+    progressCount > 0
+      ? t.locale === "de"
+        ? `Dieser Kurs hat ${completedSessions} abgeschlossene Lernsession(s) und ${doneCount} erledigte Themen — das Löschen ist endgültig.`
+        : `This course has ${completedSessions} completed sessions and ${doneCount} done topics — deleting is permanent.`
+      : null;
 
   // Group study blocks by date for the weekly view.
   const byDate = new Map<string, typeof course.blocks>();
@@ -432,6 +444,11 @@ export default async function CoursePage({
                 <>
                   {t("courseDetail.deleteMsgPre")} <strong>{course.name}</strong>{" "}
                   {t("courseDetail.deleteMsgPost")}
+                  {deleteProgressWarning && (
+                    <span className="mt-2 block font-medium text-red-600 dark:text-red-400">
+                      ⚠️ {deleteProgressWarning}
+                    </span>
+                  )}
                 </>
               }
               confirmLabel={t("courseDetail.deleteConfirm")}

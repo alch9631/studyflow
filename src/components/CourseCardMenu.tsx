@@ -36,12 +36,28 @@ import { useT } from "./i18n/I18nProvider";
 export default function CourseCardMenu({
   courseId,
   courseName,
+  progressCount = 0,
 }: {
   courseId: string;
   courseName: string;
+  /**
+   * Real progress that deleting would destroy: completed study sessions + done
+   * topics. When > 0 the confirm shows a stronger "deleting is permanent"
+   * warning so a course with history isn't dropped on a careless tap. Computed
+   * on the server (the My Courses page already loads each course's topics/blocks)
+   * and threaded down through the card.
+   */
+  progressCount?: number;
 }) {
   const t = useT();
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const deleteProgressWarning =
+    progressCount > 0
+      ? t.locale === "de"
+        ? `Dieser Kurs hat ${progressCount} abgeschlossene Lernsession(s) / erledigte Themen — das Löschen ist endgültig.`
+        : `This course has ${progressCount} completed sessions / done topics — deleting is permanent.`
+      : null;
 
   const stop = (e: MouseEvent) => {
     e.stopPropagation();
@@ -94,6 +110,11 @@ export default function CourseCardMenu({
           <DialogDescription>
             {t("courses.deleteDescPre")} <strong>{courseName}</strong>{" "}
             {t("courses.deleteDescPost")}
+            {deleteProgressWarning && (
+              <span className="mt-2 block font-medium text-red-600 dark:text-red-400">
+                ⚠️ {deleteProgressWarning}
+              </span>
+            )}
           </DialogDescription>
           <form action={deleteCourse} className="mt-5 flex justify-end gap-2">
             <input type="hidden" name="courseId" value={courseId} />
