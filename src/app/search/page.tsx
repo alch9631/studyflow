@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import GlobalSearch, { type SearchItem } from "@/components/GlobalSearch";
+import GlobalSearch, { type SearchItem, type SearchStartData } from "@/components/GlobalSearch";
 import { getT } from "@/components/i18n/server";
+import { daysUntil } from "@/lib/dates";
+import { todayISO } from "@/lib/planService";
+import { examCountdownLabel } from "@/components/i18n/messages";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -69,10 +72,32 @@ export default async function SearchPage({
     }
   }
 
+  // Pre-typing landing data: a few of the student's own courses to jump back
+  // into, plus the next exams ordered by how soon they are. Courses already come
+  // sorted by examDate asc, so the first ones are the most relevant.
+  const today = todayISO();
+  const start: SearchStartData = {
+    courses: courses.slice(0, 6).map((c) => ({
+      id: c.id,
+      name: c.name,
+      href: `/courses/${c.id}`,
+    })),
+    exams: courses
+      .map((c) => ({ c, days: daysUntil(c.examDate, today) }))
+      .filter(({ days }) => days >= 0)
+      .slice(0, 4)
+      .map(({ c, days }) => ({
+        id: c.id,
+        name: c.name,
+        href: `/courses/${c.id}`,
+        examLabel: examCountdownLabel(t, days),
+      })),
+  };
+
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <h1 className="mb-4 text-2xl font-bold tracking-tight">{t("search.title")}</h1>
-      <GlobalSearch items={items} initialQuery={q ?? ""} />
+      <GlobalSearch items={items} initialQuery={q ?? ""} start={start} />
     </main>
   );
 }

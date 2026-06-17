@@ -5,8 +5,9 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { appleFor } from "@/lib/apple";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
-import CourseCard from "@/components/CourseCard";
+import CourseCard, { type CourseHealth, type HealthStatus } from "@/components/CourseCard";
 import SwipeCourseCard from "@/components/SwipeCourseCard";
+import type { Translator } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/components/i18n/server";
@@ -16,6 +17,73 @@ export const metadata: Metadata = {
   title: "My Courses",
   description: "All your modules at a glance — exam countdowns, progress, and what needs attention next.",
 };
+
+/** A realistic daily study budget (minutes) — matches the planner's "~3 h/day". */
+const DAILY_BUDGET_MIN = 180;
+
+/**
+ * Derive a course's health from signals the page already computes. Order matters
+ * — the first matching rule wins, so the most urgent state always shows:
+ *   1. noPlan     — no study blocks exist yet (nothing to do until a plan is built)
+ *   2. examSoon   — exam is in the next 7 days (and work still remains)
+ *   3. overloaded — finishing needs more than ~3 h/day before the exam
+ *   4. attention  — moderate per-day load, or untouched topics with the exam near
+ *   5. healthy    — none of the above (comfortably on track, or already done)
+ */
+function deriveHealth(
+  t: Translator,
+  {
+    examInDays,
+    remainingMinutes,
+    untouched,
+    hasPlan,
+  }: { examInDays: number; remainingMinutes: number; untouched: number; hasPlan: boolean },
+): CourseHealth {
+  const daysLeft = Math.max(examInDays, 0);
+  // Spread remaining work over the days left (today counts), in hours/day.
+  const perDayHours = remainingMinutes / 60 / Math.max(daysLeft, 1);
+  const remainingHours = Math.round(remainingMinutes / 60);
+  const workLeft = remainingMinutes > 0;
+
+  let status: HealthStatus;
+  if (!hasPlan) status = "noPlan";
+  else if (examInDays >= 0 && examInDays <= 7 && workLeft) status = "examSoon";
+  else if (workLeft && remainingMinutes / 60 > (DAILY_BUDGET_MIN / 60) * Math.max(daysLeft, 1))
+    status = "overloaded";
+  else if (perDayHours * 60 > DAILY_BUDGET_MIN / 2 || (untouched > 0 && examInDays >= 0 && examInDays <= 21))
+    status = "attention";
+  else status = "healthy";
+
+  // Build the one-line "why" from the same signals, joined with " · ".
+  const parts: string[] = [];
+  parts.push(
+    examInDays < 0 ? t("courses.whyExamPassed") : t.n("courses.whyDaysLeft", examInDays),
+  );
+  if (!hasPlan) {
+    parts.push(t("courses.whyNoPlan"));
+  } else if (workLeft) {
+    parts.push(t("courses.whyRemaining", { hours: remainingHours }));
+  } else {
+    parts.push(t("courses.whyNoRemaining"));
+  }
+  if (untouched > 0) parts.push(t.n("courses.whyUntouched", untouched));
+  if (status === "overloaded") {
+    parts.push(t("courses.whyPerDay", { hours: Math.max(Math.round(perDayHours), 1) }));
+  }
+
+  const next =
+    status === "noPlan"
+      ? t("courses.nextBuildPlan")
+      : status === "examSoon"
+        ? t("courses.nextStartNow")
+        : status === "overloaded"
+          ? t("courses.nextEaseLoad")
+          : status === "attention"
+            ? t("courses.nextKeepGoing")
+            : t("courses.nextStayOnTrack");
+
+  return { status, why: parts.join(t("courses.whySep")), next };
+}
 
 export default async function CoursesPage() {
   const userId = await getCurrentUserId();
@@ -50,8 +118,8 @@ export default async function CoursesPage() {
       {courses.length === 0 ? (
         <EmptyState
           emoji="📚"
-          title={t("courses.emptyTitle")}
-          description={t("courses.emptyDesc")}
+          title={t("courses.emptyTitleActionable")}
+          description={t("courses.emptyDescActionable")}
           actions={[
             { label: t("courses.browseModules"), href: "/catalog" },
             { label: t("courses.importSyllabus"), href: "/courses/import" },
@@ -71,6 +139,13 @@ export default async function CoursesPage() {
               intense: c.intense,
               remainingMinutes,
             });
+            const examInDays = daysUntil(c.examDate, today);
+            const health = deriveHealth(t, {
+              examInDays,
+              remainingMinutes,
+              untouched: c.topics.length - done,
+              hasPlan: c.blocks.length > 0,
+            });
             return (
               <li key={c.id}>
                 <SwipeCourseCard courseId={c.id} courseName={c.name}>
@@ -80,11 +155,12 @@ export default async function CoursesPage() {
                       id: c.id,
                       name: c.name,
                       examDate: c.examDate.toISOString().slice(0, 10),
-                      examInDays: daysUntil(c.examDate, today),
+                      examInDays,
                       done,
                       total: c.topics.length,
                       progressCount: done + completedBlocks,
                       apple: { emoji: apple.emoji, label: t(`apple.${apple.level}`), cls: apple.cls },
+                      health,
                     }}
                   />
                 </SwipeCourseCard>
