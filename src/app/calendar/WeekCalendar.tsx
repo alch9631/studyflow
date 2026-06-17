@@ -27,6 +27,7 @@ import {
   MINUTES_PER_DAY,
 } from "@/lib/calendarTime";
 import { layoutDayBlocks } from "@/lib/calendarLayout";
+import MobileDayView from "./MobileDayView";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -367,6 +368,9 @@ export default function WeekCalendar({
   // the "adjust state when a prop changes" pattern, so no setState-in-effect.
   const defaultDay = dayISOs.includes(todayISO) ? todayISO : dayISOs[0];
   const [selectedDay, setSelectedDay] = useState<string>(defaultDay);
+  // Mobile view mode: a grouped, compressed "Overview" (default — less
+  // overwhelming) or the full drag-and-drop "Timeline" grid.
+  const [mobileView, setMobileView] = useState<"overview" | "timeline">("overview");
   const [seenWeek, setSeenWeek] = useState<string>(weekStartISO);
   if (seenWeek !== weekStartISO) {
     setSeenWeek(weekStartISO);
@@ -376,6 +380,10 @@ export default function WeekCalendar({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Client-computed "now" (minutes-of-day) — only meaningful when today is shown.
+  // It stays `null` through the first render (which is what the server renders
+  // too, since the effect that reads the wall clock runs only after mount). The
+  // now-line is gated on `nowMin != null`, so the server HTML and the first
+  // client render are identical — no hydration mismatch from the client clock.
   const [nowMin, setNowMin] = useState<number | null>(null);
   useEffect(() => {
     const tick = () => {
@@ -668,7 +676,7 @@ export default function WeekCalendar({
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        {/* ── Mobile: single selected-day column ──────────────────────────── */}
+        {/* ── Mobile: single selected-day view (Overview or Timeline) ─────── */}
         <div className="md:hidden">
           {/* Exam marker for the selected day. */}
           {examsByDay.get(selectedDay)?.map((e) => (
@@ -679,39 +687,82 @@ export default function WeekCalendar({
               {t("calendar.examMarker", { course: e.courseName })}
             </div>
           ))}
-          {/* Unscheduled lane for the selected day. */}
-          <div className="mb-1">
-            <UnscheduledLane dayISO={selectedDay}>
-              {viewBlocks
-                .filter((b) => b.dayISO === selectedDay && b.startMin == null)
-                .map((b) => (
-                  <BlockCard key={b.id} block={b} onToggle={toggle} />
-                ))}
-            </UnscheduledLane>
+
+          {/* Overview ⇆ Timeline toggle. Overview is the calm grouped default;
+              Timeline is the full drag-and-drop grid for precise placement. */}
+          <div className="mb-2 inline-flex rounded-md border border-gray-200 p-0.5 text-[11px] font-medium dark:border-gray-700">
+            <button
+              type="button"
+              aria-pressed={mobileView === "overview"}
+              onClick={() => setMobileView("overview")}
+              className={`rounded px-2.5 py-1 ${
+                mobileView === "overview"
+                  ? "bg-brand text-brand-foreground"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {t("calendar.viewOverview")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={mobileView === "timeline"}
+              onClick={() => setMobileView("timeline")}
+              className={`rounded px-2.5 py-1 ${
+                mobileView === "timeline"
+                  ? "bg-brand text-brand-foreground"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {t("calendar.viewTimeline")}
+            </button>
           </div>
-          <div className="grid grid-cols-[48px_1fr] gap-1">
-            <div className="relative" style={{ height: GRID_HEIGHT }}>
-              {hourStarts.map((m) => (
-                <div
-                  key={m}
-                  style={{ position: "absolute", top: topPx(m) - 6, right: 4 }}
-                  className="text-[10px] tabular-nums text-gray-400"
-                >
-                  {minutesToHHMM(m)}
-                </div>
-              ))}
-            </div>
-            <DayColumn
+
+          {mobileView === "overview" ? (
+            <MobileDayView
               dayISO={selectedDay}
-              isToday={selectedDay === todayISO}
-              slotStarts={slotStarts}
-              dayLectures={lecturesFor(selectedDay)}
               timed={timedFor(selectedDay)}
-              nowMin={nowMin}
+              unscheduled={viewBlocks.filter(
+                (b) => b.dayISO === selectedDay && b.startMin == null,
+              )}
               onToggle={toggle}
-              onResize={beginResize}
             />
-          </div>
+          ) : (
+            <>
+              {/* Unscheduled lane for the selected day. */}
+              <div className="mb-1">
+                <UnscheduledLane dayISO={selectedDay}>
+                  {viewBlocks
+                    .filter((b) => b.dayISO === selectedDay && b.startMin == null)
+                    .map((b) => (
+                      <BlockCard key={b.id} block={b} onToggle={toggle} />
+                    ))}
+                </UnscheduledLane>
+              </div>
+              <div className="grid grid-cols-[48px_1fr] gap-1">
+                <div className="relative" style={{ height: GRID_HEIGHT }}>
+                  {hourStarts.map((m) => (
+                    <div
+                      key={m}
+                      style={{ position: "absolute", top: topPx(m) - 6, right: 4 }}
+                      className="text-[10px] tabular-nums text-gray-400"
+                    >
+                      {minutesToHHMM(m)}
+                    </div>
+                  ))}
+                </div>
+                <DayColumn
+                  dayISO={selectedDay}
+                  isToday={selectedDay === todayISO}
+                  slotStarts={slotStarts}
+                  dayLectures={lecturesFor(selectedDay)}
+                  timed={timedFor(selectedDay)}
+                  nowMin={nowMin}
+                  onToggle={toggle}
+                  onResize={beginResize}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Desktop (md+): full 7-column week ───────────────────────────── */}
