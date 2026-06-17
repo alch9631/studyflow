@@ -27,6 +27,16 @@ export type SearchItem = {
   meta?: string;
 };
 
+/**
+ * Data for the pre-typing landing view (shown before the student types). Gives
+ * them somewhere to go instead of a blank field: their own courses, the next
+ * exams, and a couple of fixed quick jumps.
+ */
+export type SearchStartData = {
+  courses: { id: string; name: string; href: string }[];
+  exams: { id: string; name: string; href: string; examLabel: string }[];
+};
+
 const TYPE_META: Record<
   SearchItem["type"],
   { labelKey: "search.groupCourses" | "search.groupTopics" | "search.groupDeadlines"; emoji: string }
@@ -57,9 +67,11 @@ function highlight(text: string, q: string) {
 export default function GlobalSearch({
   items,
   initialQuery = "",
+  start,
 }: {
   items: SearchItem[];
   initialQuery?: string;
+  start?: SearchStartData;
 }) {
   const router = useRouter();
   const t = useT();
@@ -185,9 +197,7 @@ export default function GlobalSearch({
       </p>
 
       {!hasQuery ? (
-        <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-          {t("search.hint")}
-        </p>
+        <SearchStart start={start} t={t} />
       ) : results.length === 0 ? (
         <div className="mt-6">
           <EmptyState
@@ -259,6 +269,95 @@ export default function GlobalSearch({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Fixed destinations always worth offering, regardless of the user's data. */
+const QUICK_JUMPS: { href: string; labelKey: "search.jumpToday" | "search.jumpCourses" | "search.jumpCatalog" }[] = [
+  { href: "/today", labelKey: "search.jumpToday" },
+  { href: "/courses", labelKey: "search.jumpCourses" },
+  { href: "/catalog", labelKey: "search.jumpCatalog" },
+];
+
+/**
+ * The pre-typing landing view: recent courses, upcoming exams, and quick jumps,
+ * so an empty search box still points the student somewhere useful. Falls back
+ * to the plain hint when there's no data yet (e.g. a brand-new account).
+ */
+function SearchStart({ start, t }: { start?: SearchStartData; t: ReturnType<typeof useT> }) {
+  const hasCourses = (start?.courses.length ?? 0) > 0;
+  const hasExams = (start?.exams.length ?? 0) > 0;
+
+  return (
+    <div className="mt-6 space-y-6">
+      <p className="text-sm text-gray-500 dark:text-gray-400">{t("search.startSubtitle")}</p>
+
+      {hasExams && (
+        <section>
+          <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {t("search.upcomingExams")}
+          </p>
+          <ul className="space-y-1">
+            {start!.exams.map((e) => (
+              <li key={`exam-${e.id}`}>
+                <Link
+                  href={e.href}
+                  className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
+                >
+                  <span className="text-lg leading-none" aria-hidden="true">⏳</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{e.name}</span>
+                    <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
+                      {t("search.examIn", { label: e.examLabel })}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {hasCourses ? (
+        <section>
+          <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {t("search.recentCourses")}
+          </p>
+          <ul className="space-y-1">
+            {start!.courses.map((c) => (
+              <li key={`course-${c.id}`}>
+                <Link
+                  href={c.href}
+                  className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
+                >
+                  <span className="text-lg leading-none" aria-hidden="true">📚</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : (
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t("search.noCoursesYet")}</p>
+      )}
+
+      <section>
+        <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {t("search.quickJumps")}
+        </p>
+        <div className="flex flex-wrap gap-2 px-1">
+          {QUICK_JUMPS.map((j) => (
+            <Link
+              key={j.href}
+              href={j.href}
+              className="rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
+            >
+              {t(j.labelKey)}
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
