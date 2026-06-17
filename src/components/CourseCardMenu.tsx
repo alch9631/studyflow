@@ -113,7 +113,7 @@ export default function CourseCardMenu({
             {t("courses.deleteDescPost")}
             {deleteProgressWarning && (
               <span className="mt-2 block font-medium text-red-600 dark:text-red-400">
-                ⚠️ {deleteProgressWarning}
+                {deleteProgressWarning}
               </span>
             )}
           </DialogDescription>

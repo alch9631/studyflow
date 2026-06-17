@@ -13,9 +13,9 @@ import type { MessageKey } from "./i18n/messages";
 
 type Tab = { href: string; labelKey: MessageKey; icon: string; external?: boolean };
 
-// The four core destinations. On mobile these live in the BottomTabBar, so the
-// drawer deliberately omits them to avoid duplicate affordances; on desktop the
-// inline top-bar tabs render the full list (core + secondary).
+// The four — and only four — primary destinations. They are the desktop inline
+// tabs and (on mobile) the BottomTabBar. The drawer deliberately omits them to
+// avoid duplicate affordances.
 const CORE_TABS: Tab[] = [
   { href: "/today", labelKey: "nav.today", icon: "🗓️" },
   { href: "/calendar", labelKey: "nav.calendar", icon: "🗓️" },
@@ -23,37 +23,24 @@ const CORE_TABS: Tab[] = [
   { href: "/insights", labelKey: "nav.insights", icon: "📊" },
 ];
 
-// Secondary destinations. Reachable from the desktop inline tabs and the mobile
-// drawer only — never the bottom bar. Catalog export route (/api/calendar) is
-// kept but hidden from nav for now.
+// Secondary, contextual destinations. Reachable from the mobile drawer only —
+// never the bottom bar and never the desktop inline tabs, which stay limited to
+// the four primaries. Catalog export route (/api/calendar) stays hidden from nav.
 const SECONDARY_TABS: Tab[] = [
   { href: "/catalog", labelKey: "nav.modules", icon: "🎓" },
-  // The planner schedules around the timetable — keep it discoverable in the
-  // main nav, not buried behind Settings.
   { href: "/timetable", labelKey: "nav.timetable", icon: "📅" },
 ];
 
-// Full ordered list for the desktop inline tabs (core interleaved with secondary).
-const DESKTOP_TABS: Tab[] = [
-  CORE_TABS[0], // Today
-  CORE_TABS[2], // Courses
-  SECONDARY_TABS[0], // Modules
-  SECONDARY_TABS[1], // Timetable
-  CORE_TABS[1], // Calendar
-  CORE_TABS[3], // Insights
-];
+// Desktop inline tabs: the four primaries, in reading order.
+const DESKTOP_TABS: Tab[] = CORE_TABS;
 
 const SEARCH: Tab = { href: "/search", labelKey: "nav.search", icon: "🔍" };
 const SETTINGS: Tab = { href: "/settings", labelKey: "nav.settings", icon: "⚙️" };
 
-// Mobile drawer entries: secondary routes + Dashboard + Settings. The four core
-// routes are excluded (they live in the BottomTabBar) and Search is excluded too
-// (it has a dedicated, always-visible icon in the top bar) — no duplicates.
-const DRAWER_TABS: Tab[] = [
-  ...SECONDARY_TABS,
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: "📈" },
-  SETTINGS,
-];
+// Mobile drawer entries: secondary routes + Settings. The four primaries are
+// excluded (they live in the BottomTabBar) and Search is excluded too (it has a
+// dedicated, always-visible icon in the top bar) — no duplicates.
+const DRAWER_TABS: Tab[] = [...SECONDARY_TABS, SETTINGS];
 
 function isActive(pathname: string, t: Tab) {
   if (t.external) return false;
@@ -149,25 +136,6 @@ export default function Nav() {
                 </Link>
               );
             })}
-            {/* Experimental desktop study cockpit. Literal label (no i18n key yet)
-                so it stays out of the typed TABS list above. */}
-            {(() => {
-              const active =
-                pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-              return (
-                <Link
-                  href="/dashboard"
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
-                    active
-                      ? "bg-brand text-brand-foreground"
-                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                  }`}
-                >
-                  Dashboard
-                </Link>
-              );
-            })()}
           </div>
 
           {/* Global search — always visible (incl. mobile) so it's reachable

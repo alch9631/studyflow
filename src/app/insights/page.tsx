@@ -114,34 +114,20 @@ export default async function InsightsPage() {
     );
   }
 
-  // Plain-language takeaways — a few honest, data-derived lines. Each maps a real
-  // number to one sentence; nothing is shown that the data doesn't support.
-  const takeaways: string[] = [];
+  // ONE soft lead line — a single calm reflection, never a stacked report. We
+  // pick the gentlest true sentence for where the day/week stands, leading with
+  // an invitation rather than a verdict.
+  let leadLine: string;
   if (loggedMinutes === 0 && dueDone === 0) {
-    takeaways.push(t("insights.takeawayNoData"));
+    leadLine = t("insights.leadNoData");
+  } else if (streak >= 3) {
+    leadLine = t("insights.leadStreak", { days: streak });
+  } else if (weekPlanned > 0 && weekPct >= 50) {
+    leadLine = t("insights.leadOnTrack", { pct: weekPct });
+  } else if (weekPlanned === 0) {
+    leadLine = t("insights.leadWeekClear");
   } else {
-    // This week: overloaded > behind > on track > clear.
-    if (weekPlanned >= 600 && weekPct < 60) {
-      takeaways.push(t("insights.takeawayOverloaded", { planned: fmtMin(weekPlanned), pct: weekPct }));
-    } else if (weekPlanned === 0) {
-      takeaways.push(t("insights.takeawayWeekClear"));
-    } else if (weekPct < 50) {
-      takeaways.push(t("insights.takeawayBehindWeek", { pct: weekPct }));
-    } else {
-      takeaways.push(t("insights.takeawayOnTrackWeek", { pct: weekPct }));
-    }
-    // What to focus on next.
-    if (attention.length > 0) {
-      takeaways.push(t("insights.takeawayAttention", { name: attention[0].name }));
-    } else if (courses.length > 0) {
-      takeaways.push(t("insights.takeawayExamsClear"));
-    }
-    // Habit: celebrate a streak, otherwise nudge on patchy consistency.
-    if (streak >= 3) {
-      takeaways.push(t("insights.takeawayStreak", { days: streak }));
-    } else if (activeDays > 0 && consistency < 40) {
-      takeaways.push(t("insights.takeawayInconsistent", { days: activeDays }));
-    }
+    leadLine = t("insights.leadNextBlock");
   }
 
   return (
@@ -153,7 +139,7 @@ export default async function InsightsPage() {
 
       {!hasData ? (
         <EmptyState
-          emoji="📊"
+          emoji="🌱"
           title={t("insights.emptyTitle")}
           description={t("insights.emptyDesc")}
           actions={[
@@ -163,26 +149,27 @@ export default async function InsightsPage() {
         />
       ) : (
         <>
-          {/* Plain-language takeaways — the honest "so what" up top */}
-          {takeaways.length > 0 && (
-            <section className={`${panelClass} mb-3 p-5`}>
-              <h2 className="mb-2 font-semibold">{t("insights.takeawayTitle")}</h2>
-              <ul className="space-y-1.5">
-                {takeaways.map((line, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-200">
-                    <span aria-hidden="true" className="text-brand-ink dark:text-white">›</span>
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* ONE soft lead line — the calm "where you are" up top, an invitation
+              rather than a verdict. */}
+          <p className="mb-5 text-base text-gray-700 dark:text-gray-200">{leadLine}</p>
 
-          {/* Study streak — the headline habit metric */}
-          <div className="mb-3">
+          {/* Rhythm — study habit as gentle reflection, not a scoreboard. */}
+          <section aria-label={t("insights.rhythm")}>
+            <h2 className="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+              {t("insights.rhythm")}
+            </h2>
             <StreakCard current={streak} best={longestStreak} t={t} />
-          </div>
+          </section>
 
+          {/* Everything number-heavy lives behind one quiet disclosure, so the
+              page reads as reflection first and analysis only on request. */}
+          <details className="group mt-6">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              {t("insights.details")}
+              <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
+            </summary>
+
+            <div className="mt-4 space-y-6">
           {/* Headline stats */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
@@ -191,27 +178,22 @@ export default async function InsightsPage() {
             <Stat label={t("insights.modulesDone")} value={`${completedModules}`} sub={t("insights.ofN", { count: courses.length })} />
           </div>
 
-          {/* Needs attention — what to focus on next */}
+          {/* Up next — quiet, judgment-free pointers to the closest courses */}
           {attention.length > 0 && (
-            <section className="mt-6">
-              <h2 className="mb-3 font-semibold">{t("insights.needsAttention")}</h2>
+            <section>
+              <h2 className="mb-3 font-semibold">{t("insights.upNext")}</h2>
               <ul className="space-y-2">
-                {attention.map(({ id, name, topicsTotal, topicsDone, apple, days }) => (
+                {attention.map(({ id, name, topicsTotal, topicsDone, days }) => (
                   <li key={id}>
                     <Link
                       href={`/courses/${id}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
+                      className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 transition-colors hover:bg-gray-100 dark:bg-gray-900/60 dark:hover:bg-gray-900"
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{name}</span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           {t("insights.topicsLabel", { done: topicsDone, total: topicsTotal })} · {examCountdownLabel(t, days)}
                         </span>
-                      </span>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${apple.cls}`}
-                      >
-                        {apple.emoji} {t(`apple.${apple.level}`)}
                       </span>
                     </Link>
                   </li>
@@ -222,7 +204,7 @@ export default async function InsightsPage() {
 
           {/* Grades — Notenschnitt over graded courses */}
           {graded.length > 0 && (
-            <section className={`${panelClass} mt-6 p-5`}>
+            <section className={`${panelClass} p-5`}>
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold">{t("insights.grades")}</h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -263,7 +245,7 @@ export default async function InsightsPage() {
           )}
 
           {/* This week */}
-          <section className={`${panelClass} mt-6 p-5`}>
+          <section className={`${panelClass} p-5`}>
             <div className="flex items-baseline justify-between">
               <h2 className="font-semibold">{t("insights.thisWeek")}</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -286,7 +268,7 @@ export default async function InsightsPage() {
           </section>
 
           {/* Activity & consistency — recent study load + the 14-day rhythm */}
-          <section className={`${panelClass} mt-6 p-5`}>
+          <section className={`${panelClass} p-5`}>
             <div className="flex items-baseline justify-between">
               <h2 className="font-semibold">{t("insights.last7days")}</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -300,7 +282,7 @@ export default async function InsightsPage() {
 
           {/* Study heatmap — 12-week calendar of completed study minutes */}
           {heatmapDays.length > 0 && (
-            <section className={`${panelClass} mt-6 p-5`}>
+            <section className={`${panelClass} p-5`}>
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold">{t("insights.heatmap")}</h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -313,7 +295,7 @@ export default async function InsightsPage() {
             </section>
           )}
 
-          <section className={`${panelClass} mt-6 p-5`}>
+          <section className={`${panelClass} p-5`}>
             <h2 className="font-semibold">{t("insights.consistency")}</h2>
             <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
               <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
@@ -328,7 +310,7 @@ export default async function InsightsPage() {
           </section>
 
           {/* Per-course progress */}
-          <section className="mt-6">
+          <section>
             <h2 className="mb-3 font-semibold">{t("insights.byCourse")}</h2>
             <ul className="space-y-2">
               {courses.map((c) => {
@@ -338,7 +320,7 @@ export default async function InsightsPage() {
                 return (
                   <li
                     key={c.id}
-                    className="rounded-xl border border-gray-200 p-3 dark:border-gray-800"
+                    className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900/60"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <Link
@@ -351,7 +333,7 @@ export default async function InsightsPage() {
                         {t("insights.topicsLabel", { done, total })}
                       </span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
                       <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
                     </div>
                   </li>
@@ -362,6 +344,8 @@ export default async function InsightsPage() {
               )}
             </ul>
           </section>
+            </div>
+          </details>
         </>
       )}
     </main>
