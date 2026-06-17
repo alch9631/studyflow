@@ -51,20 +51,33 @@ function check(name: string, cond: boolean) {
   check("9th call with default budget is blocked", rateLimit(key) === false);
 }
 
-// --- Linear refill: tokens come back over the window. ---
+// --- Linear refill: tokens actually come back as time elapses. ---
+// Drive the real refill formula by advancing Date.now (not by resetting), so a
+// regression to "unconditional refill" or "no refill" would fail this.
 {
   const key = "refill-over-window";
   const max = 4;
   const windowMs = 1000;
-  // Drain the bucket.
-  for (let i = 0; i < max; i++) rateLimit(key, max, windowMs);
-  check("drained bucket blocks", rateLimit(key, max, windowMs) === false);
+  const realNow = Date.now;
+  let t = 1_000_000;
+  Date.now = () => t;
+  try {
+    // Drain the bucket at t0.
+    for (let i = 0; i < max; i++) rateLimit(key, max, windowMs);
+    check("drained bucket blocks", rateLimit(key, max, windowMs) === false);
 
-  // Simulate the passage of time by reseeding the bucket via resetRateLimit and
-  // confirming a fresh bucket refills to full (the refill formula is `(elapsed /
-  // windowMs) * max`, exercised here as a fresh start = full).
-  resetRateLimit(key);
-  check("after reset the key is allowed again", rateLimit(key, max, windowMs) === true);
+    // Half a window later ≈ 2 tokens refill ((500/1000)*4) → one call allowed.
+    t += windowMs / 2;
+    check("refills partway after half the window", rateLimit(key, max, windowMs) === true);
+
+    // Well past a full window → refills to full, so a fresh burst of `max`.
+    t += windowMs * 3;
+    let allowed = 0;
+    for (let i = 0; i < max; i++) if (rateLimit(key, max, windowMs)) allowed++;
+    check("refills to full after a full window", allowed === max);
+  } finally {
+    Date.now = realNow;
+  }
 }
 
 // --- resetRateLimit() with no arg clears everything. ---

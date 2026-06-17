@@ -83,7 +83,12 @@ export default function WeeklyPlan({
                 setOverDay(null);
                 const id = e.dataTransfer.getData("text/plain") || dragId;
                 setDragId(null);
-                if (id) void move(id, dayISO);
+                if (!id) return;
+                // Dropped back on the day it already sits on → no-op (skip the
+                // pointless write + refresh flash).
+                const dragged = blocks.find((b) => b.id === id);
+                if (dragged && dragged.dateISO === dayISO) return;
+                void move(id, dayISO);
               }}
               className={`flex flex-col gap-2 rounded-lg transition-colors ${
                 isOver ? "bg-indigo-500/10 ring-1 ring-indigo-500/40" : ""
