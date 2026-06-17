@@ -44,3 +44,8 @@ next-env.d.ts
 # local sqlite dev db
 *.db
 prisma/*.db
+
+# overnight loop local state
+ops/overnight-state.json
+.overnight-test.db
+.overnight-test.db-*
