@@ -7,12 +7,23 @@ import { auth } from "@/auth";
  *
  * Real auth (Auth.js / Google) is the primary path: if there's an authenticated
  * session, its database user id is returned. When there is NO session we fall
- * back to the legacy dev user — but ONLY when ALLOW_DEV_USER=1 is set, so local
- * dev and the Pi keep working with no Google credentials. In production (no dev
- * flag) an unauthenticated request throws; the middleware redirects to /login
- * before any page reaches this, so that throw is a defensive last resort.
+ * back to the legacy dev user — but ONLY outside production (so a clean `git
+ * clone && npm install && npm test` works with no env flags) OR when
+ * ALLOW_DEV_USER=1 is explicitly set (e.g. the Pi running NODE_ENV=production
+ * with no Google credentials). In production with the flag unset, an
+ * unauthenticated request throws; the proxy redirects to /login before any page
+ * reaches this, so that throw is a defensive last resort.
  */
 const DEV_EMAIL = "dev@studyflow.local";
+
+/**
+ * Is the legacy dev-user fallback allowed? True in any non-production
+ * environment (dev / test / CI), or whenever ALLOW_DEV_USER=1 is set explicitly
+ * — which is how a production deploy (the Pi) opts back in without Google creds.
+ */
+function isDevUserAllowed(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_USER === "1";
+}
 
 // The dev user's id never changes once created, but the upsert below takes
 // SQLite's write lock on EVERY request (each page render serializes against
@@ -34,7 +45,7 @@ async function getDevUserId(): Promise<string> {
 }
 
 export async function getCurrentUserId(): Promise<string> {
-  const devAllowed = process.env.ALLOW_DEV_USER === "1";
+  const devAllowed = isDevUserAllowed();
 
   // Resolve the real session. In dev-user mode we tolerate failures (e.g. auth()
   // called outside a request scope in unit tests, or no AUTH_SECRET configured)

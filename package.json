@@ -9,6 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "ci": "node scripts/prisma-bootstrap.mjs && npm run lint && tsc --noEmit && npm test && npm run build",
+    "pretest": "node scripts/prisma-bootstrap.mjs",
     "test": "node scripts/test-all.mjs",
     "test:engine": "tsx src/lib/planner.test.ts",
     "test:service": "tsx src/lib/planService.test.ts",
@@ -49,6 +51,9 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
   },
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
     "@auth/prisma-adapter": "^2.11.2",
@@ -63,6 +68,7 @@
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "framer-motion": "^12.40.0",
+    "geist": "^1.7.2",
     "lucide-react": "^1.17.0",
     "mammoth": "^1.12.0",
     "next": "16.2.7",

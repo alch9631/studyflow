@@ -9,22 +9,15 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
+      # Local SQLite DB for the CI run. NODE_ENV is not "production" here, so
+      # getCurrentUserId() falls back to the seeded dev user automatically — no
+      # ALLOW_DEV_USER flag or AUTH_SECRET needed (Auth.js isn't exercised in CI).
       DATABASE_URL: "file:./ci.db"
-      # CI verifies build/types/tests in single-user dev mode (no Google OAuth in
-      # CI): getCurrentUserId() falls back to the seeded dev user instead of
-      # calling Auth.js's auth(), which needs a real request scope.
-      ALLOW_DEV_USER: "1"
-      AUTH_SECRET: "ci-not-a-real-secret-aaaaaaaaaaaaaaaaaaaaaaaa"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
-      - run: npx prisma db push
-      - run: npm run lint
-      - run: npx tsc --noEmit
-      - run: npm test
-      - run: npm run build
+      - run: npm run ci

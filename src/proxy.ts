@@ -1,14 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Route protection: unauthenticated requests to app routes are redirected to
- * /login. Runs on the Edge runtime, so it does NOT import src/auth.ts (the
- * PrismaAdapter pulls in Node-only Prisma). Instead it does a cheap presence
- * check of the Auth.js session cookie — enough to gate page navigation; the real
- * session is still verified server-side by auth() in getCurrentUserId().
+ * Route protection (Next 16 Proxy, formerly Middleware): unauthenticated
+ * requests to app routes are redirected to /login. It does NOT import
+ * src/auth.ts (the PrismaAdapter pulls in heavy Node-only Prisma); instead it
+ * does a cheap presence check of the Auth.js session cookie — enough to gate
+ * page navigation; the real session is still verified server-side by auth() in
+ * getCurrentUserId().
  *
- * When ALLOW_DEV_USER=1 (local dev / the Pi, no Google creds) every request is
- * treated as authed so existing flows keep working with no sign-in.
+ * The dev-user fallback (every request treated as authed, no sign-in) is on in
+ * any non-production environment, or when ALLOW_DEV_USER=1 is set explicitly
+ * (e.g. the Pi running in production with no Google creds) — mirrors
+ * getCurrentUserId()'s predicate.
  */
 
 // Public routes that never require a session.
@@ -32,10 +35,12 @@ function isPublic(pathname: string): boolean {
   return false;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (process.env.ALLOW_DEV_USER === "1") return NextResponse.next();
+  const devAllowed =
+    process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_USER === "1";
+  if (devAllowed) return NextResponse.next();
   if (isPublic(pathname)) return NextResponse.next();
   if (hasSessionCookie(req)) return NextResponse.next();
 

@@ -26,17 +26,29 @@ npx tsx src/lib/planner.test.ts   # run the engine tests
 
 Next.js (App Router, TS) · Tailwind · Supabase (Postgres + auth) · Prisma · OpenAI API · Vercel.
 
-## Getting started
+## Local setup
 
 > **Just want to try it?** See **[START_HERE.md](START_HERE.md)** — local dev needs no setup (SQLite + a dev user), and demo data is seeded. `npm install && npm run dev`.
 
+Requires **Node 24** (see [`.nvmrc`](.nvmrc); `nvm use` picks it up).
+
 ```bash
+git clone <repo> && cd studyflow
 npm install
-npm run setup    # creates .env, builds the SQLite DB, seeds demo data + TUHH catalog
-npm run dev      # http://localhost:3000
+cp .env.example .env   # the only required var is DATABASE_URL (defaults to SQLite)
+npm run setup          # creates .env if missing, builds the SQLite DB, seeds demo data + TUHH catalog
+npm run dev            # http://localhost:3000
 ```
 
-`npm run setup` is idempotent; after the first run just `npm run dev`.
+`npm run setup` is idempotent (`cp` above is optional — setup copies `.env` for
+you if it's absent); after the first run just `npm run dev`. Outside production,
+the app signs you in as a seeded dev user automatically — no Google OAuth needed.
+
+Run the full verification suite (what CI runs) with:
+
+```bash
+npm run ci   # prisma generate + db push → lint → tsc --noEmit → tests → build
+```
 
 For production (Postgres + auth + deploy), see **[PRODUCTION.md](PRODUCTION.md)**.
 

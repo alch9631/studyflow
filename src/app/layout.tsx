@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// Self-hosted Geist via the `geist` package (wraps next/font/local), so there's
+// no build-time Google Fonts network fetch. Same --font-geist-sans/-mono vars.
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import BottomTabBar from "@/components/BottomTabBar";
@@ -13,16 +16,6 @@ import { ToastProvider } from "@/components/Toast";
 import { I18nProvider } from "@/components/i18n/I18nProvider";
 import { getLocale } from "@/components/i18n/server";
 import { createTranslator } from "@/components/i18n/messages";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: { default: "StudyFlow", template: "%s · StudyFlow" },
@@ -66,7 +59,7 @@ export default async function RootLayout({
     <html
       lang={locale}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <head>
         {/* No-flash: apply saved (or system) theme before paint. */}

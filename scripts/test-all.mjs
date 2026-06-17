@@ -4,6 +4,10 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+// Default DATABASE_URL (?=) so suites that touch Prisma run with zero env, e.g.
+// a clean `git clone && npm install && npm test`. Matches .env.example.
+process.env.DATABASE_URL ??= "file:./dev.db";
+
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url)));
 const suites = Object.keys(pkg.scripts ?? {})
   .filter((name) => name.startsWith("test:"))
