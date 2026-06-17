@@ -1,0 +1,55 @@
+/* Scoped styles for the experimental desktop dashboard (/dashboard).
+   Kept in a module so it never touches the app-wide globals.css. */
+
+/* Animated gradient outline for AI-generated / AI-validated study blocks.
+   The gradient lives in a ::before that's masked to just the 1.5px border ring,
+   so the card body stays a flat slate surface. */
+.aiBlock {
+  position: relative;
+  isolation: isolate;
+}
+.aiBlock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(120deg, #10b981, #6366f1, #10b981);
+  background-size: 200% 200%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: aiflow 3.5s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes aiflow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* Live "AI is working" status dot + label pulse. */
+.pulse {
+  animation: pulse 1.7s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aiBlock::before,
+  .pulse {
+    animation: none;
+  }
+}
