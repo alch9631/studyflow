@@ -1,9 +1,16 @@
+import type { Session } from "next-auth";
 import { prisma } from "./db";
+import { auth } from "@/auth";
 
 /**
- * Stand-in for real auth (Supabase comes later). Returns a stable local user so
- * the whole app is usable offline. When auth lands, replace calls to this with
- * the session user id — nothing else needs to change.
+ * Resolves the current user's id for every userId-scoped read/write.
+ *
+ * Real auth (Auth.js / Google) is the primary path: if there's an authenticated
+ * session, its database user id is returned. When there is NO session we fall
+ * back to the legacy dev user — but ONLY when ALLOW_DEV_USER=1 is set, so local
+ * dev and the Pi keep working with no Google credentials. In production (no dev
+ * flag) an unauthenticated request throws; the middleware redirects to /login
+ * before any page reaches this, so that throw is a defensive last resort.
  */
 const DEV_EMAIL = "dev@studyflow.local";
 
@@ -13,7 +20,8 @@ const DEV_EMAIL = "dev@studyflow.local";
 // the exact upsert behaviour (test DBs get reset between runs).
 let cachedDevUserId: string | null = null;
 
-export async function getCurrentUserId(): Promise<string> {
+/** Ensure-and-return the seeded local dev user (legacy no-auth behaviour). */
+async function getDevUserId(): Promise<string> {
   if (process.env.NODE_ENV === "production" && cachedDevUserId) return cachedDevUserId;
   const user = await prisma.user.upsert({
     where: { email: DEV_EMAIL },
@@ -23,6 +31,24 @@ export async function getCurrentUserId(): Promise<string> {
   });
   cachedDevUserId = user.id;
   return user.id;
+}
+
+export async function getCurrentUserId(): Promise<string> {
+  const devAllowed = process.env.ALLOW_DEV_USER === "1";
+
+  // Resolve the real session. In dev-user mode we tolerate failures (e.g. auth()
+  // called outside a request scope in unit tests, or no AUTH_SECRET configured)
+  // and fall through to the dev user; in production a broken session is fatal.
+  let session: Session | null = null;
+  try {
+    session = await auth();
+  } catch (err) {
+    if (!devAllowed) throw err;
+  }
+
+  if (session?.user?.id) return session.user.id;
+  if (devAllowed) return getDevUserId();
+  throw new Error("Not authenticated");
 }
 
 /**

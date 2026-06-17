@@ -6,7 +6,10 @@ import LanguageToggle from "@/components/LanguageToggle";
 import CalendarSync from "@/components/CalendarSync";
 import PushReminders from "@/components/PushReminders";
 import { panelClass } from "@/components/ui";
+import { Button } from "@/components/ui/button";
 import { getCalendarToken } from "@/lib/devUser";
+import { auth } from "@/auth";
+import { signOutAction } from "./actions";
 import { getT } from "@/components/i18n/server";
 
 export const metadata: Metadata = {
@@ -54,10 +57,11 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ msg?: string }>;
 }) {
-  const [calendarToken, { msg }, t] = await Promise.all([
+  const [calendarToken, { msg }, t, session] = await Promise.all([
     getCalendarToken(),
     searchParams,
     getT(),
+    auth(),
   ]);
 
   return (
@@ -143,12 +147,26 @@ export default async function SettingsPage({
 
       </div>
 
-      {/* Account — minor placeholder for future login-based personalization;
-          kept as a small muted line rather than a full panel to reduce noise. */}
-      <p className="mt-4 flex items-center gap-1.5 px-1 text-xs text-gray-500 dark:text-gray-400">
-        <span aria-hidden>👤</span>
-        {t("settings.accountTitle")} — {t("settings.loginSoon")}
-      </p>
+      {/* Account — signed-in identity + sign out. When the app runs without auth
+          (ALLOW_DEV_USER=1) there is no real session, so we keep the original
+          muted placeholder line instead of showing a sign-out control. */}
+      {session?.user ? (
+        <>
+          <GroupLabel>{t("settings.accountTitle")}</GroupLabel>
+          <Section icon="👤" title={t("settings.accountTitle")} description={session.user.email ?? ""}>
+            <form action={signOutAction} className="mt-3">
+              <Button type="submit" variant="secondary" size="md">
+                Sign out
+              </Button>
+            </form>
+          </Section>
+        </>
+      ) : (
+        <p className="mt-4 flex items-center gap-1.5 px-1 text-xs text-gray-500 dark:text-gray-400">
+          <span aria-hidden>👤</span>
+          {t("settings.accountTitle")} — {t("settings.loginSoon")}
+        </p>
+      )}
       <details className="mt-8 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 text-sm text-gray-600 dark:text-gray-300">
         <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-200">
           {t("courses.howTitle")}

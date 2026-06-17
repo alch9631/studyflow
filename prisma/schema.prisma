@@ -18,11 +18,60 @@ model User {
   email         String    @unique
   name          String?
   createdAt     DateTime  @default(now())
+  // Auth.js (NextAuth) profile fields — populated on Google sign-in.
+  emailVerified DateTime?
+  image         String?
   // Secret URL token for the live calendar subscribe feed (webcal). null until first used.
   calendarToken String?   @unique
   courses       Course[]
   lectures      Lecture[]
   pushSubscriptions PushSubscription[]
+  // Auth.js relations (OAuth accounts + active sessions).
+  accounts      Account[]
+  sessions      Session[]
+}
+
+// --- Auth.js (NextAuth) models ---
+// Standard adapter tables for @auth/prisma-adapter. Kept provider-agnostic (no
+// pg-only types) so the sqlite→postgresql production swap is a one-line change.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 // A browser web-push subscription (for study reminders). Sending is deploy-gated
