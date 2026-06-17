@@ -72,6 +72,8 @@ export async function createCourse(formData: FormData) {
   const name = requireText(formData.get("name"), "Course name");
   const examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
+  // Difficulty dial: integer 1–5, defaulting to 3 (normal) when missing/invalid.
+  const difficulty = clampInt(formData.get("difficulty"), 1, 5, 3);
   const topicLines = longText(formData.get("topics"))
     .split("\n")
     .map((l) => l.trim())
@@ -86,6 +88,7 @@ export async function createCourse(formData: FormData) {
       name,
       examDate: toUTCDate(examDate),
       studyDays,
+      difficulty,
       userId,
       topics: {
         create: topicLines.map((title, i) => ({ title, order: i })),
@@ -551,10 +554,13 @@ export async function updateCourse(formData: FormData) {
     redirect(`/courses/${id}?msg=past-exam`);
   }
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
+  // Difficulty dial: integer 1–5, defaulting to 3 (normal) when missing/invalid.
+  const difficulty = clampInt(formData.get("difficulty"), 1, 5, 3);
 
   const owned = await updateOwnedCourse(userId, id, {
     ...(examDate ? { examDate: toUTCDate(examDate) } : {}),
     studyDays,
+    difficulty,
   });
   if (!owned) redirect("/courses");
   await regeneratePlan(id);

@@ -129,6 +129,36 @@ check("nearer exam needs more minutes/day", near.minutesPerDay > far.minutesPerD
 check("comfortable runway is not intense", far.intense === false);
 check("plan covers all topics at computed pace", new Set(near.blocks.map((b) => b.topicId)).size === 3);
 
+// ---- Per-course difficulty dial (1–5) -------------------------------------
+// Difficulty is purely additive: an unrated course (no `difficulty`) and an
+// explicit difficulty 3 (the default) must produce the EXACT same plan as before
+// the dial existed — same pace, byte-for-byte same blocks (no regression).
+// `far` above is the baseline (course with no `difficulty`, runway "2026-05-01").
+const diffNormal = planForDeadline({ ...course, difficulty: 3 }, "2026-05-01");
+check(
+  "difficulty 3 == baseline pace (no regression)",
+  diffNormal.minutesPerDay === far.minutesPerDay,
+);
+check(
+  "difficulty 3 == baseline blocks byte-for-byte",
+  JSON.stringify(diffNormal.blocks) === JSON.stringify(far.blocks),
+);
+// Harder courses get proportionally MORE study time: difficulty 5 paces higher
+// than difficulty 1 for the very same course over the same runway. Use the SHORT
+// runway ("2026-06-15", ~1 week) so the pace is well above the 15-min floor and
+// the multiplier visibly moves it (a far runway can already sit at the floor).
+const diffEasyNear = planForDeadline({ ...course, difficulty: 1 }, "2026-06-15");
+const diffNormalNear = planForDeadline({ ...course, difficulty: 3 }, "2026-06-15");
+const diffHardNear = planForDeadline({ ...course, difficulty: 5 }, "2026-06-15");
+check(
+  "difficulty 5 paces higher than difficulty 1",
+  diffHardNear.minutesPerDay > diffEasyNear.minutesPerDay,
+);
+check(
+  "difficulty 5 paces higher than the normal default",
+  diffHardNear.minutesPerDay > diffNormalNear.minutesPerDay,
+);
+
 // ===========================================================================
 // EDGE CASES — adversarial inputs. The engine must DEGRADE GRACEFULLY: never
 // throw, never emit nonsensical (NaN / negative / over-budget) blocks, and stay

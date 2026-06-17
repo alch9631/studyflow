@@ -40,7 +40,42 @@ export type Course = {
   studyDays: number[];
   /** Minutes available on a study day. */
   minutesPerDay: number;
+  /**
+   * How hard the student rates the whole course, 1 (easy) … 5 (hard), 3 = normal.
+   * Scales the course's total study time (harder → more time/pace). Optional and
+   * defaulting to 3 (multiplier 1.0) so a course with no rating plans EXACTLY as
+   * before this feature existed — difficulty is purely additive (no regression).
+   */
+  difficulty?: number;
 };
+
+/**
+ * Per-course difficulty (1–5) → study-time multiplier. Harder courses get
+ * proportionally MORE study minutes (and thus a higher computed pace); easier
+ * ones get less. 3 = normal = 1.0, so the DEFAULT difficulty produces the exact
+ * same plan as before this dial existed. Anything missing/out-of-range coerces
+ * to 3 via {@link difficultyMultiplier}.
+ */
+export const DIFFICULTY_MULTIPLIER: Record<number, number> = {
+  1: 0.7,
+  2: 0.85,
+  3: 1.0,
+  4: 1.2,
+  5: 1.4,
+};
+
+/** Default course difficulty: 3 = normal = multiplier 1.0 (baseline behavior). */
+export const DEFAULT_DIFFICULTY = 3;
+
+/**
+ * Resolve a course's difficulty to its study-time multiplier. Null/NaN/out-of-1–5
+ * values fall back to the normal multiplier (1.0), so bad/legacy data degrades to
+ * the unchanged baseline rather than skewing the plan.
+ */
+export function difficultyMultiplier(difficulty: number | null | undefined): number {
+  const d = Number.isFinite(difficulty as number) ? Math.round(difficulty as number) : DEFAULT_DIFFICULTY;
+  return DIFFICULTY_MULTIPLIER[d] ?? DIFFICULTY_MULTIPLIER[DEFAULT_DIFFICULTY];
+}
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -226,7 +261,11 @@ export function planForDeadline(
 
   // calibration scales the time estimate from the student's actual pace (≈1 by default).
   const factor = opts?.calibration && opts.calibration > 0 ? opts.calibration : 1;
-  const totalMinutes = Math.ceil(totalEffort * MINUTES_PER_EFFORT * factor);
+  // Per-course difficulty scales the total study time: harder → more minutes (and
+  // thus a higher computed pace), easier → fewer. Default difficulty (3) maps to
+  // 1.0, so an unrated course yields byte-for-byte the pre-difficulty plan.
+  const difficulty = difficultyMultiplier(course.difficulty);
+  const totalMinutes = Math.ceil(totalEffort * MINUTES_PER_EFFORT * factor * difficulty);
   // The pace needed to finish everything across the available study days.
   const minutesPerDay = Math.max(15, Math.ceil(totalMinutes / dates.length));
   const study = distribute(pending, dates, minutesPerDay);

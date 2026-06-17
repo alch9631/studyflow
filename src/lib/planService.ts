@@ -3,6 +3,7 @@ import {
   applyCompletedWork,
   buildReviewBlocks,
   studyDatesBetween,
+  difficultyMultiplier,
   MINUTES_PER_EFFORT,
   SESSION_MINUTES,
   type Course as EngineCourse,
@@ -59,6 +60,7 @@ type DbCourseWithTopics = {
   examDate: Date;
   studyDays: string;
   minutesPerDay: number;
+  difficulty?: number;
   topics: { id: string; title: string; effort: number; done: boolean }[];
 };
 
@@ -125,6 +127,9 @@ export function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
     name: c.name ?? "",
     examDate: c.examDate ? c.examDate.toISOString().slice(0, 10) : "",
     minutesPerDay: Number.isFinite(c.minutesPerDay) ? c.minutesPerDay : 0,
+    // Pass the raw rating through; the engine coerces null/out-of-range to the
+    // normal multiplier (1.0), so a missing/legacy value plans as the baseline.
+    difficulty: c.difficulty,
     studyDays: (c.studyDays ?? "")
       .split(",")
       .map((s) => parseInt(s.trim(), 10))
@@ -275,6 +280,7 @@ async function rebuildScheduleInner(
       examDate: true,
       studyDays: true,
       minutesPerDay: true,
+      difficulty: true,
       topics: {
         orderBy: { order: "asc" },
         select: { id: true, title: true, effort: true, done: true, confidence: true },
@@ -317,6 +323,10 @@ async function rebuildScheduleInner(
   for (const c of courses) {
     const folded = foldCompletedSessions(c); // effort reduced by completed work
     const calibration = calibrationFromHistory(c.blocks);
+    // Per-course difficulty scales every topic's study time (harder → more,
+    // easier → less). Default difficulty (3) → 1.0, so an unrated course schedules
+    // exactly as it did before this dial existed (no regression).
+    const difficulty = difficultyMultiplier(c.difficulty);
     const exam = c.examDate.toISOString().slice(0, 10);
     const days = c.studyDays
       .split(",")
@@ -328,7 +338,7 @@ async function rebuildScheduleInner(
     for (const t of folded.topics) {
       const o = order++;
       if (t.done) continue;
-      const minutes = Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration);
+      const minutes = Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration * difficulty);
       if (minutes > 0) {
         work.push({ courseId: c.id, topicId: t.id, title: t.title, rem: minutes, order: o, exam, studyDays: days });
       }

@@ -187,6 +187,7 @@ export default async function CoursePage({
       examDate: true,
       studyDays: true,
       minutesPerDay: true,
+      difficulty: true,
       aiOptimized: true,
       grade: true,
       topics: {
@@ -292,10 +293,30 @@ export default async function CoursePage({
                     className="mt-1"
                   />
                 </div>
+                <div className="text-sm">
+                  <label htmlFor="settings-difficulty" className="block font-medium">
+                    {t("courseDetail.difficulty")}
+                  </label>
+                  <select
+                    id="settings-difficulty"
+                    name="difficulty"
+                    defaultValue={String(course.difficulty)}
+                    className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                  >
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <p className="self-end text-xs text-gray-500 dark:text-gray-400">
                   {t("courseDetail.dailyPaceHint", { minutes: course.minutesPerDay })}
                 </p>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("courseDetail.difficultyHint")}
+              </p>
               <fieldset>
                 <legend className="block text-sm font-medium">{t("courseDetail.studyDays")}</legend>
                 <div className="mt-2 flex flex-wrap gap-3">

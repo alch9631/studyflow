@@ -78,6 +78,9 @@ model Course {
   // Which weekdays the student studies, stored as CSV of 0–6 (e.g. "1,2,3,4,5").
   studyDays     String       @default("1,2,3,4,5")
   minutesPerDay Int          @default(120)
+  // How hard the student rates this course, 1 (easy) … 5 (hard). 3 = normal.
+  // Scales the course's total study time/pace; default 3 = unchanged baseline.
+  difficulty    Int          @default(3)
   createdAt     DateTime     @default(now())
   // Set when the course was created from a catalog module (e.g. TUHH "M0850").
   ects          Int?

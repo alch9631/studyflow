@@ -57,6 +57,26 @@ export default function NewCourseForm() {
         )}
       </Field>
 
+      <Field
+        name="difficulty"
+        label={t("newCourse.difficulty")}
+        hint={t("newCourse.difficultyHint")}
+      >
+        {(p) => (
+          <select
+            {...p}
+            defaultValue="3"
+            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
       <fieldset>
         <legend className="block text-sm font-medium">{t("newCourse.studyDays")}</legend>
         <div className="mt-2 flex flex-wrap gap-3">
