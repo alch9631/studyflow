@@ -29,6 +29,7 @@ import {
 } from "@/lib/calendarTime";
 import { layoutDayBlocks } from "@/lib/calendarLayout";
 import MobileDayView from "./MobileDayView";
+import PlacementSheet, { type PlacementTarget } from "./PlacementSheet";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -372,6 +373,9 @@ export default function WeekCalendar({
   // Mobile view mode: a grouped, compressed "Overview" (default — less
   // overwhelming) or the full drag-and-drop "Timeline" grid.
   const [mobileView, setMobileView] = useState<"overview" | "timeline">("overview");
+  // The open mobile placement sheet's target (a single session or a whole
+  // course's unplaced sessions), or null when closed.
+  const [placeTarget, setPlaceTarget] = useState<PlacementTarget | null>(null);
   const [seenWeek, setSeenWeek] = useState<string>(weekStartISO);
   if (seenWeek !== weekStartISO) {
     setSeenWeek(weekStartISO);
@@ -585,6 +589,13 @@ export default function WeekCalendar({
     viewBlocks.filter((b) => b.dayISO === dayISO && b.startMin != null && b.endMin != null);
   const lecturesFor = (dayISO: string) => lectures.filter((l) => l.dayISO === dayISO);
 
+  // Every timeless (day-granular) block across the whole shown week — the calm
+  // mobile overview groups these by course into placement summaries.
+  const weekUnplaced = useMemo(
+    () => viewBlocks.filter((b) => b.startMin == null),
+    [viewBlocks],
+  );
+
   return (
     <section>
       {/* Header: title + week navigation + auto-arrange. */}
@@ -720,12 +731,11 @@ export default function WeekCalendar({
 
           {mobileView === "overview" ? (
             <MobileDayView
-              dayISO={selectedDay}
-              timed={timedFor(selectedDay)}
-              unscheduled={viewBlocks.filter(
-                (b) => b.dayISO === selectedDay && b.startMin == null,
-              )}
-              onToggle={toggle}
+              weekUnplaced={weekUnplaced}
+              dayTimed={timedFor(selectedDay)}
+              isArranging={isArranging}
+              onAutoArrange={autoArrange}
+              onPlace={setPlaceTarget}
             />
           ) : (
             <>
@@ -880,6 +890,16 @@ export default function WeekCalendar({
           {t("calendar.empty")}
         </p>
       )}
+
+      {/* Calm mobile placement sheet — pick a day + start time for a session or a
+          whole course's unplaced sessions (writes via updateBlockTime). */}
+      <PlacementSheet
+        target={placeTarget}
+        dayISOs={dayISOs}
+        todayISO={todayISO}
+        onClose={() => setPlaceTarget(null)}
+        onPlaced={() => router.refresh()}
+      />
     </section>
   );
 }
