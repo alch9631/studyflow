@@ -4,12 +4,16 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
+import { prisma } from "@/lib/db";
+import { instantToDayISO, DEFAULT_TZ } from "@/lib/calendarTime";
 import EmptyState from "@/components/EmptyState";
 import { StreakCard } from "@/components/StreakBadge";
 import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts.lazy";
 import { panelClass } from "@/components/ui";
 import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, type MessageKey } from "@/components/i18n/messages";
+import StudyHeatmap, { type HeatmapDay } from "./StudyHeatmap";
+import { buildHeatmap } from "./heatmapData";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -28,7 +32,8 @@ function fmtMin(min: number): string {
 export default async function InsightsPage() {
   const userId = await getCurrentUserId();
   const t = await getT();
-  const stats = await getStatsCached(userId, todayISO());
+  const today = todayISO();
+  const stats = await getStatsCached(userId, today);
 
   const {
     hasData,
@@ -81,6 +86,64 @@ export default async function InsightsPage() {
     full: t(`charts.weekdays.${d.label}` as MessageKey),
   }));
 
+  // Study heatmap — per-day completed minutes over the last 12 weeks, plus exam
+  // dates so exam weeks can be highlighted. Read directly here (not via the stats
+  // bundle) because the heatmap needs the raw completed blocks, day-bucketed in
+  // Berlin time. Scoped to the window so it stays a cheap, bounded read.
+  let heatmapDays: HeatmapDay[] = [];
+  if (hasData) {
+    // 13 weeks before today (a generous lower bound for the 12-week grid),
+    // derived from the Berlin "today" so the read window stays deterministic.
+    const since = new Date(new Date(today + "T00:00:00Z").getTime() - 13 * 7 * 86_400_000);
+    const [hmBlocks, hmCourses] = await Promise.all([
+      prisma.studyBlock.findMany({
+        where: { course: { userId }, completed: true, date: { gte: since } },
+        select: { date: true, minutes: true, completed: true },
+      }),
+      prisma.course.findMany({
+        where: { userId },
+        select: { examDate: true },
+      }),
+    ]);
+    heatmapDays = buildHeatmap(
+      hmBlocks,
+      hmCourses.map((c) => c.examDate),
+      today,
+      DEFAULT_TZ,
+      instantToDayISO,
+    );
+  }
+
+  // Plain-language takeaways — a few honest, data-derived lines. Each maps a real
+  // number to one sentence; nothing is shown that the data doesn't support.
+  const takeaways: string[] = [];
+  if (loggedMinutes === 0 && dueDone === 0) {
+    takeaways.push(t("insights.takeawayNoData"));
+  } else {
+    // This week: overloaded > behind > on track > clear.
+    if (weekPlanned >= 600 && weekPct < 60) {
+      takeaways.push(t("insights.takeawayOverloaded", { planned: fmtMin(weekPlanned), pct: weekPct }));
+    } else if (weekPlanned === 0) {
+      takeaways.push(t("insights.takeawayWeekClear"));
+    } else if (weekPct < 50) {
+      takeaways.push(t("insights.takeawayBehindWeek", { pct: weekPct }));
+    } else {
+      takeaways.push(t("insights.takeawayOnTrackWeek", { pct: weekPct }));
+    }
+    // What to focus on next.
+    if (attention.length > 0) {
+      takeaways.push(t("insights.takeawayAttention", { name: attention[0].name }));
+    } else if (courses.length > 0) {
+      takeaways.push(t("insights.takeawayExamsClear"));
+    }
+    // Habit: celebrate a streak, otherwise nudge on patchy consistency.
+    if (streak >= 3) {
+      takeaways.push(t("insights.takeawayStreak", { days: streak }));
+    } else if (activeDays > 0 && consistency < 40) {
+      takeaways.push(t("insights.takeawayInconsistent", { days: activeDays }));
+    }
+  }
+
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
       <h1 className="mb-1 text-2xl font-bold tracking-tight">{t("insights.title")}</h1>
@@ -100,6 +163,21 @@ export default async function InsightsPage() {
         />
       ) : (
         <>
+          {/* Plain-language takeaways — the honest "so what" up top */}
+          {takeaways.length > 0 && (
+            <section className={`${panelClass} mb-3 p-5`}>
+              <h2 className="mb-2 font-semibold">{t("insights.takeawayTitle")}</h2>
+              <ul className="space-y-1.5">
+                {takeaways.map((line, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-200">
+                    <span aria-hidden="true" className="text-brand-ink dark:text-white">›</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {/* Study streak — the headline habit metric */}
           <div className="mb-3">
             <StreakCard current={streak} best={longestStreak} t={t} />
@@ -219,6 +297,21 @@ export default async function InsightsPage() {
               <WeeklyActivityChart data={activity} />
             </div>
           </section>
+
+          {/* Study heatmap — 12-week calendar of completed study minutes */}
+          {heatmapDays.length > 0 && (
+            <section className={`${panelClass} mt-6 p-5`}>
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-semibold">{t("insights.heatmap")}</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("insights.heatmapSub")}
+                </span>
+              </div>
+              <div className="mt-4">
+                <StudyHeatmap days={heatmapDays} />
+              </div>
+            </section>
+          )}
 
           <section className={`${panelClass} mt-6 p-5`}>
             <h2 className="font-semibold">{t("insights.consistency")}</h2>

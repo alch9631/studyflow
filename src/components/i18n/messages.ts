@@ -495,6 +495,27 @@ const en = {
     chartLegendRunningAvg: "Running average",
     chartGradeTrendAria:
       "Grade trend across {count} graded courses in exam-date order: each course's grade and the running average, ending at {avg} on the German 1.0 to 5.0 scale, where lower is better.",
+    // Plain-language takeaways — one honest summary line per situation.
+    takeawayTitle: "The short version",
+    takeawayNoData: "No study logged yet — check off your next block to get started.",
+    takeawayOverloaded:
+      "Heavy week — {planned} planned and you're at {pct}%. Protect a block or two before you fall behind.",
+    takeawayBehindWeek: "Behind on this week's plan ({pct}% done). Knock out one block today to catch up.",
+    takeawayOnTrackWeek: "On track this week — {pct}% of your plan done. Keep the rhythm.",
+    takeawayWeekClear: "Nothing scheduled this week. A quick plan now keeps exams from piling up.",
+    takeawayAttention: "Closest call: {name}. Give it your next session.",
+    takeawayExamsClear: "No exams pressing right now — good time to get ahead.",
+    takeawayStreak: "You're on a {days}-day streak. Don't break the chain today.",
+    takeawayInconsistent: "Studying has been patchy ({days} of the last 14 days). Small daily sessions stick better.",
+    // Study heatmap.
+    heatmap: "Study heatmap",
+    heatmapSub: "last 12 weeks",
+    heatmapAria: "Study minutes per day over the last {weeks} weeks, as a calendar heatmap.",
+    heatmapStudied: "{time} studied",
+    heatmapNone: "no study logged",
+    heatmapLess: "Less",
+    heatmapMore: "More",
+    heatmapExamWeek: "Exam week",
   },
   streak: {
     label: "{count}-day streak",
@@ -1264,6 +1285,27 @@ const de: Messages = {
     chartLegendRunningAvg: "Laufender Schnitt",
     chartGradeTrendAria:
       "Notenverlauf über {count} benotete Kurse in Prüfungsreihenfolge: die Note jedes Kurses und der laufende Schnitt, endend bei {avg} auf der deutschen Skala 1,0 bis 5,0, wobei niedriger besser ist.",
+    // Klartext-Fazit — eine ehrliche Zusammenfassung je Situation.
+    takeawayTitle: "Kurz gesagt",
+    takeawayNoData: "Noch keine Lernzeit erfasst — hak deinen nächsten Block ab, um zu starten.",
+    takeawayOverloaded:
+      "Volle Woche — {planned} geplant und du bist bei {pct}%. Sichere dir ein, zwei Blöcke, bevor du in Rückstand gerätst.",
+    takeawayBehindWeek: "Im Rückstand beim Wochenplan ({pct}% erledigt). Erledige heute einen Block, um aufzuholen.",
+    takeawayOnTrackWeek: "Diese Woche im Plan — {pct}% erledigt. Bleib im Rhythmus.",
+    takeawayWeekClear: "Diese Woche nichts geplant. Ein kurzer Plan jetzt verhindert Prüfungsstress.",
+    takeawayAttention: "Am dringendsten: {name}. Widme ihm deine nächste Einheit.",
+    takeawayExamsClear: "Gerade keine Prüfung dringend — guter Moment, um vorzuarbeiten.",
+    takeawayStreak: "Du hast eine {days}-Tage-Serie. Reiß die Kette heute nicht ab.",
+    takeawayInconsistent: "Dein Lernen war lückenhaft (an {days} der letzten 14 Tage). Kleine tägliche Einheiten halten besser.",
+    // Lern-Heatmap.
+    heatmap: "Lern-Heatmap",
+    heatmapSub: "letzte 12 Wochen",
+    heatmapAria: "Lernminuten pro Tag über die letzten {weeks} Wochen als Kalender-Heatmap.",
+    heatmapStudied: "{time} gelernt",
+    heatmapNone: "keine Lernzeit erfasst",
+    heatmapLess: "Weniger",
+    heatmapMore: "Mehr",
+    heatmapExamWeek: "Prüfungswoche",
   },
   streak: {
     label: "{count}-Tage-Serie",
