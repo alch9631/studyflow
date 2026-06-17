@@ -20,6 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { ReactNode } from "react";
 import { useT } from "./i18n/I18nProvider";
 import type { Translator } from "./i18n/messages";
 
@@ -30,6 +31,27 @@ function fmtMin(min: number): string {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+/**
+ * Calm, fixed-height stand-in shown instead of a chart when there's nothing to
+ * plot — keeps the panel from collapsing and stops recharts from measuring an
+ * empty container.
+ */
+function ChartPlaceholder({
+  className,
+  children,
+}: {
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`flex w-full items-center justify-center rounded-lg border border-dashed border-gray-200 px-4 text-center text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400 ${className}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export type DayPoint = { label: string; min: number; full: string };
@@ -66,10 +88,22 @@ function ActivityTooltip({
 export function WeeklyActivityChart({ data }: { data: DayPoint[] }) {
   const t = useT();
   const total = data.reduce((s, d) => s + d.min, 0);
+  // No completed minutes anywhere → there's nothing to plot. Render a calm,
+  // fixed-height placeholder instead of an empty chart (which makes recharts'
+  // ResponsiveContainer warn about an "invalid container size").
+  if (data.length === 0 || total === 0) {
+    return (
+      <figure className="m-0">
+        <ChartPlaceholder className="h-28">{t("insights.chartNoneLast7")}</ChartPlaceholder>
+      </figure>
+    );
+  }
   return (
     <figure className="m-0">
       <div className="h-28 w-full" role="img" aria-label={t("insights.chartWeeklyAria")}>
-        <ResponsiveContainer width="100%" height="100%">
+        {/* Explicit numeric height + min-dimensions keep ResponsiveContainer from
+            measuring a 0×0 parent during the lazy mount and warning. */}
+        <ResponsiveContainer width="100%" height={112} minWidth={0} minHeight={112}>
           <BarChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="20%">
             <XAxis
               dataKey="label"
@@ -94,11 +128,6 @@ export function WeeklyActivityChart({ data }: { data: DayPoint[] }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      {total === 0 && (
-        <figcaption className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-          {t("insights.chartNoneLast7")}
-        </figcaption>
-      )}
     </figure>
   );
 }
@@ -124,7 +153,9 @@ export function ConsistencyGauge({
         role="img"
         aria-label={t("insights.chartConsistencyAria", { pct: consistency, days: activeDays })}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        {/* Fixed 160×160 host (h-40 w-40) — give the container explicit numeric
+            dimensions so it never measures a 0×0 parent mid-mount. */}
+        <ResponsiveContainer width={160} height={160} minWidth={0} minHeight={160}>
           <RadialBarChart
             data={data}
             startAngle={225}
@@ -233,7 +264,8 @@ export function GradeTrendChart({
           avg: average.toFixed(2),
         })}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        {/* Explicit numeric height + min-dimensions avoid the 0×0 mount warning. */}
+        <ResponsiveContainer width="100%" height={144} minWidth={0} minHeight={144}>
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
             <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
             <XAxis
