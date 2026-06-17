@@ -29,6 +29,11 @@ model User {
   // Auth.js relations (OAuth accounts + active sessions).
   accounts      Account[]
   sessions      Session[]
+  // Focus/scheduling preferences as a JSON string (NOT a Json column — dev is
+  // sqlite, which has no native JSON type; kept as String so the
+  // sqlite→postgresql production swap stays a one-line provider change). Holds
+  // things like preferred study window / focus settings. null = unset.
+  preferences   String?
 }
 
 // --- Auth.js (NextAuth) models ---
@@ -253,10 +258,19 @@ model StudyBlock {
   completed     Boolean  @default(false)
   kind          String   @default("study") // "study" | "review" (spaced repetition)
   actualMinutes Int? // logged via the Pomodoro timer — feeds adaptive estimates
+  // Optional time-of-day scheduling. Both null = the block is day-granular only
+  // (the existing behaviour — every block planned so far). When set, they pin the
+  // block to a concrete start/end on its `date`, surfaced on the calendar. Stored
+  // as instants; the calendar anchors display to a tz (Europe/Berlin) via
+  // src/lib/calendarTime.ts.
+  startTime     DateTime?
+  endTime       DateTime?
 
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String
   topicId  String
 
   @@index([courseId, date])
+  // Serves the calendar's per-course time-ordered reads of timed blocks.
+  @@index([courseId, startTime])
 }

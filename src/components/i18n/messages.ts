@@ -59,6 +59,7 @@ const en = {
     courses: "My Courses",
     modules: "Modules",
     timetable: "Timetable",
+    calendar: "Calendar",
     insights: "Insights",
     search: "Search",
     settings: "Settings",
@@ -72,6 +73,12 @@ const en = {
     allSettings: "All settings",
     theme: "Theme",
     language: "Language",
+  },
+  calendar: {
+    title: "Calendar",
+    unscheduled: "Unscheduled",
+    dragHint: "Drag a block to a day and time. Pick up with Space, move with arrows, drop with Space.",
+    empty: "No study blocks this week. Add a course to build your plan.",
   },
   theme: {
     light: "Light",
@@ -748,6 +755,7 @@ const de: Messages = {
     courses: "Meine Kurse",
     modules: "Module",
     timetable: "Stundenplan",
+    calendar: "Kalender",
     insights: "Statistiken",
     search: "Suche",
     settings: "Einstellungen",
@@ -761,6 +769,12 @@ const de: Messages = {
     allSettings: "Alle Einstellungen",
     theme: "Design",
     language: "Sprache",
+  },
+  calendar: {
+    title: "Kalender",
+    unscheduled: "Ohne Zeit",
+    dragHint: "Ziehe einen Block auf Tag und Uhrzeit. Mit Leertaste aufnehmen, mit Pfeiltasten bewegen, mit Leertaste ablegen.",
+    empty: "Diese Woche keine Lernblöcke. Lege einen Kurs an, um deinen Plan zu erstellen.",
   },
   theme: {
     light: "Hell",

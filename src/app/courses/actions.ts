@@ -34,6 +34,7 @@ import {
   isValidISODate,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
+import { checkBlockTimes, instantToDayMinutes } from "@/lib/calendarTime";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
   ownsCourse,
@@ -666,6 +667,58 @@ export async function rescheduleBlock(formData: FormData) {
       data: { date: toUTCDate(dateISO) },
     });
     revalidatePath("/dashboard");
+  }
+}
+
+/**
+ * Set (or move) a study block's time-of-day from the calendar's drag/keyboard
+ * move. `date` is the target day (YYYY-MM-DD); `start`/`end` are ISO instants for
+ * the block's start/end on that day. The two times are validated to be same-day,
+ * positive-length, and non-cross-midnight via {@link checkBlockTimes} (the
+ * calendar is day-columned, so a block can't span past local midnight).
+ *
+ * Ownership-scoped via findOwnedBlock so a guessed blockId can never move another
+ * user's block. The day is stored at UTC midnight, matching every other block
+ * date; the times are stored as the supplied instants. A non-owner or an invalid
+ * time pair is a silent no-op.
+ */
+export async function updateBlockTime(formData: FormData) {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return;
+  let id: string;
+  let dateISO: string;
+  try {
+    id = requireId(formData.get("blockId"), "Block");
+    // A block can legitimately be scheduled on a past day (catch-up sessions).
+    dateISO = requireDate(formData.get("date"), "Date", todayISO(), { allowPast: true });
+  } catch {
+    return;
+  }
+
+  const startRaw = str(formData.get("start"));
+  const endRaw = str(formData.get("end"));
+  const start = new Date(startRaw);
+  const end = new Date(endRaw);
+  // Reject junk ISO strings before they become Invalid Dates in the write.
+  if (!startRaw || !endRaw || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+  // Validate the time pair on its local day: positive length, no cross-midnight.
+  // endMin is measured from the SAME local midnight as start (so an end that has
+  // rolled past midnight reads as >1440 and is caught as cross-midnight, not
+  // mistaken for an earlier same-day time).
+  const startMin = instantToDayMinutes(start);
+  const endMin = startMin + Math.round((end.getTime() - start.getTime()) / 60000);
+  const check = checkBlockTimes(startMin, endMin);
+  if (!check.ok) return;
+
+  // Scoped: a non-owner moving another user's block id is a silent no-op.
+  const block = await findOwnedBlock(userId, id);
+  if (block) {
+    await prisma.studyBlock.update({
+      where: { id },
+      data: { date: toUTCDate(dateISO), startTime: start, endTime: end },
+    });
+    revalidatePath("/calendar");
   }
 }
 
