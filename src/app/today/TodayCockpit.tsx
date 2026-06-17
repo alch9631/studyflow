@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -10,17 +11,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
+import type { Translator } from "@/components/i18n/messages";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import SwipeRow from "@/components/SwipeRow";
 import PomodoroTimer, { type TimerBlock } from "@/components/PomodoroTimer";
+import { recoverPlan } from "./actions";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
 import {
   fmtDuration,
+  reorderByEnergy,
   type CockpitBlock,
   type Lane,
   type Capacity,
   type RiskVerdict,
+  type Energy,
+  type Triage,
+  type TriageBlock,
 } from "./cockpit";
+import type { PlanExplanation } from "@/lib/planExplain";
 
 /**
  * The Today cockpit — a guided, mobile-first island answering "what now / what
@@ -43,6 +51,8 @@ export default function TodayCockpit({
   hero,
   cap,
   risk,
+  explain,
+  panic,
 }: {
   blocks: CockpitBlock[];
   /** Plain object map of blockId → lane (serializable across the boundary). */
@@ -50,10 +60,18 @@ export default function TodayCockpit({
   hero: CockpitBlock | null;
   cap: Capacity;
   risk: RiskVerdict;
+  /** Deterministic "why this plan?" reasons (from lib/planExplain). */
+  explain: PlanExplanation;
+  /** Crunch-mode triage, present only when a near exam is over capacity. */
+  panic: { examName: string; examDays: number; triage: Triage } | null;
 }) {
   const t = useT();
+  const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
-  const timerRef = useRef<HTMLDivElement>(null);
+  // Energy of the day — CLIENT-ONLY reorder of the displayed queue (no persist).
+  const [energy, setEnergy] = useState<Energy>("normal");
+  const [explainOpen, setExplainOpen] = useState(false);
+  const [crunchOpen, setCrunchOpen] = useState(false);
 
   // Pomodoro targets: still-open blocks (it logs a finished sprint against one).
   const timerBlocks: TimerBlock[] = blocks
@@ -62,8 +80,9 @@ export default function TodayCockpit({
 
   const openBlock = openId ? blocks.find((b) => b.id === openId) ?? null : null;
 
-  function scrollToTimer() {
-    timerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // "Start timer" now opens distraction-free Focus mode for the chosen block.
+  function openFocus(blockId?: string) {
+    router.push(blockId ? `/focus?blockId=${encodeURIComponent(blockId)}` : "/focus");
   }
 
   const LANE_ORDER: Lane[] = ["now", "next", "later", "slide"];
@@ -73,13 +92,38 @@ export default function TodayCockpit({
     later: t("today.queueLater"),
     slide: t("today.queueCanSlide"),
   };
-  const byLane = (lane: Lane) => blocks.filter((b) => !b.completed && lanes[b.id] === lane);
+  // Reorder the displayed queue by the chosen energy (pure, client-side). The
+  // lane grouping is preserved; only the WITHIN-lane order changes.
+  const byLane = (lane: Lane) =>
+    reorderByEnergy(blocks.filter((b) => !b.completed && lanes[b.id] === lane), energy);
 
   return (
     <div>
+      {/* ── ENERGY + drawer entry points ── */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <EnergyToggle energy={energy} onChange={setEnergy} />
+        <div className="ml-auto flex flex-wrap gap-2">
+          {panic && (
+            <button
+              type="button"
+              onClick={() => setCrunchOpen(true)}
+              className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+            >
+              ⚡ {t("today.crunchOpen")}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setExplainOpen(true)}
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            ? {t("today.explainOpen")}
+          </button>
+        </div>
+      </div>
       {/* ── HERO: the next action ── */}
       {hero ? (
-        <HeroCard block={hero} onOpen={() => setOpenId(hero.id)} onTimer={scrollToTimer} />
+        <HeroCard block={hero} onOpen={() => setOpenId(hero.id)} onTimer={() => openFocus(hero.id)} />
       ) : (
         <div className="mb-4 rounded-2xl border border-green-300 bg-green-50 p-5 text-center dark:border-green-900 dark:bg-green-950/40">
           <p className="text-lg font-bold text-green-800 dark:text-green-300">
@@ -114,7 +158,9 @@ export default function TodayCockpit({
               )}
               <ul className="space-y-2">
                 {items.map((b) => (
-                  <li key={b.id}>
+                  // #12: a subtle move transition so an energy reorder / respread
+                  // settles smoothly rather than snapping.
+                  <li key={b.id} className="transition-all duration-300 ease-out">
                     <QueueRow block={b} dim={lane === "slide"} onOpen={() => setOpenId(b.id)} />
                   </li>
                 ))}
@@ -124,8 +170,8 @@ export default function TodayCockpit({
         })}
       </div>
 
-      {/* ── POMODORO (shared timer; "Start timer" scrolls here) ── */}
-      <div ref={timerRef} className="mt-6">
+      {/* ── POMODORO (shared timer) ── */}
+      <div className="mt-6">
         <PomodoroTimer blocks={timerBlocks} />
       </div>
 
@@ -134,10 +180,29 @@ export default function TodayCockpit({
         block={openBlock}
         onClose={() => setOpenId(null)}
         onStartTimer={() => {
+          const id = openBlock?.id;
           setOpenId(null);
-          scrollToTimer();
+          openFocus(id);
         }}
       />
+
+      {/* ── EXPLAIN-MY-PLAN drawer ── */}
+      <ExplainDrawer open={explainOpen} explain={explain} onClose={() => setExplainOpen(false)} />
+
+      {/* ── PANIC / CRUNCH drawer ── */}
+      {panic && (
+        <CrunchDrawer
+          open={crunchOpen}
+          examName={panic.examName}
+          examDays={panic.examDays}
+          triage={panic.triage}
+          onClose={() => setCrunchOpen(false)}
+          onFocus={(id) => {
+            setCrunchOpen(false);
+            openFocus(id);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -423,5 +488,264 @@ function SessionSheet({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Energy of the day — a small segmented Low / Normal / High control. CLIENT-ONLY:
+ * it never persists and never re-plans; it just reorders the queue the user sees
+ * (see reorderByEnergy). A one-line hint explains the active mode.
+ */
+function EnergyToggle({ energy, onChange }: { energy: Energy; onChange: (e: Energy) => void }) {
+  const t = useT();
+  const opts: { value: Energy; label: string }[] = [
+    { value: "low", label: t("today.energyLow") },
+    { value: "normal", label: t("today.energyNormal") },
+    { value: "high", label: t("today.energyHigh") },
+  ];
+  const hint =
+    energy === "high"
+      ? t("today.energyHintHigh")
+      : energy === "low"
+        ? t("today.energyHintLow")
+        : t("today.energyHintNormal");
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("today.energyLabel")}</span>
+      <div
+        role="radiogroup"
+        aria-label={t("today.energyAria")}
+        className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-800 dark:bg-gray-900"
+      >
+        {opts.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={energy === o.value}
+            onClick={() => onChange(o.value)}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              energy === o.value
+                ? "bg-brand text-brand-foreground"
+                : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <span className="hidden text-xs text-gray-400 dark:text-gray-500 sm:inline">{hint}</span>
+    </div>
+  );
+}
+
+/** Shared bottom-sheet dialog content classes (mirrors the SessionSheet). */
+const SHEET_CONTENT_CLASS =
+  "inset-x-0 bottom-0 top-auto m-0 max-h-[85vh] max-w-none overflow-y-auto rounded-b-none rounded-t-2xl sm:inset-0 sm:m-auto sm:max-w-md sm:rounded-2xl";
+
+/**
+ * "Why this plan?" drawer — renders the DETERMINISTIC explanation built in
+ * lib/planExplain (capacity reason + ordering reason). Every sentence is a
+ * truthful read of the same signals the planner uses; nothing is generated.
+ */
+function ExplainDrawer({
+  open,
+  explain,
+  onClose,
+}: {
+  open: boolean;
+  explain: PlanExplanation;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const { capacity, order } = explain;
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className={SHEET_CONTENT_CLASS}>
+        <DialogTitle>{t("explain.title")}</DialogTitle>
+        <DialogDescription>{t("explain.methodNote")}</DialogDescription>
+
+        <section className="mt-4">
+          <h3 className="text-sm font-semibold">{t("explain.capacityHeading")}</h3>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{capacityReason(t, capacity)}</p>
+        </section>
+
+        {order && (
+          <section className="mt-4">
+            <h3 className="text-sm font-semibold">{t("explain.orderHeading")}</h3>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{orderReason(t, order)}</p>
+          </section>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Render the capacity reason in the active locale (truthful, from the math). */
+function capacityReason(t: Translator, cap: PlanExplanation["capacity"]): string {
+  switch (cap.kind) {
+    case "clear":
+      return t("explain.capacityClear");
+    case "over":
+      return t("explain.capacityOver", {
+        remaining: fmtDuration(cap.remainingMin),
+        available: fmtDuration(cap.availableMin),
+        over: fmtDuration(cap.overMin),
+      });
+    case "tight":
+      return t("explain.capacityTight", {
+        remaining: fmtDuration(cap.remainingMin),
+        available: fmtDuration(cap.availableMin),
+        free: fmtDuration(cap.freeMin),
+      });
+    case "ontrack":
+      return t("explain.capacityOnTrack", {
+        remaining: fmtDuration(cap.remainingMin),
+        available: fmtDuration(cap.availableMin),
+        free: fmtDuration(cap.freeMin),
+      });
+  }
+}
+
+/** Render the ordering reason in the active locale (truthful, from the signals). */
+function orderReason(t: Translator, order: NonNullable<PlanExplanation["order"]>): string {
+  switch (order.kind) {
+    case "sooner-exam":
+      return t("explain.orderSoonerExam", {
+        before: order.before,
+        after: order.after,
+        beforeDays: order.beforeDays,
+        afterDays: order.afterDays,
+      });
+    case "more-effort":
+      return t("explain.orderMoreEffort", {
+        before: order.before,
+        after: order.after,
+        beforeMin: fmtDuration(order.beforeMin),
+        afterMin: fmtDuration(order.afterMin),
+      });
+    case "tie":
+      return t("explain.orderTie", { before: order.before, after: order.after });
+  }
+}
+
+/**
+ * Crunch mode — a CALM triage drawer for when a near exam meets an over-capacity
+ * day. Everything shown is the student's OWN data (no fabricated exam topics): a
+ * minimum-viable "do these first" list (by exam proximity + effort), skim/skip
+ * candidates (short / review / already-confident topics), and a practice-first
+ * hint. The respread button reuses the existing recoverPlan action.
+ */
+function CrunchDrawer({
+  open,
+  examName,
+  examDays,
+  triage,
+  onClose,
+  onFocus,
+}: {
+  open: boolean;
+  examName: string;
+  examDays: number;
+  triage: Triage;
+  onClose: () => void;
+  onFocus: (blockId: string) => void;
+}) {
+  const t = useT();
+  const empty = triage.mustDo.length === 0 && triage.skim.length === 0;
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className={SHEET_CONTENT_CLASS}>
+        <DialogTitle>⚡ {t("panic.title")}</DialogTitle>
+        <DialogDescription>
+          {t("panic.subtitle", { course: examName, days: examDays })}
+        </DialogDescription>
+
+        {empty ? (
+          <div className="mt-4 rounded-xl border border-green-300 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
+            <p className="font-semibold">{t("panic.nothingTitle")}</p>
+            <p className="mt-1">{t("panic.nothingBody")}</p>
+          </div>
+        ) : (
+          <>
+            {/* Practice-first hint (calm, generic study advice — not exam content). */}
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-800 dark:bg-gray-900">
+              <p className="font-semibold">{t("panic.practiceTitle")}</p>
+              <p className="mt-1 text-gray-600 dark:text-gray-300">{t("panic.practiceBody")}</p>
+            </div>
+
+            {triage.mustDo.length > 0 && (
+              <section className="mt-4">
+                <h3 className="text-sm font-semibold">{t("panic.mvpTitle")}</h3>
+                <p className="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t("panic.mvpHint")}</p>
+                <ul className="space-y-2">
+                  {triage.mustDo.map((b) => (
+                    <TriageRow key={b.id} block={b} onFocus={() => onFocus(b.id)} />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {triage.skim.length > 0 && (
+              <section className="mt-4">
+                <h3 className="text-sm font-semibold">{t("panic.skimTitle")}</h3>
+                <p className="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t("panic.skimHint")}</p>
+                <ul className="space-y-2">
+                  {triage.skim.map((b) => (
+                    <TriageRow key={b.id} block={b} dim onFocus={() => onFocus(b.id)} />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Reuse the existing recover/respread action — no new planner logic. */}
+            <form action={recoverPlan} className="mt-5">
+              <Button type="submit" variant="secondary" className="w-full">
+                ↻ {t("panic.respreadCta")}
+              </Button>
+              <p className="mt-1.5 text-center text-xs text-gray-500 dark:text-gray-400">
+                {t("panic.respreadHint")}
+              </p>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** One triage row: topic + course + est time + confidence tag; tap to Focus. */
+function TriageRow({
+  block,
+  dim,
+  onFocus,
+}: {
+  block: TriageBlock;
+  dim?: boolean;
+  onFocus: () => void;
+}) {
+  const t = useT();
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onFocus}
+        className={`flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600 ${
+          dim ? "opacity-75" : ""
+        }`}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block break-words font-medium">{block.topicTitle}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <span className="tabular-nums">{fmtDuration(block.minutes)}</span>
+            <span className="truncate">· 📘 {block.courseName}</span>
+            {block.kind === "review" && <span>· {t("focus.review")}</span>}
+            {block.confidence === "solid" && (
+              <span className="text-green-600 dark:text-green-400">· {t("panic.confidentTag")}</span>
+            )}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }

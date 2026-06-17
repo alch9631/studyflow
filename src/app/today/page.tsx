@@ -21,12 +21,20 @@ import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList
 import { parsePrefs } from "@/lib/timePlacer";
 import {
   assignLanes,
+  buildTriage,
   computeCapacity,
   pickHero,
   riskVerdict,
   type CockpitBlock,
   type Lane,
+  type TriageBlock,
+  type Triage,
 } from "./cockpit";
+import {
+  explainPlan,
+  type PlanExplanation,
+  type ExplainCourse,
+} from "@/lib/planExplain";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -79,7 +87,10 @@ export default async function TodayPage({
         completed: true,
         kind: true,
         actualMinutes: true,
-        course: { select: { name: true, id: true } },
+        // topicId (to look up the topic's self-rated confidence — the skim/skip
+        // signal) + examDate (crunch-triage urgency). Both read only by triage.
+        topicId: true,
+        course: { select: { name: true, id: true, examDate: true } },
       },
       // First-pass STUDY before its REVIEW within a day. "kind desc" puts
       // "study" before "review" (s > r), so you learn a topic before revising
@@ -207,6 +218,71 @@ export default async function TodayPage({
   const hero = pickHero(cockpitBlocks, laneMap);
   const achievable = cap.onTrack;
 
+  // ── Explain-my-plan: truthful reasons from the SAME deterministic signals ──
+  // Per-course remaining minutes today + days to exam → the ordering reason; the
+  // capacity picture → the "why this much today" reason. No fabrication.
+  const remainingByCourse = new Map<string, { name: string; examDate: Date; remainingMin: number }>();
+  for (const b of blocks) {
+    if (b.completed) continue;
+    const cur = remainingByCourse.get(b.course.id);
+    if (cur) cur.remainingMin += b.minutes;
+    else
+      remainingByCourse.set(b.course.id, {
+        name: b.course.name,
+        examDate: b.course.examDate,
+        remainingMin: b.minutes,
+      });
+  }
+  const explainCourses: ExplainCourse[] = [...remainingByCourse.entries()].map(([id, c]) => ({
+    id,
+    name: c.name,
+    examDays: daysUntil(c.examDate, today),
+    remainingMin: c.remainingMin,
+  }));
+  const explain: PlanExplanation = explainPlan(
+    {
+      remainingMin: cap.remainingMin,
+      availableMin: cap.availableMin,
+      overMin: cap.overMin,
+      freeMin: cap.freeMin,
+      onTrack: cap.onTrack,
+    },
+    explainCourses,
+  );
+
+  // ── Panic / crunch gate: soonest exam is NEAR (≤ 7 days) AND today is over
+  // capacity. Triage is derived purely from today's own incomplete blocks. ──
+  const PANIC_EXAM_DAYS = 7;
+  const crunchActive =
+    !achievable && nextExamDays !== null && nextExamDays >= 0 && nextExamDays <= PANIC_EXAM_DAYS;
+  // StudyBlock has no Prisma relation to Topic (topicId is a bare column), so the
+  // skim/skip "confidence" signal is fetched in one extra scoped query over the
+  // open blocks' topic ids — only when there's something to triage.
+  const openBlocks = blocks.filter((b) => !b.completed);
+  const confidenceByTopic = new Map<string, string | null>();
+  if (openBlocks.length > 0) {
+    const topicIds = [...new Set(openBlocks.map((b) => b.topicId))];
+    const topics = await prisma.topic.findMany({
+      where: { id: { in: topicIds }, course: { userId } },
+      select: { id: true, confidence: true },
+    });
+    for (const tp of topics) confidenceByTopic.set(tp.id, tp.confidence);
+  }
+  const triageBlocks: TriageBlock[] = openBlocks.map((b) => ({
+    id: b.id,
+    topicTitle: b.topicTitle,
+    minutes: b.minutes,
+    kind: b.kind,
+    courseName: b.course.name,
+    examDays: daysUntil(b.course.examDate, today),
+    confidence: confidenceByTopic.get(b.topicId) ?? null,
+  }));
+  const triage: Triage = buildTriage(triageBlocks);
+  const panic =
+    crunchActive && nextExam
+      ? { examName: nextExam.name, examDays: nextExamDays!, triage }
+      : null;
+
   // Exam-countdown chips (soonest first), colored by urgency in the strip.
   const examChips: ExamChip[] = upcomingExams
     .map((c) => ({ id: c.id, name: c.name, days: daysUntil(c.examDate, today) }))
@@ -309,6 +385,8 @@ export default async function TodayPage({
             hero={hero}
             cap={cap}
             risk={risk}
+            explain={explain}
+            panic={panic}
           />
 
           {/* Over capacity → keep the one-tap respread reachable as a calm smart
