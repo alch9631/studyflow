@@ -78,6 +78,35 @@ export type CalExam = {
 // "day|unscheduled" for a day's unscheduled lane.
 type DropData = { dayISO: string; startMin: number | null };
 
+/**
+ * True only on the client, after mount, when the viewport is actually desktop
+ * (≥768px — Tailwind's `md`). Starts `false` so SSR and the first client render
+ * agree (no hydration mismatch) and the heavy desktop @dnd-kit tree — droppables,
+ * day columns, drag overlay — is never instantiated on phones, where the `Issues`
+ * badge otherwise flags a mismatch and the work is wasted (mobile has its own
+ * placement flow). The desktop grid is mounted only once this flips true.
+ */
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px)");
+    const sync = () => setIsDesktop(mql.matches);
+    sync();
+    mql.addEventListener("change", sync);
+    return () => mql.removeEventListener("change", sync);
+  }, []);
+  return isDesktop;
+}
+
+/** Humanised block duration ("3h 23m"), via the shared dur* messages. */
+function formatDuration(t: ReturnType<typeof useT>, minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return t("calendar.durMin", { m: String(m) });
+  if (m === 0) return t("calendar.durHour", { h: String(h) });
+  return t("calendar.durHourMin", { h: String(h), m: String(m) });
+}
+
 function topPx(startMin: number) {
   return ((startMin - DAY_START_MIN) / SLOT_MIN) * SLOT_PX;
 }
@@ -360,6 +389,14 @@ export default function WeekCalendar({
   const [isArranging, startArranging] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  // Gate the desktop 7-column drag grid on a real desktop viewport so its
+  // @dnd-kit internals never mount during SSR or on mobile (see useIsDesktop).
+  const isDesktop = useIsDesktop();
+
+  // Desktop unscheduled lane: collapsed-by-course summaries by default, with an
+  // explicit toggle to expand into the full per-session draggable cards.
+  const [showAllUnscheduled, setShowAllUnscheduled] = useState(false);
+
   // Optimistic completed-state overlay so the ✓ toggle feels instant.
   const [doneOverride, setDoneOverride] = useState<Record<string, boolean>>({});
   // Optimistic duration overlay (block id → end minutes) while/after a resize.
@@ -596,6 +633,28 @@ export default function WeekCalendar({
     [viewBlocks],
   );
 
+  // Desktop collapsed view: the week's unscheduled work grouped by course into
+  // compact summaries ("OS · 9 sessions · 3h 23m"), so the lane is a short digest
+  // by default instead of a long dump. "Show all" expands to the per-day lanes.
+  const unplacedByCourse = useMemo(() => {
+    const m = new Map<
+      string,
+      { courseId: string; courseName: string; count: number; minutes: number }
+    >();
+    for (const b of weekUnplaced) {
+      const g = m.get(b.courseId) ?? {
+        courseId: b.courseId,
+        courseName: b.courseName,
+        count: 0,
+        minutes: 0,
+      };
+      g.count += 1;
+      g.minutes += b.minutes;
+      m.set(b.courseId, g);
+    }
+    return [...m.values()].sort((a, b) => a.courseName.localeCompare(b.courseName));
+  }, [weekUnplaced]);
+
   return (
     <section>
       {/* Header: title + week navigation + auto-arrange. */}
@@ -777,6 +836,9 @@ export default function WeekCalendar({
         </div>
 
         {/* ── Desktop (md+): full 7-column week ───────────────────────────── */}
+        {/* Rendered only once we're on a real desktop viewport (client, post-mount)
+            so the @dnd-kit droppables/columns never instantiate on mobile or SSR. */}
+        {isDesktop && (
         <div className="hidden md:block">
           <div className="overflow-x-auto">
             <div className="min-w-[680px]">
@@ -821,24 +883,67 @@ export default function WeekCalendar({
                 </div>
               )}
 
-              {/* Unscheduled lanes (day-granular blocks). */}
-              <div className="mt-1 grid grid-cols-[48px_repeat(7,1fr)] gap-1">
-                <div className="flex items-center justify-end pr-1 text-[10px] uppercase tracking-wide text-gray-400">
-                  {t("calendar.unscheduled")}
-                </div>
-                {dayISOs.map((dayISO) => {
-                  const lane = viewBlocks.filter(
-                    (b) => b.dayISO === dayISO && b.startMin == null,
-                  );
-                  return (
-                    <UnscheduledLane key={dayISO} dayISO={dayISO}>
-                      {lane.map((b) => (
-                        <BlockCard key={b.id} block={b} onToggle={toggle} />
+              {/* Unscheduled lane. Collapsed by default into per-course summaries
+                  so the lane stays a short digest; "Show all" expands to the full
+                  per-day droppable lanes (drag placement lives in the expanded view
+                  and on the timed grid). */}
+              {weekUnplaced.length > 0 && (
+                <div className="mt-1">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-gray-400">
+                      {t("calendar.unscheduled")}
+                    </span>
+                    <button
+                      type="button"
+                      aria-expanded={showAllUnscheduled}
+                      onClick={() => setShowAllUnscheduled((v) => !v)}
+                      className="rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
+                      {showAllUnscheduled
+                        ? t("calendar.showLess")
+                        : t("calendar.showAll")}
+                    </button>
+                  </div>
+
+                  {showAllUnscheduled ? (
+                    <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-1">
+                      <div />
+                      {dayISOs.map((dayISO) => {
+                        const lane = viewBlocks.filter(
+                          (b) => b.dayISO === dayISO && b.startMin == null,
+                        );
+                        return (
+                          <UnscheduledLane key={dayISO} dayISO={dayISO}>
+                            {lane.map((b) => (
+                              <BlockCard key={b.id} block={b} onToggle={toggle} />
+                            ))}
+                          </UnscheduledLane>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {unplacedByCourse.map((g) => (
+                        <span
+                          key={g.courseId}
+                          title={t("calendar.dragHint")}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                        >
+                          <span className="font-medium">{g.courseName}</span>
+                          <span className="text-gray-400 dark:text-gray-500">·</span>
+                          <span className="tabular-nums text-gray-500 dark:text-gray-400">
+                            {t("calendar.sessionsCount", { count: String(g.count) })}
+                          </span>
+                          <span className="text-gray-400 dark:text-gray-500">·</span>
+                          <span className="tabular-nums text-gray-500 dark:text-gray-400">
+                            {formatDuration(t, g.minutes)}
+                          </span>
+                        </span>
                       ))}
-                    </UnscheduledLane>
-                  );
-                })}
-              </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Timed grid: hour gutter + 7 day columns. */}
               <div
@@ -875,6 +980,7 @@ export default function WeekCalendar({
             </div>
           </div>
         </div>
+        )}
 
         <DragOverlay>
           {activeBlock ? (
