@@ -55,6 +55,7 @@ const en = {
   },
   nav: {
     today: "Today",
+    dashboard: "Dashboard",
     courses: "My Courses",
     modules: "Modules",
     timetable: "Timetable",
@@ -739,6 +740,7 @@ const de: Messages = {
   },
   nav: {
     today: "Heute",
+    dashboard: "Dashboard",
     courses: "Meine Kurse",
     modules: "Module",
     timetable: "Stundenplan",
