@@ -5,7 +5,7 @@ import { getT } from "@/components/i18n/server";
 
 export const metadata: Metadata = {
   title: "New course",
-  description: "Add a module and its exam date — StudyFlow builds the study plan for you.",
+  description: "Add a module and its exam date, and StudyFlow builds the study plan for you.",
 };
 
 export default async function NewCoursePage() {

@@ -13,7 +13,7 @@ import { getT } from "@/components/i18n/server";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Timetable",
-  description: "Your weekly lecture schedule — add lectures and see your whole week at a glance.",
+  description: "Your weekly lecture schedule. Add lectures and see your whole week at a glance.",
 };
 
 const DAYS = [

@@ -16,7 +16,7 @@ export const UNDO_GRACE_MS = 5000;
 
 /** Toast shown when a toggle is stashed for replay because we're offline. */
 const OFFLINE_QUEUED_MESSAGE =
-  "Saved offline — we'll sync this when you're back online.";
+  "Saved offline. We'll sync this when you're back online.";
 
 function isOffline(): boolean {
   return typeof navigator !== "undefined" && navigator.onLine === false;
@@ -64,7 +64,7 @@ export function useOptimisticToggle({
   done,
   doneMessage,
   undoneMessage,
-  errorMessage = "Something went wrong — please try again.",
+  errorMessage = "Something went wrong. Please try again.",
 }: UseOptimisticToggleArgs) {
   const { toast } = useToast();
   // Register the live action so a toggle persisted+restored across a reload has

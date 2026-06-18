@@ -91,7 +91,7 @@ export default function ConfirmDialog({
   action,
   fields,
   successMessage,
-  errorMessage = "Couldn't complete that — please try again.",
+  errorMessage = "Couldn't complete that. Please try again.",
   triggerLabel,
   triggerVariant,
   triggerSize = "md",

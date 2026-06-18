@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "StudyFlow",
     short_name: "StudyFlow",
-    description: "The study plan that builds itself — and heals itself when you fall behind.",
+    description: "The study plan that builds itself, and heals itself when you fall behind.",
     start_url: "/today",
     display: "standalone",
     background_color: "#ffffff",

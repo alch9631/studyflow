@@ -56,8 +56,8 @@ export default function CourseCardMenu({
   const deleteProgressWarning =
     progressCount > 0
       ? t.locale === "de"
-        ? `Dieser Kurs hat ${progressCount} abgeschlossene Lernsession(s) / erledigte Themen — das Löschen ist endgültig.`
-        : `This course has ${progressCount} completed sessions / done topics — deleting is permanent.`
+        ? `Dieser Kurs hat ${progressCount} abgeschlossene Lernsession(s) / erledigte Themen. Das Löschen ist endgültig.`
+        : `This course has ${progressCount} completed sessions / done topics. Deleting is permanent.`
       : null;
 
   const stop = (e: MouseEvent) => {

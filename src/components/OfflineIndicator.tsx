@@ -38,7 +38,7 @@ export default function OfflineIndicator() {
 
   const queuedNote =
     queued > 0
-      ? `${queued} change${queued === 1 ? "" : "s"} queued — ${
+      ? `${queued} change${queued === 1 ? "" : "s"} queued, ${
           offline ? "will sync when you reconnect" : "syncing…"
         }`
       : "showing last synced content";
@@ -51,7 +51,7 @@ export default function OfflineIndicator() {
     >
       <p className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-4 py-2 text-sm font-medium">
         <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span>{offline ? `Offline — ${queuedNote}` : queuedNote}</span>
+        <span>{offline ? `Offline: ${queuedNote}` : queuedNote}</span>
       </p>
     </div>
   );

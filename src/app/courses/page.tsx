@@ -14,7 +14,7 @@ import { getT } from "@/components/i18n/server";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "My Courses",
-  description: "All your modules at a glance — exam countdowns, progress, and what needs attention next.",
+  description: "All your modules at a glance: exam countdowns, progress, and what needs attention next.",
 };
 
 /** A realistic daily study budget (minutes) — matches the planner's "~3 h/day". */

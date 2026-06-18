@@ -32,7 +32,7 @@ export function isNextControlFlow(err: unknown): boolean {
 export default function ToastForm({
   action,
   successMessage,
-  errorMessage = "Something went wrong — please try again.",
+  errorMessage = "Something went wrong. Please try again.",
   onDone,
   children,
   ...formProps

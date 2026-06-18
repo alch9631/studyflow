@@ -28,7 +28,7 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Today",
-  description: "Your study blocks for today — what to work on, in order, and for how long.",
+  description: "Your study blocks for today: what to work on, in order, and for how long.",
 };
 
 type Row = {

@@ -28,7 +28,7 @@ export default function OptimisticToggleForm({
   done,
   doneMessage,
   undoneMessage,
-  errorMessage = "Something went wrong — please try again.",
+  errorMessage = "Something went wrong. Please try again.",
   swipe,
   children,
   className,

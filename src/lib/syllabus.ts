@@ -65,7 +65,7 @@ async function jsonComplete<T>(
     return JSON.parse(stripToJson(block.text)) as T;
   }
 
-  throw new Error("No AI key set — add OPENAI_API_KEY or ANTHROPIC_API_KEY to .env");
+  throw new Error("No AI key set. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to .env");
 }
 
 /** Pull the first JSON object out of a model response (handles stray fences/prose). */

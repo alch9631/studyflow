@@ -160,7 +160,7 @@ export async function addFromCatalog(formData: FormData) {
     if (topics.length === 0) {
       const units = Math.max(3, Math.round(t.ects / 2));
       topics = Array.from({ length: units }, (_, i) => ({
-        title: `${t.name} — part ${i + 1}`,
+        title: `${t.name} (part ${i + 1})`,
         effort: 1,
       }));
     }
@@ -201,7 +201,7 @@ async function extractTextFromFile(file: File): Promise<string> {
     return (await mammoth.extractRawText({ buffer: buf })).value;
   }
   if (name.endsWith(".pptx")) {
-    throw new Error("PPTX isn't supported yet — export the slides to PDF and upload that.");
+    throw new Error("PPTX isn't supported yet. Export the slides to PDF and upload that.");
   }
   return buf.toString("utf-8"); // txt / md
 }
@@ -213,7 +213,7 @@ async function extractTextFromFile(file: File): Promise<string> {
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
   if (!rateLimitOK("AI", userId)) {
-    throw new Error("You're importing a lot quickly — give it a minute and try again.");
+    throw new Error("You're importing a lot quickly. Give it a minute and try again.");
   }
   let text = longText(formData.get("syllabus"));
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
@@ -510,7 +510,7 @@ export type EditState = { ok: boolean; error?: string } | null;
 export async function editCourse(_prev: EditState, formData: FormData): Promise<EditState> {
   const userId = await getCurrentUserId();
   if (!rateLimitOK("MUTATION", userId)) {
-    return { ok: false, error: "Too many changes too fast — give it a minute and try again." };
+    return { ok: false, error: "Too many changes too fast. Give it a minute and try again." };
   }
   let id: string;
   let name: string;
@@ -535,7 +535,7 @@ export async function editCourse(_prev: EditState, formData: FormData): Promise<
     revalidatePath("/courses");
     return { ok: true };
   } catch {
-    return { ok: false, error: "Couldn't save — please try again." };
+    return { ok: false, error: "Couldn't save. Please try again." };
   }
 }
 
@@ -842,7 +842,7 @@ export async function toggleTopic(formData: FormData) {
 export async function saveNote(formData: FormData) {
   const userId = await getCurrentUserId();
   if (!rateLimitOK("MUTATION", userId)) {
-    throw new Error("You're saving a lot quickly — give it a moment and try again.");
+    throw new Error("You're saving a lot quickly. Give it a moment and try again.");
   }
   let topicId: string;
   try {

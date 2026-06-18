@@ -9,7 +9,7 @@ import FocusSession, { type FocusBlock } from "./FocusSession";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Focus",
-  description: "Distraction-free focus mode — one task, a timer, and nothing else.",
+  description: "Distraction-free focus mode: one task, a timer, and nothing else.",
 };
 
 /**

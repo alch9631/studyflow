@@ -59,7 +59,7 @@ export type RateLimitCategory = keyof typeof RATE_LIMITS;
 export class RateLimitError extends Error {
   readonly category: RateLimitCategory;
   constructor(category: RateLimitCategory, message?: string) {
-    super(message ?? "Too many requests — give it a minute and try again.");
+    super(message ?? "Too many requests. Give it a minute and try again.");
     this.name = "RateLimitError";
     this.category = category;
   }

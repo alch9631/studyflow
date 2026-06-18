@@ -65,7 +65,7 @@ function isFormControl(el: Element): el is FormControl {
 export default function ValidatedForm({
   action,
   successMessage,
-  errorMessage = "Something went wrong — please try again.",
+  errorMessage = "Something went wrong. Please try again.",
   validate,
   onDone,
   children,

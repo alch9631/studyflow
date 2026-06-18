@@ -328,7 +328,7 @@ function LogSprintDialog({
           >
             {blocks.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.topicTitle} — {b.course.name}
+                {b.topicTitle}, {b.course.name}
               </option>
             ))}
           </Select>

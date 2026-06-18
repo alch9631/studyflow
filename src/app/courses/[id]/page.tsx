@@ -239,8 +239,8 @@ export default async function CoursePage({
   const deleteProgressWarning =
     progressCount > 0
       ? t.locale === "de"
-        ? `Dieser Kurs hat ${completedSessions} abgeschlossene Lernsession(s) und ${doneCount} erledigte Themen — das Löschen ist endgültig.`
-        : `This course has ${completedSessions} completed sessions and ${doneCount} done topics — deleting is permanent.`
+        ? `Dieser Kurs hat ${completedSessions} abgeschlossene Lernsession(s) und ${doneCount} erledigte Themen. Das Löschen ist endgültig.`
+        : `This course has ${completedSessions} completed sessions and ${doneCount} done topics. Deleting is permanent.`
       : null;
 
   // Group study blocks by date for the weekly view.

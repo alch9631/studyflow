@@ -5,7 +5,7 @@ import { getT } from "@/components/i18n/server";
 
 export const metadata: Metadata = {
   title: "Offline",
-  description: "You're offline — StudyFlow will sync the latest once you're back online.",
+  description: "You're offline. StudyFlow will sync the latest once you're back online.",
 };
 
 export default async function OfflinePage() {

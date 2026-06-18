@@ -119,7 +119,7 @@ export default function AddLectureForm({
         >
           {(p) => (
             <Select {...p} defaultValue="" className={`${INPUT} w-full`}>
-              <option value="">—</option>
+              <option value="">{t("timetable.fLinkCourseNone")}</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
