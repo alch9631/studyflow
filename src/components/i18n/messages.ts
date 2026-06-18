@@ -596,7 +596,7 @@ const en = {
     blockCount: { one: "{count} block · {min} min", other: "{count} blocks · {min} min" },
     studyPlan: "Study plan",
     nothingScheduled: "Nothing scheduled. All topics done, or no study days before the exam.",
-    examOn: "{date} · ~{minutes} min/day · {done}/{total} topics",
+    examOn: "{date} · {pace} · {done}/{total} topics",
     addDeadline: "Add deadline",
     deadlineTitlePlaceholder: "e.g. Problem set 5",
     add: "Add",
@@ -664,6 +664,11 @@ const en = {
     emptyTitle: "Nothing to reflect on yet",
     emptyDesc:
       "Add a course and log a session or two, and your rhythm shows up here.",
+    // Shown inside Details when a plan exists but nothing's been logged yet — in
+    // place of the empty activity chart, heatmap and consistency gauge.
+    notEnoughData: "Not enough to chart yet",
+    notEnoughDataDesc:
+      "Check off a study session and your rhythm, consistency and heatmap fill in here.",
     // ONE soft lead line — gentle, true, and an invitation rather than a verdict.
     leadNoData: "You haven't logged study yet today. Start with your next block.",
     leadNextBlock: "A quiet day so far. Pick up where you left off with your next block.",
@@ -1004,7 +1009,7 @@ const en = {
     addClass: "Add class",
   },
   newCourse: {
-    back: "Modules",
+    back: "Courses",
     title: "Add a course manually",
     subtitle: "Not in the catalog? Enter it by hand.",
     formError: "Couldn't create that course. Check the fields and try again.",
@@ -1650,7 +1655,7 @@ const de: Messages = {
     blockCount: { one: "{count} Block · {min} Min", other: "{count} Blöcke · {min} Min" },
     studyPlan: "Lernplan",
     nothingScheduled: "Nichts geplant. Alle Themen erledigt oder keine Lerntage vor der Prüfung.",
-    examOn: "{date} · ~{minutes} Min/Tag · {done}/{total} Themen",
+    examOn: "{date} · {pace} · {done}/{total} Themen",
     addDeadline: "Frist hinzufügen",
     deadlineTitlePlaceholder: "z. B. Übungsblatt 5",
     add: "Hinzufügen",
@@ -1716,6 +1721,9 @@ const de: Messages = {
     title: "Statistiken",
     subtitle: "Ein ruhiger Blick darauf, wie dein Lernen läuft.",
     emptyTitle: "Noch nichts zum Zurückblicken",
+    notEnoughData: "Noch zu wenig zum Auswerten",
+    notEnoughDataDesc:
+      "Hak eine Lernsession ab, dann füllen sich Rhythmus, Konstanz und Heatmap hier.",
     emptyDesc:
       "Füge einen Kurs hinzu und hak ein, zwei Einheiten ab, dann erscheint dein Rhythmus hier.",
     // Eine ruhige Leitzeile — sanft, wahr und eher eine Einladung als ein Urteil.
@@ -2058,7 +2066,7 @@ const de: Messages = {
     addClass: "Veranstaltung hinzufügen",
   },
   newCourse: {
-    back: "Module",
+    back: "Kurse",
     title: "Kurs manuell hinzufügen",
     subtitle: "Nicht im Katalog? Trag ihn von Hand ein.",
     formError: "Dieser Kurs konnte nicht erstellt werden. Prüf die Felder und versuch es erneut.",

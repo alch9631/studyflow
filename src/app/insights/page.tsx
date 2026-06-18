@@ -86,12 +86,20 @@ export default async function InsightsPage() {
     full: t(`charts.weekdays.${d.label}` as MessageKey),
   }));
 
+  // "Not enough logged data yet" — a course (and its plan) exists, so hasData is
+  // true, but nothing has actually been completed. The streak/heatmap/activity
+  // visualizations would all render as empty grids that read like a failure
+  // report, so we hide them behind one gentle note instead. The Load section
+  // (what's planned next) is still genuinely useful and stays.
+  const noLoggedData = loggedMinutes === 0 && activeDays === 0;
+
   // Study heatmap — per-day completed minutes over the last 12 weeks, plus exam
   // dates so exam weeks can be highlighted. Read directly here (not via the stats
   // bundle) because the heatmap needs the raw completed blocks, day-bucketed in
-  // Berlin time. Scoped to the window so it stays a cheap, bounded read.
+  // Berlin time. Scoped to the window so it stays a cheap, bounded read. Skipped
+  // entirely when nothing's been logged — an all-empty grid is hidden, not shown.
   let heatmapDays: HeatmapDay[] = [];
-  if (hasData) {
+  if (hasData && !noLoggedData) {
     // 13 weeks before today (a generous lower bound for the 12-week grid),
     // derived from the Berlin "today" so the read window stays deterministic.
     const since = new Date(new Date(today + "T00:00:00Z").getTime() - 13 * 7 * 86_400_000);
@@ -187,7 +195,21 @@ export default async function InsightsPage() {
             </summary>
 
             <div className="mt-4 space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+          {/* Nothing logged yet: hide the would-be-empty activity chart, heatmap
+              and consistency gauge behind ONE gentle note, so the disclosure
+              never opens onto a wall of empty grids. The Load section below still
+              shows — what's planned next is genuinely useful. */}
+          {noLoggedData && (
+            <section className={`${panelClass} bg-surface-muted p-5 lg:col-span-2`}>
+              <h2 className="font-semibold">{t("insights.notEnoughData")}</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {t("insights.notEnoughDataDesc")}
+              </p>
+            </section>
+          )}
+
           {/* Rhythm — recent study load, the day-by-day shape of the last week. */}
+          {!noLoggedData && (
           <section className={`${panelClass} p-5`}>
             <div className="flex items-baseline justify-between">
               <h2 className="font-semibold">{t("insights.rhythm")}</h2>
@@ -199,6 +221,7 @@ export default async function InsightsPage() {
               <WeeklyActivityChart data={activity} />
             </div>
           </section>
+          )}
 
           {/* Load — what's planned and what's due, framed as workload not a race.
               Headline figures + the closest courses to look at next. */}
@@ -277,7 +300,10 @@ export default async function InsightsPage() {
             </section>
           )}
 
-          {/* Consistency — the gentle 14-day habit gauge, encouraging at any level. */}
+          {/* Consistency — the gentle 14-day habit gauge, encouraging at any level.
+              Hidden until there's at least one logged day: a 0% gauge reads as a
+              verdict, not an invitation. */}
+          {!noLoggedData && (
           <section className={`${panelClass} p-5`}>
             <h2 className="font-semibold">{t("insights.consistency")}</h2>
             <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
@@ -291,6 +317,7 @@ export default async function InsightsPage() {
               </p>
             </div>
           </section>
+          )}
 
           {/* Grades — Notenschnitt over graded courses */}
           {graded.length > 0 && (

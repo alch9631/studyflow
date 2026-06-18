@@ -8,7 +8,7 @@
  * explicit timeZone, which is driven by the tz database — not `process.env.TZ` —
  * so they stay deterministic on any machine.
  */
-import { daysUntil, examCountdownLabel, dueLabel } from "./dates";
+import { daysUntil, examCountdownLabel, dueLabel, formatFriendlyDate } from "./dates";
 
 let passed = 0;
 let failed = 0;
@@ -140,6 +140,21 @@ check("days left", dueLabel(5) === "5 days left");
 check("days-left upper edge (14)", dueLabel(14) === "14 days left");
 check("weeks-left lower edge (15)", dueLabel(15) === "2 weeks left");
 check("weeks left", dueLabel(21) === "3 weeks left");
+
+// ── formatFriendlyDate ───────────────────────────────────────────────────────
+// Read as a UTC calendar date and formatted in UTC, so the day never shifts.
+check("friendly en short label", formatFriendlyDate("2026-06-21", "en") === "Sun, Jun 21");
+check("friendly de short label", formatFriendlyDate("2026-06-21", "de") === "So., 21. Juni");
+check(
+  "friendly tolerates a full ISO instant (date part only)",
+  formatFriendlyDate("2026-06-21T00:00:00.000Z", "en") === "Sun, Jun 21",
+);
+check(
+  "friendly is UTC-stable (no off-by-one from local tz)",
+  formatFriendlyDate("2026-01-01", "en") === "Thu, Jan 1",
+);
+check("friendly leap day", formatFriendlyDate("2024-02-29", "en") === "Thu, Feb 29");
+check("friendly invalid input degrades to raw string", formatFriendlyDate("not-a-date", "en") === "not-a-date");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

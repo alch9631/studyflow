@@ -3,6 +3,7 @@ import { buttonClasses } from "./ui";
 import { Card } from "./ui/card";
 import CourseCardMenu from "./CourseCardMenu";
 import { examCountdownLabel, type Translator } from "./i18n/messages";
+import { formatFriendlyDate } from "@/lib/dates";
 
 /**
  * One of five at-a-glance course states, derived server-side in
@@ -88,7 +89,9 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
               >
                 {examCountdownLabel(t, course.examInDays)}
               </span>
-              <span className="block text-xs text-gray-400 dark:text-gray-500">{course.examDate}</span>
+              <span className="block text-xs text-gray-400 dark:text-gray-500">
+                {formatFriendlyDate(course.examDate, t.locale)}
+              </span>
             </span>
           </div>
 
