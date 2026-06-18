@@ -103,13 +103,15 @@ export default function MobileDayView({
   weekUnplaced,
   dayTimed,
   isArranging,
-  onAutoArrange,
+  batchSize,
+  onPlaceNext,
   onPlace,
 }: {
   weekUnplaced: CalBlock[];
   dayTimed: CalBlock[];
   isArranging: boolean;
-  onAutoArrange: () => void;
+  batchSize: number;
+  onPlaceNext: () => void;
   onPlace: (target: PlacementTarget) => void;
 }) {
   const t = useT();
@@ -135,6 +137,8 @@ export default function MobileDayView({
   }, [weekUnplaced]);
 
   const unplacedCount = weekUnplaced.length;
+  // How many the primary "Place the next N" action will actually take this tap.
+  const nextCount = Math.min(batchSize, unplacedCount);
   const sortedTimed = useMemo(
     () => [...dayTimed].sort((a, b) => a.startMin! - b.startMin!),
     [dayTimed],
@@ -142,28 +146,32 @@ export default function MobileDayView({
 
   return (
     <div>
-      {/* ── Calm header: how much needs times + the two ways to arrange it ── */}
+      {/* ── Calm header: warm read of what's waiting + one gentle next step ── */}
       {unplacedCount > 0 ? (
         <div className="mb-4 rounded-2xl bg-brand/5 px-4 py-4">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-            {t("calendar.needTimes", { count: String(unplacedCount) })}
+            {unplacedCount === 1
+              ? t("calendar.sessionWaiting")
+              : t("calendar.sessionsWaiting", { count: String(unplacedCount) })}
           </p>
           <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
-            {t("calendar.needTimesHint")}
+            {t("calendar.waitingHint")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               type="button"
               variant="primary"
               size="sm"
-              onClick={onAutoArrange}
+              onClick={onPlaceNext}
               disabled={isArranging}
             >
-              {isArranging ? t("calendar.autoArranging") : t("calendar.autoArrangeShort")}
+              {isArranging
+                ? t("calendar.placingNext")
+                : t("calendar.placeNext", { count: String(nextCount) })}
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               size="sm"
               onClick={() => {
                 // Open the sheet for the first course's unplaced sessions; the

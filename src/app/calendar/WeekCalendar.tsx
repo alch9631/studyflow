@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -41,6 +41,10 @@ const SLOT_PX = 28; // height of one 30-min row
 const STEP_MIN = 15; // resize granularity
 const MIN_DURATION = 15; // smallest block a resize can produce
 const DEFAULT_DURATION = 60; // length given to a previously-untimed block on first drop
+
+// "Place the next N" — a calm small batch, not the whole backlog at once.
+const PLACE_BATCH = 5;
+const BATCH_START_MIN = 9 * 60; // 09:00 — a sensible default start for a batch
 
 const SLOT_COUNT = (DAY_END_MIN - DAY_START_MIN) / SLOT_MIN;
 const GRID_HEIGHT = SLOT_COUNT * SLOT_PX;
@@ -393,8 +397,12 @@ export default function WeekCalendar({
   // @dnd-kit internals never mount during SSR or on mobile (see useIsDesktop).
   const isDesktop = useIsDesktop();
 
-  // Desktop unscheduled lane: collapsed-by-course summaries by default, with an
-  // explicit toggle to expand into the full per-session draggable cards.
+  // Desktop default is the clean STRUCTURAL view — the week's time shape, no
+  // backlog wall. "Planning mode" reveals the full placement tools (the backlog
+  // and its drag/expand controls); it stays off until the student opts in.
+  const [planningMode, setPlanningMode] = useState(false);
+  // Within planning mode, the backlog is still collapsed-by-course by default,
+  // with an explicit toggle to expand into the full per-session draggable lanes.
   const [showAllUnscheduled, setShowAllUnscheduled] = useState(false);
 
   // Optimistic completed-state overlay so the ✓ toggle feels instant.
@@ -462,6 +470,40 @@ export default function WeekCalendar({
         );
       } else {
         toast(t("calendar.autoResult", { placed: String(placed) }), "success");
+      }
+    });
+  }
+
+  // "Place the next N" — give times to a calm small batch instead of dumping the
+  // whole backlog. We take the first N still-untimed sessions and lay them
+  // back-to-back from a default morning start on today (or Monday), trimming any
+  // that would spill past local midnight — the same write path the placement
+  // sheet uses (updateBlockTime per block).
+  function placeNextBatch(unplaced: CalBlock[]) {
+    const batch = unplaced.slice(0, PLACE_BATCH);
+    if (batch.length === 0) return;
+    const day = dayISOs.includes(todayISO) ? todayISO : dayISOs[0];
+    startArranging(async () => {
+      try {
+        let cursor = BATCH_START_MIN;
+        let placed = 0;
+        for (const block of batch) {
+          if (cursor >= MINUTES_PER_DAY) break;
+          const end = Math.min(cursor + block.minutes, MINUTES_PER_DAY);
+          if (end <= cursor) break;
+          const fd = new FormData();
+          fd.set("blockId", block.id);
+          fd.set("date", day);
+          fd.set("start", dayMinutesToInstant(day, cursor).toISOString());
+          fd.set("end", dayMinutesToInstant(day, end).toISOString());
+          await updateBlockTime(fd);
+          cursor = end;
+          placed += 1;
+        }
+        router.refresh();
+        toast(t("calendar.placedNext", { count: String(placed) }), "success");
+      } catch {
+        toast(t("calendar.placeNextError"), "error");
       }
     });
   }
@@ -681,15 +723,23 @@ export default function WeekCalendar({
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={autoArrange}
-            disabled={isArranging}
-          >
-            {isArranging ? t("calendar.autoArranging") : t("calendar.autoArrange")}
-          </Button>
+          {/* Desktop-only "Planning mode" toggle — off by default so the page
+              opens on the clean structural week; on reveals the placement tools. */}
+          {isDesktop && (
+            <button
+              type="button"
+              aria-pressed={planningMode}
+              onClick={() => setPlanningMode((v) => !v)}
+              className={`hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors md:inline-flex ${
+                planningMode
+                  ? "border-brand bg-brand/10 text-brand-ink"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              {t("calendar.planningMode")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -793,7 +843,8 @@ export default function WeekCalendar({
               weekUnplaced={weekUnplaced}
               dayTimed={timedFor(selectedDay)}
               isArranging={isArranging}
-              onAutoArrange={autoArrange}
+              batchSize={PLACE_BATCH}
+              onPlaceNext={() => placeNextBatch(weekUnplaced)}
               onPlace={setPlaceTarget}
             />
           ) : (
@@ -883,26 +934,68 @@ export default function WeekCalendar({
                 </div>
               )}
 
-              {/* Unscheduled lane. Collapsed by default into per-course summaries
-                  so the lane stays a short digest; "Show all" expands to the full
-                  per-day droppable lanes (drag placement lives in the expanded view
-                  and on the timed grid). */}
-              {weekUnplaced.length > 0 && (
-                <div className="mt-1">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                      {t("calendar.unscheduled")}
+              {/* ── Structural view (Planning mode OFF) ──────────────────────
+                  The default desktop surface is the week's time STRUCTURE — no
+                  backlog wall. We only show a calm one-line read of what's
+                  waiting and a quiet pointer to Planning mode. */}
+              {!planningMode && weekUnplaced.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-surface-muted px-4 py-2.5 text-[13px] text-foreground">
+                  <span className="font-medium">
+                    {weekUnplaced.length === 1
+                      ? t("calendar.sessionWaiting")
+                      : t("calendar.sessionsWaiting", { count: String(weekUnplaced.length) })}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {t("calendar.weekStructureHint")}
+                  </span>
+                </div>
+              )}
+
+              {/* ── Backlog / placement tools (Planning mode ON) ─────────────
+                  The full placement surface. Collapsed by default into per-course
+                  summaries so the lane stays a short digest; "Show all" expands to
+                  the per-day droppable lanes where drag placement lives (drag also
+                  works straight onto the timed grid below). */}
+              {planningMode && weekUnplaced.length > 0 && (
+                <div className="mt-1 rounded-xl border border-brand/20 bg-brand/5 p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {t("calendar.backlog")}
                     </span>
-                    <button
-                      type="button"
-                      aria-expanded={showAllUnscheduled}
-                      onClick={() => setShowAllUnscheduled((v) => !v)}
-                      className="rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-                    >
-                      {showAllUnscheduled
-                        ? t("calendar.showLess")
-                        : t("calendar.showAll")}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => placeNextBatch(weekUnplaced)}
+                        disabled={isArranging}
+                      >
+                        {isArranging
+                          ? t("calendar.placingNext")
+                          : t("calendar.placeNext", {
+                              count: String(Math.min(PLACE_BATCH, weekUnplaced.length)),
+                            })}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={autoArrange}
+                        disabled={isArranging}
+                      >
+                        {isArranging ? t("calendar.autoArranging") : t("calendar.autoArrange")}
+                      </Button>
+                      <button
+                        type="button"
+                        aria-expanded={showAllUnscheduled}
+                        onClick={() => setShowAllUnscheduled((v) => !v)}
+                        className="rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+                      >
+                        {showAllUnscheduled
+                          ? t("calendar.showLess")
+                          : t("calendar.showAll")}
+                      </button>
+                    </div>
                   </div>
 
                   {showAllUnscheduled ? (
