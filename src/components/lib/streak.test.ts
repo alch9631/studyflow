@@ -41,11 +41,6 @@ check("29 → 1 to next", streakStyle(29).toNext === 1);
 check("30 → no next milestone", streakStyle(30).toNext === null);
 check("100 → no next milestone", streakStyle(100).toNext === null);
 
-// ---- flame intensity scales with tier --------------------------------------
-check("level 0/3 → single flame", streakStyle(3).flames === "🔥");
-check("level 7 → double flame", streakStyle(7).flames === "🔥🔥");
-check("level 30 → triple flame", streakStyle(30).flames === "🔥🔥🔥");
-
 // ---- badge classes are tier-specific & non-empty ---------------------------
 check("badgeClass non-empty", streakStyle(5).badgeClass.length > 0);
 check(

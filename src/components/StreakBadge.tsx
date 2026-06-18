@@ -3,7 +3,7 @@ import type { Translator } from "./i18n/messages";
 
 /**
  * Study-streak UI — surfaces the run of consecutive active study days computed in
- * `lib/stats`. Two presentations share one milestone treatment (🔥 intensifies at
+ * `lib/stats`. Two presentations share one milestone treatment (the tint warms at
  * 3 / 7 / 30 days, see `components/lib/streak`):
  *   • <StreakBadge>  — a compact pill for the /today header.
  *   • <StreakCard>   — the headline streak panel on /insights (current + best).
@@ -23,13 +23,12 @@ export function StreakBadge({
   className?: string;
 }) {
   if (streak <= 0) return null;
-  const { flames, badgeClass } = streakStyle(streak);
+  const { badgeClass } = streakStyle(streak);
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass} ${className}`.trim()}
       title={t.n("streak.badgeTitle", streak)}
     >
-      <span aria-hidden="true">{flames}</span>
       <span>{streakLabel(t, streak)}</span>
     </span>
   );
@@ -51,7 +50,7 @@ export function StreakCard({
   t: Translator;
 }) {
   const active = current > 0;
-  const { flames, badgeClass, toNext } = streakStyle(current);
+  const { badgeClass, toNext } = streakStyle(current);
 
   const nudge = !active
     ? t("streak.startOne")
@@ -67,9 +66,6 @@ export function StreakCard({
       }`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span className="text-3xl leading-none" aria-hidden="true">
-          {active ? flames : "🔥"}
-        </span>
         <div className="min-w-0">
           <p className="text-lg font-bold leading-tight">
             {active ? streakLabel(t, current) : t("streak.noActive")}

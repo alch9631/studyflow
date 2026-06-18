@@ -83,9 +83,9 @@ export default async function TodayPage({
         completed: true,
         kind: true,
         actualMinutes: true,
-        // topicId (to look up the topic's self-rated confidence — the skim/skip
-        // signal) + examDate (crunch-triage urgency). Both read only by triage.
         topicId: true,
+        // course.examDate drives the per-course exam proximity used by the
+        // explain-my-plan ordering reason and the catch-up urgency.
         course: { select: { name: true, id: true, examDate: true } },
       },
       // First-pass STUDY before its REVIEW within a day. "kind desc" puts
