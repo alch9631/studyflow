@@ -6,7 +6,7 @@
     "setup": "node scripts/ensure-env.mjs && prisma db push && tsx prisma/seed.ts && tsx prisma/seedCatalog.ts",
     "dev": "next dev",
     "fresh": "pkill -f 'next dev' 2>/dev/null; pkill -f next-server 2>/dev/null; sleep 1; prisma db push && next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "ci": "node scripts/prisma-bootstrap.mjs && npm run lint && tsc --noEmit && npm test && npm run build",

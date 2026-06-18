@@ -3,13 +3,18 @@
 
 generator client {
   provider = "prisma-client-js"
+  // We build the deploy artifact on the Pi (linux-arm64) but Prisma Compute
+  // runs on debian-openssl-3.0.x (x86-64) — bundle both engines so the client
+  // works in both places.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
-// Local dev uses SQLite (zero setup, runs offline). For production, switch
-// provider to "postgresql" and point DATABASE_URL at Supabase, then migrate.
-// The schema is intentionally provider-agnostic (no enums / pg-only types).
+// Production runs on Prisma Postgres (Prisma Compute). The schema is
+// intentionally provider-agnostic (JSON kept as String, no enums / pg-only
+// types) so the provider swap stayed a one-line change. DATABASE_URL points at
+// the Prisma Postgres database.
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

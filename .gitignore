@@ -54,3 +54,4 @@ ops/overnight-state.json
 prisma/dev.db
 prisma/dev.db-*
 prisma/*.db.bak-*
+.prisma/
