@@ -18,8 +18,19 @@ const nextConfig: NextConfig = {
   // pdf-parse + pdfjs are heavy Node-native libs; run them unbundled at runtime.
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "mammoth"],
   experimental: {
-    // Allow uploading lecture scripts / study materials via server actions.
-    serverActions: { bodySizeLimit: "20mb" },
+    serverActions: {
+      // Allow uploading lecture scripts / study materials via server actions.
+      bodySizeLimit: "20mb",
+      // Behind Prisma Compute's reverse proxy the forwarded Host differs from
+      // the request Origin, so Next.js's Server Action origin check would reject
+      // every POST action (the page loads on GET, but "Add modules" etc. just
+      // freezes). Trust the deploy domains so server actions run.
+      allowedOrigins: [
+        "*.prisma.build",
+        "cmqjr82wb09th0ddxa6xzwvqa.fra.prisma.build",
+        "*.ts.net",
+      ],
+    },
   },
 };
 
