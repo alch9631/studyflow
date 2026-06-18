@@ -43,7 +43,7 @@ async function main() {
   //    and the "I fell behind" replan in action.
   const os = await prisma.course.create({
     data: {
-      name: "Operating Systems (crunch!)",
+      name: "Operating Systems",
       examDate: daysFromNow(4),
       minutesPerDay: 90,
       studyDays: "1,2,3,4,5,6,0",
