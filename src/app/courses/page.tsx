@@ -11,6 +11,7 @@ import { BookOpen } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/components/i18n/server";
+import { isSyllabusAIEnabled } from "@/lib/syllabus";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -119,8 +120,19 @@ export default async function CoursesPage() {
 
   const today = todayISO();
 
+  // The AI syllabus import is a development affordance when no provider is set:
+  // outside dev with AI off we hide the entry point rather than send the user to
+  // a disabled screen (manual add still covers the same need).
+  const showImport = isSyllabusAIEnabled() || process.env.NODE_ENV !== "production";
+
+  const emptyActions = [
+    { label: t("courses.browseModules"), href: "/catalog" },
+    ...(showImport ? [{ label: t("courses.importSyllabus"), href: "/courses/import" }] : []),
+    { label: t("courses.addManually"), href: "/courses/new" },
+  ];
+
   return (
-    <main className="mx-auto max-w-2xl p-4 sm:p-8">
+    <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-6xl">
       <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">{t("courses.title")}</h1>
         <Button asChild className="hidden shrink-0 lg:inline-flex">
@@ -133,14 +145,10 @@ export default async function CoursesPage() {
           icon={<BookOpen className="h-7 w-7" />}
           title={t("courses.emptyTitleActionable")}
           description={t("courses.emptyDescActionable")}
-          actions={[
-            { label: t("courses.browseModules"), href: "/catalog" },
-            { label: t("courses.importSyllabus"), href: "/courses/import" },
-            { label: t("courses.addManually"), href: "/courses/new" },
-          ]}
+          actions={emptyActions}
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 xl:grid-cols-3">
           {courses.map((c) => {
             const done = c.topics.filter((t) => t.done).length;
             const completedBlocks = c.blocks.filter((b) => b.completed).length;

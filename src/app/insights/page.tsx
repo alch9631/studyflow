@@ -131,7 +131,7 @@ export default async function InsightsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4 sm:p-8">
+    <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-5xl">
       <h1 className="mb-1 text-2xl font-bold tracking-tight">{t("insights.title")}</h1>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
         {t("insights.subtitle")}
@@ -186,7 +186,7 @@ export default async function InsightsPage() {
               <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
             </summary>
 
-            <div className="mt-4 space-y-6">
+            <div className="mt-4 space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
           {/* Rhythm — recent study load, the day-by-day shape of the last week. */}
           <section className={`${panelClass} p-5`}>
             <div className="flex items-baseline justify-between">
@@ -202,9 +202,9 @@ export default async function InsightsPage() {
 
           {/* Load — what's planned and what's due, framed as workload not a race.
               Headline figures + the closest courses to look at next. */}
-          <section className="space-y-3">
+          <section className="space-y-3 lg:col-span-2">
             <h2 className="font-semibold">{t("insights.load")}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
               <Stat label={t("insights.focusLogged")} value={fmtMin(loggedMinutes)} />
               <Stat label={t("insights.next7days")} value={fmtMin(upcomingWorkload)} sub={t("insights.studyPlanned")} />
@@ -264,7 +264,7 @@ export default async function InsightsPage() {
           {/* Recovery — the 12-week shape of when you studied and rested, exam
               weeks gently marked. Rest reads as part of the rhythm, not a gap. */}
           {heatmapDays.length > 0 && (
-            <section className={`${panelClass} p-5`}>
+            <section className={`${panelClass} p-5 lg:col-span-2`}>
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold">{t("insights.recovery")}</h2>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -335,9 +335,9 @@ export default async function InsightsPage() {
           )}
 
           {/* Per-course progress */}
-          <section>
+          <section className="lg:col-span-2">
             <h2 className="mb-3 font-semibold">{t("insights.byCourse")}</h2>
-            <ul className="space-y-2">
+            <ul className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-2 sm:space-y-0 lg:grid-cols-3">
               {courses.map((c) => {
                 const total = c.topicsTotal;
                 const done = c.topicsDone;
