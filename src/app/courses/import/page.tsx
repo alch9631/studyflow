@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import ImportForm from "./ImportForm";
@@ -14,6 +15,15 @@ export const metadata: Metadata = {
 
 export default async function ImportPage() {
   const enabled = isSyllabusAIEnabled();
+  const isDev = process.env.NODE_ENV !== "production";
+
+  // In production with AI off, don't present a disabled screen as a product flow:
+  // the manual add path still works, so send the user there. The disabled screen
+  // (with its env-var setup note) is a development affordance only.
+  if (!enabled && !isDev) {
+    redirect("/courses/new");
+  }
+
   const t = await getT();
 
   return (
@@ -29,7 +39,7 @@ export default async function ImportPage() {
         {t("importCourse.subtitlePre")}<em>{t("importCourse.subtitleOr")}</em>{t("importCourse.subtitlePost")}
       </p>
 
-      {!enabled && (
+      {!enabled && isDev && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           {t("importCourse.aiOffPre")}<code>OPENAI_API_KEY</code>{t("importCourse.aiOffMid")}
           <code>ANTHROPIC_API_KEY</code>{t("importCourse.aiOffEnv")}

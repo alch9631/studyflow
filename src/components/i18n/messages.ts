@@ -782,6 +782,7 @@ const en = {
     accountDesc:
       "Shared local profile for now. Personal login coming soon.",
     loginSoon: "Login coming soon",
+    signOut: "Sign out",
   },
   apple: {
     green: "On track",
@@ -1821,6 +1822,7 @@ const de: Messages = {
     accountDesc:
       "Vorerst ein gemeinsames lokales Profil. Persönlicher Login kommt bald.",
     loginSoon: "Login kommt bald",
+    signOut: "Abmelden",
   },
   apple: {
     green: "Im Plan",

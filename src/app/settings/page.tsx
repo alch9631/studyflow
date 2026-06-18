@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { getCalendarToken, getCurrentUserId } from "@/lib/devUser";
 import { prisma } from "@/lib/db";
 import { parsePrefs } from "@/lib/timePlacer";
+import { isPushConfigured } from "@/lib/push";
 import { auth } from "@/auth";
 import { signOutAction } from "./actions";
 import { getT } from "@/components/i18n/server";
@@ -82,6 +83,13 @@ export default async function SettingsPage({
     prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
   ]);
   const prefs = parsePrefs(user?.preferences);
+
+  // Dev-only affordances: features that aren't a finished product row in
+  // production (a "coming soon" reminders no-op when push isn't configured, and
+  // the login placeholder before auth exists) only show in development.
+  const isDev = process.env.NODE_ENV !== "production";
+  const showReminders = isPushConfigured() || isDev;
+  const showAccount = !!session?.user || isDev;
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
@@ -184,17 +192,23 @@ export default async function SettingsPage({
         </Row>
       </div>
 
-      {/* REMINDERS — web-push opt-in (activates once deployed over https). */}
-      <GroupLabel>{t("settings.remindersTitle")}</GroupLabel>
-      <div className={panelClass}>
-        <Row
-          icon={Bell}
-          title={t("settings.remindersTitle")}
-          description={t("settings.remindersDesc")}
-        >
-          <PushReminders />
-        </Row>
-      </div>
+      {/* REMINDERS — web-push opt-in (activates once deployed over https). Hidden
+          in production until push is actually configured, so we never show a
+          "coming soon" no-op as a live product row. */}
+      {showReminders && (
+        <>
+          <GroupLabel>{t("settings.remindersTitle")}</GroupLabel>
+          <div className={panelClass}>
+            <Row
+              icon={Bell}
+              title={t("settings.remindersTitle")}
+              description={t("settings.remindersDesc")}
+            >
+              <PushReminders />
+            </Row>
+          </div>
+        </>
+      )}
 
       {/* APPEARANCE — theme + language, persisted and applied app-wide. */}
       <GroupLabel>{t("settings.appearance")}</GroupLabel>
@@ -219,23 +233,27 @@ export default async function SettingsPage({
         </Row>
       </div>
 
-      {/* ACCOUNT — signed-in identity + sign out. When the app runs without auth
-          (ALLOW_DEV_USER=1) there is no real session, so we keep the original
-          muted placeholder line instead of showing a sign-out control. */}
-      <GroupLabel>{t("settings.accountTitle")}</GroupLabel>
-      <div className={panelClass}>
-        {session?.user ? (
-          <Row icon={User} title={t("settings.accountTitle")} description={session.user.email ?? ""}>
-            <form action={signOutAction} className="mt-3">
-              <Button type="submit" variant="secondary" size="md">
-                Sign out
-              </Button>
-            </form>
-          </Row>
-        ) : (
-          <Row icon={User} title={t("settings.accountTitle")} description={t("settings.loginSoon")} />
-        )}
-      </div>
+      {/* ACCOUNT — signed-in identity + sign out. With a real session this is a
+          live row. Without one (e.g. ALLOW_DEV_USER=1) the "login coming soon"
+          placeholder is a dev-only affordance, hidden in production. */}
+      {showAccount && (
+        <>
+          <GroupLabel>{t("settings.accountTitle")}</GroupLabel>
+          <div className={panelClass}>
+            {session?.user ? (
+              <Row icon={User} title={t("settings.accountTitle")} description={session.user.email ?? ""}>
+                <form action={signOutAction} className="mt-3">
+                  <Button type="submit" variant="secondary" size="md">
+                    {t("settings.signOut")}
+                  </Button>
+                </form>
+              </Row>
+            ) : (
+              <Row icon={User} title={t("settings.accountTitle")} description={t("settings.loginSoon")} />
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }
