@@ -241,6 +241,15 @@ const en = {
     // ── Focus mode entry + explain entry points ──
     focusOpen: "Focus mode",
     explainOpen: "Why this plan?",
+    // ── Guardian "sacredly simple" Today — big calm status + reassurance ──
+    calmOkay: "You're okay. One session at a time.",
+    calmDeferred: "You're okay. I set the low-priority work aside.",
+    calmOver: "Today's a full one. Just start at the top — the rest can wait.",
+    calmAllDone: "You're all caught up. Rest easy.",
+    reassureCount: "{mustDo} must-do, {optional} optional",
+    heroOptions: "Other options",
+    laterToggle: "Protected for later ({count})",
+    laterHint: "Lower-priority and optional work, kept aside so today stays light.",
   },
   focus: {
     title: "Focus",
@@ -264,6 +273,29 @@ const en = {
     notesError: "Couldn't save that note — please try again.",
     addNote: "Add note",
     nextUp: "Up next: {topic}",
+  },
+  behind: {
+    // The signature "I'm behind" sheet — calm, reassuring, never alarming.
+    open: "I'm behind",
+    title: "It's okay. Let's lighten today.",
+    subtitle: "Pick what feels right — nothing is lost, and you can change it back.",
+    protectTitle: "Protect today",
+    protectHint: "Keep your main study, move just the optional reviews to tomorrow.",
+    moveTitle: "Move optional work",
+    moveHint: "Clear today's sessions to tomorrow so you can start fresh.",
+    lighterTitle: "Make a lighter plan",
+    lighterHint: "Respread everything across the days before each exam.",
+    working: "One moment…",
+    reassure: "Whatever you choose, finished work always stays done.",
+    protectDone: {
+      one: "Done — moved {count} optional session to tomorrow. Today's lighter now.",
+      other: "Done — moved {count} optional sessions to tomorrow. Today's lighter now.",
+    },
+    moveDone: {
+      one: "Done — moved {count} session to tomorrow. Start fresh whenever you're ready.",
+      other: "Done — moved {count} sessions to tomorrow. Start fresh whenever you're ready.",
+    },
+    failed: "Couldn't change that just now — nothing moved. Please try again.",
   },
   explain: {
     // "Why this plan?" — truthful, deterministic reasons (no LLM, no guessing).
@@ -1195,6 +1227,15 @@ const de: Messages = {
     // ── Fokusmodus + Einstieg für Erklärung ──
     focusOpen: "Fokusmodus",
     explainOpen: "Warum dieser Plan?",
+    // ── Guardian „heilig einfaches" Heute — ruhiger Status + Beruhigung ──
+    calmOkay: "Alles gut. Eine Einheit nach der anderen.",
+    calmDeferred: "Alles gut. Ich habe das Unwichtige beiseitegelegt.",
+    calmOver: "Heute ist viel los. Fang einfach oben an — der Rest kann warten.",
+    calmAllDone: "Du bist auf dem Laufenden. Ruh dich aus.",
+    reassureCount: "{mustDo} wichtig, {optional} optional",
+    heroOptions: "Andere Optionen",
+    laterToggle: "Für später aufbewahrt ({count})",
+    laterHint: "Optionales und Nachrangiges, beiseitegelegt, damit heute leicht bleibt.",
   },
   focus: {
     title: "Fokus",
@@ -1218,6 +1259,29 @@ const de: Messages = {
     notesError: "Notiz konnte nicht gespeichert werden — bitte erneut versuchen.",
     addNote: "Notiz hinzufügen",
     nextUp: "Als Nächstes: {topic}",
+  },
+  behind: {
+    // Das markante „Ich bin im Rückstand"-Panel — ruhig, beruhigend, nie alarmierend.
+    open: "Ich bin im Rückstand",
+    title: "Alles gut. Machen wir heute leichter.",
+    subtitle: "Wähl, was sich richtig anfühlt — nichts geht verloren, du kannst es zurücknehmen.",
+    protectTitle: "Heute schützen",
+    protectHint: "Hauptlernstoff behalten, nur die optionalen Wiederholungen auf morgen schieben.",
+    moveTitle: "Optionales verschieben",
+    moveHint: "Heutige Einheiten auf morgen räumen, damit du frisch starten kannst.",
+    lighterTitle: "Leichteren Plan machen",
+    lighterHint: "Alles neu auf die Tage vor jeder Prüfung verteilen.",
+    working: "Einen Moment…",
+    reassure: "Was du auch wählst — Erledigtes bleibt immer erledigt.",
+    protectDone: {
+      one: "Erledigt — {count} optionale Einheit auf morgen verschoben. Heute ist leichter.",
+      other: "Erledigt — {count} optionale Einheiten auf morgen verschoben. Heute ist leichter.",
+    },
+    moveDone: {
+      one: "Erledigt — {count} Einheit auf morgen verschoben. Starte frisch, wann du magst.",
+      other: "Erledigt — {count} Einheiten auf morgen verschoben. Starte frisch, wann du magst.",
+    },
+    failed: "Das ließ sich gerade nicht ändern — nichts verschoben. Bitte erneut versuchen.",
   },
   explain: {
     // „Warum dieser Plan?" — ehrliche, deterministische Gründe (kein LLM, kein Raten).

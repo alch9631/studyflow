@@ -4,12 +4,10 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { daysUntil } from "@/lib/dates";
-import { getStatsCached } from "@/lib/statsCache";
 import { getT } from "@/components/i18n/server";
 import { dueLabel } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
 import Onboarding from "@/components/Onboarding";
-import { StreakBadge } from "@/components/StreakBadge";
 import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
@@ -26,11 +24,6 @@ import {
   type CockpitBlock,
   type Lane,
 } from "./cockpit";
-import {
-  explainPlan,
-  type PlanExplanation,
-  type ExplainCourse,
-} from "@/lib/planExplain";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -51,7 +44,15 @@ type Row = {
 export default async function TodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ recovered?: string; moved?: string; min?: string; intense?: string; msg?: string }>;
+  searchParams: Promise<{
+    recovered?: string;
+    moved?: string;
+    min?: string;
+    intense?: string;
+    msg?: string;
+    lightened?: string;
+    blocks?: string;
+  }>;
 }) {
   const userId = await getCurrentUserId();
   const t = await getT();
@@ -67,11 +68,16 @@ export default async function TodayPage({
   const recoveredMin = clampParam(sp.min, 100_000);
   const recoveredIntense = clampParam(sp.intense, 1000);
   const recoverFailed = sp.msg === "recover-failed";
+  // "I'm behind" sheet outcomes (Protect today / Move optional work), carried back
+  // as a calm confirmation. `blocks` = how many sessions were re-dated to tomorrow.
+  const lightened = sp.lightened === "protect" || sp.lightened === "move" ? sp.lightened : null;
+  const lightenedCount = clampParam(sp.blocks, 1000);
+  const behindFailed = sp.msg === "behind-failed";
 
   // These four reads are independent, so fire them concurrently in a single
   // round-trip batch instead of awaiting one after another (avoids a serial
   // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, stats, recovery, prefUser] =
+  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, recovery, prefUser] =
     await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
@@ -129,9 +135,6 @@ export default async function TodayPage({
         course: { select: { name: true, id: true } },
       },
     }),
-    // Cached analytics bundle — reused here only for the streak counter in the
-    // header (cheap: shared with /insights + /api/stats, 30s TTL + write-invalidated).
-    getStatsCached(userId, today),
     // Overdue unfinished sessions from missed days — drives the proactive
     // "rebuild my plan" recovery banner.
     assessRecovery(userId, today),
@@ -210,38 +213,6 @@ export default async function TodayPage({
   const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
   const hero = pickHero(cockpitBlocks, laneMap);
 
-  // ── Explain-my-plan: truthful reasons from the SAME deterministic signals ──
-  // Per-course remaining minutes today + days to exam → the ordering reason; the
-  // capacity picture → the "why this much today" reason. No fabrication.
-  const remainingByCourse = new Map<string, { name: string; examDate: Date; remainingMin: number }>();
-  for (const b of blocks) {
-    if (b.completed) continue;
-    const cur = remainingByCourse.get(b.course.id);
-    if (cur) cur.remainingMin += b.minutes;
-    else
-      remainingByCourse.set(b.course.id, {
-        name: b.course.name,
-        examDate: b.course.examDate,
-        remainingMin: b.minutes,
-      });
-  }
-  const explainCourses: ExplainCourse[] = [...remainingByCourse.entries()].map(([id, c]) => ({
-    id,
-    name: c.name,
-    examDays: daysUntil(c.examDate, today),
-    remainingMin: c.remainingMin,
-  }));
-  const explain: PlanExplanation = explainPlan(
-    {
-      remainingMin: cap.remainingMin,
-      availableMin: cap.availableMin,
-      overMin: cap.overMin,
-      freeMin: cap.freeMin,
-      onTrack: cap.onTrack,
-    },
-    explainCourses,
-  );
-
   // Exam-countdown chips (soonest first), colored by urgency in the strip.
   const examChips: ExamChip[] = upcomingExams
     .map((c) => ({ id: c.id, name: c.name, days: daysUntil(c.examDate, today) }))
@@ -266,9 +237,8 @@ export default async function TodayPage({
         who already have courses. */}
     <Onboarding active={hasNoPlan} />
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
-        <StreakBadge streak={stats.currentStreak} t={t} />
       </div>
 
       {/* Exam-countdown strip — a single quiet line of countdowns at the very top
@@ -297,7 +267,23 @@ export default async function TodayPage({
           {t("today.recoverFailed")}
         </div>
       )}
-      {!recovered && needsRecovery(recovery) && (
+      {/* "I'm behind" confirmation: a calm, quiet acknowledgement (not a warning). */}
+      {lightened && (
+        <div
+          aria-live="polite"
+          className="mb-4 rounded-xl bg-surface-muted p-4 text-sm text-surface-foreground"
+        >
+          {lightened === "protect"
+            ? t.n("behind.protectDone", lightenedCount, { count: lightenedCount })
+            : t.n("behind.moveDone", lightenedCount, { count: lightenedCount })}
+        </div>
+      )}
+      {behindFailed && (
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          {t("behind.failed")}
+        </div>
+      )}
+      {!recovered && !lightened && needsRecovery(recovery) && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           <p className="font-semibold">{t("today.recoveryTitle")}</p>
           <p className="mt-1">
@@ -323,9 +309,7 @@ export default async function TodayPage({
             blocks={cockpitBlocks}
             lanes={lanes}
             hero={hero}
-            cap={cap}
             risk={risk}
-            explain={explain}
           />
 
           {/* Demoted secondary context: today's classes + upcoming deadlines. */}

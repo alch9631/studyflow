@@ -9,100 +9,141 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { GuardianScaffold } from "@/components/GuardianScaffold";
+import BehindSheet from "@/components/BehindSheet";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
-import type { Translator } from "@/components/i18n/messages";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import SwipeRow from "@/components/SwipeRow";
-import { recoverPlan } from "./actions";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
 import {
   fmtDuration,
   type CockpitBlock,
   type Lane,
-  type Capacity,
   type RiskVerdict,
 } from "./cockpit";
-import type { PlanExplanation } from "@/lib/planExplain";
+
+/** Up to this many must-do rows are shown directly; the rest collapse under "Later". */
+const VISIBLE_MUST_DO = 4;
 
 /**
- * The Today cockpit — a calm "safe place" with one primary action.
+ * The Today screen — sacredly simple, built on the GuardianScaffold core trio.
  *
- * The page computes the lanes + risk verdict (pure, in cockpit.ts) and hands
- * them down; this component shows exactly three things, in order:
+ *   STATUS  — one big, calm, honest line ("You're okay. I set the low-priority
+ *             work aside.") plus a quiet reassurance count ("2 must-do, 3
+ *             optional"). It only claims what's true: deferral is mentioned only
+ *             when work was actually set aside.
+ *   ACTION  — ONE large primary action: "Start 30m: <topic>" → /focus.
+ *   ESCAPE  — the persistent, low-key "I'm behind" affordance (BehindSheet).
  *
- *   1. HERO — the next task ("Start <Xm>: <topic>") with the course as subtitle
- *      and ONE primary button "Start focus" (→ /focus).
- *   2. STATUS LINE — one calm, honest line: over-capacity (with deferral) or
- *      on-track. Never more than this single status surface.
- *   3. The rest of today's blocks as a QUIET list of simple rows (tap → the
- *      existing session sheet).
- *
- * Everything demoted — the why-this-plan explanation, the recover/respread
- * action, and the full can-slide list — lives behind ONE secondary drawer
- * ("Help me catch up"). No energy toggle, no persistent timer, no red banners.
+ * Below the trio: a SHORT list of must-do sessions (max a handful visible),
+ * with everything lower-priority collapsed under "Protected for later". No
+ * charts, no dense cards, no goal-at-risk, no achievement pressure. Tapping a
+ * row opens the focused session sheet (mark done / move / note / start focus).
  */
 export default function TodayCockpit({
   blocks,
   lanes,
   hero,
-  cap,
   risk,
-  explain,
 }: {
   blocks: CockpitBlock[];
   /** Plain object map of blockId → lane (serializable across the boundary). */
   lanes: Record<string, Lane>;
   hero: CockpitBlock | null;
-  cap: Capacity;
   risk: RiskVerdict;
-  /** Deterministic "why this plan?" reasons (from lib/planExplain). */
-  explain: PlanExplanation;
 }) {
   const t = useT();
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [helpOpen, setHelpOpen] = useState(false);
 
   const openBlock = openId ? blocks.find((b) => b.id === openId) ?? null : null;
 
-  // Start distraction-free Focus mode for a chosen block (or today's next).
+  // Start the protected Focus room for a chosen block (or today's next).
   function openFocus(blockId?: string) {
     router.push(blockId ? `/focus?blockId=${encodeURIComponent(blockId)}` : "/focus");
   }
 
-  // The open blocks below the hero, in plan order, minus the hero itself. One
-  // quiet list — not four labelled lanes. The full can-slide list lives in the
-  // drawer; here we just show the day's remaining rows.
-  const restBlocks = blocks.filter((b) => !b.completed && b.id !== hero?.id);
-  // The deferred (slide) blocks, for the "Help me catch up" drawer.
-  const slideBlocks = blocks.filter((b) => !b.completed && lanes[b.id] === "slide");
+  // Must-do = open work the day actually needs (everything except the slide lane).
+  // The hero is the first of these; the list shows the rest.
+  const mustDo = blocks.filter((b) => !b.completed && lanes[b.id] !== "slide");
+  const optional = blocks.filter((b) => !b.completed && lanes[b.id] === "slide");
+  const restMustDo = mustDo.filter((b) => b.id !== hero?.id);
+
+  // Keep the visible list short; anything past the cap folds under "Later".
+  const visibleRest = restMustDo.slice(0, VISIBLE_MUST_DO);
+  const overflowRest = restMustDo.slice(VISIBLE_MUST_DO);
+  const laterBlocks = [...overflowRest, ...optional];
+
+  const deferred = optional.length > 0;
+  // Honest big status line. Only the deferred copy when work was truly set aside.
+  const statusLine =
+    risk === "clear" || !hero
+      ? t("today.calmAllDone")
+      : risk === "over" && deferred
+        ? t("today.calmDeferred")
+        : risk === "over"
+          ? t("today.calmOver")
+          : t("today.calmOkay");
 
   return (
-    <div>
-      {/* ── HERO: the one next action ── */}
-      {hero ? (
-        <HeroCard
-          block={hero}
-          onOpen={() => setOpenId(hero.id)}
-          onStartFocus={() => openFocus(hero.id)}
-        />
-      ) : (
-        <div className="mb-6 text-center">
-          <p className="text-lg font-semibold text-green-700 dark:text-green-400">
-            {t("today.heroAllDone")}
-          </p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("today.heroAllDoneSub")}</p>
-        </div>
-      )}
+    <>
+      <GuardianScaffold
+        status={
+          <div>
+            <p className="text-balance text-xl font-semibold leading-snug sm:text-2xl">
+              {statusLine}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("today.reassureCount", {
+                mustDo: mustDo.length,
+                optional: optional.length,
+              })}
+            </p>
+          </div>
+        }
+        action={
+          hero ? (
+            <>
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => openFocus(hero.id)}
+              >
+                {t("today.heroNextAction", {
+                  minutes: hero.minutes,
+                  topic: hero.topicTitle,
+                })}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setOpenId(hero.id)}
+                className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {t("today.heroOptions")}
+              </button>
+            </>
+          ) : undefined
+        }
+        escape={
+          <BehindSheet
+            trigger={(open) => (
+              <button
+                type="button"
+                onClick={open}
+                className="mx-auto block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {t("behind.open")}
+              </button>
+            )}
+          />
+        }
+      />
 
-      {/* ── STATUS LINE: one calm honest line (the only status surface) ── */}
-      {hero && <StatusLine cap={cap} risk={risk} deferred={slideBlocks.length > 0} />}
-
-      {/* ── THE REST OF TODAY: one quiet list of simple rows ── */}
-      {restBlocks.length > 0 && (
-        <ul className="mt-7 space-y-1">
-          {restBlocks.map((b) => (
+      {/* ── SHORT must-do list (left-aligned, quiet rows) ── */}
+      {visibleRest.length > 0 && (
+        <ul className="mx-auto mt-8 max-w-md space-y-1 text-left">
+          {visibleRest.map((b) => (
             <li key={b.id}>
               <QuietRow block={b} onOpen={() => setOpenId(b.id)} />
             </li>
@@ -110,18 +151,26 @@ export default function TodayCockpit({
         </ul>
       )}
 
-      {/* ── ONE secondary affordance: everything demoted lives here ── */}
-      <div className="mt-8">
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className="text-sm font-medium text-gray-500 underline-offset-4 hover:text-gray-700 hover:underline dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          {t("today.helpOpen")}
-        </button>
-      </div>
+      {/* ── Everything else, calmly collapsed under "Protected for later" ── */}
+      {laterBlocks.length > 0 && (
+        <details className="mx-auto mt-6 max-w-md text-left">
+          <summary className="cursor-pointer list-none px-1 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            {t("today.laterToggle", { count: laterBlocks.length })}
+          </summary>
+          <p className="mt-1 px-1 text-xs text-muted-foreground">
+            {t("today.laterHint")}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {laterBlocks.map((b) => (
+              <li key={b.id}>
+                <QuietRow block={b} onOpen={() => setOpenId(b.id)} muted />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
-      {/* ── SESSION SHEET ── */}
+      {/* ── SESSION SHEET (per-block actions) ── */}
       <SessionSheet
         block={openBlock}
         onClose={() => setOpenId(null)}
@@ -131,94 +180,24 @@ export default function TodayCockpit({
           openFocus(id);
         }}
       />
-
-      {/* ── HELP ME CATCH UP drawer: explanation + respread + can-slide list ── */}
-      <HelpDrawer
-        open={helpOpen}
-        explain={explain}
-        slideBlocks={slideBlocks}
-        onClose={() => setHelpOpen(false)}
-        onStartFocus={(id) => {
-          setHelpOpen(false);
-          openFocus(id);
-        }}
-      />
-    </div>
-  );
-}
-
-/** The big primary hero: "Start <minutes>m: <topic>" + ONE "Start focus" button. */
-function HeroCard({
-  block,
-  onOpen,
-  onStartFocus,
-}: {
-  block: CockpitBlock;
-  onOpen: () => void;
-  onStartFocus: () => void;
-}) {
-  const t = useT();
-  return (
-    <div className="mb-1">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="block w-full text-left"
-        aria-label={t("today.heroOpen")}
-      >
-        <span className="block text-2xl font-bold leading-snug sm:text-3xl">
-          {t("today.heroNextAction", { minutes: block.minutes, topic: block.topicTitle })}
-        </span>
-        <span className="mt-1.5 block text-sm text-gray-500 dark:text-gray-400">
-          {block.course.name}
-          {block.kind === "review" && <> · {t("today.sheetReview")}</>}
-        </span>
-      </button>
-      <div className="mt-5">
-        <Button onClick={onStartFocus} size="lg" className="w-full sm:w-auto">
-          {t("today.heroStartFocus")}
-        </Button>
-      </div>
-    </div>
+    </>
   );
 }
 
 /**
- * The single status line — calm by default, honest when needed. Over capacity
- * with lower-priority work set aside → say so gently; otherwise a calm,
- * positive on-track line. Never invents a move that didn't happen.
- */
-function StatusLine({
-  cap,
-  risk,
-  deferred,
-}: {
-  cap: Capacity;
-  risk: RiskVerdict;
-  deferred: boolean;
-}) {
-  const t = useT();
-  // Honest over-capacity copy: only mention deferral if work was actually set
-  // aside (a slide block exists). Otherwise the calm/on-track line.
-  const label =
-    risk === "over" && deferred
-      ? t("today.statusDeferred")
-      : risk === "over"
-        ? t("today.statusOver", { time: fmtDuration(cap.overMin) })
-        : risk === "clear"
-          ? t("today.statusClear")
-          : t("today.statusOnTrack");
-  return (
-    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{label}</p>
-  );
-}
-
-/**
- * A quiet row in the rest-of-today list: tap the body to open the session
+ * A quiet row in the must-do / later list: tap the body to open the session
  * sheet; tap the checkbox to mark done inline; swipe to complete/reopen —
  * reusing the shared optimistic toggle. Borderless: whitespace over edges.
  */
-function QuietRow({ block, onOpen }: { block: CockpitBlock; onOpen: () => void }) {
+function QuietRow({
+  block,
+  onOpen,
+  muted = false,
+}: {
+  block: CockpitBlock;
+  onOpen: () => void;
+  muted?: boolean;
+}) {
   const t = useT();
   const isReview = block.kind === "review";
   const { optimisticDone, fire } = useOptimisticToggle({
@@ -235,7 +214,9 @@ function QuietRow({ block, onOpen }: { block: CockpitBlock; onOpen: () => void }
   return (
     <SwipeRow
       className="rounded-xl"
-      contentClassName="flex items-center gap-3 rounded-xl bg-transparent px-1 py-2.5"
+      contentClassName={`flex items-center gap-3 rounded-xl bg-transparent px-1 py-2.5 ${
+        muted ? "opacity-70" : ""
+      }`}
       right={
         optimisticDone
           ? undefined
@@ -255,8 +236,8 @@ function QuietRow({ block, onOpen }: { block: CockpitBlock; onOpen: () => void }
           onClick={() => fire(formData(), !optimisticDone, true)}
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
             optimisticDone
-              ? "border-green-500 bg-green-500 text-white"
-              : "border-gray-300 dark:border-gray-700 hover:border-gray-500"
+              ? "border-brand bg-brand text-brand-foreground"
+              : "border-input hover:border-muted-foreground"
           }`}
           aria-pressed={optimisticDone}
           aria-label={optimisticDone ? t("block.markNotDone") : t("block.markDone")}
@@ -267,12 +248,12 @@ function QuietRow({ block, onOpen }: { block: CockpitBlock; onOpen: () => void }
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span
           className={`block break-words ${
-            optimisticDone ? "text-gray-400 dark:text-gray-500 line-through" : "font-medium"
+            optimisticDone ? "text-muted-foreground line-through" : "font-medium"
           }`}
         >
           {block.topicTitle}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {fmtDuration(block.minutes)} · {block.course.name}
           {isReview && <> · {t("block.review")}</>}
         </span>
@@ -283,8 +264,8 @@ function QuietRow({ block, onOpen }: { block: CockpitBlock; onOpen: () => void }
 
 /**
  * Focused bottom-sheet for one study block: topic + course + est time, with
- * actions — Mark done (toggleBlock), Move to tomorrow (moveBlockToTomorrow),
- * Start focus (→ /focus), and a quick note (saveBlockNote). Built on the shared
+ * actions — Start focus (→ /focus), Mark done (toggleBlock), Move to tomorrow
+ * (moveBlockToTomorrow), and a quick note (saveBlockNote). Built on the shared
  * Dialog primitive, pinned to the bottom on mobile.
  */
 function SessionSheet({
@@ -382,7 +363,7 @@ function SessionSheet({
             </div>
 
             <div className="mt-4">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+              <label className="block text-xs font-medium text-muted-foreground">
                 {t("today.sheetNoteLabel")}
               </label>
               <textarea
@@ -390,7 +371,7 @@ function SessionSheet({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={t("today.sheetNotePlaceholder")}
                 rows={2}
-                className="mt-1 w-full resize-none rounded-xl border border-gray-300 bg-white p-2.5 text-sm dark:border-gray-700 dark:bg-gray-900"
+                className="mt-1 w-full resize-none rounded-xl border border-input bg-surface p-2.5 text-sm"
               />
               <div className="mt-2 flex justify-end">
                 <Button
@@ -409,139 +390,4 @@ function SessionSheet({
       </DialogContent>
     </Dialog>
   );
-}
-
-/** Shared bottom-sheet dialog content classes (mirrors the SessionSheet). */
-const SHEET_CONTENT_CLASS =
-  "inset-x-0 bottom-0 top-auto m-0 max-h-[85vh] max-w-none overflow-y-auto rounded-b-none rounded-t-2xl sm:inset-0 sm:m-auto sm:max-w-md sm:rounded-2xl";
-
-/**
- * "Help me catch up" drawer — the ONE secondary affordance that holds everything
- * demoted from Today: the deterministic why-this-plan explanation, the
- * recover/respread action (reuses recoverPlan), and the full can-slide list of
- * lower-priority work the student can push to tomorrow. Calm language only.
- */
-function HelpDrawer({
-  open,
-  explain,
-  slideBlocks,
-  onClose,
-  onStartFocus,
-}: {
-  open: boolean;
-  explain: PlanExplanation;
-  slideBlocks: CockpitBlock[];
-  onClose: () => void;
-  onStartFocus: (blockId: string) => void;
-}) {
-  const t = useT();
-  const { capacity, order } = explain;
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className={SHEET_CONTENT_CLASS}>
-        <DialogTitle>{t("today.helpTitle")}</DialogTitle>
-        <DialogDescription>{t("today.helpSubtitle")}</DialogDescription>
-
-        {/* Respread — the one recovery action, calmly worded. */}
-        <form action={recoverPlan} className="mt-4">
-          <Button type="submit" className="w-full">
-            {t("today.helpRespreadCta")}
-          </Button>
-          <p className="mt-1.5 text-center text-xs text-gray-500 dark:text-gray-400">
-            {t("today.helpRespreadHint")}
-          </p>
-        </form>
-
-        {/* The full can-slide list — lower-priority work, fine to push to tomorrow. */}
-        {slideBlocks.length > 0 && (
-          <section className="mt-6">
-            <h3 className="text-sm font-semibold">{t("today.helpSlideTitle")}</h3>
-            <p className="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              {t("today.helpSlideHint")}
-            </p>
-            <ul className="space-y-1">
-              {slideBlocks.map((b) => (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    onClick={() => onStartFocus(b.id)}
-                    className="flex w-full items-center gap-3 rounded-xl px-1 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block break-words font-medium">{b.topicTitle}</span>
-                      <span className="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400">
-                        {fmtDuration(b.minutes)} · {b.course.name}
-                        {b.kind === "review" && <> · {t("block.review")}</>}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Why this plan — the deterministic explanation, demoted here. */}
-        <section className="mt-6">
-          <h3 className="text-sm font-semibold">{t("explain.capacityHeading")}</h3>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{capacityReason(t, capacity)}</p>
-        </section>
-
-        {order && (
-          <section className="mt-4">
-            <h3 className="text-sm font-semibold">{t("explain.orderHeading")}</h3>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{orderReason(t, order)}</p>
-          </section>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Render the capacity reason in the active locale (truthful, from the math). */
-function capacityReason(t: Translator, cap: PlanExplanation["capacity"]): string {
-  switch (cap.kind) {
-    case "clear":
-      return t("explain.capacityClear");
-    case "over":
-      return t("explain.capacityOver", {
-        remaining: fmtDuration(cap.remainingMin),
-        available: fmtDuration(cap.availableMin),
-        over: fmtDuration(cap.overMin),
-      });
-    case "tight":
-      return t("explain.capacityTight", {
-        remaining: fmtDuration(cap.remainingMin),
-        available: fmtDuration(cap.availableMin),
-        free: fmtDuration(cap.freeMin),
-      });
-    case "ontrack":
-      return t("explain.capacityOnTrack", {
-        remaining: fmtDuration(cap.remainingMin),
-        available: fmtDuration(cap.availableMin),
-        free: fmtDuration(cap.freeMin),
-      });
-  }
-}
-
-/** Render the ordering reason in the active locale (truthful, from the signals). */
-function orderReason(t: Translator, order: NonNullable<PlanExplanation["order"]>): string {
-  switch (order.kind) {
-    case "sooner-exam":
-      return t("explain.orderSoonerExam", {
-        before: order.before,
-        after: order.after,
-        beforeDays: order.beforeDays,
-        afterDays: order.afterDays,
-      });
-    case "more-effort":
-      return t("explain.orderMoreEffort", {
-        before: order.before,
-        after: order.after,
-        beforeMin: fmtDuration(order.beforeMin),
-        afterMin: fmtDuration(order.afterMin),
-      });
-    case "tie":
-      return t("explain.orderTie", { before: order.before, after: order.after });
-  }
 }

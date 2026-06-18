@@ -86,32 +86,34 @@ export default function FocusSession({
   const isReview = block.kind === "review";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-gray-950">
-      <div className="mx-auto flex min-h-full max-w-md flex-col px-5 py-6 [padding-top:calc(env(safe-area-inset-top)+1.5rem)] [padding-bottom:calc(env(safe-area-inset-bottom)+1.5rem)]">
+    // The sealed quiet room: the calm near-white / deep-slate page colour fills
+    // the whole viewport (via the design tokens), generously spaced and centred.
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background text-foreground">
+      <div className="mx-auto flex min-h-full max-w-md flex-col px-6 py-8 [padding-top:calc(env(safe-area-inset-top)+2rem)] [padding-bottom:calc(env(safe-area-inset-bottom)+2rem)]">
         {/* Minimal top row: just an exit affordance, no nav. */}
-        <div className="mb-6 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        <div className="mb-10 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-ink">
             {t("focus.title")}
           </span>
           <button
             type="button"
             onClick={stop}
-            className="rounded-full px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+            className="rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {t("focus.exit")}
           </button>
         </div>
 
-        {/* The one task. */}
+        {/* The one task — large, centred, with plenty of air around it. */}
         <div className="text-center">
           <h1
-            className={`text-2xl font-bold leading-tight sm:text-3xl ${
-              optimisticDone ? "text-gray-400 line-through dark:text-gray-500" : ""
+            className={`text-balance text-3xl font-semibold leading-tight sm:text-4xl ${
+              optimisticDone ? "text-muted-foreground line-through" : ""
             }`}
           >
             {block.topicTitle}
           </h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-3 text-sm text-muted-foreground">
             {t("focus.course", { course: block.course.name })} · {fmtDuration(block.minutes)}
             {isReview && <> · {t("focus.review")}</>}
           </p>
@@ -120,15 +122,15 @@ export default function FocusSession({
         {/* The big timer (shared Pomodoro, logs sprints to this block). A plain
             timer in Focus: the reset/settings icon buttons are hidden so only
             Start remains — this is a quiet room, not a control panel. */}
-        <div className="mt-7 [&_button[aria-label]]:hidden">
+        <div className="mt-12 [&_button[aria-label]]:hidden">
           <PomodoroTimer blocks={timerBlocks} />
         </div>
 
-        {/* Notes, collapsed under a quiet "Add note" until the student wants them. */}
-        <div className="mt-5">
+        {/* One collapsible note, opened only when the student reaches for it. */}
+        <div className="mt-10">
           {notesOpen ? (
             <>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+              <label className="block text-xs font-medium text-muted-foreground">
                 {t("focus.notesLabel")}
               </label>
               <textarea
@@ -137,7 +139,7 @@ export default function FocusSession({
                 placeholder={t("focus.notesPlaceholder")}
                 rows={3}
                 autoFocus
-                className="mt-1 w-full resize-none rounded-xl border border-gray-300 bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                className="mt-1 w-full resize-none rounded-xl border border-input bg-surface p-3 text-sm"
               />
               <div className="mt-2 flex justify-end">
                 <Button
@@ -155,25 +157,25 @@ export default function FocusSession({
             <button
               type="button"
               onClick={() => setNotesOpen(true)}
-              className="text-sm font-medium text-gray-400 underline-offset-4 hover:text-gray-600 hover:underline dark:text-gray-500 dark:hover:text-gray-300"
+              className="mx-auto block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
               {t("focus.addNote")}
             </button>
           )}
         </div>
 
-        {/* Done / Stop — pushed to the bottom. */}
-        <div className="mt-auto grid grid-cols-2 gap-2 pt-8">
-          <Button type="button" onClick={toggleDone}>
+        {/* Done / Stop — pushed to the bottom, given room to breathe. */}
+        <div className="mt-auto grid grid-cols-2 gap-3 pt-12">
+          <Button type="button" size="lg" onClick={toggleDone}>
             {optimisticDone ? t("focus.reopen") : t("focus.done")}
           </Button>
-          <Button type="button" variant="secondary" onClick={stop}>
+          <Button type="button" size="lg" variant="secondary" onClick={stop}>
             {t("focus.stop")}
           </Button>
         </div>
 
         {upNextTopic && !optimisticDone && (
-          <p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
+          <p className="mt-5 text-center text-xs text-muted-foreground">
             {t("focus.nextUp", { topic: upNextTopic })}
           </p>
         )}
