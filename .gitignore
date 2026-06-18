@@ -49,3 +49,8 @@ prisma/*.db
 ops/overnight-state.json
 .overnight-test.db
 .overnight-test.db-*
+
+# local SQLite runtime DB (never tracked)
+prisma/dev.db
+prisma/dev.db-*
+prisma/*.db.bak-*
