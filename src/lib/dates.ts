@@ -17,6 +17,28 @@ export function daysUntil(date: Date, todayISO: string): number {
   return Math.round((target - today) / 86_400_000);
 }
 
+/**
+ * Friendly, localized day label from a YYYY-MM-DD calendar date — e.g.
+ * "Sun, Jun 21" (en) / "So., 21. Juni" (de) — instead of a raw ISO string.
+ *
+ * The input is read as a UTC calendar date (dates are persisted at UTC midnight
+ * and the app's day keys are plain YYYY-MM-DD), and formatted in UTC so the day
+ * never shifts under a local timezone. Accepts a full ISO string too; only the
+ * leading date part matters. Returns the input unchanged if it isn't a valid
+ * date, so a bad value degrades to the raw string rather than "Invalid Date".
+ */
+export function formatFriendlyDate(iso: string, locale: "en" | "de"): string {
+  const day = iso.slice(0, 10);
+  const d = new Date(day + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(locale === "de" ? "de-DE" : "en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 /** Human label for an exam countdown. */
 export function examCountdownLabel(days: number): string {
   if (days < 0) return "exam passed";

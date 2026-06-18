@@ -5,7 +5,7 @@ import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft } from 
 import { prisma } from "@/lib/db";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
-import { daysUntil } from "@/lib/dates";
+import { daysUntil, formatFriendlyDate } from "@/lib/dates";
 import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, dueLabel, type MessageKey, type Translator } from "@/components/i18n/messages";
 import { FILE_CATEGORIES, isFileCategory, type FileCategory } from "@/lib/fileCategory";
@@ -50,8 +50,6 @@ export async function generateMetadata({
   };
 }
 
-// Map weekday index → the charts.weekdays short-key, so the labels localize.
-const WEEKDAY_KEY = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const DAY_OPTS = [
   { v: 1, key: "Mo" },
   { v: 2, key: "Tu" },
@@ -408,7 +406,7 @@ export default async function CoursePage({
                 <AnimatedList className="space-y-2">
                   {course.assignments.map((a) => {
                     const days = daysUntil(a.dueDate, todayISO());
-                    const due = a.dueDate.toISOString().slice(0, 10);
+                    const due = formatFriendlyDate(a.dueDate.toISOString(), t.locale);
                     const urgent = !a.done && days <= 3;
                     return (
                       <AnimatedListItem
@@ -538,8 +536,8 @@ export default async function CoursePage({
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t("courseDetail.examOn", {
-                date: course.examDate.toISOString().slice(0, 10),
-                minutes: course.minutesPerDay,
+                date: formatFriendlyDate(course.examDate.toISOString(), t.locale),
+                pace: hoursLabel(t, course.minutesPerDay),
                 done: doneCount,
                 total: course.topics.length,
               })}
@@ -841,7 +839,7 @@ export default async function CoursePage({
                     className="flex justify-between gap-3 text-sm text-amber-800 dark:text-amber-300"
                   >
                     <span className="min-w-0 break-words">
-                      {b.date.toISOString().slice(0, 10)} · {b.topicTitle}
+                      {formatFriendlyDate(b.date.toISOString(), t.locale)} · {b.topicTitle}
                     </span>
                     <span className="shrink-0 whitespace-nowrap">{b.minutes} {t("common.min")}</span>
                   </li>
@@ -858,14 +856,13 @@ export default async function CoursePage({
         ) : (
           <div className="space-y-2">
             {[...byDate.entries()].map(([date, blocks], i) => {
-              const d = new Date(date + "T00:00:00Z");
               const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
               return (
                 <details key={date} open={i === 0} className="group rounded-xl border border-gray-200 dark:border-gray-800">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800/50">
                     <span className="flex items-center gap-2">
                       <span aria-hidden="true" className="text-gray-400 transition-transform group-open:rotate-90">›</span>
-                      {t(`charts.weekdaysShort.${WEEKDAY_KEY[d.getUTCDay()]}` as MessageKey)} · {date}
+                      {formatFriendlyDate(date, t.locale)}
                     </span>
                     <span className="shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">
                       {t.n("courseDetail.blockCount", blocks.length, { min: totalMin })}
