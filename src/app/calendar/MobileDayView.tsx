@@ -18,8 +18,9 @@ import type { PlacementTarget } from "./PlacementSheet";
  *    row opens the placement sheet for that whole course;
  *  - the selected day's already-timed sessions as a quiet, read-only summary.
  *
- * No drag, no resize here. Precise drag placement still lives in the Timeline
- * view (the secondary toggle in WeekCalendar); this surface is for arranging.
+ * No drag, no resize here — precise drag placement is desktop-only. The PRIMARY
+ * action is one-tap "Auto-arrange my week"; placing by hand (the placement sheet)
+ * is the secondary refinement path.
  */
 
 function formatDuration(t: ReturnType<typeof useT>, minutes: number): string {
@@ -103,15 +104,13 @@ export default function MobileDayView({
   weekUnplaced,
   dayTimed,
   isArranging,
-  batchSize,
-  onPlaceNext,
+  onAutoArrange,
   onPlace,
 }: {
   weekUnplaced: CalBlock[];
   dayTimed: CalBlock[];
   isArranging: boolean;
-  batchSize: number;
-  onPlaceNext: () => void;
+  onAutoArrange: () => void;
   onPlace: (target: PlacementTarget) => void;
 }) {
   const t = useT();
@@ -137,8 +136,6 @@ export default function MobileDayView({
   }, [weekUnplaced]);
 
   const unplacedCount = weekUnplaced.length;
-  // How many the primary "Place the next N" action will actually take this tap.
-  const nextCount = Math.min(batchSize, unplacedCount);
   const sortedTimed = useMemo(
     () => [...dayTimed].sort((a, b) => a.startMin! - b.startMin!),
     [dayTimed],
@@ -146,7 +143,8 @@ export default function MobileDayView({
 
   return (
     <div>
-      {/* ── Calm header: warm read of what's waiting + one gentle next step ── */}
+      {/* ── Calm header: the build-itself promise. The PRIMARY action is one-tap
+          "Auto-arrange my week"; placing by hand is the quiet secondary path. ── */}
       {unplacedCount > 0 ? (
         <div className="mb-4 rounded-2xl bg-brand/5 px-4 py-4">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -155,27 +153,28 @@ export default function MobileDayView({
               : t("calendar.sessionsWaiting", { count: String(unplacedCount) })}
           </p>
           <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
-            {t("calendar.waitingHint")}
+            {t("calendar.autoArrangeWeekHint")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               type="button"
               variant="primary"
               size="sm"
-              onClick={onPlaceNext}
+              onClick={onAutoArrange}
               disabled={isArranging}
             >
               {isArranging
-                ? t("calendar.placingNext")
-                : t("calendar.placeNext", { count: String(nextCount) })}
+                ? t("calendar.autoArrangeBuilding")
+                : t("calendar.autoArrangeWeek")}
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="sm"
+              disabled={isArranging}
               onClick={() => {
-                // Open the sheet for the first course's unplaced sessions; the
-                // per-course rows below place the rest. (One course → that one.)
+                // Refinement path: open the sheet for the first course's unplaced
+                // sessions; the per-course rows below place the rest.
                 const g = courseGroups[0];
                 if (g)
                   onPlace({
@@ -192,7 +191,7 @@ export default function MobileDayView({
         </div>
       ) : (
         <div className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
-          {t("calendar.allPlaced")}
+          {t("calendar.allArranged")}
         </div>
       )}
 

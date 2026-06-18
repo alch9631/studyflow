@@ -124,7 +124,7 @@ export default async function CalendarPage({
   }));
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-5">
+    <main className="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-6">
       <WeekCalendar
         dayISOs={dayISOs}
         todayISO={isoDay(now)}

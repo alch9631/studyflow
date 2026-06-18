@@ -151,6 +151,11 @@ const en = {
     planningOn: "Planning mode on",
     planningOff: "Planning mode off",
     backlog: "Waiting for a home",
+    autoArrangeWeek: "Auto-arrange my week",
+    autoArrangeWeekHint: "StudyFlow fits your sessions around your lectures. Tweak any of them after.",
+    autoArrangeBuilding: "Building your week…",
+    refineHint: "Nudge anything by dragging it on the grid.",
+    allArranged: "Your week is arranged. Drag to fine-tune.",
   },
   theme: {
     light: "Light",
@@ -1192,6 +1197,11 @@ const de: Messages = {
     planningOn: "Planungsmodus an",
     planningOff: "Planungsmodus aus",
     backlog: "Wartet auf einen Platz",
+    autoArrangeWeek: "Meine Woche automatisch planen",
+    autoArrangeWeekHint: "StudyFlow legt deine Einheiten rund um deine Veranstaltungen. Danach kannst du alles anpassen.",
+    autoArrangeBuilding: "Deine Woche wird erstellt…",
+    refineHint: "Verschiebe etwas im Raster, um es anzupassen.",
+    allArranged: "Deine Woche ist geplant. Zum Feinjustieren ziehen.",
   },
   theme: {
     light: "Hell",

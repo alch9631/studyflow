@@ -37,7 +37,7 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_START_MIN = 6 * 60; // 06:00
 const DAY_END_MIN = MINUTES_PER_DAY; // 24:00
 const SLOT_MIN = 30;
-const SLOT_PX = 28; // height of one 30-min row
+const SLOT_PX = 34; // height of one 30-min row (comfortable, readable)
 const STEP_MIN = 15; // resize granularity
 const MIN_DURATION = 15; // smallest block a resize can produce
 const DEFAULT_DURATION = 60; // length given to a previously-untimed block on first drop
@@ -415,9 +415,6 @@ export default function WeekCalendar({
   // the "adjust state when a prop changes" pattern, so no setState-in-effect.
   const defaultDay = dayISOs.includes(todayISO) ? todayISO : dayISOs[0];
   const [selectedDay, setSelectedDay] = useState<string>(defaultDay);
-  // Mobile view mode: a grouped, compressed "Overview" (default — less
-  // overwhelming) or the full drag-and-drop "Timeline" grid.
-  const [mobileView, setMobileView] = useState<"overview" | "timeline">("overview");
   // The open mobile placement sheet's target (a single session or a whole
   // course's unplaced sessions), or null when closed.
   const [placeTarget, setPlaceTarget] = useState<PlacementTarget | null>(null);
@@ -455,12 +452,15 @@ export default function WeekCalendar({
     el.scrollTop = Math.max(0, topPx(min) - el.clientHeight / 3);
   }, [dayISOs, todayISO]);
 
-  function autoArrange() {
+  // Run the week's auto-placement. `silent` suppresses the result toast — used by
+  // the first-visit auto-run so a fresh week quietly builds itself without a popup.
+  function autoArrange(silent = false) {
     startArranging(async () => {
       const fd = new FormData();
       fd.set("weekStart", weekStartISO);
       const { placed, unplaced } = await autoScheduleWeekTimes(fd);
       router.refresh();
+      if (silent) return;
       if (placed === 0 && unplaced === 0) {
         toast(t("calendar.autoNone"), "info");
       } else if (unplaced > 0) {
@@ -473,6 +473,45 @@ export default function WeekCalendar({
       }
     });
   }
+
+  // ── Auto-run ONCE on first visit, only when nothing is placed yet ──────────
+  // The build-itself promise: a fresh week with sessions that all still lack a
+  // time quietly arranges itself the first time it's opened. Strictly guarded so
+  // it never surprises the user by re-placing on later loads:
+  //  • only fires when there are unplaced blocks AND zero are already timed (a
+  //    truly untouched week — never after the student has placed anything);
+  //  • remembered per-week in localStorage so it runs at most once per week here;
+  //  • the action itself only ever touches timeless blocks, so even the single
+  //    run is idempotent and can never overwrite a hand-set time.
+  const anyTimed = useMemo(
+    () => blocks.some((b) => b.startMin != null && b.endMin != null),
+    [blocks],
+  );
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    if (blocks.length === 0) return;
+    if (anyTimed) return; // week already has placed work → never auto-run
+    if (!blocks.some((b) => b.startMin == null)) return; // nothing to place
+    const key = `sf:cal:autoarranged:${weekStartISO}`;
+    let alreadyRan = false;
+    try {
+      alreadyRan = window.localStorage.getItem(key) === "1";
+    } catch {
+      // localStorage unavailable (private mode / disabled) → skip the auto-run
+      // rather than risk re-placing on every load.
+      alreadyRan = true;
+    }
+    if (alreadyRan) return;
+    autoRanRef.current = true;
+    try {
+      window.localStorage.setItem(key, "1");
+    } catch {
+      /* best-effort; the ref still guards against a re-run this session */
+    }
+    autoArrange(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStartISO, anyTimed, blocks.length]);
 
   // "Place the next N" — give times to a calm small batch instead of dumping the
   // whole backlog. We take the first N still-untimed sessions and lay them
@@ -797,7 +836,10 @@ export default function WeekCalendar({
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        {/* ── Mobile: single selected-day view (Overview or Timeline) ─────── */}
+        {/* ── Mobile: calm read-only agenda for the selected day ───────────
+            Precise drag/resize is desktop-only (#9). Mobile shows the grouped
+            Overview plus a read-only agenda; manual placement stays via the
+            placement sheet, and "Auto-arrange my week" is the primary path. */}
         <div className="md:hidden">
           {/* Exam marker for the selected day. */}
           {examsByDay.get(selectedDay)?.map((e) => (
@@ -809,81 +851,13 @@ export default function WeekCalendar({
             </div>
           ))}
 
-          {/* Overview ⇆ Timeline toggle. Overview is the calm grouped default;
-              Timeline is the full drag-and-drop grid for precise placement. */}
-          <div className="mb-2 inline-flex rounded-md border border-gray-200 p-0.5 text-[11px] font-medium dark:border-gray-700">
-            <button
-              type="button"
-              aria-pressed={mobileView === "overview"}
-              onClick={() => setMobileView("overview")}
-              className={`rounded px-2.5 py-1 ${
-                mobileView === "overview"
-                  ? "bg-brand text-brand-foreground"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
-            >
-              {t("calendar.viewOverview")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={mobileView === "timeline"}
-              onClick={() => setMobileView("timeline")}
-              className={`rounded px-2.5 py-1 ${
-                mobileView === "timeline"
-                  ? "bg-brand text-brand-foreground"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
-            >
-              {t("calendar.viewTimeline")}
-            </button>
-          </div>
-
-          {mobileView === "overview" ? (
-            <MobileDayView
-              weekUnplaced={weekUnplaced}
-              dayTimed={timedFor(selectedDay)}
-              isArranging={isArranging}
-              batchSize={PLACE_BATCH}
-              onPlaceNext={() => placeNextBatch(weekUnplaced)}
-              onPlace={setPlaceTarget}
-            />
-          ) : (
-            <>
-              {/* Unscheduled lane for the selected day. */}
-              <div className="mb-1">
-                <UnscheduledLane dayISO={selectedDay}>
-                  {viewBlocks
-                    .filter((b) => b.dayISO === selectedDay && b.startMin == null)
-                    .map((b) => (
-                      <BlockCard key={b.id} block={b} onToggle={toggle} />
-                    ))}
-                </UnscheduledLane>
-              </div>
-              <div className="grid grid-cols-[48px_1fr] gap-1">
-                <div className="relative" style={{ height: GRID_HEIGHT }}>
-                  {hourStarts.map((m) => (
-                    <div
-                      key={m}
-                      style={{ position: "absolute", top: topPx(m) - 6, right: 4 }}
-                      className="text-[10px] tabular-nums text-gray-400"
-                    >
-                      {minutesToHHMM(m)}
-                    </div>
-                  ))}
-                </div>
-                <DayColumn
-                  dayISO={selectedDay}
-                  isToday={selectedDay === todayISO}
-                  slotStarts={slotStarts}
-                  dayLectures={lecturesFor(selectedDay)}
-                  timed={timedFor(selectedDay)}
-                  nowMin={nowMin}
-                  onToggle={toggle}
-                  onResize={beginResize}
-                />
-              </div>
-            </>
-          )}
+          <MobileDayView
+            weekUnplaced={weekUnplaced}
+            dayTimed={timedFor(selectedDay)}
+            isArranging={isArranging}
+            onAutoArrange={() => autoArrange()}
+            onPlace={setPlaceTarget}
+          />
         </div>
 
         {/* ── Desktop (md+): full 7-column week ───────────────────────────── */}
@@ -892,9 +866,9 @@ export default function WeekCalendar({
         {isDesktop && (
         <div className="hidden md:block">
           <div className="overflow-x-auto">
-            <div className="min-w-[680px]">
+            <div className="min-w-[900px]">
               {/* Header row: time gutter + weekday labels. */}
-              <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-1">
+              <div className="grid grid-cols-[56px_repeat(7,1fr)] gap-1">
                 <div />
                 {dayISOs.map((dayISO, i) => {
                   const isToday = dayISO === todayISO;
@@ -916,7 +890,7 @@ export default function WeekCalendar({
 
               {/* Exam markers row (all-day banners under the weekday labels). */}
               {exams.length > 0 && (
-                <div className="mt-1 grid grid-cols-[48px_repeat(7,1fr)] gap-1">
+                <div className="mt-1 grid grid-cols-[56px_repeat(7,1fr)] gap-1">
                   <div />
                   {dayISOs.map((dayISO) => (
                     <div key={dayISO} className="flex flex-col gap-0.5">
@@ -935,19 +909,40 @@ export default function WeekCalendar({
               )}
 
               {/* ── Structural view (Planning mode OFF) ──────────────────────
-                  The default desktop surface is the week's time STRUCTURE — no
-                  backlog wall. We only show a calm one-line read of what's
-                  waiting and a quiet pointer to Planning mode. */}
+                  The default desktop surface is the week's time STRUCTURE. The
+                  PRIMARY action is one-tap "Auto-arrange my week" — the
+                  build-itself promise. Manual placement (Planning mode / drag) is
+                  the quiet secondary refinement, not the main path. */}
               {!planningMode && weekUnplaced.length > 0 && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-surface-muted px-4 py-2.5 text-[13px] text-foreground">
-                  <span className="font-medium">
-                    {weekUnplaced.length === 1
-                      ? t("calendar.sessionWaiting")
-                      : t("calendar.sessionsWaiting", { count: String(weekUnplaced.length) })}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {t("calendar.weekStructureHint")}
-                  </span>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl bg-brand/5 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-foreground">
+                      {weekUnplaced.length === 1
+                        ? t("calendar.sessionWaiting")
+                        : t("calendar.sessionsWaiting", { count: String(weekUnplaced.length) })}
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {t("calendar.autoArrangeWeekHint")}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => autoArrange()}
+                    disabled={isArranging}
+                  >
+                    {isArranging
+                      ? t("calendar.autoArrangeBuilding")
+                      : t("calendar.autoArrangeWeek")}
+                  </Button>
+                </div>
+              )}
+
+              {/* When everything's placed: a calm confirmation + the refine hint. */}
+              {!planningMode && weekUnplaced.length === 0 && blocks.length > 0 && (
+                <div className="mt-1 rounded-xl bg-surface-muted px-4 py-2.5 text-[13px] text-muted-foreground">
+                  {t("calendar.allArranged")}
                 </div>
               )}
 
@@ -980,7 +975,7 @@ export default function WeekCalendar({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={autoArrange}
+                        onClick={() => autoArrange()}
                         disabled={isArranging}
                       >
                         {isArranging ? t("calendar.autoArranging") : t("calendar.autoArrange")}
@@ -999,7 +994,7 @@ export default function WeekCalendar({
                   </div>
 
                   {showAllUnscheduled ? (
-                    <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-1">
+                    <div className="grid grid-cols-[56px_repeat(7,1fr)] gap-1">
                       <div />
                       {dayISOs.map((dayISO) => {
                         const lane = viewBlocks.filter(
@@ -1043,7 +1038,7 @@ export default function WeekCalendar({
                 ref={scrollRef}
                 className="mt-1 max-h-[70vh] overflow-y-auto"
               >
-                <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-1">
+                <div className="grid grid-cols-[56px_repeat(7,1fr)] gap-1">
                   <div className="relative" style={{ height: GRID_HEIGHT }}>
                     {hourStarts.map((m) => (
                       <div
