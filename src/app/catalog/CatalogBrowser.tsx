@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Info, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { useT } from "@/components/i18n/I18nProvider";
 import SubmitButton from "@/components/SubmitButton";
 import { Button } from "@/components/ui/button";
@@ -195,7 +195,7 @@ export default function CatalogBrowser({
 
       {/* Sticky bottom tray — only while something is selected. */}
       {selectedCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur lg:bottom-0 dark:border-gray-800 dark:bg-gray-950/95">
           <div className="mx-auto flex max-w-2xl items-center gap-3">
             <button
               type="button"
@@ -234,7 +234,7 @@ function ModuleRow({
   return (
     <li>
       <div
-        className={`relative rounded-lg border p-3 pr-10 transition-colors ${
+        className={`relative rounded-lg border p-3 transition-colors ${
           m.added
             ? "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/50"
             : "border-gray-200 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
@@ -271,25 +271,6 @@ function ModuleRow({
             )}
           </span>
         </label>
-
-        {/* Module details — a clear "ⓘ Info" affordance, not a bare "?". */}
-        <details className="absolute right-2 top-2">
-          <summary
-            aria-label={t("catalog.detailsFor", { name: m.name })}
-            title={t("catalog.details")}
-            className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full border border-gray-300 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:border-brand hover:text-brand-ink dark:border-gray-700 dark:text-gray-400"
-          >
-            <Info className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{t("catalog.info")}</span>
-          </summary>
-          <div className="absolute right-0 top-8 z-10 w-64 max-w-[75vw] rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-            <div className="font-medium text-gray-700 dark:text-gray-200">
-              {m.code} · {m.ects} LP
-              {m.examDate ? ` · ${t("catalog.examShort", { date: m.examDate })}` : ""}
-            </div>
-            {m.snippet && <p className="mt-1.5 leading-relaxed">{m.snippet}…</p>}
-          </div>
-        </details>
       </div>
     </li>
   );
