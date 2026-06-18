@@ -217,6 +217,202 @@ export function assignLanes(
   return lanes;
 }
 
+/**
+ * Whether the nearest exam can still be fully made after an action runs. Honest:
+ *   - "possible"  — the remaining work that lands before the exam still fits a
+ *                   budget-paced run-up to it.
+ *   - "atRisk"    — it fits, but only by using nearly every budget minute left
+ *                   (little slack — true but tight).
+ *   - "notFully"  — even a budget-paced run-up can't clear the work in time.
+ *   - "none"      — there is no upcoming exam to reason about.
+ */
+export type ExamReach = "possible" | "atRisk" | "notFully" | "none";
+
+/**
+ * Classify exam reachability from the work that must land before it and the days
+ * left. `budgetMin` is the conservative {@link studyBudget}. Pure arithmetic so
+ * the preview's honesty is unit-testable. Mirrors {@link cockpitStatus}'s
+ * "doesnt_fit" maths (studyDays = today + each remaining day, paced at the budget).
+ */
+export function examReach(
+  exam: ExamFeasibility | undefined,
+  budgetMin: number,
+): ExamReach {
+  if (!exam || budgetMin <= 0) return "none";
+  const studyDays = Math.max(1, exam.daysUntil + 1);
+  const reachableMin = studyDays * budgetMin;
+  if (exam.remainingMin > reachableMin) return "notFully";
+  // Fits, but flag honestly when it leans on almost all the run-up's capacity.
+  if (exam.remainingMin > reachableMin * 0.85) return "atRisk";
+  return "possible";
+}
+
+/**
+ * A before→after preview of ONE recovery action, computed from real planner data
+ * WITHOUT committing it. Each action only re-dates today's open blocks (or, for
+ * the respread, paces everything to each exam), so the preview simulates that
+ * shift and reports the honest resulting shape of today + whether the nearest
+ * exam is still reachable afterwards.
+ */
+export type RecoveryActionPreview = {
+  /** Open sessions on today BEFORE the action. */
+  beforeCount: number;
+  /** Essential (first-pass study) sessions left on today AFTER the action. */
+  afterEssentials: number;
+  /** How many of today's sessions this action moves off today. */
+  moved: number;
+  /** New realistic pace for what remains today, in minutes (0 if it clears today). */
+  afterPaceMin: number;
+  /** Honest exam reachability after the action runs. */
+  examReach: ExamReach;
+};
+
+/**
+ * Inputs the preview needs, all derived from real planner reads (no wall clock,
+ * no DB here — the server wrapper fetches these and calls this pure function).
+ */
+export type RecoveryPreviewInput = {
+  /** Today's open study (first-pass) minutes. */
+  todayStudyMin: number;
+  /** Today's open review minutes. */
+  todayReviewMin: number;
+  /** Count of today's open study sessions. */
+  todayStudyCount: number;
+  /** Count of today's open review sessions. */
+  todayReviewCount: number;
+  /** The conservative daily study budget (studyBudget(window)). */
+  budgetMin: number;
+  /** Nearest exam feasibility (work due before it + days left), if any. */
+  exam?: ExamFeasibility;
+};
+
+/**
+ * Simulate all three recovery actions and return an honest before→after for each:
+ *
+ *   - protect → moves only today's reviews to tomorrow (essentials stay).
+ *   - move    → moves ALL of today's open sessions to tomorrow (today clears).
+ *   - lighter → respreads everything across the days before each exam, so today
+ *               drops to the budget-paced share and the exam is recomputed as if
+ *               the work were evenly spread (the best case the planner can offer).
+ *
+ * Exam reachability: protect/move only shift TODAY's load by a day, which doesn't
+ * change the total work that must land before the exam — so the exam verdict is
+ * the same as the current one. The respread is the only action that can change
+ * feasibility, and even then it can only make the exam if the work fundamentally
+ * fits; if it can't, we say so (never false hope).
+ */
+export function recoveryActionPreviews(input: RecoveryPreviewInput): {
+  protect: RecoveryActionPreview;
+  move: RecoveryActionPreview;
+  lighter: RecoveryActionPreview;
+} {
+  const beforeCount = input.todayStudyCount + input.todayReviewCount;
+  const baseReach = examReach(input.exam, input.budgetMin);
+
+  // Protect: keep essentials, move the reviews. Today's remaining work = study.
+  const protectPaceMin = Math.min(input.todayStudyMin, input.budgetMin);
+  const protect: RecoveryActionPreview = {
+    beforeCount,
+    afterEssentials: input.todayStudyCount,
+    moved: input.todayReviewCount,
+    afterPaceMin: protectPaceMin,
+    examReach: baseReach,
+  };
+
+  // Move: today clears entirely (everything open goes to tomorrow).
+  const move: RecoveryActionPreview = {
+    beforeCount,
+    afterEssentials: 0,
+    moved: beforeCount,
+    afterPaceMin: 0,
+    examReach: baseReach,
+  };
+
+  // Lighter plan: respread paces today down to (at most) the budget share. The
+  // exam reachability is the honest best case — examReach already encodes whether
+  // a budget-paced run-up can clear the work; the respread achieves exactly that.
+  const lighterPaceMin = Math.min(
+    input.todayStudyMin + input.todayReviewMin,
+    input.budgetMin,
+  );
+  const lighter: RecoveryActionPreview = {
+    beforeCount,
+    afterEssentials: input.todayStudyCount,
+    moved: Math.max(0, beforeCount - input.todayStudyCount),
+    afterPaceMin: lighterPaceMin,
+    examReach: baseReach,
+  };
+
+  return { protect, move, lighter };
+}
+
+/**
+ * A credible smallest-useful day, assembled from the user's REAL open blocks (it
+ * never invents work). When today is "Needs a choice" or "Doesn't fit", an anxiety
+ * list of everything is the wrong answer; this is the decisive, calm alternative:
+ * the one move that still pushes you forward.
+ *
+ *   - core      — the single highest-priority unfinished STUDY block for the
+ *                 nearest exam (or, lacking exam context, the top of the plan).
+ *   - retrieval — one review/retrieval block (spaced recall), if any exists.
+ *   - optional  — one more block the student MAY do if they have energy, drawn
+ *                 from the remaining study (next in plan order), never duplicated.
+ *
+ * Every slot is optional in the sense that the day adapts to what really exists:
+ * a plan with no reviews simply has no retrieval slot. We pick from `blocks` in
+ * the plan order the page already established (study before review, longest
+ * first), so "core" is genuinely the most important sitting.
+ */
+export type MinimumViableDay = {
+  core: CockpitBlock | null;
+  retrieval: CockpitBlock | null;
+  optional: CockpitBlock | null;
+  /** Total minutes of the selected slots — the honest size of the smallest day. */
+  totalMin: number;
+  /** The selected blocks in order (core, retrieval, optional), nulls dropped. */
+  blocks: CockpitBlock[];
+};
+
+/**
+ * Build the {@link MinimumViableDay} from today's incomplete blocks.
+ *
+ * `nearestExamCourseId`, when given, biases "core" toward the course whose exam
+ * is soonest: the highest-priority open study block FOR THAT COURSE leads. If no
+ * block matches (or no exam context), we fall back to the top study block in plan
+ * order — still real, never fabricated. Pure: same inputs → same day.
+ */
+export function minimumViableDay(
+  blocks: CockpitBlock[],
+  nearestExamCourseId?: string | null,
+): MinimumViableDay {
+  const open = blocks.filter((b) => !b.completed);
+  const study = open.filter((b) => b.kind !== "review");
+  const reviews = open.filter((b) => b.kind === "review");
+
+  // Core: the highest-priority open study block. Prefer the nearest exam's course
+  // (the work that matters most right now); else the top of the plan order, which
+  // already leads with the longest first-pass study session.
+  const core =
+    (nearestExamCourseId
+      ? study.find((b) => b.course.id === nearestExamCourseId)
+      : undefined) ??
+    study[0] ??
+    null;
+
+  // Retrieval: one review/retrieval block (spaced recall), if the plan has any.
+  const retrieval = reviews[0] ?? null;
+
+  // Optional: one more study block beyond the core (next in plan order), so the
+  // student can do a little extra if they have the energy. Never the core again.
+  const optional = study.find((b) => b.id !== core?.id) ?? null;
+
+  const picked = [core, retrieval, optional].filter(
+    (b): b is CockpitBlock => b != null,
+  );
+  const totalMin = picked.reduce((s, b) => s + b.minutes, 0);
+  return { core, retrieval, optional, totalMin, blocks: picked };
+}
+
 /** The first "now"/"next"/"later" (must-do) block — the hero's next action. */
 export function pickHero(
   blocks: CockpitBlock[],

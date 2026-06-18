@@ -9,9 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import SubmitButton from "@/components/SubmitButton";
 import { useT } from "@/components/i18n/I18nProvider";
+import { fmtDuration, type ExamReach } from "@/app/today/cockpit";
 import { protectToday, moveOptionalWork, recoverPlan } from "@/app/today/actions";
 
-/** Before→after preview numbers so each option's label matches its real effect. */
+/**
+ * Before→after preview numbers so each option's label matches its real effect.
+ * These come from a server-side simulation of each action over real planner data
+ * (recoveryActionPreviews) — no commit, and honest about the exam.
+ */
 export type BehindPreview = {
   /** Today's open (incomplete) session count before any action. */
   todayCount: number;
@@ -21,6 +26,12 @@ export type BehindPreview = {
   essentialsAfterProtect: number;
   /** How many sessions "Move today's work" would move (ALL open today). */
   moveMoves: number;
+  /** New realistic pace (minutes) for what remains today after "Protect today". */
+  protectPaceMin: number;
+  /** New realistic pace (minutes) for what remains today after the respread. */
+  lighterPaceMin: number;
+  /** Honest nearest-exam reachability after any of these actions. */
+  examReach: ExamReach;
 };
 
 /**
@@ -65,6 +76,18 @@ export default function BehindSheet({
   const showProtect = !preview || preview.protectMoves > 0;
   const showMove = !preview || preview.moveMoves > 0;
 
+  // One honest exam-reachability line shared by every option (the actions don't
+  // change which exam is reachable — see recoveryActionPreviews). Omitted when
+  // there's no exam to reason about, so we never add noise.
+  const examLine =
+    preview && preview.examReach !== "none"
+      ? preview.examReach === "possible"
+        ? t("behind.examPossible")
+        : preview.examReach === "atRisk"
+          ? t("behind.examAtRisk")
+          : t("behind.examNotFully")
+      : null;
+
   return (
     <>
       {trigger(() => setOpen(true))}
@@ -88,9 +111,11 @@ export default function BehindSheet({
                         from: preview.todayCount,
                         essentials: preview.essentialsAfterProtect,
                         moved: preview.protectMoves,
+                        pace: fmtDuration(preview.protectPaceMin),
                       })
                     : null
                 }
+                examLine={examLine}
                 pendingLabel={t("behind.working")}
               />
             )}
@@ -107,6 +132,7 @@ export default function BehindSheet({
                       })
                     : null
                 }
+                examLine={examLine}
                 pendingLabel={t("behind.working")}
               />
             )}
@@ -114,7 +140,16 @@ export default function BehindSheet({
               action={recoverPlan}
               label={t("behind.lighterTitle")}
               hint={t("behind.lighterHint")}
-              preview={null}
+              preview={
+                preview
+                  ? t("behind.lighterPreview", {
+                      from: preview.todayCount,
+                      essentials: preview.essentialsAfterProtect,
+                      pace: fmtDuration(preview.lighterPaceMin),
+                    })
+                  : null
+              }
+              examLine={examLine}
               pendingLabel={t("behind.working")}
             />
           </div>
@@ -138,6 +173,7 @@ function BehindOption({
   label,
   hint,
   preview,
+  examLine,
   pendingLabel,
 }: {
   action: () => Promise<void>;
@@ -145,6 +181,8 @@ function BehindOption({
   hint: string;
   /** Brief before→after line shown above the hint, when available. */
   preview: string | null;
+  /** Honest nearest-exam line ("still possible" / "no longer fully possible"). */
+  examLine?: string | null;
   pendingLabel: string;
 }) {
   return (
@@ -154,6 +192,9 @@ function BehindOption({
       </SubmitButton>
       {preview && (
         <p className="px-1 text-xs font-medium text-foreground">{preview}</p>
+      )}
+      {examLine && (
+        <p className="px-1 text-xs font-medium text-muted-foreground">{examLine}</p>
       )}
       <p className="px-1 text-xs text-muted-foreground">{hint}</p>
     </form>

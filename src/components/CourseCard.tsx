@@ -24,11 +24,59 @@ export type HealthStatus =
 
 export type CourseHealth = {
   status: HealthStatus;
+  /** The calm, plain-language confidence word (one word, not a scoreboard). */
+  confidence: Confidence;
   /** Pre-localized one calm sentence, e.g. "Needs attention — 4 days left, 14h remaining." */
   line: string;
   /** Pre-localized next-action hint, e.g. "Build a plan →". */
   next: string;
 };
+
+/**
+ * The plain-language plan confidence shown on a course — ONE calm word, kept
+ * consistent with Today's truth states (protected / needs a choice / doesn't fit):
+ *
+ *   - "comfortable"  — on track; the runway comfortably holds the remaining work.
+ *   - "tight"        — it fits, but with little slack (exam near, or a heavy but
+ *                      survivable per-day pace) — true, not alarming.
+ *   - "decision"     — it no longer fits without a change: overloaded, or there's
+ *                      no plan yet. The honest "needs a decision" word.
+ *
+ * This is a refinement of the existing 5-state {@link HealthStatus}, not a parallel
+ * system — {@link confidenceFromHealth} maps each health state to exactly one word
+ * so the card shows a single calm signal instead of a five-way scoreboard.
+ */
+export type Confidence = "comfortable" | "tight" | "decision";
+
+/**
+ * Map the existing 5-state course health into one of the three calm confidence
+ * words. Pure: same status → same word. The mapping deliberately mirrors Today:
+ *   - overloaded / noPlan  → "decision"  (something must change / nothing planned)
+ *   - examSoon / attention → "tight"     (fits, but the runway/workload is snug)
+ *   - healthy              → "comfortable"
+ */
+export function confidenceFromHealth(status: HealthStatus): Confidence {
+  switch (status) {
+    case "overloaded":
+    case "noPlan":
+      return "decision";
+    case "examSoon":
+    case "attention":
+      return "tight";
+    case "healthy":
+    default:
+      return "comfortable";
+  }
+}
+
+/** The i18n key for a confidence word's calm label. */
+export function confidenceLabelKey(c: Confidence): "courses.confComfortable" | "courses.confTight" | "courses.confDecision" {
+  return c === "comfortable"
+    ? "courses.confComfortable"
+    : c === "tight"
+      ? "courses.confTight"
+      : "courses.confDecision";
+}
 
 export type CardCourse = {
   id: string;
@@ -58,6 +106,11 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
   // nothing else — earns the muted amber accent on the exam countdown. Everything
   // else stays neutral slate; red is never used here.
   const actionNeeded = health.status !== "healthy";
+  // The single plain-language confidence word. "Needs a decision" gets the muted
+  // amber accent (it asks for action); "Tight" and "Comfortable" stay neutral —
+  // calm by default, never an alarm.
+  const confidence = health.confidence;
+  const confidenceLabel = t(confidenceLabelKey(confidence));
 
   return (
     <div className="relative">
@@ -95,8 +148,21 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
             </span>
           </div>
 
+          {/* The single plain-language confidence word — ONE calm signal, kept
+              consistent with Today (Comfortable · Tight · Needs a decision). Amber
+              only when it asks for a decision; otherwise neutral. Not a scoreboard. */}
+          <p
+            className={`mt-3 text-sm font-semibold ${
+              confidence === "decision"
+                ? "text-warning-foreground"
+                : "text-gray-700 dark:text-gray-200"
+            }`}
+          >
+            {confidenceLabel}
+          </p>
+
           {/* One calm health sentence — quiet words, not stacked alarm badges. */}
-          <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">{health.line}</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{health.line}</p>
 
           {/* Footer: the single next action. Teal when there's something to do;
               quiet (secondary) once the course is comfortably on track. */}

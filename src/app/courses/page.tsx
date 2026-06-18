@@ -4,7 +4,11 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
-import CourseCard, { type CourseHealth, type HealthStatus } from "@/components/CourseCard";
+import CourseCard, {
+  confidenceFromHealth,
+  type CourseHealth,
+  type HealthStatus,
+} from "@/components/CourseCard";
 import SwipeCourseCard from "@/components/SwipeCourseCard";
 import type { Translator } from "@/components/i18n/messages";
 import { BookOpen } from "lucide-react";
@@ -98,7 +102,12 @@ function deriveHealth(
             ? t("courses.nextKeepGoing")
             : t("courses.nextStayOnTrack");
 
-  return { status, line, next };
+  // Refine the 5-state health into one calm confidence word (kept consistent with
+  // Today's truth states). The same signals already drove `status`, so this is a
+  // single deterministic mapping, not a parallel computation.
+  const confidence = confidenceFromHealth(status);
+
+  return { status, confidence, line, next };
 }
 
 export default async function CoursesPage() {

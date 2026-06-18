@@ -18,12 +18,15 @@ import {
   assignLanes,
   cockpitStatus,
   computeCapacity,
+  minimumViableDay,
   pickHero,
+  recoveryActionPreviews,
   riskVerdict,
   studyBudget,
   type CockpitBlock,
   type CockpitStatus,
   type Lane,
+  type MinimumViableDay,
 } from "./cockpit";
 
 export const dynamic = "force-dynamic";
@@ -246,6 +249,31 @@ export default async function TodayPage({
   }
   const status: CockpitStatus = cockpitStatus(mustDoMin, availableMin, examFeasibility);
 
+  // Minimum Viable Day — the calm, decisive alternative to an anxiety list, shown
+  // only when today needs a choice or can't fit. Selected from the student's REAL
+  // open blocks (core study for the nearest exam + one retrieval + one optional),
+  // never invented. The cockpit surfaces it as "the smallest day that still moves
+  // you forward".
+  const mvd: MinimumViableDay | null =
+    status === "protected" ? null : minimumViableDay(cockpitBlocks, nextExam?.id ?? null);
+
+  // Richer recovery preview: a before→after for each "Adjust today" option, computed
+  // from real planner data WITHOUT committing. We split today's open load into
+  // first-pass study vs reviews (the exact distinction the actions act on) and pass
+  // the nearest exam's feasibility so each option can say, honestly, whether the
+  // exam is still reachable afterwards.
+  const openToday = blocks.filter((b) => !b.completed);
+  const openStudyToday = openToday.filter((b) => b.kind !== "review");
+  const openReviewToday = openToday.filter((b) => b.kind === "review");
+  const previews = recoveryActionPreviews({
+    todayStudyMin: openStudyToday.reduce((s, b) => s + b.minutes, 0),
+    todayReviewMin: openReviewToday.reduce((s, b) => s + b.minutes, 0),
+    todayStudyCount: openStudyToday.length,
+    todayReviewCount: openReviewToday.length,
+    budgetMin: availableMin,
+    exam: examFeasibility,
+  });
+
   // Exam-countdown chips (soonest first), colored by urgency in the strip.
   const examChips: ExamChip[] = upcomingExams
     .map((c) => ({ id: c.id, name: c.name, days: daysUntil(c.examDate, today) }))
@@ -339,6 +367,8 @@ export default async function TodayPage({
               hero={hero}
               risk={risk}
               status={status}
+              mvd={mvd}
+              previews={previews}
               examName={status === "doesnt_fit" ? nextExam?.name ?? null : null}
               examDays={status === "doesnt_fit" ? examFeasibility?.daysUntil ?? null : null}
             />

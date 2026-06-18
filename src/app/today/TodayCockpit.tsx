@@ -23,6 +23,8 @@ import {
   type CockpitBlock,
   type CockpitStatus,
   type Lane,
+  type MinimumViableDay,
+  type RecoveryActionPreview,
   type RiskVerdict,
 } from "./cockpit";
 
@@ -50,6 +52,8 @@ export default function TodayCockpit({
   hero,
   risk,
   status,
+  mvd = null,
+  previews = null,
   examName = null,
   examDays = null,
 }: {
@@ -60,6 +64,14 @@ export default function TodayCockpit({
   risk: RiskVerdict;
   /** The one honest Today state — drives the big status line (never false calm). */
   status: CockpitStatus;
+  /** The smallest-useful day (only for non-protected states); null otherwise. */
+  mvd?: MinimumViableDay | null;
+  /** Before→after preview for each "Adjust today" option (real planner data). */
+  previews?: {
+    protect: RecoveryActionPreview;
+    move: RecoveryActionPreview;
+    lighter: RecoveryActionPreview;
+  } | null;
   /** Nearest exam name, only when status is "doesnt_fit" (else null). */
   examName?: string | null;
   /** Days to that exam, only when status is "doesnt_fit" (else null). */
@@ -116,19 +128,22 @@ export default function TodayCockpit({
         : null;
   const needsAdjust = !allDone && status !== "protected";
 
-  // Preview numbers for the one "Adjust today" sheet (before → after), so each
-  // option's label matches its real effect and 0-effect options can be hidden.
-  const openBlocks = blocks.filter((b) => !b.completed);
-  const openReviews = openBlocks.filter((b) => b.kind === "review");
-  const essentialsAfterProtect = openBlocks.length - openReviews.length;
-  const behindPreview = {
-    todayCount: openBlocks.length,
-    // "Protect today" keeps first-pass study, moves the optional reviews.
-    protectMoves: openReviews.length,
-    essentialsAfterProtect,
-    // "Move today's work" moves ALL of today's open sessions.
-    moveMoves: openBlocks.length,
-  };
+  // Richer before→after preview for the one "Adjust today" sheet, computed
+  // server-side from real planner data (page.tsx → recoveryActionPreviews) and
+  // passed down. It carries, per option, the resulting essentials/moved counts,
+  // the new pace, and an HONEST exam-reachability verdict — so each option's line
+  // matches its true effect and never promises an exam it can't make.
+  const behindPreview = previews
+    ? {
+        todayCount: previews.protect.beforeCount,
+        protectMoves: previews.protect.moved,
+        essentialsAfterProtect: previews.protect.afterEssentials,
+        moveMoves: previews.move.moved,
+        protectPaceMin: previews.protect.afterPaceMin,
+        lighterPaceMin: previews.lighter.afterPaceMin,
+        examReach: previews.protect.examReach,
+      }
+    : undefined;
 
   return (
     <>
@@ -203,6 +218,14 @@ export default function TodayCockpit({
         }
       />
 
+      {/* ── MINIMUM VIABLE DAY ── the calm, decisive alternative to an anxiety
+          list. Shown only when today needs a choice / can't fit and there's a
+          real core block to anchor it. One core session + (if any) one retrieval
+          + one optional — all from the student's real plan, never invented. */}
+      {needsAdjust && mvd && mvd.core && (
+        <MinimumViableDayCard mvd={mvd} onStart={openFocus} onOpen={(id) => setOpenId(id)} />
+      )}
+
       {/* ── SHORT must-do list (left-aligned, quiet rows) ── */}
       {visibleRest.length > 0 && (
         <ul className="mx-auto mt-8 max-w-md space-y-1 text-left">
@@ -244,6 +267,67 @@ export default function TodayCockpit({
         }}
       />
     </>
+  );
+}
+
+/**
+ * The Minimum Viable Day — a single calm card offering the smallest day that
+ * still moves the student forward, drawn entirely from their real plan: one core
+ * study session (the highest-priority work for the nearest exam), one retrieval
+ * (a review) when the plan has one, and one optional session. It replaces the
+ * dread of a full list with a decisive, doable choice. The primary button starts
+ * the core session; the other slots open their session sheet on tap.
+ */
+function MinimumViableDayCard({
+  mvd,
+  onStart,
+  onOpen,
+}: {
+  mvd: MinimumViableDay;
+  onStart: (blockId: string) => void;
+  onOpen: (blockId: string) => void;
+}) {
+  const t = useT();
+  const slots: { block: CockpitBlock; label: string }[] = [];
+  if (mvd.core) slots.push({ block: mvd.core, label: t("today.mvdCore") });
+  if (mvd.retrieval) slots.push({ block: mvd.retrieval, label: t("today.mvdRetrieval") });
+  if (mvd.optional) slots.push({ block: mvd.optional, label: t("today.mvdOptional") });
+
+  return (
+    <section className="mx-auto mt-8 max-w-md rounded-2xl bg-surface-muted p-5 text-left">
+      <p className="text-base font-semibold">{t("today.mvdTitle")}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t("today.mvdSubtitle", { time: fmtDuration(mvd.totalMin) })}
+      </p>
+
+      <ul className="mt-4 space-y-2">
+        {slots.map(({ block, label }) => (
+          <li key={block.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(block.id)}
+              className="flex w-full items-baseline gap-3 text-left"
+            >
+              <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block break-words font-medium">{block.topicTitle}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  {fmtDuration(block.minutes)} · {block.course.name}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {mvd.core && (
+        <Button size="lg" className="mt-4 w-full" onClick={() => onStart(mvd.core!.id)}>
+          {t("today.mvdStart", { minutes: mvd.core.minutes, topic: mvd.core.topicTitle })}
+        </Button>
+      )}
+    </section>
   );
 }
 

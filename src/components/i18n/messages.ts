@@ -278,6 +278,13 @@ const en = {
     laterToggle: "Protected for later ({count})",
     laterHint: "Lower-priority and optional work, kept aside so today stays light.",
     contextEmpty: "No exams or classes on the horizon. Just today's sessions.",
+    // ── Minimum Viable Day (the smallest day that still moves you forward) ──
+    mvdTitle: "Here's the smallest day that still moves you forward",
+    mvdSubtitle: "One core session, one quick review, one optional. About {time}.",
+    mvdCore: "Core",
+    mvdRetrieval: "Review",
+    mvdOptional: "Optional",
+    mvdStart: "Start {minutes}m: {topic}",
   },
   focus: {
     title: "Focus",
@@ -317,12 +324,17 @@ const en = {
     subtitle: "Pick what feels right. Nothing is lost, and you can change it back.",
     protectTitle: "Protect today",
     protectHint: "Keep your essentials, move just the optional reviews to tomorrow.",
-    protectPreview: "Today {from} → {essentials} essential ({moved} review moved)",
+    protectPreview: "Today {from} → {essentials} essentials · {moved} reviews moved · new pace ~{pace}",
     moveTitle: "Move today's work",
     moveHint: "Move all of today's open sessions to tomorrow so you can start fresh.",
-    movePreview: "Today {from} → 0 ({moved} moved)",
+    movePreview: "Today {from} → 0 · {moved} moved to tomorrow",
     lighterTitle: "Make a lighter plan",
     lighterHint: "Respread everything across the days before each exam.",
+    lighterPreview: "Today {from} → {essentials} essentials · new pace ~{pace}",
+    // Honest nearest-exam line shown under each option (real planner verdict).
+    examPossible: "Nearest exam: still possible",
+    examAtRisk: "Nearest exam: possible, but tight",
+    examNotFully: "Nearest exam: no longer fully possible",
     working: "One moment…",
     reassure: "Whatever you choose, finished work always stays done.",
     protectDone: {
@@ -424,6 +436,10 @@ const en = {
     healthOverloaded: "Overloaded",
     healthNoPlan: "No plan yet",
     healthExamSoon: "Exam soon",
+    // ── Plan confidence (one calm word, consistent with Today's truth states) ──
+    confComfortable: "Comfortable",
+    confTight: "Tight",
+    confDecision: "Needs a decision",
     // One calm health sentence: "{lead}: {facts}." e.g. "Needs attention: 4 days left, 14h remaining."
     healthLine: "{lead}: {facts}.",
     whySep: ", ",
@@ -1339,6 +1355,13 @@ const de: Messages = {
     laterToggle: "Für später aufbewahrt ({count})",
     laterHint: "Optionales und Nachrangiges, beiseitegelegt, damit heute leicht bleibt.",
     contextEmpty: "Keine Prüfungen oder Vorlesungen in Sicht. Nur die heutigen Einheiten.",
+    // ── Minimaler sinnvoller Tag (der kleinste Tag, der dich trotzdem voranbringt) ──
+    mvdTitle: "Das ist der kleinste Tag, der dich trotzdem voranbringt",
+    mvdSubtitle: "Eine Kerneinheit, eine kurze Wiederholung, eine optionale. Ca. {time}.",
+    mvdCore: "Kern",
+    mvdRetrieval: "Wiederholung",
+    mvdOptional: "Optional",
+    mvdStart: "{minutes} Min starten: {topic}",
   },
   focus: {
     title: "Fokus",
@@ -1378,12 +1401,17 @@ const de: Messages = {
     subtitle: "Wähl, was sich richtig anfühlt. Nichts geht verloren, du kannst es zurücknehmen.",
     protectTitle: "Heute schützen",
     protectHint: "Das Wichtige behalten, nur die optionalen Wiederholungen auf morgen schieben.",
-    protectPreview: "Heute {from} → {essentials} wichtig ({moved} Wiederholung verschoben)",
+    protectPreview: "Heute {from} → {essentials} wichtig · {moved} Wiederholungen verschoben · neues Tempo ~{pace}",
     moveTitle: "Heutiges verschieben",
     moveHint: "Alle offenen Einheiten von heute auf morgen schieben, damit du frisch starten kannst.",
-    movePreview: "Heute {from} → 0 ({moved} verschoben)",
+    movePreview: "Heute {from} → 0 · {moved} auf morgen verschoben",
     lighterTitle: "Leichteren Plan machen",
     lighterHint: "Alles neu auf die Tage vor jeder Prüfung verteilen.",
+    lighterPreview: "Heute {from} → {essentials} wichtig · neues Tempo ~{pace}",
+    // Ehrliche Zeile zur nächsten Prüfung unter jeder Option (echtes Planurteil).
+    examPossible: "Nächste Prüfung: weiterhin machbar",
+    examAtRisk: "Nächste Prüfung: machbar, aber knapp",
+    examNotFully: "Nächste Prüfung: nicht mehr vollständig machbar",
     working: "Einen Moment…",
     reassure: "Was du auch wählst, Erledigtes bleibt immer erledigt.",
     protectDone: {
@@ -1485,6 +1513,10 @@ const de: Messages = {
     healthOverloaded: "Überlastet",
     healthNoPlan: "Noch kein Plan",
     healthExamSoon: "Prüfung bald",
+    // ── Plansicherheit (ein ruhiges Wort, passend zu Heutes Wahrheitszuständen) ──
+    confComfortable: "Entspannt",
+    confTight: "Knapp",
+    confDecision: "Entscheidung nötig",
     // Ein ruhiger Status-Satz: "{lead}: {facts}." z. B. "Aufmerksamkeit nötig: 4 Tage übrig, 14 Std. übrig."
     healthLine: "{lead}: {facts}.",
     whySep: ", ",
