@@ -269,14 +269,20 @@ export default async function TodayPage({
         localStorage "seen" flag, so it shows at most once and never for users
         who already have courses. */}
     <Onboarding active={hasNoPlan} />
-    <main className="mx-auto max-w-2xl p-4 sm:p-8">
+    {/* Container: a narrow calm column on mobile/tablet; on lg+ it widens so the
+        single spine can breathe as a calm TWO-PANE — the cockpit spine on the
+        left, today's context on the right. The grid below only kicks in at lg. */}
+    <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-5xl">
       <div className="mb-3">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
       </div>
 
       {/* Exam-countdown strip — a single quiet line of countdowns at the very top
-          ("OS 4d · Algorithms 24d"). The only urgency signal on the page. */}
-      <ExamStrip exams={examChips} t={t} />
+          ("OS 4d · Algorithms 24d"). The only urgency signal on the page.
+          On lg+ it moves into the right context pane (see below), so hide it here. */}
+      <div className="lg:hidden">
+        <ExamStrip exams={examChips} t={t} />
+      </div>
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
           rebuilt. The proactive trigger now lives in the single "Adjust today"
@@ -317,23 +323,50 @@ export default async function TodayPage({
         </div>
       )}
       {blocks.length > 0 ? (
-        <>
-          {/* The calm spine: hero next action + one honest status line + a quiet
-              list of the rest of today, with the per-block session sheet and the
-              single "Help me catch up" drawer holding everything demoted. */}
-          <TodayCockpit
-            blocks={cockpitBlocks}
-            lanes={lanes}
-            hero={hero}
-            risk={risk}
-            status={status}
-            examName={status === "doesnt_fit" ? nextExam?.name ?? null : null}
-            examDays={status === "doesnt_fit" ? examFeasibility?.daysUntil ?? null : null}
-          />
+        // Two-pane on lg+: LEFT = the cockpit spine (status, hero Start,
+        // essentials list, "Protected for later", Adjust today — all inside
+        // TodayCockpit). RIGHT = today's context (exam countdowns, classes,
+        // deadlines). On smaller screens this collapses to the single calm
+        // column, spine first then context, EXACTLY as before.
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-12 xl:gap-16">
+          {/* LEFT — the calm spine: hero next action + one honest status line +
+              a quiet list of the rest of today, with the per-block session sheet
+              and the single "Adjust today" drawer holding everything demoted. */}
+          <div className="min-w-0">
+            <TodayCockpit
+              blocks={cockpitBlocks}
+              lanes={lanes}
+              hero={hero}
+              risk={risk}
+              status={status}
+              examName={status === "doesnt_fit" ? nextExam?.name ?? null : null}
+              examDays={status === "doesnt_fit" ? examFeasibility?.daysUntil ?? null : null}
+            />
+          </div>
+
+          {/* RIGHT — today's context. On lg+ it sits in its own quiet column with
+              the exam countdowns at its head; on mobile it stacks under the spine
+              and the exam strip stays at the very top of the page (above). */}
+          <aside className="mt-6 lg:mt-0">
+          {/* Exam-countdown strip — shown here only on lg+ (hidden at top there). */}
+          <div className="mb-6 hidden lg:block">
+            <ExamStrip exams={examChips} t={t} />
+          </div>
+
+          {/* When there's no context at all, the right pane would be empty on
+              lg+ — show a single calm line there instead of a hollow column.
+              Hidden on mobile (nothing to fill, so the column just collapses). */}
+          {examChips.length === 0 &&
+            todaysLectures.length === 0 &&
+            upcomingDeadlines.length === 0 && (
+              <p className="hidden text-sm text-muted-foreground lg:block">
+                {t("today.contextEmpty")}
+              </p>
+            )}
 
           {/* Demoted secondary context: today's classes + upcoming deadlines. */}
           {todaysLectures.length > 0 && (
-            <section className="mt-6">
+            <section className="mt-6 first:mt-0">
               <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {t("today.classes")}
               </h2>
@@ -362,7 +395,7 @@ export default async function TodayPage({
           )}
 
           {upcomingDeadlines.length > 0 && (
-            <section className="mt-6">
+            <section className="mt-6 first:mt-0">
               <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {t("today.deadlines")}
               </h2>
@@ -394,7 +427,8 @@ export default async function TodayPage({
               </ul>
             </section>
           )}
-        </>
+          </aside>
+        </div>
       ) : hasNoPlan ? (
         <EmptyState
           icon={<Rocket className="h-7 w-7" />}
