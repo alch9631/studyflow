@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft } from "lucide-react";
+import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
@@ -293,6 +293,19 @@ export default async function CoursePage({
   const fileGroups = CATEGORY_ORDER.filter((c) => filesByCategory.has(c)).map(
     (c) => [c, filesByCategory.get(c)!] as const,
   );
+
+  // Whether AI Practice Mode has anything to show: at least one topic carries a
+  // non-empty `questions` JSON array. Gates the "Practice" entry point so it
+  // never leads into an empty state.
+  const hasPracticeQuestions = course.topics.some((topic) => {
+    if (!topic.questions) return false;
+    try {
+      const parsed = JSON.parse(topic.questions);
+      return Array.isArray(parsed) && parsed.some((q) => typeof q === "string" && q.trim().length > 0);
+    } catch {
+      return false;
+    }
+  });
 
   return (
     <main className="mx-auto max-w-3xl p-4 sm:p-8">
@@ -757,7 +770,20 @@ export default async function CoursePage({
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.topics")}</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{t("courseDetail.topics")}</h2>
+          {/* Practice entry point: a calm link into active-recall mode, shown only
+              when at least one topic actually has AI-generated self-test questions
+              (so it never leads to an empty state). Course-scoped via courseId. */}
+          {hasPracticeQuestions && (
+            <Link
+              href={`/practice?courseId=${course.id}`}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" /> {t("courseDetail.practice")}
+            </Link>
+          )}
+        </div>
         <AnimatedList className="space-y-2">
           {course.topics.map((topic) => {
             let questions: string[] = [];
