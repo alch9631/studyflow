@@ -1,19 +1,33 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Compass,
   Bandage,
   Brain,
   BarChart3,
   Zap,
-  Star,
   BookOpen,
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getT } from "@/components/i18n/server";
+import { getCurrentUserId } from "@/lib/devUser";
 
 export default async function Home() {
+  // Known users (authenticated, or the seeded dev user in dev/test) skip the
+  // marketing page and land straight in their daily plan. Only true signed-out
+  // visitors fall through to the landing. In production getCurrentUserId throws
+  // when there's no session — that's the expected signed-out path, so we swallow
+  // it and render the landing rather than 500.
+  let userId: string | null = null;
+  try {
+    userId = await getCurrentUserId();
+  } catch {
+    userId = null;
+  }
+  if (userId) redirect("/today");
+
   const t = await getT();
 
   // Feature grid — every claim maps to a shipped feature:
@@ -34,13 +48,6 @@ export default async function Home() {
     { value: t("landing.stat1Value"), label: t("landing.stat1Label") },
     { value: t("landing.stat2Value"), label: t("landing.stat2Label") },
     { value: t("landing.stat3Value"), label: t("landing.stat3Label") },
-  ] as const;
-
-  // Placeholder social proof — generic personas, no fabricated real names.
-  const TESTIMONIALS = [
-    { quote: t("landing.quote1"), author: t("landing.quote1Author"), detail: t("landing.quote1Detail") },
-    { quote: t("landing.quote2"), author: t("landing.quote2Author"), detail: t("landing.quote2Detail") },
-    { quote: t("landing.quote3"), author: t("landing.quote3Author"), detail: t("landing.quote3Detail") },
   ] as const;
 
   return (
@@ -131,46 +138,6 @@ export default async function Home() {
             </Card>
           ))}
         </div>
-      </section>
-
-      {/* ── Social proof ───────────────────────────────────────────────── */}
-      {/* Testimonials are a desktop-only trust signal; on a phone they're a long
-          scroll between the user and the program picker, so the whole section is
-          hidden below the sm breakpoint. */}
-      <section className="hidden flex-col gap-6 sm:flex">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            {t("landing.proofTitle")}
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-pretty text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-            {t("landing.proofSubtitle")}
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {TESTIMONIALS.map((tm) => (
-            <Card asChild key={tm.quote} className="flex flex-col gap-3 p-5">
-              <figure>
-                <div aria-hidden className="flex gap-0.5 text-amber-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-3.5 w-3.5 fill-current" />
-                  ))}
-                </div>
-              <blockquote className="text-pretty text-sm leading-relaxed text-gray-700 dark:text-gray-200">
-                “{tm.quote}”
-              </blockquote>
-              <figcaption className="mt-auto text-xs text-gray-500 dark:text-gray-400">
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {tm.author}
-                </span>
-                <span className="block">{tm.detail}</span>
-              </figcaption>
-              </figure>
-            </Card>
-          ))}
-        </div>
-        <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
-          {t("landing.quotesDisclaimer")}
-        </p>
       </section>
 
       {/* ── Secondary action: jump back into existing courses ──────────── */}
