@@ -3,11 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { isCourseOverloaded, todayISO } from "@/lib/planService";
+import { courseOverloadInfo, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import { daysUntil } from "@/lib/dates";
 import { getT } from "@/components/i18n/server";
-import { examCountdownLabel, dueLabel, type MessageKey } from "@/components/i18n/messages";
+import { examCountdownLabel, dueLabel, type MessageKey, type Translator } from "@/components/i18n/messages";
 import { FILE_CATEGORIES, isFileCategory, type FileCategory } from "@/lib/fileCategory";
 import {
   healCourse,
@@ -86,6 +86,24 @@ function fileTypeHint(filename: string, mimeType: string | null): string {
   const ext = filename.includes(".") ? filename.split(".").pop()! : "";
   if (ext) return ext.slice(0, 8).toUpperCase();
   return "File";
+}
+
+/**
+ * Calm, localized "about N h/day" / "about N min/day" from a minutes/day figure.
+ * Avoids the alarmist precision of a raw "203 min/day": rounds to a friendly
+ * half-hour once we're past an hour, and keeps it in minutes only when small.
+ * The banner uses this so the required pace reads like a human estimate, not a
+ * stopwatch — and stays consistent with the page's other pace copy.
+ */
+function hoursLabel(t: Translator, minutesPerDay: number): string {
+  const min = Math.max(0, Math.round(minutesPerDay));
+  if (min < 60) return t("courseDetail.overload.minPerDay", { min });
+  const hours = Math.round((min / 60) * 2) / 2; // nearest half hour
+  // Drop a trailing ".0" and localize the decimal separator (de uses a comma).
+  const text = Number.isInteger(hours)
+    ? String(hours)
+    : hours.toLocaleString(t.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return t("courseDetail.overload.hoursPerDay", { hours: text });
 }
 
 /** Shape of the stored analysis JSON; every field is optional/defensive. */
@@ -227,9 +245,10 @@ export default async function CoursePage({
   });
   if (!course) notFound();
 
-  const overloaded = await isCourseOverloaded(course.id);
+  const overload = await courseOverloadInfo(course.id);
   const doneCount = course.topics.filter((t) => t.done).length;
-  const examInDays = daysUntil(course.examDate, todayISO());
+  const today = todayISO();
+  const examInDays = daysUntil(course.examDate, today);
 
   // Delete guardrail: real progress (completed study sessions + done topics) that
   // would be lost. Surfaced as a stronger warning line in the delete confirm so a
@@ -243,13 +262,24 @@ export default async function CoursePage({
         : `This course has ${completedSessions} completed sessions and ${doneCount} done topics. Deleting is permanent.`
       : null;
 
-  // Group study blocks by date for the weekly view.
+  // Split study blocks into the FORWARD plan (today onward) and MISSED sessions
+  // (past dates whose work was never completed). Past unfinished blocks are not
+  // the active plan — surfacing them as "today's plan" is a lie, so they go in
+  // their own "Missed" group and the recovery (heal) flow is the real next step.
+  // Past blocks that WERE completed are durable history, not missed — drop them
+  // from this forward-looking list entirely.
   const byDate = new Map<string, typeof course.blocks>();
+  const missed: typeof course.blocks = [];
   for (const b of course.blocks) {
     const key = b.date.toISOString().slice(0, 10);
+    if (key < today) {
+      if (!b.completed) missed.push(b);
+      continue;
+    }
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key)!.push(b);
   }
+  const missedMinutes = missed.reduce((s, b) => s + b.minutes, 0);
 
   // #5 — Group uploaded files by auto-classified category, then render the
   // groups in CATEGORY_ORDER. Files keep their newest-first order within a
@@ -544,9 +574,27 @@ export default async function CoursePage({
         </div>
       </div>
 
-      {overloaded && (
+      {overload.overloaded && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-          {t("courseDetail.overloaded")}
+          <p className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              {/* Truthful, plan-derived headline: the REAL required pace + days
+                  left, phrased calmly (rounded to ~h/day to match the page). */}
+              {overload.cause === "no-runway"
+                ? t("courseDetail.overload.headlineNoRunway", {
+                    hours: hoursLabel(t, overload.requiredPerDay),
+                  })
+                : t.n("courseDetail.overload.headline", overload.daysLeft, {
+                    hours: hoursLabel(t, overload.requiredPerDay),
+                    ceiling: hoursLabel(t, overload.ceilingPerDay),
+                  })}{" "}
+              {/* The actual cause, then a real next step (add study days /
+                  open the recovery flow) instead of the useless "start earlier". */}
+              {t(`courseDetail.overload.cause.${overload.cause}` as MessageKey)}{" "}
+              {t(`courseDetail.overload.next.${overload.cause}` as MessageKey)}
+            </span>
+          </p>
         </div>
       )}
 
@@ -768,9 +816,44 @@ export default async function CoursePage({
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.studyPlan")}</h2>
+
+        {/* MISSED: past sessions whose work was never completed. These are NOT the
+            current plan — shown separately, with the recovery (heal) flow as the
+            real way to fold them back in rather than leaving stale past dates in
+            the forward list. */}
+        {missed.length > 0 && (
+          <details className="group mb-4 rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100/60 dark:text-amber-300 dark:hover:bg-amber-950/50">
+              <span className="flex items-center gap-2">
+                <span aria-hidden="true" className="text-amber-500 transition-transform group-open:rotate-90">›</span>
+                {t("courseDetail.missedHeading")}
+              </span>
+              <span className="shrink-0 text-xs font-normal text-amber-700 dark:text-amber-400">
+                {t.n("courseDetail.blockCount", missed.length, { min: missedMinutes })}
+              </span>
+            </summary>
+            <div className="border-t border-amber-200 px-4 pb-4 pt-3 dark:border-amber-900/60">
+              <p className="mb-3 text-xs text-amber-700 dark:text-amber-400">{t("courseDetail.missedHint")}</p>
+              <ul className="space-y-1">
+                {missed.map((b) => (
+                  <li
+                    key={b.id}
+                    className="flex justify-between gap-3 text-sm text-amber-800 dark:text-amber-300"
+                  >
+                    <span className="min-w-0 break-words">
+                      {b.date.toISOString().slice(0, 10)} · {b.topicTitle}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap">{b.minutes} {t("common.min")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </details>
+        )}
+
         {byDate.size === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("courseDetail.nothingScheduled")}
+            {missed.length > 0 ? t("courseDetail.missedOnly") : t("courseDetail.nothingScheduled")}
           </p>
         ) : (
           <div className="space-y-2">

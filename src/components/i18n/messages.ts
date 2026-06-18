@@ -478,8 +478,30 @@ const en = {
     deleteError: "Couldn't delete that course. Please try again.",
     deleteMsgPre: "Deleting",
     deleteMsgPost: "also removes its topics, deadlines, files, and study plan. This can't be undone.",
-    overloaded:
-      "⏰ Not enough time to finish before the exam, even at ~3 h/day. Start earlier or add study days.",
+    overload: {
+      // {hours} is the real required pace (e.g. "about 3 h/day"); {ceiling} the
+      // realistic daily max. Pluralized on days left. Calm, not defeatist.
+      headline: {
+        one: "To finish in the {count} study day left, you'd need {hours} — more than a realistic day.",
+        other: "To finish in the {count} study days left, you'd need {hours} — that's above a realistic {ceiling}.",
+      },
+      headlineNoRunway: "The exam is here and there are no study days left to spread the work.",
+      hoursPerDay: "about {hours} h/day",
+      minPerDay: "about {min} min/day",
+      cause: {
+        "no-runway": "The plan can't be paced out any further.",
+        "few-days": "There aren't enough study days before the exam to spread the work.",
+        "over-ceiling": "Even using every study day, the workload won't fit before the exam.",
+      },
+      next: {
+        "no-runway": "Focus the time you have on the highest-yield topics, and use \"I fell behind\" to rebuild around what's left.",
+        "few-days": "Add more study days in the course settings, then save to rebuild the plan.",
+        "over-ceiling": "Use \"I fell behind\" to rebuild the plan around what's still ahead, or add study days.",
+      },
+    },
+    missedHeading: "Missed sessions",
+    missedHint: "These study days have already passed and weren't completed. They're not part of your current plan — use \"I fell behind\" to fold them back in.",
+    missedOnly: "All scheduled sessions are in the past. Use \"I fell behind\" to rebuild a plan for the days ahead.",
     updateProgressHeading: "Update your progress",
     moduleFiles: "Module files",
     materials: "Materials",
@@ -1486,8 +1508,28 @@ const de: Messages = {
     deleteError: "Dieser Kurs konnte nicht gelöscht werden. Bitte erneut versuchen.",
     deleteMsgPre: "Das Löschen von",
     deleteMsgPost: "entfernt auch dessen Themen, Fristen, Dateien und Lernplan. Das kann nicht rückgängig gemacht werden.",
-    overloaded:
-      "⏰ Die Zeit reicht nicht bis zur Prüfung, selbst bei ~3 Std./Tag. Früher anfangen oder Lerntage ergänzen.",
+    overload: {
+      headline: {
+        one: "Um es in dem {count} verbleibenden Lerntag zu schaffen, bräuchtest du {hours} — mehr als ein realistischer Tag.",
+        other: "Um es in den {count} verbleibenden Lerntagen zu schaffen, bräuchtest du {hours} — das liegt über realistischen {ceiling}.",
+      },
+      headlineNoRunway: "Die Prüfung steht an und es bleiben keine Lerntage mehr, um die Arbeit zu verteilen.",
+      hoursPerDay: "etwa {hours} Std./Tag",
+      minPerDay: "etwa {min} Min/Tag",
+      cause: {
+        "no-runway": "Der Plan lässt sich nicht weiter aufteilen.",
+        "few-days": "Vor der Prüfung gibt es nicht genug Lerntage, um die Arbeit zu verteilen.",
+        "over-ceiling": "Selbst mit allen Lerntagen passt das Pensum nicht mehr vor die Prüfung.",
+      },
+      next: {
+        "no-runway": "Konzentriere die verbleibende Zeit auf die wichtigsten Themen und nutze „Neu planen“, um den Rest neu aufzubauen.",
+        "few-days": "Füge in den Kurseinstellungen mehr Lerntage hinzu und speichere, um den Plan neu zu erstellen.",
+        "over-ceiling": "Nutze „Neu planen“, um den Plan um das Verbleibende herum neu aufzubauen, oder ergänze Lerntage.",
+      },
+    },
+    missedHeading: "Verpasste Sessions",
+    missedHint: "Diese Lerntage liegen bereits in der Vergangenheit und wurden nicht abgeschlossen. Sie gehören nicht zu deinem aktuellen Plan — nutze „Neu planen“, um sie wieder einzubeziehen.",
+    missedOnly: "Alle geplanten Sessions liegen in der Vergangenheit. Nutze „Neu planen“, um einen Plan für die kommenden Tage zu erstellen.",
     updateProgressHeading: "Aktualisiere deinen Fortschritt",
     moduleFiles: "Moduldateien",
     materials: "Materialien",

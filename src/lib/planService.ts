@@ -619,3 +619,137 @@ export async function isCourseOverloaded(courseId: string): Promise<boolean> {
   });
   return course?.intense ?? false;
 }
+
+/**
+ * Why a course is overloaded — the single dominant reason the scheduler couldn't
+ * fit it before the exam. Drives a truthful banner instead of a hardcoded one.
+ *  - `no-runway`   : the exam is here / no study days are left before it.
+ *  - `few-days`    : there ARE study days, but too few of them (add study days).
+ *  - `over-ceiling`: even using every study day, the required pace exceeds what a
+ *                    realistic day allows (the global ~6h ceiling) — the work
+ *                    simply doesn't fit; heal/replan is the honest next step.
+ */
+export type OverloadCause = "no-runway" | "few-days" | "over-ceiling";
+
+/** Real, plan-derived overload figures for one course (no hardcoded numbers). */
+export type CourseOverloadInfo = {
+  overloaded: boolean;
+  /** Study minutes still owed (folded by completed work, scaled like the plan). */
+  remainingMinutes: number;
+  /** Number of study days left from today to the exam (exclusive). */
+  daysLeft: number;
+  /** Required minutes/day to finish exactly on time over the days left. */
+  requiredPerDay: number;
+  /** The realistic per-day study ceiling this pace is measured against (~6h). */
+  ceilingPerDay: number;
+  /** The dominant reason it doesn't fit. Null when not overloaded. */
+  cause: OverloadCause | null;
+};
+
+/**
+ * Read the persisted `intense` flag (authoritative, from the global scheduler)
+ * AND recompute the same real figures the scheduler uses for THIS course, so the
+ * UI can show the actual required pace / days left / cause rather than a static
+ * string. Mirrors {@link rebuildScheduleInner}'s per-course pace maths
+ * (fold completed work → scale by calibration & difficulty → spread over the
+ * remaining study dates), kept read-only here.
+ */
+export async function courseOverloadInfo(courseId: string): Promise<CourseOverloadInfo> {
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: {
+      id: true,
+      name: true,
+      userId: true,
+      examDate: true,
+      studyDays: true,
+      minutesPerDay: true,
+      difficulty: true,
+      intense: true,
+      topics: {
+        orderBy: { order: "asc" },
+        select: { id: true, title: true, effort: true, done: true, confidence: true },
+      },
+      blocks: { select: { topicId: true, topicTitle: true, date: true, minutes: true, completed: true, actualMinutes: true } },
+    },
+  });
+
+  const empty: CourseOverloadInfo = {
+    overloaded: false,
+    remainingMinutes: 0,
+    daysLeft: 0,
+    requiredPerDay: 0,
+    ceilingPerDay: GLOBAL_DAILY_MINUTES,
+    cause: null,
+  };
+  if (!course) return empty;
+
+  const overloaded = course.intense;
+
+  // Remaining study minutes for this course, computed exactly as the scheduler
+  // does: completed sessions reduce a topic's effort (fold), then calibration and
+  // per-course difficulty scale what's left into real minutes.
+  const folded = foldCompletedSessions(course);
+  const calibration = calibrationFromHistory(course.blocks);
+  const difficulty = difficultyMultiplier(course.difficulty);
+  let remainingMinutes = 0;
+  for (const t of folded.topics) {
+    if (t.done) continue;
+    remainingMinutes += Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration * difficulty);
+  }
+
+  const today = todayISO();
+  const exam = course.examDate.toISOString().slice(0, 10);
+  const days = course.studyDays
+    .split(",")
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !Number.isNaN(n));
+  const dates = studyDatesBetween(today, exam, days);
+  const daysLeft = dates.length;
+
+  // Required even pace to finish on time over the days that remain.
+  const requiredPerDay = daysLeft > 0 ? Math.ceil(remainingMinutes / daysLeft) : remainingMinutes;
+
+  // Worst (smallest) realistic study ceiling across the remaining study days —
+  // a class-heavy weekday leaves less room, so we compare the required pace
+  // against the tightest day's ceiling rather than the raw global cap.
+  // Lectures are per user; total lecture minutes per weekday so the ceiling
+  // matches the scheduler's timetable-aware budget (a class-heavy day allows less).
+  let ceilingPerDay = GLOBAL_DAILY_MINUTES;
+  if (dates.length > 0) {
+    const lectures = await prisma.lecture.findMany({
+      where: { userId: course.userId },
+      select: { weekday: true, startMin: true, endMin: true },
+    });
+    const lectureMinByDow = [0, 0, 0, 0, 0, 0, 0];
+    for (const l of lectures) lectureMinByDow[l.weekday] += Math.max(0, l.endMin - l.startMin);
+    let worst = GLOBAL_DAILY_MINUTES;
+    for (const d of dates) {
+      const dow = new Date(d + "T00:00:00Z").getUTCDay();
+      worst = Math.min(worst, dailyStudyCeiling(lectureMinByDow[dow]));
+    }
+    ceilingPerDay = worst;
+  }
+
+  if (!overloaded) {
+    return { overloaded: false, remainingMinutes, daysLeft, requiredPerDay, ceilingPerDay, cause: null };
+  }
+
+  // Dominant cause, most severe first:
+  //  - no study days left before the exam → exam proximity (can't pace at all);
+  //  - the required pace exceeds a realistic day's ceiling → the workload itself
+  //    won't fit, no number of extra days helps within the runway → over-ceiling;
+  //  - otherwise this course alone fits under the ceiling but the global scheduler
+  //    still couldn't place it (too few study days / crowded out by other courses)
+  //    → adding study days gives it more room → few-days.
+  let cause: OverloadCause;
+  if (daysLeft === 0) {
+    cause = "no-runway";
+  } else if (requiredPerDay > ceilingPerDay) {
+    cause = "over-ceiling";
+  } else {
+    cause = "few-days";
+  }
+
+  return { overloaded: true, remainingMinutes, daysLeft, requiredPerDay, ceilingPerDay, cause };
+}
