@@ -40,6 +40,19 @@ export function iconButtonClass(extra = ""): string {
 }
 
 /**
+ * Hit-area expander for small marks — a tiny visual control (e.g. the ~20–24px
+ * Today / topic completion checkbox, or a compact text action / disclosure
+ * summary) whose *touch target* must still clear the 44×44px floor (WCAG 2.5.5 /
+ * iOS HIG). The element stays its small visual size; a centred `::before`
+ * pseudo-element (`before:absolute …`) inflates the clickable region to ≥44px
+ * without pushing layout around. The element must establish a positioning
+ * context (this includes `relative`) and be inline-flex-centred; pair the glyph
+ * with an `aria-label`. Compose with the visual classes at the callsite.
+ */
+export const hitTargetClass =
+  "relative inline-flex items-center justify-center before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:min-h-[44px] before:min-w-[44px] before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";
+
+/**
  * Card / panel surfaces — the calm GUARDIAN surfaces. One steady corner
  * (rounded-xl, ~14px, from --radius) and a soft shadow that reads the card by
  * elevation rather than a hard edge — so surfaces are flatter and quieter than

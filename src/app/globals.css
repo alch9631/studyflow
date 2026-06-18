@@ -83,37 +83,41 @@
 }
 
 .dark {
-  /* Calm deep slate — NOT pure black. A soft cool-blue depth that's restful at
-     night and lets tinted surfaces lift off it without harsh contrast. */
-  --background: #10161d;
-  --foreground: #dde3e8; /* soft off-white, not stark #fff */
+  /* Softer charcoal — NOT near-black. A muted warm-cool charcoal that's restful
+     at night and reads like a calm room, not an ops console. Surfaces sit only a
+     small step above it so the page→panel contrast is gentle (mirrors the light
+     theme's quiet near-white → white step), never the old harsh dark jump. */
+  --background: #1b2128; /* lifted charcoal, not the old near-black #10161d */
+  --foreground: #d7dde2; /* soft off-white, eased from stark white (AA on bg) */
 
-  /* Calm teal lifts a touch on dark so it reads against the deep slate while
-     staying the same family as light. White text on it passes AA. */
-  --brand: #2aa0a3; /* lifted calm teal — fill on dark */
-  --brand-dark: #238a8d; /* hover */
-  --brand-foreground: #06231f; /* deep near-black teal on the lighter fill (AA) */
-  --brand-ink: #4cc2c4; /* calm-teal TEXT on the deep slate page (links/accents) */
-  /* Focus ring lifts to the brighter teal so it clears 3:1 on the deep slate. */
-  --focus-ring: #4cc2c4;
-  /* Data-viz palette, dark theme — teal active series lifts off the deep slate. */
-  --chart-series: #4cc2c4;
-  /* Secondary series — lighter amber so it lifts off the deep slate. */
-  --chart-series-2: #f0b352;
-  --chart-track: #1c2630;
-  --chart-axis: #7d8b97;
-  --chart-grid: #1c2630;
+  /* Calm teal, dark — pulled back from the bright #2aa0a3 to a softer, more
+     muted teal so it mirrors the light theme's calm instead of glowing. White
+     text on the fill still passes AA. */
+  --brand: #3a9a9c; /* softer muted teal — fill on dark (calmer than before) */
+  --brand-dark: #318486; /* hover — a touch deeper */
+  --brand-foreground: #062321; /* deep near-black teal on the fill (AA) */
+  --brand-ink: #5cbabb; /* calmer teal TEXT on the charcoal page (links/accents) */
+  /* Focus ring — the calmer teal, still clears 3:1 on the charcoal bg. */
+  --focus-ring: #5cbabb;
+  /* Data-viz palette, dark theme — calmer teal active series on the charcoal. */
+  --chart-series: #5cbabb;
+  /* Secondary series — softer amber so it lifts gently off the charcoal. */
+  --chart-series-2: #e0ab5f;
+  --chart-track: #262e37;
+  --chart-axis: #828f9a;
+  --chart-grid: #262e37;
 
-  /* Calm surface system, dark. Elevated panels are a step up from the page;
-     muted/inset surfaces a hair lower, both cool-tinted, never pure black. */
-  --surface: #18212b; /* elevated panel on the deep slate */
-  --surface-muted: #141c25; /* inset surface for empty states/callouts */
+  /* Calm surface system, dark. Elevated panels are only a small step up from the
+     page (gentle contrast); muted/inset surfaces a hair lower. Cool-tinted, both
+     softer than the old harsh #18212b on near-black. */
+  --surface: #232b34; /* elevated panel — a gentle step above the charcoal */
+  --surface-muted: #1f262e; /* inset surface for empty states/callouts */
   --surface-foreground: var(--foreground);
 
-  /* Muted attention — amber on dark. Deep wash + lifted ink so it nudges. */
-  --warning: #2a2113; /* deep amber wash */
-  --warning-foreground: #f0c987; /* lifted amber ink, AA on the wash */
-  --warning-border: #4a3a1c; /* gentle amber divider for warning rows */
+  /* Muted attention — amber on dark, calmed. Soft deep wash + readable ink. */
+  --warning: #2c2418; /* soft deep amber wash */
+  --warning-foreground: #e9c489; /* calmer amber ink, AA on the wash */
+  --warning-border: #463a22; /* gentle amber divider for warning rows */
 
   /* shadcn/ui theme tokens — dark theme, mapped to the calm surface palette. */
   --card: var(--surface);
@@ -122,16 +126,16 @@
   --popover-foreground: var(--foreground);
   --primary: var(--brand); /* calm teal */
   --primary-foreground: var(--brand-foreground);
-  --secondary: #1c2630;
-  --secondary-foreground: #dde3e8;
-  --muted: #1c2630;
-  --muted-foreground: #8b99a6; /* calm slate-gray, AA on the deep slate */
-  --accent: #1a262b; /* faint teal-tinted hover/active row */
-  --accent-foreground: #dde3e8;
+  --secondary: #283038;
+  --secondary-foreground: #d7dde2;
+  --muted: #283038;
+  --muted-foreground: #909da8; /* calm slate-gray, AA on the charcoal bg */
+  --accent: #232f33; /* faint teal-tinted hover/active row */
+  --accent-foreground: #d7dde2;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #25313c; /* soft cool divider on dark */
-  --input: #324250; /* legible input edge on dark */
+  --border: #303a44; /* soft cool divider on the charcoal */
+  --input: #3a4651; /* legible input edge on dark */
   --ring: var(--focus-ring);
 }
 

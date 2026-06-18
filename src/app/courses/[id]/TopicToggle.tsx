@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import OptimisticToggleForm from "@/components/OptimisticToggleForm";
+import { hitTargetClass } from "@/components/ui";
 import { useT } from "@/components/i18n/I18nProvider";
 import { toggleTopic } from "../actions";
 
@@ -42,7 +43,7 @@ export default function TopicToggle({
           <input type="hidden" name="courseId" value={courseId} />
           <button
             type="submit"
-            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
+            className={`${hitTargetClass} mt-0.5 h-5 w-5 shrink-0 rounded border transition-colors ${
               done
                 ? "border-green-500 bg-green-500 text-white"
                 : "border-gray-300 dark:border-gray-700"
