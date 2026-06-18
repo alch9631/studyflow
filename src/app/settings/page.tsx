@@ -11,8 +11,10 @@ import {
   Globe,
   User,
   ArrowRight,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import ThemeSetting from "@/components/ThemeSetting";
 import LanguageToggle from "@/components/LanguageToggle";
 import CalendarSync from "@/components/CalendarSync";
@@ -24,7 +26,7 @@ import { getCalendarToken, getCurrentUserId, getUiSession } from "@/lib/devUser"
 import { prisma } from "@/lib/db";
 import { parsePrefs } from "@/lib/timePlacer";
 import { isPushConfigured } from "@/lib/push";
-import { signOutAction } from "./actions";
+import { signOutAction, resetMyData } from "./actions";
 import { getT } from "@/components/i18n/server";
 
 export const metadata: Metadata = {
@@ -255,6 +257,27 @@ export default async function SettingsPage({
           </div>
         </>
       )}
+
+      {/* DATA — start fresh. Wipes this user's courses, plans and timetable so a
+          tester can begin from a clean slate; the account itself is kept. */}
+      <GroupLabel>{t("settings.dataTitle")}</GroupLabel>
+      <div className={panelClass}>
+        <Row icon={Trash2} title={t("settings.resetTitle")} description={t("settings.resetDesc")}>
+          <div className="mt-3">
+            <ConfirmDialog
+              action={resetMyData}
+              triggerLabel={t("settings.resetTrigger")}
+              triggerVariant="danger"
+              triggerSize="md"
+              title={t("settings.resetConfirmTitle")}
+              message={t("settings.resetConfirmMessage")}
+              confirmLabel={t("settings.resetConfirm")}
+              pendingLabel={t("settings.resetting")}
+              cancelLabel={t("common.cancel")}
+            />
+          </div>
+        </Row>
+      </div>
     </main>
   );
 }

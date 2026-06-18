@@ -851,6 +851,16 @@ const en = {
       "Shared local profile for now. Personal login coming soon.",
     loginSoon: "Login coming soon",
     signOut: "Sign out",
+    dataTitle: "Data",
+    resetTitle: "Start fresh",
+    resetDesc:
+      "Remove all your courses, study plans and timetable so you can begin from a clean slate. Your settings and account stay.",
+    resetTrigger: "Reset my data",
+    resetConfirmTitle: "Start fresh?",
+    resetConfirmMessage:
+      "This permanently deletes all your courses, study plans, topics, deadlines and timetable. This cannot be undone.",
+    resetConfirm: "Reset everything",
+    resetting: "Resetting...",
   },
   apple: {
     green: "On track",
@@ -1954,6 +1964,16 @@ const de: Messages = {
       "Vorerst ein gemeinsames lokales Profil. Persönlicher Login kommt bald.",
     loginSoon: "Login kommt bald",
     signOut: "Abmelden",
+    dataTitle: "Daten",
+    resetTitle: "Neu starten",
+    resetDesc:
+      "Entferne alle deine Kurse, Lernpläne und den Stundenplan, um ganz von vorn zu beginnen. Deine Einstellungen und dein Konto bleiben erhalten.",
+    resetTrigger: "Meine Daten zurücksetzen",
+    resetConfirmTitle: "Neu starten?",
+    resetConfirmMessage:
+      "Damit werden alle deine Kurse, Lernpläne, Themen, Fristen und der Stundenplan dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.",
+    resetConfirm: "Alles zurücksetzen",
+    resetting: "Wird zurückgesetzt...",
   },
   apple: {
     green: "Im Plan",

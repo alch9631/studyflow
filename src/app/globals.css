@@ -29,18 +29,19 @@
   --background: #f8fafb;
   --foreground: #1a2127; /* soft near-black slate, easier than #171717 */
 
-  /* Calm teal — the guardian accent. Deep enough that white text on it passes
-     WCAG AA (5.0:1 on #0e7d80), so brand fills can carry white text directly.
-     This replaces the old bright TUHH cyan (#00C1D4) everywhere via --brand. */
-  --brand: #0e7d80; /* calm teal — primary fill */
-  --brand-dark: #0a6669; /* hover — a touch deeper, white text stays AA */
-  --brand-foreground: #ffffff; /* white reads on the deeper teal (5.0:1, AA) */
-  --brand-ink: #0c6f72; /* calm-teal TEXT on the page bg (links, accents), AA */
-  /* One keyboard focus ring for the whole app — the calm teal, ≥3:1 on bg. */
-  --focus-ring: #0e7d80;
-  /* Data-viz palette (recharts on the Insights page). Calm teal for the active
-     series, soft neutral for track, muted slate for axis ticks & gridlines. */
-  --chart-series: #0e7d80;
+  /* TUHH cyan — the brand accent (rgb 0,185,204 / #00b9cc). It's bright, so
+     white text on it FAILS WCAG AA; brand fills therefore carry DARK ink
+     (--brand-foreground) and a deeper cyan is used for text/links/focus on the
+     page bg (--brand-ink / --focus-ring), keeping everything readable. */
+  --brand: #00b9cc; /* TUHH cyan — primary fill */
+  --brand-dark: #00a0b3; /* hover — a touch deeper cyan */
+  --brand-foreground: #04313a; /* dark ink on the bright cyan fill (AA; white fails) */
+  --brand-ink: #007a8a; /* deeper cyan TEXT on the page bg (links, accents), AA */
+  /* One keyboard focus ring for the whole app — deeper cyan, ≥3:1 on bg. */
+  --focus-ring: #008796;
+  /* Data-viz palette (recharts on the Insights page). Deeper cyan for the active
+     series (legible as thin bars/lines on white), neutral track, slate ticks. */
+  --chart-series: #008796;
   /* Secondary data series — muted amber, reads against teal and stays AA. */
   --chart-series-2: #b97309;
   --chart-track: #e6ebed;
@@ -90,17 +91,17 @@
   --background: #1b2128; /* lifted charcoal, not the old near-black #10161d */
   --foreground: #d7dde2; /* soft off-white, eased from stark white (AA on bg) */
 
-  /* Calm teal, dark — pulled back from the bright #2aa0a3 to a softer, more
-     muted teal so it mirrors the light theme's calm instead of glowing. White
-     text on the fill still passes AA. */
-  --brand: #3a9a9c; /* softer muted teal — fill on dark (calmer than before) */
-  --brand-dark: #318486; /* hover — a touch deeper */
-  --brand-foreground: #062321; /* deep near-black teal on the fill (AA) */
-  --brand-ink: #5cbabb; /* calmer teal TEXT on the charcoal page (links/accents) */
-  /* Focus ring — the calmer teal, still clears 3:1 on the charcoal bg. */
-  --focus-ring: #5cbabb;
-  /* Data-viz palette, dark theme — calmer teal active series on the charcoal. */
-  --chart-series: #5cbabb;
+  /* TUHH cyan, dark — same brand cyan (#00b9cc) as light; on the bright fill it
+     carries DARK ink, and a lighter cyan is used for text/links/focus on the
+     charcoal page so contrast holds. */
+  --brand: #00b9cc; /* TUHH cyan — fill on dark */
+  --brand-dark: #00a0b3; /* hover — a touch deeper cyan */
+  --brand-foreground: #04313a; /* dark ink on the bright cyan fill (AA) */
+  --brand-ink: #3fd0e0; /* lighter cyan TEXT on the charcoal page (links/accents) */
+  /* Focus ring — lighter cyan, clears 3:1 on the charcoal bg. */
+  --focus-ring: #3fd0e0;
+  /* Data-viz palette, dark theme — lighter cyan active series on the charcoal. */
+  --chart-series: #3fd0e0;
   /* Secondary series — softer amber so it lifts gently off the charcoal. */
   --chart-series-2: #e0ab5f;
   --chart-track: #262e37;

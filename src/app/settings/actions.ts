@@ -27,6 +27,32 @@ export async function resetCalendarToken() {
   revalidatePath("/settings");
 }
 
+/**
+ * "Start fresh" — wipe everything this user has created so they can begin from a
+ * clean slate (the launch ask: each tester resets their own data, not the app).
+ *
+ * Deletes the user's courses and timetable lectures. Deleting a course cascades
+ * (schema onDelete: Cascade) to its topics, study blocks, assignments, module
+ * files and topic notes, so one deleteMany clears the whole study graph. The
+ * User row, study preferences and calendar token are intentionally KEPT — this
+ * resets the student's data, it does not delete their account.
+ */
+export async function resetMyData() {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) redirect("/settings?msg=rate-limited");
+
+  await prisma.$transaction([
+    prisma.lecture.deleteMany({ where: { userId } }),
+    prisma.course.deleteMany({ where: { userId } }),
+  ]);
+
+  // Every data-bearing surface needs to forget the old plan.
+  for (const p of ["/today", "/courses", "/calendar", "/insights", "/timetable", "/settings"]) {
+    revalidatePath(p);
+  }
+  redirect("/today");
+}
+
 const ENERGY = new Set<Energy>(["morning", "evening", "any"]);
 
 /**

@@ -38,11 +38,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Colours the mobile browser / PWA chrome. Theme-aware: the true TUHH logo
-  // cyan (#00C1D4 — the brand fill) on light, the deep TUHH blue on dark.
+  // Colours the mobile browser / PWA chrome. Theme-aware: the TUHH brand cyan
+  // (#00B9CC — the brand fill) on light, a deeper cyan on dark.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#00C1D4" },
-    { media: "(prefers-color-scheme: dark)", color: "#00509b" },
+    { media: "(prefers-color-scheme: light)", color: "#00B9CC" },
+    { media: "(prefers-color-scheme: dark)", color: "#00808f" },
   ],
   // Draw under the iPhone notch / home indicator so our own env(safe-area-*)
   // padding (see below + the nav/tab-bar/toast) controls the clearance.
