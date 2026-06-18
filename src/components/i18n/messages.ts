@@ -579,7 +579,15 @@ const en = {
     leadOnTrack: "You're moving steadily through this week ({pct}% of your plan). Nice and calm.",
     leadWeekClear: "Nothing scheduled this week — a good moment to breathe or plan ahead.",
     rhythm: "Rhythm",
+    load: "Load",
+    recovery: "Recovery",
     details: "Details",
+    // Quiet streak — a gentle "you studied recently", never a flame or a milestone
+    // to live up to. Zero-state reads as a soft invitation, not a failure.
+    rhythmRecent: "You studied recently. Nice rhythm.",
+    rhythmActiveDays: "Active {days} of the last 14 days.",
+    rhythmRested: "You haven't logged study lately — whenever you're ready, pick up your next block.",
+    rhythmBest: "Longest run so far: {days} days.",
     upNext: "Up next",
     doneWhenDue: "Done when due",
     focusLogged: "Focus logged",
@@ -1533,7 +1541,15 @@ const de: Messages = {
     leadOnTrack: "Du kommst stetig durch diese Woche ({pct}% deines Plans). Schön ruhig.",
     leadWeekClear: "Diese Woche ist nichts geplant — ein guter Moment zum Durchatmen oder Vorausplanen.",
     rhythm: "Rhythmus",
+    load: "Pensum",
+    recovery: "Erholung",
     details: "Details",
+    // Ruhiger Streak — ein sanftes „du hast neulich gelernt“, keine Flamme, kein
+    // Meilenstein. Der Leerzustand ist eine sanfte Einladung, kein Versagen.
+    rhythmRecent: "Du hast neulich gelernt. Schöner Rhythmus.",
+    rhythmActiveDays: "An {days} der letzten 14 Tage aktiv.",
+    rhythmRested: "Du hast zuletzt nichts erfasst — wenn du so weit bist, knüpf an deinem nächsten Block an.",
+    rhythmBest: "Längste Serie bisher: {days} Tage.",
     upNext: "Als Nächstes",
     doneWhenDue: "Pünktlich erledigt",
     focusLogged: "Fokuszeit erfasst",

@@ -7,7 +7,6 @@ import { getStatsCached } from "@/lib/statsCache";
 import { prisma } from "@/lib/db";
 import { instantToDayISO, DEFAULT_TZ } from "@/lib/calendarTime";
 import EmptyState from "@/components/EmptyState";
-import { StreakCard } from "@/components/StreakBadge";
 import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts.lazy";
 import { panelClass } from "@/components/ui";
 import { getT } from "@/components/i18n/server";
@@ -153,16 +152,33 @@ export default async function InsightsPage() {
               rather than a verdict. */}
           <p className="mb-5 text-base text-gray-700 dark:text-gray-200">{leadLine}</p>
 
-          {/* Rhythm — study habit as gentle reflection, not a scoreboard. */}
-          <section aria-label={t("insights.rhythm")}>
-            <h2 className="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+          {/* Rhythm — a quiet reflection on recent study, never a flame or a
+              milestone to live up to. We surface "you studied recently" plus a
+              gentle days-active fact; the all-time best is a soft aside, not a
+              record to beat. Rested days read as calm, not as failure. */}
+          <section
+            aria-label={t("insights.rhythm")}
+            className={`${panelClass} bg-surface-muted p-4 sm:p-5`}
+          >
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {t("insights.rhythm")}
             </h2>
-            <StreakCard current={streak} best={longestStreak} t={t} />
+            <p className="mt-1 text-base text-gray-700 dark:text-gray-200">
+              {streak > 0 ? t("insights.rhythmRecent") : t("insights.rhythmRested")}
+            </p>
+            {(activeDays > 0 || longestStreak > 1) && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {activeDays > 0 && t("insights.rhythmActiveDays", { days: activeDays })}
+                {activeDays > 0 && longestStreak > 1 && " "}
+                {longestStreak > 1 && t("insights.rhythmBest", { days: longestStreak })}
+              </p>
+            )}
           </section>
 
           {/* Everything number-heavy lives behind one quiet disclosure, so the
-              page reads as reflection first and analysis only on request. */}
+              page reads as reflection first and analysis only on request. Inside,
+              the sections are calm nouns — Rhythm · Load · Recovery · Consistency —
+              rather than a competitive scoreboard. */}
           <details className="group mt-6">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
               {t("insights.details")}
@@ -170,37 +186,110 @@ export default async function InsightsPage() {
             </summary>
 
             <div className="mt-4 space-y-6">
-          {/* Headline stats */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
-            <Stat label={t("insights.focusLogged")} value={fmtMin(loggedMinutes)} />
-            <Stat label={t("insights.next7days")} value={fmtMin(upcomingWorkload)} sub={t("insights.studyPlanned")} />
-            <Stat label={t("insights.modulesDone")} value={`${completedModules}`} sub={t("insights.ofN", { count: courses.length })} />
-          </div>
+          {/* Rhythm — recent study load, the day-by-day shape of the last week. */}
+          <section className={`${panelClass} p-5`}>
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-semibold">{t("insights.rhythm")}</h2>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {t("insights.last7days")}
+              </span>
+            </div>
+            <div className="mt-3">
+              <WeeklyActivityChart data={activity} />
+            </div>
+          </section>
 
-          {/* Up next — quiet, judgment-free pointers to the closest courses */}
-          {attention.length > 0 && (
-            <section>
-              <h2 className="mb-3 font-semibold">{t("insights.upNext")}</h2>
-              <ul className="space-y-2">
-                {attention.map(({ id, name, topicsTotal, topicsDone, days }) => (
-                  <li key={id}>
-                    <Link
-                      href={`/courses/${id}`}
-                      className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 transition-colors hover:bg-gray-100 dark:bg-gray-900/60 dark:hover:bg-gray-900"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">{name}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {t("insights.topicsLabel", { done: topicsDone, total: topicsTotal })} · {examCountdownLabel(t, days)}
+          {/* Load — what's planned and what's due, framed as workload not a race.
+              Headline figures + the closest courses to look at next. */}
+          <section className="space-y-3">
+            <h2 className="font-semibold">{t("insights.load")}</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
+              <Stat label={t("insights.focusLogged")} value={fmtMin(loggedMinutes)} />
+              <Stat label={t("insights.next7days")} value={fmtMin(upcomingWorkload)} sub={t("insights.studyPlanned")} />
+              <Stat label={t("insights.modulesDone")} value={`${completedModules}`} sub={t("insights.ofN", { count: courses.length })} />
+            </div>
+
+            {/* This week */}
+            <div className={`${panelClass} p-5`}>
+              <div className="flex items-baseline justify-between">
+                <h3 className="font-semibold">{t("insights.thisWeek")}</h3>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {fmtMin(weekDone)} / {fmtMin(weekPlanned)}
+                </span>
+              </div>
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-brand"
+                  style={{ width: `${Math.min(weekPct, 100)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                {weekPlanned === 0
+                  ? t("insights.nothingThisWeek")
+                  : weekPct >= 100
+                    ? t("insights.onTopWeek")
+                    : t("insights.weekPctDone", { pct: weekPct })}
+              </p>
+            </div>
+
+            {/* Up next — quiet, judgment-free pointers to the closest courses */}
+            {attention.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                  {t("insights.upNext")}
+                </h3>
+                <ul className="space-y-2">
+                  {attention.map(({ id, name, topicsTotal, topicsDone, days }) => (
+                    <li key={id}>
+                      <Link
+                        href={`/courses/${id}`}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-surface-muted p-3 transition-colors hover:bg-accent"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{name}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {t("insights.topicsLabel", { done: topicsDone, total: topicsTotal })} · {examCountdownLabel(t, days)}
+                          </span>
                         </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+
+          {/* Recovery — the 12-week shape of when you studied and rested, exam
+              weeks gently marked. Rest reads as part of the rhythm, not a gap. */}
+          {heatmapDays.length > 0 && (
+            <section className={`${panelClass} p-5`}>
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-semibold">{t("insights.recovery")}</h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("insights.heatmapSub")}
+                </span>
+              </div>
+              <div className="mt-4">
+                <StudyHeatmap days={heatmapDays} />
+              </div>
             </section>
           )}
+
+          {/* Consistency — the gentle 14-day habit gauge, encouraging at any level. */}
+          <section className={`${panelClass} p-5`}>
+            <h2 className="font-semibold">{t("insights.consistency")}</h2>
+            <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
+              <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
+              <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
+                {consistency >= 80
+                  ? t("insights.rockSolid", { days: activeDays })
+                  : consistency >= 40
+                    ? t("insights.steadyHabit", { days: activeDays })
+                    : t("insights.smallSessions", { days: activeDays })}
+              </p>
+            </div>
+          </section>
 
           {/* Grades — Notenschnitt over graded courses */}
           {graded.length > 0 && (
@@ -244,71 +333,6 @@ export default async function InsightsPage() {
             </section>
           )}
 
-          {/* This week */}
-          <section className={`${panelClass} p-5`}>
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">{t("insights.thisWeek")}</h2>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {fmtMin(weekDone)} / {fmtMin(weekPlanned)}
-              </span>
-            </div>
-            <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-              <div
-                className="h-full rounded-full bg-green-500"
-                style={{ width: `${Math.min(weekPct, 100)}%` }}
-              />
-            </div>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              {weekPlanned === 0
-                ? t("insights.nothingThisWeek")
-                : weekPct >= 100
-                  ? t("insights.onTopWeek")
-                  : t("insights.weekPctDone", { pct: weekPct })}
-            </p>
-          </section>
-
-          {/* Activity & consistency — recent study load + the 14-day rhythm */}
-          <section className={`${panelClass} p-5`}>
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">{t("insights.last7days")}</h2>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {t("insights.completedStudyTime")}
-              </span>
-            </div>
-            <div className="mt-3">
-              <WeeklyActivityChart data={activity} />
-            </div>
-          </section>
-
-          {/* Study heatmap — 12-week calendar of completed study minutes */}
-          {heatmapDays.length > 0 && (
-            <section className={`${panelClass} p-5`}>
-              <div className="flex items-baseline justify-between">
-                <h2 className="font-semibold">{t("insights.heatmap")}</h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {t("insights.heatmapSub")}
-                </span>
-              </div>
-              <div className="mt-4">
-                <StudyHeatmap days={heatmapDays} />
-              </div>
-            </section>
-          )}
-
-          <section className={`${panelClass} p-5`}>
-            <h2 className="font-semibold">{t("insights.consistency")}</h2>
-            <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
-              <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
-              <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
-                {consistency >= 80
-                  ? t("insights.rockSolid", { days: activeDays })
-                  : consistency >= 40
-                    ? t("insights.steadyHabit", { days: activeDays })
-                    : t("insights.smallSessions", { days: activeDays })}
-              </p>
-            </div>
-          </section>
-
           {/* Per-course progress */}
           <section>
             <h2 className="mb-3 font-semibold">{t("insights.byCourse")}</h2>
@@ -320,7 +344,7 @@ export default async function InsightsPage() {
                 return (
                   <li
                     key={c.id}
-                    className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900/60"
+                    className="rounded-xl bg-surface-muted p-3"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <Link
@@ -333,7 +357,7 @@ export default async function InsightsPage() {
                         {t("insights.topicsLabel", { done, total })}
                       </span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                       <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
                     </div>
                   </li>

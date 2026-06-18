@@ -163,8 +163,6 @@ export default async function CoursesPage() {
                       name: c.name,
                       examDate: c.examDate.toISOString().slice(0, 10),
                       examInDays,
-                      done,
-                      total: c.topics.length,
                       progressCount: done + completedBlocks,
                       health,
                     }}
