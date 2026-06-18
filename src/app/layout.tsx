@@ -12,7 +12,7 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import OfflineQueueSync from "@/components/OfflineQueueSync";
 import InstallPrompt from "@/components/InstallPrompt";
 import PullToRefresh from "@/components/PullToRefresh";
-import MainContent from "@/app/focus/MainContent";
+import MainContent from "@/app/MainContent";
 import { ToastProvider } from "@/components/Toast";
 import { I18nProvider } from "@/components/i18n/I18nProvider";
 import { getLocale } from "@/components/i18n/server";

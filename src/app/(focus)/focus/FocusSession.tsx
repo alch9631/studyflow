@@ -7,8 +7,8 @@ import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import PomodoroTimer, { type TimerBlock } from "@/components/PomodoroTimer";
-import { toggleBlock, saveBlockNote } from "../courses/actions";
-import { fmtDuration } from "../today/cockpit";
+import { toggleBlock, saveBlockNote } from "@/app/courses/actions";
+import { fmtDuration } from "@/app/today/cockpit";
 
 /** The single block Focus mode works on (serializable across the boundary). */
 export type FocusBlock = {

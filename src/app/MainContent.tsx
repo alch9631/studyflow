@@ -10,8 +10,9 @@ import { usePathname } from "next/navigation";
  *
  * Focus is a sealed, distraction-free room with NO global chrome — no nav, no
  * bottom tab bar, no FAB — so there the tab-bar padding is dropped too, letting
- * the focus screen own the full viewport. Lives under /focus because it's the
- * only route that needs this behaviour; it stays fully transparent elsewhere.
+ * the focus screen own the full viewport. /focus is its own `(focus)` route
+ * group with a bare segment layout; this wrapper just mirrors that by skipping
+ * the chrome padding on it, and stays fully transparent on every other route.
  */
 export default function MainContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -1,28 +1,40 @@
-import type { Session } from "next-auth";
 import { prisma } from "./db";
-import { auth } from "@/auth";
 
 /**
  * Resolves the current user's id for every userId-scoped read/write.
  *
- * Real auth (Auth.js / Google) is the primary path: if there's an authenticated
- * session, its database user id is returned. When there is NO session we fall
- * back to the legacy dev user — but ONLY outside production (so a clean `git
- * clone && npm install && npm test` works with no env flags) OR when
- * ALLOW_DEV_USER=1 is explicitly set (e.g. the Pi running NODE_ENV=production
- * with no Google credentials). In production with the flag unset, an
- * unauthenticated request throws; the proxy redirects to /login before any page
- * reaches this, so that throw is a defensive last resort.
+ * There are exactly three auth modes, branched on FIRST so we never call auth()
+ * (and so never hit an *expected* "headers outside request scope" throw or an
+ * expected missing-session error) in a path where the dev user is the intended
+ * answer:
+ *
+ *   - test (NODE_ENV=test): always the seeded dev user, silently. Unit/route
+ *     tests import getCurrentUserId() outside any request scope, so auth() would
+ *     throw by design — we don't call it.
+ *   - dev (non-production, or ALLOW_DEV_USER=1): the seeded dev user. Covers a
+ *     clean `git clone && npm install && npm run dev`/`npm test` with no env
+ *     flags, and the Pi running NODE_ENV=production with no Google creds but
+ *     ALLOW_DEV_USER=1 set. No auth() call, no noisy logs.
+ *   - production (default, no ALLOW_DEV_USER): a real Auth.js session is
+ *     REQUIRED. Only here do we call auth(); a missing session throws (the proxy
+ *     redirects to /login first, so that throw is a defensive last resort).
  */
 const DEV_EMAIL = "dev@studyflow.local";
 
+type AuthMode = "test" | "dev" | "production";
+
 /**
- * Is the legacy dev-user fallback allowed? True in any non-production
- * environment (dev / test / CI), or whenever ALLOW_DEV_USER=1 is set explicitly
- * — which is how a production deploy (the Pi) opts back in without Google creds.
+ * Decide the auth mode for this process/request. Order matters: test is checked
+ * before dev so it stays silent and never touches auth(); dev covers every other
+ * non-production case plus the explicit ALLOW_DEV_USER opt-in; everything else
+ * is strict production.
  */
-function isDevUserAllowed(): boolean {
-  return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_USER === "1";
+function authMode(): AuthMode {
+  if (process.env.NODE_ENV === "test") return "test";
+  if (process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_USER === "1") {
+    return "dev";
+  }
+  return "production";
 }
 
 // The dev user's id never changes once created, but the upsert below takes
@@ -45,20 +57,17 @@ async function getDevUserId(): Promise<string> {
 }
 
 export async function getCurrentUserId(): Promise<string> {
-  const devAllowed = isDevUserAllowed();
+  // Branch on the mode FIRST. test/dev resolve the seeded dev user without ever
+  // calling auth() — so an *expected* "headers outside request scope" throw (in
+  // tests) or a missing session (in dev) is never part of the control flow.
+  if (authMode() !== "production") return getDevUserId();
 
-  // Resolve the real session. In dev-user mode we tolerate failures (e.g. auth()
-  // called outside a request scope in unit tests, or no AUTH_SECRET configured)
-  // and fall through to the dev user; in production a broken session is fatal.
-  let session: Session | null = null;
-  try {
-    session = await auth();
-  } catch (err) {
-    if (!devAllowed) throw err;
-  }
-
+  // Production: a real Auth.js session is required. We only reach auth() here,
+  // where a thrown error or a missing session is a genuine failure — not the
+  // expected dev/test path — so it must propagate.
+  const { auth } = await import("@/auth");
+  const session = await auth();
   if (session?.user?.id) return session.user.id;
-  if (devAllowed) return getDevUserId();
   throw new Error("Not authenticated");
 }
 
