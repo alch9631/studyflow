@@ -125,10 +125,12 @@ export async function addFromCatalog(formData: FormData) {
     .slice(0, LIMITS.MAX_CATALOG_ADD_BATCH);
   if (ids.length === 0) redirect("/catalog");
 
+  console.error(`[catalog] start user=${userId} ids=${ids.length}`);
   const templates = await prisma.moduleTemplate.findMany({
     where: { id: { in: ids } },
     select: { name: true, content: true, ects: true, code: true, examDate: true },
   });
+  console.error(`[catalog] templates=${templates.length}`);
 
   // Don't let a bulk catalog add push the user past the course cap.
   guardCountBy(
@@ -165,6 +167,7 @@ export async function addFromCatalog(formData: FormData) {
       }));
     }
 
+    console.error(`[catalog] creating course "${t.name}" topics=${topics.length}`);
     const course = await prisma.course.create({
       data: {
         name: t.name,
@@ -177,9 +180,12 @@ export async function addFromCatalog(formData: FormData) {
         topics: { create: topics.map((tp, i) => ({ title: tp.title, effort: tp.effort, order: i })) },
       },
     });
+    console.error(`[catalog] created course=${course.id}, regenerating plan...`);
     await regeneratePlan(course.id);
+    console.error(`[catalog] plan done for course=${course.id}`);
   }
 
+  console.error(`[catalog] all done, redirecting to /courses`);
   redirect("/courses");
 }
 
