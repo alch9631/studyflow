@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { Sun, Moon, Monitor, type LucideIcon } from "lucide-react";
 
 /**
  * Shared client-side theme state. The persisted preference lives in the same
@@ -14,10 +15,10 @@ import { useSyncExternalStore } from "react";
 
 export type Mode = "light" | "dark" | "system";
 
-export const THEME_OPTIONS: { v: Mode; label: string; icon: string }[] = [
-  { v: "light", label: "Light", icon: "☀️" },
-  { v: "dark", label: "Dark", icon: "🌙" },
-  { v: "system", label: "System", icon: "🖥️" },
+export const THEME_OPTIONS: { v: Mode; label: string; Icon: LucideIcon }[] = [
+  { v: "light", label: "Light", Icon: Sun },
+  { v: "dark", label: "Dark", Icon: Moon },
+  { v: "system", label: "System", Icon: Monitor },
 ];
 
 function subscribe(cb: () => void) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ComponentProps, type ReactNode } from "react";
+import { Check, Undo2 } from "lucide-react";
 import SwipeRow from "./SwipeRow";
 import { useOptimisticToggle } from "./useOptimisticToggle";
 
@@ -78,7 +79,7 @@ export default function OptimisticToggleForm({
               ? undefined
               : {
                   label: swipe.completeLabel,
-                  icon: "✓",
+                  icon: <Check className="h-4 w-4" aria-hidden="true" />,
                   tone: "success",
                   onTrigger: () => fire(formData(), true, true),
                 }
@@ -87,7 +88,7 @@ export default function OptimisticToggleForm({
             optimisticDone
               ? {
                   label: swipe.reopenLabel,
-                  icon: "↩",
+                  icon: <Undo2 className="h-4 w-4" aria-hidden="true" />,
                   tone: "neutral",
                   onTrigger: () => fire(formData(), false, true),
                 }

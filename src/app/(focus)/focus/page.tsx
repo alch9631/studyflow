@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PartyPopper } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
@@ -93,7 +94,10 @@ export default async function FocusPage({
   if (!block) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background p-8 text-center text-foreground">
-        <p className="text-2xl font-semibold">🎉 {t("focus.noBlock")}</p>
+        <p className="flex items-center gap-2 text-2xl font-semibold">
+          <PartyPopper className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+          {t("focus.noBlock")}
+        </p>
         <p className="max-w-sm text-muted-foreground">{t("focus.noBlockBody")}</p>
         <Link
           href="/today"

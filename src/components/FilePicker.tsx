@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText, Paperclip } from "lucide-react";
 import { buttonClasses } from "./ui";
 import { useT } from "./i18n/I18nProvider";
 
@@ -27,11 +28,19 @@ export default function FilePicker({ disabled }: { disabled?: boolean }) {
         className="sr-only"
         onChange={(e) => setName(e.target.files?.[0]?.name ?? "")}
       />
-      <span className="text-sm text-gray-500 dark:text-gray-400">
-        {name ? `📄 ${name}` : t("courseDetail.filePrompt")}
+      <span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+        {name ? (
+          <>
+            <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {name}
+          </>
+        ) : (
+          t("courseDetail.filePrompt")
+        )}
       </span>
       <span className={buttonClasses("primary", "md")}>
-        📎 {name ? t("courseDetail.fileChooseDifferent") : t("courseDetail.fileChoose")}
+        <Paperclip className="h-4 w-4" aria-hidden="true" />
+        {name ? t("courseDetail.fileChooseDifferent") : t("courseDetail.fileChoose")}
       </span>
     </label>
   );

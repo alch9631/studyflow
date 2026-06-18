@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { Button } from "./ui/button";
 import { useToast } from "./Toast";
 import { useT } from "./i18n/I18nProvider";
@@ -211,7 +212,7 @@ export default function PushReminders() {
     <div className="mt-3">
       {subscribed && (
         <p className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
-          <span aria-hidden>✓</span>
+          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
           {t("pushReminders.onForDevice")}
         </p>
       )}

@@ -12,6 +12,7 @@ export default function ThemeSetting() {
     <div className="inline-flex rounded-xl border border-gray-200 p-1 dark:border-gray-800">
       {THEME_OPTIONS.map((o) => {
         const active = mode === o.v;
+        const Icon = o.Icon;
         return (
           <button
             key={o.v}
@@ -24,7 +25,7 @@ export default function ThemeSetting() {
                 : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             }`}
           >
-            <span>{o.icon}</span>
+            <Icon className="h-4 w-4" aria-hidden="true" />
             {t(`theme.${o.v}`)}
           </button>
         );

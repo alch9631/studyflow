@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { isCourseOverloaded, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
@@ -273,7 +273,7 @@ export default async function CoursePage({
         href="/courses"
         className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
       >
-        <span aria-hidden="true">←</span> {t("courseDetail.back")}
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t("courseDetail.back")}
       </Link>
           <CourseOptionsSheet>
             <form action={updateCourse} className="space-y-4">
@@ -401,7 +401,7 @@ export default async function CoursePage({
                                 : "border-gray-300 dark:border-gray-700"
                             }`}
                           >
-                            {a.done ? "✓" : ""}
+                            {a.done ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
                           </SubmitButton>
                         </ToastForm>
                         <span className="min-w-0 flex-1">
@@ -464,8 +464,9 @@ export default async function CoursePage({
                   {t("courseDetail.deleteMsgPre")} <strong>{course.name}</strong>{" "}
                   {t("courseDetail.deleteMsgPost")}
                   {deleteProgressWarning && (
-                    <span className="mt-2 block font-medium text-red-600 dark:text-red-400">
-                      ⚠️ {deleteProgressWarning}
+                    <span className="mt-2 flex items-center gap-1.5 font-medium text-red-600 dark:text-red-400">
+                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {deleteProgressWarning}
                     </span>
                   )}
                 </>
@@ -502,7 +503,8 @@ export default async function CoursePage({
                       : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
               }`}
             >
-              ⏳ {examCountdownLabel(t, examInDays)}
+              <Hourglass className="mr-1 inline-block h-3 w-3 align-[-1px]" aria-hidden="true" />
+              {examCountdownLabel(t, examInDays)}
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t("courseDetail.examOn", {
@@ -609,9 +611,7 @@ export default async function CoursePage({
                         className="rounded-xl border border-gray-200 p-3 dark:border-gray-800"
                       >
                         <div className="flex items-start gap-3">
-                          <span aria-hidden="true" className="mt-0.5 text-base leading-none">
-                            📄
-                          </span>
+                          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
                           <div className="min-w-0 flex-1">
                             <div className="break-words font-medium">{file.filename}</div>
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">

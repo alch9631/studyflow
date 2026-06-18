@@ -56,12 +56,15 @@ export default function SettingsMenu() {
           value={mode}
           onValueChange={(v) => applyMode(v as Mode)}
         >
-          {THEME_OPTIONS.map((o) => (
-            <DropdownMenuRadioItem key={o.v} value={o.v}>
-              <span aria-hidden="true">{o.icon}</span>
-              {t(`theme.${o.v}`)}
-            </DropdownMenuRadioItem>
-          ))}
+          {THEME_OPTIONS.map((o) => {
+            const Icon = o.Icon;
+            return (
+              <DropdownMenuRadioItem key={o.v} value={o.v}>
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {t(`theme.${o.v}`)}
+              </DropdownMenuRadioItem>
+            );
+          })}
         </DropdownMenuRadioGroup>
 
         <DropdownMenuSeparator />

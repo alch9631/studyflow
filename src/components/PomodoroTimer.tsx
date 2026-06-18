@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { RotateCcw, Settings } from "lucide-react";
+import { RotateCcw, Settings, Timer, Coffee } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -153,11 +153,16 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
           {mm}:{ss}
         </span>
         <span
-          className="shrink-0 text-base leading-none"
+          className="shrink-0"
           title={mode === "focus" ? t("pomodoro.focus") : t("pomodoro.break")}
+          role="img"
           aria-label={mode === "focus" ? t("pomodoro.focus") : t("pomodoro.break")}
         >
-          {mode === "focus" ? "🍅" : "☕"}
+          {mode === "focus" ? (
+            <Timer className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Coffee className="h-4 w-4" aria-hidden="true" />
+          )}
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400">
           {t.n("pomodoro.sessionsDone", cycles)}

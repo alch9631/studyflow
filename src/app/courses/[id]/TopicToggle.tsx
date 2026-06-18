@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import OptimisticToggleForm from "@/components/OptimisticToggleForm";
 import { useT } from "@/components/i18n/I18nProvider";
 import { toggleTopic } from "../actions";
@@ -49,7 +50,7 @@ export default function TopicToggle({
             aria-pressed={done}
             aria-label={done ? t("block.markNotDone") : t("block.markDone")}
           >
-            {done ? "✓" : ""}
+            {done ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
           </button>
           <span className={`min-w-0 break-words ${done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
             {title}

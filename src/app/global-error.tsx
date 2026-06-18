@@ -1,5 +1,7 @@
 "use client";
 
+import { Frown } from "lucide-react";
+
 /**
  * Last-resort boundary for errors in the root layout itself — it replaces the
  * whole document, so it ships its own <html>/<body> + inline styles (the app's
@@ -21,7 +23,9 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         }}
       >
         <div style={{ textAlign: "center", padding: "2rem" }}>
-          <div style={{ fontSize: "2.5rem" }}>😵</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Frown size={40} aria-hidden="true" />
+          </div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: "0.5rem 0" }}>
             Something went wrong
           </h1>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { X, CalendarDays, MapPin } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { deleteLecture } from "./actions";
@@ -60,7 +60,7 @@ export default async function TimetablePage() {
       {/* Weekly view */}
       {lectures.length === 0 ? (
         <EmptyState
-          emoji="📅"
+          icon={<CalendarDays className="h-7 w-7" />}
           title={t("timetable.emptyTitle")}
           description={t("timetable.emptyDesc")}
         />
@@ -83,7 +83,10 @@ export default async function TimetablePage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{l.title}</span>
                       {l.location && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">📍 {l.location}</span>
+                        <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          {l.location}
+                        </span>
                       )}
                     </span>
                     <ConfirmDialog

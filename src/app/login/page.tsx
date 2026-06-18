@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { BookOpen, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { signIn } from "@/auth";
@@ -25,7 +26,7 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-8 px-5 py-12 text-center">
       <div className="flex flex-col items-center gap-2">
-        <span aria-hidden className="text-4xl">📚</span>
+        <BookOpen className="h-10 w-10 text-brand" aria-hidden="true" />
         <h1 className="text-2xl font-bold tracking-tight">Welcome to StudyFlow</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           The study plan that builds itself. Sign in to get started.
@@ -35,7 +36,7 @@ export default function LoginPage() {
       <Card className="w-full p-6">
         <form action={signInWithGoogle}>
           <Button type="submit" variant="secondary" size="lg" className="w-full">
-            <span aria-hidden>🔵</span>
+            <LogIn className="h-4 w-4" aria-hidden="true" />
             Sign in with Google
           </Button>
         </form>

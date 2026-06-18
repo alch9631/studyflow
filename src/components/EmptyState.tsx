@@ -17,13 +17,14 @@ export type EmptyStateAction = {
 };
 
 export default function EmptyState({
-  emoji,
+  icon,
   title,
   description,
   actions = [],
   children,
 }: {
-  emoji?: string;
+  /** Decorative lead icon (e.g. a lucide line icon). Rendered centered above the title. */
+  icon?: ReactNode;
   title: string;
   description?: ReactNode;
   actions?: EmptyStateAction[];
@@ -31,7 +32,11 @@ export default function EmptyState({
 }) {
   return (
     <div className={`${mutedCardClass} p-6 text-center`}>
-      {emoji && <p className="text-2xl">{emoji}</p>}
+      {icon && (
+        <p className="flex justify-center text-gray-400 dark:text-gray-500" aria-hidden="true">
+          {icon}
+        </p>
+      )}
       <p className="mt-2 font-semibold">{title}</p>
       {description && (
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>

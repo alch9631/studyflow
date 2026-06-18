@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarDays, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Not found" };
@@ -18,10 +19,14 @@ export default function NotFound() {
       </p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         <Button asChild>
-          <Link href="/today">🗓️ Go to Today</Link>
+          <Link href="/today">
+            <CalendarDays className="h-4 w-4" aria-hidden="true" /> Go to Today
+          </Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/courses">📚 My Courses</Link>
+          <Link href="/courses">
+            <BookOpen className="h-4 w-4" aria-hidden="true" /> My Courses
+          </Link>
         </Button>
       </div>
     </main>

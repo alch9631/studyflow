@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Trash2 } from "lucide-react";
 import { deleteCourse } from "@/app/courses/actions";
 import SwipeRow from "./SwipeRow";
 import { Button } from "./ui/button";
@@ -42,7 +43,7 @@ export default function SwipeCourseCard({
         className="rounded-2xl"
         left={{
           label: t("courses.swipeDelete"),
-          icon: "🗑",
+          icon: <Trash2 className="h-4 w-4" aria-hidden="true" />,
           tone: "danger",
           onTrigger: () => setConfirmOpen(true),
         }}

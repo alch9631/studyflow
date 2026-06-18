@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Check, Undo2, BookOpen } from "lucide-react";
 import SwipeRow from "@/components/SwipeRow";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import { useT } from "@/components/i18n/I18nProvider";
@@ -50,11 +51,11 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
       right={
         optimisticDone
           ? undefined
-          : { label: t("block.done"), icon: "✓", tone: "success", onTrigger: () => fire(formData(), true, true) }
+          : { label: t("block.done"), icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: "success", onTrigger: () => fire(formData(), true, true) }
       }
       left={
         optimisticDone
-          ? { label: t("block.reopen"), icon: "↩", tone: "neutral", onTrigger: () => fire(formData(), false, true) }
+          ? { label: t("block.reopen"), icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, tone: "neutral", onTrigger: () => fire(formData(), false, true) }
           : undefined
       }
     >
@@ -75,7 +76,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
           aria-pressed={optimisticDone}
           aria-label={optimisticDone ? t("block.markNotDone") : t("block.markDone")}
         >
-          {optimisticDone ? "✓" : ""}
+          {optimisticDone ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
         </button>
         <span className="min-w-0 flex-1">
           <span
@@ -91,8 +92,9 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
                 {t("block.review")}
               </span>
             )}
-            <span className="inline-flex min-w-0 items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-              <span className="truncate">📘 {b.course.name}</span>
+            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              <BookOpen className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{b.course.name}</span>
             </span>
           </span>
         </span>

@@ -11,8 +11,8 @@ import { haptics } from "./haptics";
  */
 export type SwipeAction = {
   label: string;
-  /** A small emoji/glyph shown beside the label (decorative). */
-  icon: string;
+  /** A small icon shown beside the label (decorative; the panel is aria-hidden). */
+  icon: ReactNode;
   tone: "success" | "danger" | "neutral";
   onTrigger: () => void;
 };

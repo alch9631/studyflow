@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import ImportForm from "./ImportForm";
 import { getT } from "@/components/i18n/server";
@@ -21,7 +22,7 @@ export default async function ImportPage() {
         href="/courses"
         className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
       >
-        <span aria-hidden="true">←</span> {t("importCourse.back")}
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t("importCourse.back")}
       </Link>
       <h1 className="mb-1 mt-2 text-2xl font-bold">{t("importCourse.title")}</h1>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">

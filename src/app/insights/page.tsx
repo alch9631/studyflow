@@ -6,6 +6,7 @@ import { lpOf } from "@/lib/stats";
 import { getStatsCached } from "@/lib/statsCache";
 import { prisma } from "@/lib/db";
 import { instantToDayISO, DEFAULT_TZ } from "@/lib/calendarTime";
+import { Sprout } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import { WeeklyActivityChart, ConsistencyGauge, GradeTrendChart } from "@/components/InsightsCharts.lazy";
 import { panelClass } from "@/components/ui";
@@ -138,7 +139,7 @@ export default async function InsightsPage() {
 
       {!hasData ? (
         <EmptyState
-          emoji="🌱"
+          icon={<Sprout className="h-7 w-7" />}
           title={t("insights.emptyTitle")}
           description={t("insights.emptyDesc")}
           actions={[

@@ -7,6 +7,7 @@ import { todayISO } from "@/lib/planService";
 import CourseCard, { type CourseHealth, type HealthStatus } from "@/components/CourseCard";
 import SwipeCourseCard from "@/components/SwipeCourseCard";
 import type { Translator } from "@/components/i18n/messages";
+import { BookOpen } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/components/i18n/server";
@@ -129,7 +130,7 @@ export default async function CoursesPage() {
 
       {courses.length === 0 ? (
         <EmptyState
-          emoji="📚"
+          icon={<BookOpen className="h-7 w-7" />}
           title={t("courses.emptyTitleActionable")}
           description={t("courses.emptyDescActionable")}
           actions={[

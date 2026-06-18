@@ -1,4 +1,14 @@
 import Link from "next/link";
+import {
+  Compass,
+  Bandage,
+  Brain,
+  BarChart3,
+  Zap,
+  Star,
+  BookOpen,
+  ArrowRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getT } from "@/components/i18n/server";
@@ -12,10 +22,10 @@ export default async function Home() {
   //  • Made to stick  → spaced reviews + self-test blocks (kind: "review")
   //  • See it working → Insights: streak, consistency %, GPA, credit points
   const FEATURES = [
-    { icon: "🧭", title: t("landing.feat1Title"), body: t("landing.feat1Body") },
-    { icon: "🩹", title: t("landing.feat2Title"), body: t("landing.feat2Body") },
-    { icon: "🧠", title: t("landing.feat3Title"), body: t("landing.feat3Body") },
-    { icon: "📊", title: t("landing.feat4Title"), body: t("landing.feat4Body") },
+    { Icon: Compass, title: t("landing.feat1Title"), body: t("landing.feat1Body") },
+    { Icon: Bandage, title: t("landing.feat2Title"), body: t("landing.feat2Body") },
+    { Icon: Brain, title: t("landing.feat3Title"), body: t("landing.feat3Body") },
+    { Icon: BarChart3, title: t("landing.feat4Title"), body: t("landing.feat4Body") },
   ] as const;
 
   // Tasteful, clearly-generic stats. No fabricated numbers presented as audited
@@ -49,7 +59,7 @@ export default async function Home() {
         <div className="flex flex-col items-center gap-4">
           {/* Badge is decorative clutter on a phone — desktop only. */}
           <span className="hidden items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 sm:inline-flex dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-            <span className="text-brand-ink">⚡</span> {t("landing.badge")}
+            <Zap className="h-3.5 w-3.5 text-brand-ink" aria-hidden="true" /> {t("landing.badge")}
           </span>
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
             {t("landing.heroTitlePre")}
@@ -109,8 +119,8 @@ export default async function Home() {
               key={f.title}
               className="p-5 text-left transition-colors hover:border-gray-300 dark:hover:border-gray-700"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-2xl">
-                {f.icon}
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                <f.Icon className="h-6 w-6" aria-hidden="true" />
               </div>
               <h3 className="mt-3 font-semibold">{f.title}</h3>
               {/* Card body is title-only on mobile to keep the page short and
@@ -140,8 +150,10 @@ export default async function Home() {
           {TESTIMONIALS.map((tm) => (
             <Card asChild key={tm.quote} className="flex flex-col gap-3 p-5">
               <figure>
-                <div aria-hidden className="text-sm text-amber-400">
-                  ★★★★★
+                <div aria-hidden className="flex gap-0.5 text-amber-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-current" />
+                  ))}
                 </div>
               <blockquote className="text-pretty text-sm leading-relaxed text-gray-700 dark:text-gray-200">
                 “{tm.quote}”
@@ -167,8 +179,8 @@ export default async function Home() {
           href="/courses"
           className="group flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-xl">
-            📚
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+            <BookOpen className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">{t("landing.myCourses")}</span>
@@ -176,9 +188,7 @@ export default async function Home() {
               {t("landing.myCoursesDesc")}
             </span>
           </span>
-          <span className="shrink-0 text-gray-500 transition-transform group-hover:translate-x-0.5 dark:text-gray-400">
-            →
-          </span>
+          <ArrowRight className="h-5 w-5 shrink-0 text-gray-500 transition-transform group-hover:translate-x-0.5 dark:text-gray-400" aria-hidden="true" />
         </Link>
 
         <Button asChild variant="secondary" className="w-full">

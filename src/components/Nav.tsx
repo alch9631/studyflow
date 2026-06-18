@@ -3,7 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Search, Menu, X } from "lucide-react";
+import {
+  Search,
+  Menu,
+  X,
+  CalendarDays,
+  BookOpen,
+  BarChart3,
+  GraduationCap,
+  Calendar,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 import { iconButtonClass } from "./ui";
 import SettingsMenu from "./SettingsMenu";
 import ThemeSetting from "./ThemeSetting";
@@ -11,31 +22,31 @@ import LanguageToggle from "./LanguageToggle";
 import { useT } from "./i18n/I18nProvider";
 import type { MessageKey } from "./i18n/messages";
 
-type Tab = { href: string; labelKey: MessageKey; icon: string; external?: boolean };
+type Tab = { href: string; labelKey: MessageKey; Icon: LucideIcon; external?: boolean };
 
 // The four — and only four — primary destinations. They are the desktop inline
 // tabs and (on mobile) the BottomTabBar. The drawer deliberately omits them to
 // avoid duplicate affordances.
 const CORE_TABS: Tab[] = [
-  { href: "/today", labelKey: "nav.today", icon: "🗓️" },
-  { href: "/calendar", labelKey: "nav.calendar", icon: "🗓️" },
-  { href: "/courses", labelKey: "nav.courses", icon: "📚" },
-  { href: "/insights", labelKey: "nav.insights", icon: "📊" },
+  { href: "/today", labelKey: "nav.today", Icon: CalendarDays },
+  { href: "/calendar", labelKey: "nav.calendar", Icon: CalendarDays },
+  { href: "/courses", labelKey: "nav.courses", Icon: BookOpen },
+  { href: "/insights", labelKey: "nav.insights", Icon: BarChart3 },
 ];
 
 // Secondary, contextual destinations. Reachable from the mobile drawer only —
 // never the bottom bar and never the desktop inline tabs, which stay limited to
 // the four primaries. Catalog export route (/api/calendar) stays hidden from nav.
 const SECONDARY_TABS: Tab[] = [
-  { href: "/catalog", labelKey: "nav.modules", icon: "🎓" },
-  { href: "/timetable", labelKey: "nav.timetable", icon: "📅" },
+  { href: "/catalog", labelKey: "nav.modules", Icon: GraduationCap },
+  { href: "/timetable", labelKey: "nav.timetable", Icon: Calendar },
 ];
 
 // Desktop inline tabs: the four primaries, in reading order.
 const DESKTOP_TABS: Tab[] = CORE_TABS;
 
-const SEARCH: Tab = { href: "/search", labelKey: "nav.search", icon: "🔍" };
-const SETTINGS: Tab = { href: "/settings", labelKey: "nav.settings", icon: "⚙️" };
+const SEARCH: Tab = { href: "/search", labelKey: "nav.search", Icon: Search };
+const SETTINGS: Tab = { href: "/settings", labelKey: "nav.settings", Icon: Settings };
 
 // Mobile drawer entries: secondary routes + Settings. The four primaries are
 // excluded (they live in the BottomTabBar) and Search is excluded too (it has a
@@ -226,11 +237,10 @@ export default function Nav() {
                   ? "bg-brand text-brand-foreground"
                   : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
               }`;
+              const TabIcon = tab.Icon;
               const inner = (
                 <>
-                  <span className="text-lg leading-none" aria-hidden="true">
-                    {tab.icon}
-                  </span>
+                  <TabIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
                   <span>{t(tab.labelKey)}</span>
                 </>
               );

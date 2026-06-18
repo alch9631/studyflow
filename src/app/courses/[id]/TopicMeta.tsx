@@ -8,6 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { PencilLine } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
@@ -253,7 +254,7 @@ export default function TopicMeta({
           onClick={() => setOpen((o) => !o)}
           className="relative inline-flex cursor-pointer items-center justify-center rounded p-0.5 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
-          <span aria-hidden="true" className="text-base leading-none">📝</span>
+          <PencilLine className="h-4 w-4" aria-hidden="true" />
           {hasNote && (
             <span
               className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-white dark:ring-gray-900"

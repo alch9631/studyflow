@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { Sun, Moon } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import { useT } from "./i18n/I18nProvider";
 
@@ -37,7 +38,11 @@ export default function ThemeToggle() {
         "inline-flex border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
       )}
     >
-      <span aria-hidden="true">{dark ? "☀️" : "🌙"}</span>
+      {dark ? (
+        <Sun className="h-5 w-5" aria-hidden="true" />
+      ) : (
+        <Moon className="h-5 w-5" aria-hidden="true" />
+      )}
     </button>
   );
 }

@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import {
+  Search,
+  BookOpen,
+  FileText,
+  PencilLine,
+  Hourglass,
+  CornerDownLeft,
+  type LucideIcon,
+} from "lucide-react";
 import { inputClass } from "./ui";
 import EmptyState from "./EmptyState";
 import { useT } from "./i18n/I18nProvider";
@@ -40,11 +48,11 @@ export type SearchStartData = {
 
 const TYPE_META: Record<
   SearchItem["type"],
-  { labelKey: "search.groupCourses" | "search.groupTopics" | "search.groupDeadlines"; emoji: string }
+  { labelKey: "search.groupCourses" | "search.groupTopics" | "search.groupDeadlines"; Icon: LucideIcon }
 > = {
-  course: { labelKey: "search.groupCourses", emoji: "📚" },
-  topic: { labelKey: "search.groupTopics", emoji: "📑" },
-  deadline: { labelKey: "search.groupDeadlines", emoji: "📝" },
+  course: { labelKey: "search.groupCourses", Icon: BookOpen },
+  topic: { labelKey: "search.groupTopics", Icon: FileText },
+  deadline: { labelKey: "search.groupDeadlines", Icon: PencilLine },
 };
 
 const TYPE_ORDER: SearchItem["type"][] = ["course", "topic", "deadline"];
@@ -205,7 +213,7 @@ export default function GlobalSearch({
       ) : results.length === 0 ? (
         <div className="mt-6">
           <EmptyState
-            emoji="🔍"
+            icon={<Search className="h-7 w-7" />}
             title={t("search.noMatchesTitle")}
             description={
               <>
@@ -217,7 +225,9 @@ export default function GlobalSearch({
         </div>
       ) : (
         <ul id={listId} role="listbox" aria-label={t("search.resultsLabel")} className="mt-4 space-y-4">
-          {grouped.map((group) => (
+          {grouped.map((group) => {
+            const RowIcon = TYPE_META[group.type].Icon;
+            return (
             <li key={group.type}>
               <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {t(TYPE_META[group.type].labelKey)}
@@ -240,12 +250,10 @@ export default function GlobalSearch({
                             : "border-transparent hover:bg-gray-50 dark:hover:bg-gray-900"
                         }`}
                       >
-                        <span
-                          className="text-lg leading-none"
+                        <RowIcon
+                          className="h-5 w-5 shrink-0 text-gray-400 dark:text-gray-500"
                           aria-hidden="true"
-                        >
-                          {TYPE_META[item.type].emoji}
-                        </span>
+                        />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">
                             {highlight(item.title, query.trim())}
@@ -258,19 +266,18 @@ export default function GlobalSearch({
                             </span>
                           )}
                         </span>
-                        <span
-                          className="shrink-0 text-gray-300 dark:text-gray-600"
+                        <CornerDownLeft
+                          className="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600"
                           aria-hidden="true"
-                        >
-                          ↵
-                        </span>
+                        />
                       </Link>
                     </li>
                   );
                 })}
               </ul>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
@@ -309,7 +316,7 @@ function SearchStart({ start, t }: { start?: SearchStartData; t: ReturnType<type
                   href={e.href}
                   className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
                 >
-                  <span className="text-lg leading-none" aria-hidden="true">⏳</span>
+                  <Hourglass className="h-5 w-5 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{e.name}</span>
                     <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
@@ -335,7 +342,7 @@ function SearchStart({ start, t }: { start?: SearchStartData; t: ReturnType<type
                   href={c.href}
                   className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
                 >
-                  <span className="text-lg leading-none" aria-hidden="true">📚</span>
+                  <BookOpen className="h-5 w-5 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
                 </Link>
               </li>

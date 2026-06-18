@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { X } from "lucide-react";
+import { X, Check, AlertTriangle, Info, type LucideIcon } from "lucide-react";
 import { useT } from "./i18n/I18nProvider";
 
 /**
@@ -67,10 +67,10 @@ const KIND_STYLES: Record<ToastKind, string> = {
   info: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/70 dark:text-blue-200",
 };
 
-const KIND_ICON: Record<ToastKind, string> = {
-  success: "✓",
-  error: "!",
-  info: "i",
+const KIND_ICON: Record<ToastKind, LucideIcon> = {
+  success: Check,
+  error: AlertTriangle,
+  info: Info,
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -119,6 +119,7 @@ function ToastView({
   onDismiss: (id: number) => void;
 }) {
   const t = useT();
+  const KindIcon = KIND_ICON[item.kind];
   useEffect(() => {
     const handle = setTimeout(() => onDismiss(item.id), item.duration);
     return () => clearTimeout(handle);
@@ -129,9 +130,7 @@ function ToastView({
       role={item.kind === "error" ? "alert" : "status"}
       className={`pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg motion-safe:animate-[toast-in_180ms_ease-out] ${KIND_STYLES[item.kind]}`}
     >
-      <span aria-hidden className="mt-px shrink-0">
-        {KIND_ICON[item.kind]}
-      </span>
+      <KindIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0 flex-1 break-words">{item.message}</span>
       {item.action ? (
         <button

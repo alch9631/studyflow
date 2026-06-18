@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { BookOpen, CheckCircle2, BarChart3, type LucideIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import { useT } from "./i18n/I18nProvider";
@@ -29,15 +30,15 @@ import type { MessageKey } from "./i18n/messages";
 const STORAGE_KEY = "studyflow:onboarded";
 
 type Step = {
-  emoji: string;
+  Icon: LucideIcon;
   titleKey: MessageKey;
   bodyKey: MessageKey;
 };
 
 const STEPS: readonly Step[] = [
-  { emoji: "📚", titleKey: "onboarding.s1Title", bodyKey: "onboarding.s1Body" },
-  { emoji: "✅", titleKey: "onboarding.s2Title", bodyKey: "onboarding.s2Body" },
-  { emoji: "📊", titleKey: "onboarding.s3Title", bodyKey: "onboarding.s3Body" },
+  { Icon: BookOpen, titleKey: "onboarding.s1Title", bodyKey: "onboarding.s1Body" },
+  { Icon: CheckCircle2, titleKey: "onboarding.s2Title", bodyKey: "onboarding.s2Body" },
+  { Icon: BarChart3, titleKey: "onboarding.s3Title", bodyKey: "onboarding.s3Body" },
 ] as const;
 
 export default function Onboarding({ active = false }: { active?: boolean }) {
@@ -79,6 +80,7 @@ export default function Onboarding({ active = false }: { active?: boolean }) {
 
   const isLast = step === STEPS.length - 1;
   const current = STEPS[step];
+  const CurrentIcon = current.Icon;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && dismiss()}>
@@ -113,8 +115,8 @@ export default function Onboarding({ active = false }: { active?: boolean }) {
           </button>
         </div>
 
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-3xl">
-          <span aria-hidden="true">{current.emoji}</span>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand">
+          <CurrentIcon className="h-7 w-7" aria-hidden="true" />
         </div>
 
         <DialogTitle className="mt-4">{t(current.titleKey)}</DialogTitle>

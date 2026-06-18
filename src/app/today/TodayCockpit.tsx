@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Undo2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -220,11 +221,11 @@ function QuietRow({
       right={
         optimisticDone
           ? undefined
-          : { label: t("block.done"), icon: "✓", tone: "success", onTrigger: () => fire(formData(), true, true) }
+          : { label: t("block.done"), icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: "success", onTrigger: () => fire(formData(), true, true) }
       }
       left={
         optimisticDone
-          ? { label: t("block.reopen"), icon: "↩", tone: "neutral", onTrigger: () => fire(formData(), false, true) }
+          ? { label: t("block.reopen"), icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, tone: "neutral", onTrigger: () => fire(formData(), false, true) }
           : undefined
       }
     >
@@ -242,7 +243,7 @@ function QuietRow({
           aria-pressed={optimisticDone}
           aria-label={optimisticDone ? t("block.markNotDone") : t("block.markDone")}
         >
-          {optimisticDone ? "✓" : ""}
+          {optimisticDone ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
         </button>
       </form>
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, Check } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -172,13 +172,13 @@ function BlockCard({
           }}
           aria-pressed={block.completed}
           aria-label={block.completed ? t("calendar.markNotDone") : t("calendar.markDone")}
-          className={`absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded border text-[9px] leading-none ${
+          className={`absolute right-1 top-1 z-10 flex h-4 w-4 items-center justify-center rounded border leading-none ${
             block.completed
               ? "border-green-500 bg-green-500 text-white"
               : "border-gray-300 bg-white/80 text-transparent hover:text-gray-400 dark:border-gray-600 dark:bg-gray-900/70"
           }`}
         >
-          ✓
+          <Check className="h-2.5 w-2.5" aria-hidden="true" />
         </button>
       )}
 

@@ -1,6 +1,18 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import {
+  CalendarDays,
+  AlarmClock,
+  Lightbulb,
+  CalendarPlus,
+  Bell,
+  Palette,
+  Globe,
+  User,
+  ArrowRight,
+  type LucideIcon,
+} from "lucide-react";
 import ThemeSetting from "@/components/ThemeSetting";
 import LanguageToggle from "@/components/LanguageToggle";
 import CalendarSync from "@/components/CalendarSync";
@@ -34,12 +46,12 @@ function GroupLabel({ children }: { children: ReactNode }) {
 /** A titled row inside a grouped settings card: icon + heading, help text,
     then its control. Padding only — the parent card owns the border/divider. */
 function Row({
-  icon,
+  icon: Icon,
   title,
   description,
   children,
 }: {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   description: string;
   children?: ReactNode;
@@ -47,7 +59,7 @@ function Row({
   return (
     <div className="p-5">
       <h3 className="flex items-center gap-2 font-semibold">
-        <span aria-hidden>{icon}</span>
+        <Icon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         {title}
       </h3>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
@@ -106,21 +118,20 @@ export default async function SettingsPage({
         >
           <span className="min-w-0">
             <h3 className="flex items-center gap-2 font-semibold">
-              <span aria-hidden>🗓️</span>{t("settings.timetableTitle")}
+              <CalendarDays className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+              {t("settings.timetableTitle")}
             </h3>
             <span className="mt-1 block text-sm text-gray-500 dark:text-gray-400">
               {t("settings.timetableDesc")}
             </span>
           </span>
-          <span aria-hidden className="shrink-0 text-gray-500 dark:text-gray-400">
-            →
-          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         </Link>
 
         {/* Auto-schedule prefs — study window + energy, feed the calendar's
             "Auto-arrange times" placement (M3b). */}
         <Row
-          icon="⏰"
+          icon={AlarmClock}
           title={t("settings.studyPrefsTitle")}
           description={t("settings.studyPrefsDesc")}
         >
@@ -130,7 +141,7 @@ export default async function SettingsPage({
         {/* How StudyFlow plans — the methodology explainer, collapsed by default. */}
         <details className="group p-5 text-sm text-gray-600 dark:text-gray-300">
           <summary className="flex cursor-pointer items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
-            <span aria-hidden>💡</span>
+            <Lightbulb className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
             {t("courses.howTitle")}
           </summary>
           <ol className="mt-3 list-decimal space-y-1 pl-5">
@@ -165,7 +176,7 @@ export default async function SettingsPage({
       <GroupLabel>{t("settings.calendarTitle")}</GroupLabel>
       <div className={panelClass}>
         <Row
-          icon="📆"
+          icon={CalendarPlus}
           title={t("settings.calendarTitle")}
           description={t("settings.calendarDesc")}
         >
@@ -177,7 +188,7 @@ export default async function SettingsPage({
       <GroupLabel>{t("settings.remindersTitle")}</GroupLabel>
       <div className={panelClass}>
         <Row
-          icon="🔔"
+          icon={Bell}
           title={t("settings.remindersTitle")}
           description={t("settings.remindersDesc")}
         >
@@ -189,7 +200,7 @@ export default async function SettingsPage({
       <GroupLabel>{t("settings.appearance")}</GroupLabel>
       <div className={`${panelClass} divide-y divide-gray-200 dark:divide-gray-800`}>
         <Row
-          icon="🎨"
+          icon={Palette}
           title={t("settings.appearanceTitle")}
           description={t("settings.appearanceDesc")}
         >
@@ -198,7 +209,7 @@ export default async function SettingsPage({
           </div>
         </Row>
         <Row
-          icon="🌍"
+          icon={Globe}
           title={t("settings.languageTitle")}
           description={t("settings.languageDesc")}
         >
@@ -214,7 +225,7 @@ export default async function SettingsPage({
       <GroupLabel>{t("settings.accountTitle")}</GroupLabel>
       <div className={panelClass}>
         {session?.user ? (
-          <Row icon="👤" title={t("settings.accountTitle")} description={session.user.email ?? ""}>
+          <Row icon={User} title={t("settings.accountTitle")} description={session.user.email ?? ""}>
             <form action={signOutAction} className="mt-3">
               <Button type="submit" variant="secondary" size="md">
                 Sign out
@@ -222,7 +233,7 @@ export default async function SettingsPage({
             </form>
           </Row>
         ) : (
-          <Row icon="👤" title={t("settings.accountTitle")} description={t("settings.loginSoon")} />
+          <Row icon={User} title={t("settings.accountTitle")} description={t("settings.loginSoon")} />
         )}
       </div>
     </main>

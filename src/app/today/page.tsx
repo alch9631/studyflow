@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { daysUntil } from "@/lib/dates";
+import { Rocket, Coffee, MapPin } from "lucide-react";
 import { getT } from "@/components/i18n/server";
 import { dueLabel } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
@@ -330,7 +331,10 @@ export default async function TodayPage({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{l.title}</span>
                       {l.location && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">📍 {l.location}</span>
+                        <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          {l.location}
+                        </span>
                       )}
                     </span>
                   </li>
@@ -375,7 +379,7 @@ export default async function TodayPage({
         </>
       ) : hasNoPlan ? (
         <EmptyState
-          emoji="🚀"
+          icon={<Rocket className="h-7 w-7" />}
           title={t("today.emptyNoPlanTitle")}
           description={t("today.emptyNoPlanDesc")}
           actions={[
@@ -387,7 +391,7 @@ export default async function TodayPage({
       ) : (
         <div>
           <EmptyState
-            emoji="😎"
+            icon={<Coffee className="h-7 w-7" />}
             title={t("today.emptyRestTitle")}
             description={t("today.emptyRestDesc")}
             actions={[

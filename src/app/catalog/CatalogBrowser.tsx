@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Info } from "lucide-react";
+import { Info, Check } from "lucide-react";
 import { useT } from "@/components/i18n/I18nProvider";
 import SubmitButton from "@/components/SubmitButton";
 import { Button } from "@/components/ui/button";
@@ -246,9 +246,9 @@ function ModuleRow({
           {m.added ? (
             <span
               aria-hidden="true"
-              className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white"
+              className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-500 text-white"
             >
-              ✓
+              <Check className="h-2.5 w-2.5" />
             </span>
           ) : (
             <input
