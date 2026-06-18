@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Menu,
@@ -64,17 +65,29 @@ export default function Nav() {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const drawerHostRef = useRef<HTMLDivElement>(null);
 
   // Focus is a sealed, distraction-free room: no global app chrome there.
   const onFocus = pathname === "/focus" || pathname.startsWith("/focus/");
 
+  // The drawer is portalled to <body> (below); render it only after hydration so
+  // the portal target (<body>) exists and the server/first-client paint match.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
   // While the drawer is open: trap focus inside it, close on Escape, lock body
-  // scroll, and return focus to the toggle on close. (Selecting a link closes the
-  // drawer via each link's onClick.)
+  // scroll, mark the REST of the app inert (so assistive tech can't reach the
+  // background while the drawer's modal is up — mirrors a Radix Dialog), and
+  // return focus to the toggle on close. (Selecting a link closes the drawer via
+  // each link's onClick.)
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
     const toggle = toggleRef.current;
+    const host = drawerHostRef.current;
     if (!panel) return;
 
     const focusable = () =>
@@ -107,9 +120,30 @@ export default function Nav() {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    // Inert the background: every direct child of <body> EXCEPT the portalled
+    // drawer host gets `inert` + `aria-hidden`, taking the whole app out of the
+    // a11y tree and tab order while the drawer is open. Restored on close.
+    const backgrounded = Array.from(document.body.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el !== host,
+    );
+    const prev = backgrounded.map((el) => ({
+      el,
+      inert: el.inert,
+      ariaHidden: el.getAttribute("aria-hidden"),
+    }));
+    for (const el of backgrounded) {
+      el.inert = true;
+      el.setAttribute("aria-hidden", "true");
+    }
+
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = prevOverflow;
+      for (const { el, inert, ariaHidden } of prev) {
+        el.inert = inert;
+        if (ariaHidden === null) el.removeAttribute("aria-hidden");
+        else el.setAttribute("aria-hidden", ariaHidden);
+      }
       toggle?.focus();
     };
   }, [open]);
@@ -121,7 +155,7 @@ export default function Nav() {
       {/* Top bar: brand + nav. Tabs show inline on desktop; a drawer on mobile.
           The translucent header extends into the notch (pt safe-area inset);
           the inner row pads its content clear of the top + a landscape side notch. */}
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-gray-800 dark:bg-gray-950/90">
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-border dark:bg-surface/90">
         <nav
           aria-label={t("nav.primary")}
           className="mx-auto flex max-w-3xl items-center gap-1 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm"
@@ -192,11 +226,17 @@ export default function Nav() {
         </nav>
       </header>
 
-      {/* Mobile drawer: backdrop + slide-in panel. Stays mounted so it can animate;
-          `inert` keeps it out of the tab order / a11y tree while closed. */}
-      <div
-        className={`fixed inset-0 z-40 lg:hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      >
+      {/* Mobile drawer: backdrop + slide-in panel. Portalled to <body> so it sits
+          OUTSIDE the app subtree we mark inert while it's open (see the effect);
+          that's what keeps the drawer interactive while the background is removed
+          from the a11y tree. Stays mounted so it can animate; `inert` keeps it out
+          of the tab order / a11y tree while closed. */}
+      {mounted &&
+        createPortal(
+          <div
+            ref={drawerHostRef}
+            className={`fixed inset-0 z-40 lg:hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+          >
         <div
           aria-hidden="true"
           onClick={() => setOpen(false)}
@@ -211,7 +251,7 @@ export default function Nav() {
           aria-modal="true"
           aria-label={t("nav.mainMenu")}
           inert={!open}
-          className={`absolute inset-y-0 right-0 flex w-72 max-w-[80%] flex-col border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-gray-800 dark:bg-gray-950 ${
+          className={`absolute inset-y-0 right-0 flex w-72 max-w-[80%] flex-col border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-border dark:bg-surface ${
             open ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -278,7 +318,9 @@ export default function Nav() {
             </div>
           </div>
         </div>
-      </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

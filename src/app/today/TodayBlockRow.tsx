@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Check, Undo2, BookOpen } from "lucide-react";
 import SwipeRow from "@/components/SwipeRow";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
+import { hitTargetClass } from "@/components/ui";
 import { useT } from "@/components/i18n/I18nProvider";
 import { toggleBlock } from "../courses/actions";
 
@@ -68,7 +69,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
         <input type="hidden" name="revalidate" value="/today" />
         <button
           type="submit"
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border transition-colors ${
+          className={`${hitTargetClass} h-6 w-6 shrink-0 rounded border transition-colors ${
             optimisticDone
               ? "border-green-500 bg-green-500 text-white"
               : "border-gray-300 dark:border-gray-700 hover:border-gray-500"
