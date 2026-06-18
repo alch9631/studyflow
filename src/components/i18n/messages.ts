@@ -848,6 +848,26 @@ const en = {
     tryAgain: "Try again",
     goToToday: "🗓️ Go to Today",
   },
+  error: {
+    tryAgain: "Try again",
+    backToToday: "🗓️ Back to Today",
+    default: {
+      title: "This page hit a snag",
+      body: "Something didn't load right. Your data is safe — let's try that again.",
+    },
+    planning: {
+      title: "We couldn't load your plan",
+      body: "Your schedule and tasks are saved. Try loading this view again.",
+    },
+    import: {
+      title: "That import didn't go through",
+      body: "Nothing was changed and your data is safe. You can try again.",
+    },
+    data: {
+      title: "We couldn't load this just now",
+      body: "Your saved data is fine — this view just failed to load. Try again.",
+    },
+  },
   catalog: {
     modulesLabel: "🎓 Modules",
     addManually: "✍️ Add manually",
@@ -1810,6 +1830,26 @@ const de: Messages = {
     body: "StudyFlow hatte einen unerwarteten Fehler — deine Daten sind sicher. Versuch es erneut oder geh zurück zu Heute.",
     tryAgain: "Erneut versuchen",
     goToToday: "🗓️ Zu Heute",
+  },
+  error: {
+    tryAgain: "Erneut versuchen",
+    backToToday: "🗓️ Zurück zu Heute",
+    default: {
+      title: "Diese Seite hatte einen Haken",
+      body: "Etwas ist nicht richtig geladen. Deine Daten sind sicher — versuchen wir es noch mal.",
+    },
+    planning: {
+      title: "Dein Plan konnte nicht geladen werden",
+      body: "Dein Zeitplan und deine Aufgaben sind gespeichert. Versuch, diese Ansicht erneut zu laden.",
+    },
+    import: {
+      title: "Der Import hat nicht geklappt",
+      body: "Es wurde nichts geändert und deine Daten sind sicher. Du kannst es erneut versuchen.",
+    },
+    data: {
+      title: "Das konnte gerade nicht geladen werden",
+      body: "Deine gespeicherten Daten sind in Ordnung — nur diese Ansicht konnte nicht laden. Versuch es erneut.",
+    },
   },
   catalog: {
     modulesLabel: "🎓 Module",

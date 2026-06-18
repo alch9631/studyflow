@@ -2,10 +2,9 @@
 
 import CalmError from "@/components/CalmError";
 
-/** Root route-level error boundary — renders inside the app shell (nav + styles). */
 export default function Error(props: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <CalmError {...props} />;
+  return <CalmError {...props} variant="import" />;
 }
