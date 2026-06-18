@@ -20,11 +20,10 @@ import PushReminders from "@/components/PushReminders";
 import StudyPrefsForm from "@/components/StudyPrefs";
 import { panelClass } from "@/components/ui";
 import { Button } from "@/components/ui/button";
-import { getCalendarToken, getCurrentUserId } from "@/lib/devUser";
+import { getCalendarToken, getCurrentUserId, getUiSession } from "@/lib/devUser";
 import { prisma } from "@/lib/db";
 import { parsePrefs } from "@/lib/timePlacer";
 import { isPushConfigured } from "@/lib/push";
-import { auth } from "@/auth";
 import { signOutAction } from "./actions";
 import { getT } from "@/components/i18n/server";
 
@@ -79,7 +78,9 @@ export default async function SettingsPage({
     getCalendarToken(),
     searchParams,
     getT(),
-    auth(),
+    // Dev/test (dev-user mode) returns null silently — never calls auth(), so no
+    // expected MissingSecret / no-session error is logged on every render.
+    getUiSession(),
     prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
   ]);
   const prefs = parsePrefs(user?.preferences);

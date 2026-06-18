@@ -20,11 +20,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Outside production we fall back to a fixed dev-only secret so plain `npm run
   // dev` doesn't trip the "missing AUTH_SECRET" warning (part of the Next dev
   // "Issues" badge); this value is not a secret and must never be used in prod.
-  secret:
-    process.env.AUTH_SECRET ??
-    (process.env.NODE_ENV !== "production"
+  // A blank/whitespace AUTH_SECRET (e.g. `AUTH_SECRET=""` copied from
+  // .env.example) must count as ABSENT, not as an empty-string secret — the
+  // latter slips past `?? fallback` and trips Auth.js's MissingSecret. So we
+  // trim and treat falsy-after-trim as unset, then apply the dev-only fallback.
+  secret: (() => {
+    const envSecret = process.env.AUTH_SECRET?.trim();
+    if (envSecret) return envSecret;
+    return process.env.NODE_ENV !== "production"
       ? "studyflow-dev-only-insecure-auth-secret"
-      : undefined),
+      : undefined;
+  })(),
   adapter: PrismaAdapter(prisma),
   providers: [
     Google({

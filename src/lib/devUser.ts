@@ -72,6 +72,30 @@ export async function getCurrentUserId(): Promise<string> {
 }
 
 /**
+ * Session shape the Settings UI needs: just the signed-in identity (or null).
+ * Kept narrow so callers don't depend on the full Auth.js Session type.
+ */
+type UiSession = { user: { email?: string | null } } | null;
+
+/**
+ * Resolve the current Auth.js session for UI rendering, but ONLY in production.
+ *
+ * In dev/test (dev-user mode) there is no real session and AUTH_SECRET may be a
+ * dev fallback or absent — calling auth() here would log an *expected*
+ * MissingSecret / no-session error on every Settings render. Mirroring
+ * getCurrentUserId(), we branch on the mode first and return null silently in
+ * dev/test; only production actually calls auth(). A thrown auth() in prod is a
+ * genuine failure and propagates.
+ */
+export async function getUiSession(): Promise<UiSession> {
+  if (authMode() !== "production") return null;
+  const { auth } = await import("@/auth");
+  const session = await auth();
+  // Normalize to the narrow UiSession shape (Auth.js types `user` as optional).
+  return session?.user ? { user: { email: session.user.email } } : null;
+}
+
+/**
  * Returns the current user's secret calendar-subscribe token, generating and
  * persisting a URL-safe random one on first use. Used to build the webcal feed.
  */

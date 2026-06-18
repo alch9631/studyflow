@@ -59,7 +59,20 @@ const filePath = testDbFilePath(TEST_DATABASE_URL);
 for (const f of [filePath, `${filePath}-journal`, `${filePath}-wal`, `${filePath}-shm`]) {
   if (existsSync(f)) rmSync(f);
 }
-execSync("npx prisma db push --skip-generate", {
-  env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
-  stdio: "ignore",
-});
+// `--accept-data-loss`: this is a throwaway DB we just deleted, so any drop is by
+// design — without the flag prisma can refuse the push (e.g. against a leftover
+// file the delete missed) and exit non-zero. We DON'T silence output: a failed
+// push must surface here (and throw via execSync) instead of leaving the DB
+// table-less and producing a confusing "no such table" crash in the first test.
+try {
+  execSync("npx prisma db push --skip-generate --accept-data-loss", {
+    env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+} catch (err) {
+  throw new Error(
+    `Failed to provision the test database (${TEST_DATABASE_URL}) via ` +
+      `\`prisma db push\`. See the prisma error above.`,
+    { cause: err },
+  );
+}
