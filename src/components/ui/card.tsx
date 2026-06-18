@@ -6,10 +6,11 @@ import { cn } from "@/components/lib/utils";
 /**
  * StudyFlow's card primitive, on the shadcn/ui foundation.
  *
- * Calm surface: a card is read by its subtle fill + spacing + gentle rounding,
- * not a hard edge. We drop the border in favour of a quiet off-white / dark
- * panel fill (light + dark mirror the same calm system). Callsites that need a
- * true edge can still add their own `border` class.
+ * Calm surface: a card is read by its subtle fill + soft shadow + spacing, not
+ * a hard edge. It uses the GUARDIAN `bg-surface` token (a faint cool-tinted
+ * panel in both themes) lifted by a subtle shadow rather than a border, with one
+ * steady un-bubbly corner (rounded-xl). Callsites that need a true edge can
+ * still add their own `border` class.
  * Unlike stock shadcn, the root imposes NO padding/gap: callsites already own
  * their spacing (`<Card className="p-5">`), so this preserves every layout.
  *
@@ -22,7 +23,7 @@ import { cn } from "@/components/lib/utils";
  */
 
 const cardSurface =
-  "rounded-2xl bg-gray-50 dark:bg-gray-900/60";
+  "rounded-xl bg-surface shadow-sm";
 
 function Card({
   className,
@@ -53,7 +54,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-gray-500 dark:text-gray-400", className)}
+      className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
   );

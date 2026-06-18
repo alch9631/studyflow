@@ -9,99 +9,129 @@
                 bg-gray-100 pills, where -500 dips to ~4.3:1)
    Do NOT use text-gray-400 in light mode: #9ca3af is only 2.54:1 on white. */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  /* TUHH corporate turquoise (Pantone 3115C) is the light-theme brand. The true
-     logo cyan #00C1D4 is the BRAND FILL (bg-brand, selection, decorative tints).
-     It's only 2.19:1 on white, so white text on it fails WCAG AA — therefore the
-     text that sits ON the cyan fill is a near-black dark-teal (--brand-foreground
-     = #062a30, 6.9:1 on #00C1D4), not white. For brand-coloured TEXT on the white
-     page (links, accents → text-brand-ink) we use the darker family member
-     #00808f (4.68:1 on white, AA), since the bright cyan would fail as text. */
-  --brand: #00C1D4; /* true TUHH logo cyan — the brand fill */
-  --brand-dark: #00a7b8; /* hover — slightly deeper cyan, dark fg stays AA */
-  --brand-foreground: #062a30; /* near-black dark-teal: 6.9:1 on #00C1D4 (AA) */
-  --brand-ink: #00808f; /* readable brand TEXT on white (AA): links & accents */
-  /* One keyboard focus ring for the whole app — TUHH turquoise on light. The
-     readable ink shade keeps the ring ≥3:1 on white (the bright cyan is 2.19:1). */
-  --focus-ring: #00808f;
-  /* Data-viz palette (recharts on the Insights page). Brand turquoise for the
-     active series (the readable ink shade so it stays AA against axis/track on
-     white), neutral gray for empty/track, muted gray for axis ticks & gridlines. */
-  --chart-series: #00808f; /* readable member of the TUHH turquoise family */
-  /* Secondary data series (e.g. the running Notenschnitt overlay) — amber reads
-     clearly against the brand series and stays AA on white. */
-  --chart-series-2: #d97706;
-  --chart-track: #e5e7eb;
-  --chart-axis: #6b7280;
-  --chart-grid: #f3f4f6;
+/* ─────────────────────────────────────────────────────────────────────────
+   GUARDIAN design system (redesign draft).
 
-  /* shadcn/ui theme tokens — mapped onto StudyFlow's existing palette so the
-     shadcn primitives (and any future ones) inherit our look with no visual
-     regression. Light theme. */
-  --radius: 0.5rem;
-  --card: #ffffff;
+   A calm, quiet palette. Background is near-white (light) / a deep but
+   soft slate (dark) — never beige, never pure black. Surfaces carry a very
+   faint cool tint and read by fill + spacing, not by hard edges. The accent
+   is a calm teal (not the old bright TUHH cyan). Amber is the *only* attention
+   colour, used sparingly when an action is genuinely needed; red is reserved
+   for truly destructive / urgent moments.
+
+   Everything routes through tokens so existing utilities (bg-card, bg-primary,
+   text-muted-foreground, border-border, the bg-surface/bg-warning helpers
+   added below) calm down centrally.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Near-white page — a hair of cool tint so it isn't a clinical pure white. */
+  --background: #f8fafb;
+  --foreground: #1a2127; /* soft near-black slate, easier than #171717 */
+
+  /* Calm teal — the guardian accent. Deep enough that white text on it passes
+     WCAG AA (5.0:1 on #0e7d80), so brand fills can carry white text directly.
+     This replaces the old bright TUHH cyan (#00C1D4) everywhere via --brand. */
+  --brand: #0e7d80; /* calm teal — primary fill */
+  --brand-dark: #0a6669; /* hover — a touch deeper, white text stays AA */
+  --brand-foreground: #ffffff; /* white reads on the deeper teal (5.0:1, AA) */
+  --brand-ink: #0c6f72; /* calm-teal TEXT on the page bg (links, accents), AA */
+  /* One keyboard focus ring for the whole app — the calm teal, ≥3:1 on bg. */
+  --focus-ring: #0e7d80;
+  /* Data-viz palette (recharts on the Insights page). Calm teal for the active
+     series, soft neutral for track, muted slate for axis ticks & gridlines. */
+  --chart-series: #0e7d80;
+  /* Secondary data series — muted amber, reads against teal and stays AA. */
+  --chart-series-2: #b97309;
+  --chart-track: #e6ebed;
+  --chart-axis: #64748b;
+  --chart-grid: #eef2f4;
+
+  /* Calm surface system. A surface is a very faint cool-tinted panel that sits
+     softly above the page; a muted/inset surface is one step tintier for empty
+     states & callouts. Used by the ui/ primitives and GuardianScaffold. */
+  --surface: #ffffff; /* elevated panel — clean white lifts off the tinted bg */
+  --surface-muted: #eef3f4; /* faint blue-green inset for empty states/callouts */
+  --surface-foreground: var(--foreground);
+
+  /* Muted attention — amber, ONLY when an action is needed (overdue, attention
+     callouts). Soft fill + readable ink so it nudges without alarming. */
+  --warning: #fff7ec; /* soft amber wash */
+  --warning-foreground: #92510a; /* readable amber-brown on the wash (AA) */
+  --warning-border: #f5d9a8; /* gentle amber divider for warning rows */
+
+  /* shadcn/ui theme tokens — mapped onto the calm palette so the shadcn
+     primitives (and any future ones) inherit the guardian look. Light theme. */
+  --radius: 0.875rem; /* one steady, un-bubbly corner; cards/buttons derive from it */
+  --card: var(--surface);
   --card-foreground: var(--foreground);
-  --popover: #ffffff;
+  --popover: var(--surface);
   --popover-foreground: var(--foreground);
-  --primary: #00C1D4; /* true TUHH logo cyan — matches --brand fill */
-  --primary-foreground: #062a30; /* near-black dark-teal, 6.9:1 on cyan (AA) */
-  --secondary: #f3f4f6; /* gray-100 */
-  --secondary-foreground: #111827; /* gray-900 */
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280; /* gray-500 */
-  --accent: #f3f4f6;
-  --accent-foreground: #111827;
-  --destructive: #dc2626; /* red-600 */
+  --primary: var(--brand); /* calm teal */
+  --primary-foreground: var(--brand-foreground); /* white on the deeper teal (AA) */
+  --secondary: #eef2f4; /* faint cool gray */
+  --secondary-foreground: #1f2a31;
+  --muted: #eef2f4;
+  --muted-foreground: #5b6b76; /* calm slate-gray, AA on the page bg */
+  --accent: #e9f1f1; /* faintest teal tint for hover/active rows */
+  --accent-foreground: #1f2a31;
+  --destructive: #dc2626; /* red-600 — reserved for truly destructive actions */
   --destructive-foreground: #ffffff;
-  --border: #e5e7eb; /* gray-200 */
-  --input: #d1d5db; /* gray-300 */
+  --border: #e2e8eb; /* soft cool divider — borders only on inputs/dividers/rows */
+  --input: #cbd5db; /* slightly stronger so input edges stay legible */
   --ring: var(--focus-ring);
 }
 
 .dark {
-  --background: #0b0f17;
-  --foreground: #e5e7eb;
-  /* Dark theme is unchanged: it keeps the original TUHH brand blue. */
-  --brand: #00509b;
-  --brand-dark: #003d75;
-  /* On dark, brand fills pair with white text (the deep blue is dark enough),
-     and brand-coloured text on the near-black page lifts to the focus-ring blue. */
-  --brand-foreground: #ffffff;
-  --brand-ink: #4d94d6;
-  /* A lighter brand blue for dark mode: the deep #00509b only reaches ~2.4:1
-     against the near-black background (below the 3:1 WCAG non-text bar), so the
-     ring would be hard to see. This lifts it comfortably past 3:1. */
-  --focus-ring: #4d94d6;
-  /* Data-viz palette, dark theme — the deep brand blue muddies against the
-     near-black bg, so the active series lifts to the lighter focus-ring blue. */
-  --chart-series: #4d94d6;
-  /* Secondary series, dark theme — lighter amber so it lifts off the near-black bg. */
-  --chart-series-2: #fbbf24;
-  --chart-track: #1f2937;
-  --chart-axis: #9ca3af;
-  --chart-grid: #1f2937;
+  /* Calm deep slate — NOT pure black. A soft cool-blue depth that's restful at
+     night and lets tinted surfaces lift off it without harsh contrast. */
+  --background: #10161d;
+  --foreground: #dde3e8; /* soft off-white, not stark #fff */
 
-  /* shadcn/ui theme tokens — dark theme. Surfaces follow our existing dark
-     card/border palette (gray-900/800); primary stays the brand blue (used as
-     bg-brand text-white in both themes). */
-  --card: #111827; /* gray-900 */
+  /* Calm teal lifts a touch on dark so it reads against the deep slate while
+     staying the same family as light. White text on it passes AA. */
+  --brand: #2aa0a3; /* lifted calm teal — fill on dark */
+  --brand-dark: #238a8d; /* hover */
+  --brand-foreground: #06231f; /* deep near-black teal on the lighter fill (AA) */
+  --brand-ink: #4cc2c4; /* calm-teal TEXT on the deep slate page (links/accents) */
+  /* Focus ring lifts to the brighter teal so it clears 3:1 on the deep slate. */
+  --focus-ring: #4cc2c4;
+  /* Data-viz palette, dark theme — teal active series lifts off the deep slate. */
+  --chart-series: #4cc2c4;
+  /* Secondary series — lighter amber so it lifts off the deep slate. */
+  --chart-series-2: #f0b352;
+  --chart-track: #1c2630;
+  --chart-axis: #7d8b97;
+  --chart-grid: #1c2630;
+
+  /* Calm surface system, dark. Elevated panels are a step up from the page;
+     muted/inset surfaces a hair lower, both cool-tinted, never pure black. */
+  --surface: #18212b; /* elevated panel on the deep slate */
+  --surface-muted: #141c25; /* inset surface for empty states/callouts */
+  --surface-foreground: var(--foreground);
+
+  /* Muted attention — amber on dark. Deep wash + lifted ink so it nudges. */
+  --warning: #2a2113; /* deep amber wash */
+  --warning-foreground: #f0c987; /* lifted amber ink, AA on the wash */
+  --warning-border: #4a3a1c; /* gentle amber divider for warning rows */
+
+  /* shadcn/ui theme tokens — dark theme, mapped to the calm surface palette. */
+  --card: var(--surface);
   --card-foreground: var(--foreground);
-  --popover: #111827;
+  --popover: var(--surface);
   --popover-foreground: var(--foreground);
-  --primary: #00509b;
-  --primary-foreground: #ffffff;
-  --secondary: #1f2937; /* gray-800 */
-  --secondary-foreground: #e5e7eb;
-  --muted: #1f2937;
-  --muted-foreground: #9ca3af; /* gray-400 */
-  --accent: #1f2937;
-  --accent-foreground: #e5e7eb;
+  --primary: var(--brand); /* calm teal */
+  --primary-foreground: var(--brand-foreground);
+  --secondary: #1c2630;
+  --secondary-foreground: #dde3e8;
+  --muted: #1c2630;
+  --muted-foreground: #8b99a6; /* calm slate-gray, AA on the deep slate */
+  --accent: #1a262b; /* faint teal-tinted hover/active row */
+  --accent-foreground: #dde3e8;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #1f2937; /* gray-800 */
-  --input: #374151; /* gray-700 */
+  --border: #25313c; /* soft cool divider on dark */
+  --input: #324250; /* legible input edge on dark */
   --ring: var(--focus-ring);
 }
 
@@ -119,12 +149,29 @@
   /* Brand-coloured TEXT on the page background (links, accents) — AA-safe. */
   --color-brand-ink: var(--brand-ink);
 
+  /* Calm surface utilities — bg-surface / bg-surface-muted / text-surface-
+     foreground. The guardian panel fills (faint cool tint), used by the ui/
+     primitives and GuardianScaffold instead of literal gray-50/gray-900. */
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-foreground: var(--surface-foreground);
+
+  /* Muted-attention utilities — bg-warning / text-warning-foreground /
+     border-warning-border. The ONLY amber in the app, for "action needed". */
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-border: var(--warning-border);
+
   /* shadcn/ui token → Tailwind utility bridge (enables bg-primary, text-muted-
-     foreground, border-border, etc. for shadcn-style components). */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+     foreground, border-border, etc. for shadcn-style components).
+
+     One steady, un-bubbly corner system: every radius derives from --radius
+     (0.875rem) so cards, inputs, and the scaffold share a consistent rounding
+     instead of mixing rounded-lg / rounded-2xl / rounded-full ad hoc. */
+  --radius-sm: calc(var(--radius) - 5px); /* ~9px — inputs, small chips */
+  --radius-md: calc(var(--radius) - 3px); /* ~11px */
+  --radius-lg: var(--radius); /* ~14px — the default card corner */
+  --radius-xl: calc(var(--radius) + 4px); /* ~18px — large feature surfaces */
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -159,13 +206,13 @@ body {
 .dark input:not([type="checkbox"]):not([type="radio"]),
 .dark textarea,
 .dark select {
-  background-color: #111827;
+  background-color: var(--surface);
   color: var(--foreground);
 }
 
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #6b7280;
+  color: var(--muted-foreground);
 }
 
 /* Accessibility: one clear, consistent keyboard focus ring across the app.

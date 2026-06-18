@@ -40,31 +40,38 @@ export function iconButtonClass(extra = ""): string {
 }
 
 /**
- * Card / panel surfaces — one radius (rounded-2xl) and border treatment across
- * the app. The elevated white surface is also the base of the shadcn `Card`
- * primitive (ui/card.tsx); `cardClass` stays the token for surfaces that aren't
- * a `<Card>` element (e.g. the confirmation-dialog panel). Pick by fill:
- *   cardClass       — elevated surface, white fill (sits above the page).
+ * Card / panel surfaces — the calm GUARDIAN surfaces. One steady corner
+ * (rounded-xl, ~14px, from --radius) and a soft shadow that reads the card by
+ * elevation rather than a hard edge — so surfaces are flatter and quieter than
+ * the old bordered white boxes. The elevated surface is also the base of the
+ * shadcn `Card` primitive (ui/card.tsx); `cardClass` stays the token for
+ * surfaces that aren't a `<Card>` element (e.g. the confirmation-dialog panel).
+ * Pick by fill:
+ *   cardClass       — elevated surface (bg-surface), lifted by a subtle shadow.
  *   panelClass      — section panel, no fill (sits directly on the page bg).
  *   mutedCardClass  — tinted/inset surface (empty states, callouts).
  * Compose with padding/spacing at the callsite, e.g. `${panelClass} p-5`.
+ *
+ * Borders are reserved for inputs, dividers, and interactive rows — surfaces
+ * lean on fill + shadow instead, which is the calm of the system.
  */
 export const cardClass =
-  "rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900";
+  "rounded-xl bg-surface shadow-sm";
 
-export const panelClass = "rounded-2xl border border-gray-200 dark:border-gray-800";
+export const panelClass = "rounded-xl";
 
 export const mutedCardClass =
-  "rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900";
+  "rounded-xl bg-surface-muted";
 
 /**
  * Text / number / date input surfaces — one border, radius, fill, and hover
- * treatment so every field matches. This is the visual base behind the shadcn
- * field primitives (ui/input.tsx, textarea.tsx, select.tsx), which layer the
- * shared `aria-[invalid]` / `disabled` states on top. Width AND font-size are
- * left to the callsite (`w-full`, `w-20`, the 16px default that avoids iOS
- * focus-zoom, the inherited `text-sm` of dense rows); the visible focus ring is
- * defined globally in globals.css.
+ * treatment so every field matches. Inputs DO keep a visible border (the calm
+ * system reserves edges for interactive controls). This is the visual base
+ * behind the shadcn field primitives (ui/input.tsx, textarea.tsx, select.tsx),
+ * which layer the shared `aria-[invalid]` / `disabled` states on top. Width AND
+ * font-size are left to the callsite (`w-full`, `w-20`, the 16px default that
+ * avoids iOS focus-zoom, the inherited `text-sm` of dense rows); the visible
+ * focus ring is defined globally in globals.css.
  */
 export const inputClass =
-  "rounded-lg border border-gray-300 bg-white px-3 py-2 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600";
+  "rounded-lg border border-input bg-surface px-3 py-2 transition-colors placeholder:text-muted-foreground hover:border-muted-foreground/60 dark:bg-surface";

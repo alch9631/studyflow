@@ -23,18 +23,23 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Primary — the calm teal guardian action (white text, AA on the teal).
         primary: "bg-brand text-brand-foreground shadow-sm hover:bg-brand-dark",
+        // Secondary — quiet bordered control; border is allowed here (it's an
+        // interactive control), routed to the calm --input/--accent tokens.
         secondary:
-          "border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800",
+          "border border-input text-foreground hover:bg-accent",
         // Quiet outline danger — for triggers that *open* a destructive flow.
+        // Red is reserved: only true destructive/urgent actions reach for it.
         danger:
           "border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
         // Solid danger — the dominant CTA that *commits* a destructive action
         // (e.g. the confirm button inside a confirmation dialog).
         "danger-solid":
           "bg-red-600 text-white shadow-sm hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500",
+        // Ghost — the calm escape-hatch / tertiary action; no fill until hover.
         ghost:
-          "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+          "text-muted-foreground hover:bg-accent hover:text-foreground",
       },
       size: {
         sm: "px-3 py-1.5 text-xs",

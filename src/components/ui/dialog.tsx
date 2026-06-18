@@ -92,7 +92,7 @@ function DialogContent({
           <DialogPrimitive.Overlay asChild forceMount>
             <motion.div
               data-slot="dialog-overlay"
-              className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -102,7 +102,7 @@ function DialogContent({
           <DialogPrimitive.Content asChild forceMount data-slot="dialog-content" {...props}>
             <motion.div
               className={cn(
-                "fixed inset-0 z-50 m-auto h-fit max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-800 dark:bg-gray-900",
+                "fixed inset-0 z-50 m-auto h-fit max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-xl bg-surface p-5 shadow-xl",
                 className,
               )}
               initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
@@ -114,7 +114,7 @@ function DialogContent({
               {showCloseButton && (
                 <DialogPrimitive.Close
                   aria-label={t("common.close")}
-                  className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                  className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </DialogPrimitive.Close>
@@ -147,7 +147,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("mt-2 text-sm text-gray-600 dark:text-gray-300", className)}
+      className={cn("mt-2 text-sm text-muted-foreground", className)}
       {...props}
     />
   );
