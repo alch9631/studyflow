@@ -259,7 +259,16 @@ const en = {
     calmDeferred: "You're okay. I set the low-priority work aside.",
     calmOver: "Today's a full one. Just start at the top, the rest can wait.",
     calmAllDone: "You're all caught up. Rest easy.",
-    reassureCount: "{mustDo} must-do, {optional} optional",
+    // ── Three truthful states (never false calm) ──
+    statusProtected: "You're set for today.",
+    statusNeedsChoice: "Today is heavier than one sitting.",
+    statusNeedsChoiceSub: "Want me to make it lighter? Tap Adjust today.",
+    statusDoesntFit: "This exam won't fit, even on a light day.",
+    statusDoesntFitSub:
+      "There isn't enough time left before {exam} ({days}d). Tap Adjust today to respread or trim.",
+    statusDoesntFitSubGeneric:
+      "There isn't enough time left before your next exam. Tap Adjust today to respread or trim.",
+    reassureCount: "{essentials} essential, {protected} protected",
     heroOptions: "Other options",
     laterToggle: "Protected for later ({count})",
     laterHint: "Lower-priority and optional work, kept aside so today stays light.",
@@ -288,14 +297,16 @@ const en = {
     nextUp: "Up next: {topic}",
   },
   behind: {
-    // The signature "I'm behind" sheet — calm, reassuring, never alarming.
-    open: "I'm behind",
+    // The single "Adjust today" recovery sheet — calm, reassuring, never alarming.
+    open: "Adjust today",
     title: "It's okay. Let's lighten today.",
     subtitle: "Pick what feels right. Nothing is lost, and you can change it back.",
     protectTitle: "Protect today",
-    protectHint: "Keep your main study, move just the optional reviews to tomorrow.",
-    moveTitle: "Move optional work",
-    moveHint: "Clear today's sessions to tomorrow so you can start fresh.",
+    protectHint: "Keep your essentials, move just the optional reviews to tomorrow.",
+    protectPreview: "Today {from} → {essentials} essential ({moved} review moved)",
+    moveTitle: "Move today's work",
+    moveHint: "Move all of today's open sessions to tomorrow so you can start fresh.",
+    movePreview: "Today {from} → 0 ({moved} moved)",
     lighterTitle: "Make a lighter plan",
     lighterHint: "Respread everything across the days before each exam.",
     working: "One moment…",
@@ -1267,7 +1278,16 @@ const de: Messages = {
     calmDeferred: "Alles gut. Ich habe das Unwichtige beiseitegelegt.",
     calmOver: "Heute ist viel los. Fang einfach oben an, der Rest kann warten.",
     calmAllDone: "Du bist auf dem Laufenden. Ruh dich aus.",
-    reassureCount: "{mustDo} wichtig, {optional} optional",
+    // ── Drei ehrliche Zustände (nie falsche Ruhe) ──
+    statusProtected: "Für heute bist du startklar.",
+    statusNeedsChoice: "Heute ist mehr als eine Sitzung.",
+    statusNeedsChoiceSub: "Soll ich es leichter machen? Tippe auf Heute anpassen.",
+    statusDoesntFit: "Diese Prüfung passt nicht mehr, selbst an einem leichten Tag.",
+    statusDoesntFitSub:
+      "Bis {exam} ({days} T) bleibt nicht genug Zeit. Tippe auf Heute anpassen, um neu zu verteilen oder zu kürzen.",
+    statusDoesntFitSubGeneric:
+      "Bis zu deiner nächsten Prüfung bleibt nicht genug Zeit. Tippe auf Heute anpassen, um neu zu verteilen oder zu kürzen.",
+    reassureCount: "{essentials} wichtig, {protected} geschützt",
     heroOptions: "Andere Optionen",
     laterToggle: "Für später aufbewahrt ({count})",
     laterHint: "Optionales und Nachrangiges, beiseitegelegt, damit heute leicht bleibt.",
@@ -1296,14 +1316,16 @@ const de: Messages = {
     nextUp: "Als Nächstes: {topic}",
   },
   behind: {
-    // Das markante „Ich bin im Rückstand"-Panel — ruhig, beruhigend, nie alarmierend.
-    open: "Ich bin im Rückstand",
+    // Die einzige „Heute anpassen"-Fläche — ruhig, beruhigend, nie alarmierend.
+    open: "Heute anpassen",
     title: "Alles gut. Machen wir heute leichter.",
     subtitle: "Wähl, was sich richtig anfühlt. Nichts geht verloren, du kannst es zurücknehmen.",
     protectTitle: "Heute schützen",
-    protectHint: "Hauptlernstoff behalten, nur die optionalen Wiederholungen auf morgen schieben.",
-    moveTitle: "Optionales verschieben",
-    moveHint: "Heutige Einheiten auf morgen räumen, damit du frisch starten kannst.",
+    protectHint: "Das Wichtige behalten, nur die optionalen Wiederholungen auf morgen schieben.",
+    protectPreview: "Heute {from} → {essentials} wichtig ({moved} Wiederholung verschoben)",
+    moveTitle: "Heutiges verschieben",
+    moveHint: "Alle offenen Einheiten von heute auf morgen schieben, damit du frisch starten kannst.",
+    movePreview: "Heute {from} → 0 ({moved} verschoben)",
     lighterTitle: "Leichteren Plan machen",
     lighterHint: "Alles neu auf die Tage vor jeder Prüfung verteilen.",
     working: "Einen Moment…",

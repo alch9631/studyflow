@@ -19,13 +19,15 @@ import SwipeRow from "@/components/SwipeRow";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
 import {
   fmtDuration,
+  MAX_VISIBLE_ESSENTIALS,
   type CockpitBlock,
+  type CockpitStatus,
   type Lane,
   type RiskVerdict,
 } from "./cockpit";
 
 /** Up to this many must-do rows are shown directly; the rest collapse under "Later". */
-const VISIBLE_MUST_DO = 4;
+const VISIBLE_MUST_DO = MAX_VISIBLE_ESSENTIALS;
 
 /**
  * The Today screen — sacredly simple, built on the GuardianScaffold core trio.
@@ -47,12 +49,21 @@ export default function TodayCockpit({
   lanes,
   hero,
   risk,
+  status,
+  examName = null,
+  examDays = null,
 }: {
   blocks: CockpitBlock[];
   /** Plain object map of blockId → lane (serializable across the boundary). */
   lanes: Record<string, Lane>;
   hero: CockpitBlock | null;
   risk: RiskVerdict;
+  /** The one honest Today state — drives the big status line (never false calm). */
+  status: CockpitStatus;
+  /** Nearest exam name, only when status is "doesnt_fit" (else null). */
+  examName?: string | null;
+  /** Days to that exam, only when status is "doesnt_fit" (else null). */
+  examDays?: number | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -76,16 +87,48 @@ export default function TodayCockpit({
   const overflowRest = restMustDo.slice(VISIBLE_MUST_DO);
   const laterBlocks = [...overflowRest, ...optional];
 
-  const deferred = optional.length > 0;
-  // Honest big status line. Only the deferred copy when work was truly set aside.
-  const statusLine =
-    risk === "clear" || !hero
-      ? t("today.calmAllDone")
-      : risk === "over" && deferred
-        ? t("today.calmDeferred")
-        : risk === "over"
-          ? t("today.calmOver")
-          : t("today.calmOkay");
+  // Honest reassurance counts: "essentials" is what's actually shown (hero +
+  // the capped visible rows), never the inflated full must-do pile. Everything
+  // beyond the cap, plus deferrable work, is honestly counted as "protected".
+  const visibleEssentials = (hero ? 1 : 0) + visibleRest.length;
+  const protectedCount = laterBlocks.length;
+
+  // The single honest status line. NEVER calm when the state needs a choice or
+  // can't make the exam — those map to truthful, non-reassuring copy that points
+  // at the one recovery entry ("Adjust today").
+  const allDone = risk === "clear" || !hero;
+  const statusLine = allDone
+    ? t("today.calmAllDone")
+    : status === "doesnt_fit"
+      ? t("today.statusDoesntFit")
+      : status === "needs_choice"
+        ? t("today.statusNeedsChoice")
+        : t("today.statusProtected");
+  // Secondary line: the calm next-step for the two non-protected states.
+  const statusSub = allDone
+    ? null
+    : status === "doesnt_fit"
+      ? examName != null && examDays != null
+        ? t("today.statusDoesntFitSub", { exam: examName, days: examDays })
+        : t("today.statusDoesntFitSubGeneric")
+      : status === "needs_choice"
+        ? t("today.statusNeedsChoiceSub")
+        : null;
+  const needsAdjust = !allDone && status !== "protected";
+
+  // Preview numbers for the one "Adjust today" sheet (before → after), so each
+  // option's label matches its real effect and 0-effect options can be hidden.
+  const openBlocks = blocks.filter((b) => !b.completed);
+  const openReviews = openBlocks.filter((b) => b.kind === "review");
+  const essentialsAfterProtect = openBlocks.length - openReviews.length;
+  const behindPreview = {
+    todayCount: openBlocks.length,
+    // "Protect today" keeps first-pass study, moves the optional reviews.
+    protectMoves: openReviews.length,
+    essentialsAfterProtect,
+    // "Move today's work" moves ALL of today's open sessions.
+    moveMoves: openBlocks.length,
+  };
 
   return (
     <>
@@ -95,10 +138,15 @@ export default function TodayCockpit({
             <p className="text-balance text-xl font-semibold leading-snug sm:text-2xl">
               {statusLine}
             </p>
+            {statusSub && (
+              <p className="mt-2 text-balance text-sm text-muted-foreground">
+                {statusSub}
+              </p>
+            )}
             <p className="mt-2 text-sm text-muted-foreground">
               {t("today.reassureCount", {
-                mustDo: mustDo.length,
-                optional: optional.length,
+                essentials: visibleEssentials,
+                protected: protectedCount,
               })}
             </p>
           </div>
@@ -128,15 +176,29 @@ export default function TodayCockpit({
         }
         escape={
           <BehindSheet
-            trigger={(open) => (
-              <button
-                type="button"
-                onClick={open}
-                className="mx-auto block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                {t("behind.open")}
-              </button>
-            )}
+            preview={behindPreview}
+            trigger={(open) =>
+              needsAdjust ? (
+                // Heavier states surface the ONE recovery entry as a clear button.
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={open}
+                >
+                  {t("behind.open")}
+                </Button>
+              ) : (
+                // Protected: keep it quiet — a low-key, always-there affordance.
+                <button
+                  type="button"
+                  onClick={open}
+                  className="mx-auto block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  {t("behind.open")}
+                </button>
+              )
+            }
           />
         }
       />

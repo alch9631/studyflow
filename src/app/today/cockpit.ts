@@ -20,6 +20,28 @@ export type CockpitBlock = {
 /** The four study-queue lanes, answering "what now / what can wait". */
 export type Lane = "now" | "next" | "later" | "slide";
 
+/**
+ * Conservative daily study ceiling, in minutes. A real student does NOT focus for
+ * 60% of an 08:00–22:00 window; assuming they do manufactures phantom "must-do"
+ * loads (the old model could surface 11 essentials). The realistic ceiling for
+ * today is the SMALLER of the window math and this baseline budget, so today is
+ * never asked to hold more than one sane sitting's worth of focused study.
+ */
+export const DAILY_STUDY_BUDGET_MIN = 120;
+
+/** At most this many must-do sessions show directly; the rest are protected. */
+export const MAX_VISIBLE_ESSENTIALS = 4;
+
+/**
+ * The realistic study ceiling for today: the smaller of the window-derived focus
+ * time and the conservative {@link DAILY_STUDY_BUDGET_MIN} baseline. This is the
+ * denominator for "does today fit", deliberately conservative so the system errs
+ * toward protecting the student rather than overloading them.
+ */
+export function studyBudget(windowAvailableMin: number): number {
+  return Math.min(Math.max(0, windowAvailableMin), DAILY_STUDY_BUDGET_MIN);
+}
+
 /** "1h 20m" / "45m" / "0m" — shared duration formatter (no i18n; numbers only). */
 export function fmtDuration(min: number): string {
   const m = Math.max(0, Math.round(min));
@@ -77,6 +99,65 @@ export function riskVerdict(cap: Capacity): RiskVerdict {
   // "Tight" when it fits but the leftover slack is small relative to capacity.
   if (cap.availableMin > 0 && cap.freeMin <= cap.availableMin * 0.2) return "tight";
   return "ontrack";
+}
+
+/**
+ * The three truthful Today states — never false calm. Exactly one is shown:
+ *
+ *   - "protected"   — the system reduced today to a viable load (remaining must-do
+ *                     study fits the budget). Calm: "You're set for today."
+ *   - "needs_choice"— more must-do study than the budget allows. Honest nudge to
+ *                     the single recovery entry: "Today is heavier than one
+ *                     sitting. Want me to make it lighter?"
+ *   - "doesnt_fit"  — even a minimal day can't make the nearest exam (not enough
+ *                     days left for the work that must happen before it). Honest,
+ *                     calm, with the real next step.
+ *
+ * "doesnt_fit" dominates: a missable exam is the gravest truth, so it is reported
+ * even when today itself would otherwise look protected.
+ */
+export type CockpitStatus = "protected" | "needs_choice" | "doesnt_fit";
+
+/**
+ * Feasibility input for the nearest upcoming exam: how many days are left before
+ * it, and the total still-incomplete study minutes (today + future) that must
+ * land before it. Past/overdue work is surfaced separately (recovery), never here.
+ */
+export type ExamFeasibility = {
+  /** Whole days until the nearest exam (0 = exam is today). Omit if no exam. */
+  daysUntil: number;
+  /** Total remaining study minutes that must happen before that exam. */
+  remainingMin: number;
+};
+
+/**
+ * Decide the single honest Today status from the capacity verdict and (optionally)
+ * the nearest exam's feasibility. Pure: same inputs → same state.
+ *
+ *   - If a minimal-but-realistic day (the study budget per remaining day) still
+ *     can't clear the exam's remaining work in time → "doesnt_fit".
+ *   - Else if today's remaining must-do study exceeds the budget → "needs_choice".
+ *   - Else → "protected".
+ *
+ * `mustDoMin` is the minutes the day genuinely needs (must-do study only, NOT
+ * reviews/overdue); `budgetMin` is {@link studyBudget}. We compare against the
+ * budget, not the raw window, so the verdict matches the conservative model.
+ */
+export function cockpitStatus(
+  mustDoMin: number,
+  budgetMin: number,
+  exam?: ExamFeasibility,
+): CockpitStatus {
+  if (exam && budgetMin > 0) {
+    // Days available to study before the exam: today plus each remaining day.
+    // (Exam today → only today.) Conservatively assume the budget is the most
+    // that can be done per day; if even that can't clear it, the exam can't be made.
+    const studyDays = Math.max(1, exam.daysUntil + 1);
+    const reachableMin = studyDays * budgetMin;
+    if (exam.remainingMin > reachableMin) return "doesnt_fit";
+  }
+  if (mustDoMin > budgetMin) return "needs_choice";
+  return "protected";
 }
 
 /**

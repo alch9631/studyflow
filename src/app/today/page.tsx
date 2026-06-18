@@ -9,20 +9,20 @@ import { getT } from "@/components/i18n/server";
 import { dueLabel } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
 import Onboarding from "@/components/Onboarding";
-import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
 import ExamStrip, { type ExamChip } from "./ExamStrip";
-import { recoverPlan } from "./actions";
-import { assessRecovery, needsRecovery } from "@/lib/recovery";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 import { parsePrefs } from "@/lib/timePlacer";
 import {
   assignLanes,
+  cockpitStatus,
   computeCapacity,
   pickHero,
   riskVerdict,
+  studyBudget,
   type CockpitBlock,
+  type CockpitStatus,
   type Lane,
 } from "./cockpit";
 
@@ -78,7 +78,7 @@ export default async function TodayPage({
   // These four reads are independent, so fire them concurrently in a single
   // round-trip batch instead of awaiting one after another (avoids a serial
   // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, recovery, prefUser] =
+  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, prefUser] =
     await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
@@ -136,9 +136,6 @@ export default async function TodayPage({
         course: { select: { name: true, id: true } },
       },
     }),
-    // Overdue unfinished sessions from missed days — drives the proactive
-    // "rebuild my plan" recovery banner.
-    assessRecovery(userId, today),
     // Study-window preferences (for today's capacity / risk line). Only the
     // preferences blob is read; parsePrefs tolerates null/legacy values.
     prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
@@ -201,10 +198,14 @@ export default async function TodayPage({
   const windowLeft = Math.max(0, prefs.dayEndMin - Math.max(minutesNow, prefs.dayStartMin));
   // Subtract lectures that fall in the remaining window before discounting; clamp
   // at 0 so a heavy class day never yields negative capacity.
-  const availableMin = Math.max(
+  const windowAvailableMin = Math.max(
     0,
     Math.round((windowLeft - todaysLectureMin) * FOCUS_RATIO),
   );
+  // Conservative ceiling: the smaller of the window math and the fixed daily study
+  // budget. This is the realistic load today can hold — it stops the planner from
+  // manufacturing a wall of "must-do" out of an optimistic 14h window.
+  const availableMin = studyBudget(windowAvailableMin);
 
   // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
   const cockpitBlocks: CockpitBlock[] = blocks;
@@ -213,6 +214,37 @@ export default async function TodayPage({
   const laneMap = assignLanes(cockpitBlocks, cap);
   const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
   const hero = pickHero(cockpitBlocks, laneMap);
+
+  // Honest Today status. The day's genuine must-do load = today's incomplete
+  // first-pass STUDY (reviews are deferrable, overdue is handled by recovery, not
+  // counted here). If that exceeds the budget → "Needs a choice". If even a
+  // budget-paced run-up to the nearest exam can't clear its remaining work →
+  // "Doesn't fit". Otherwise → "Protected".
+  const mustDoMin = blocks
+    .filter((b) => !b.completed && b.kind !== "review")
+    .reduce((s, b) => s + b.minutes, 0);
+  // Remaining (incomplete) study minutes due on/before the nearest exam date —
+  // the work that must land before it. Only when there's an exam ahead.
+  let examFeasibility: { daysUntil: number; remainingMin: number } | undefined;
+  if (nextExam) {
+    const examEnd = new Date(
+      nextExam.examDate.toISOString().slice(0, 10) + "T00:00:00Z",
+    );
+    examEnd.setUTCDate(examEnd.getUTCDate() + 1); // include the exam day itself
+    const examRemaining = await prisma.studyBlock.aggregate({
+      where: {
+        completed: false,
+        date: { gte: start, lt: examEnd },
+        course: { userId },
+      },
+      _sum: { minutes: true },
+    });
+    examFeasibility = {
+      daysUntil: Math.max(0, daysUntil(nextExam.examDate, today)),
+      remainingMin: examRemaining._sum.minutes ?? 0,
+    };
+  }
+  const status: CockpitStatus = cockpitStatus(mustDoMin, availableMin, examFeasibility);
 
   // Exam-countdown chips (soonest first), colored by urgency in the strip.
   const examChips: ExamChip[] = upcomingExams
@@ -247,8 +279,8 @@ export default async function TodayPage({
       <ExamStrip exams={examChips} t={t} />
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
-          rebuilt; otherwise, when missed days have piled up overdue work, a
-          proactive one-tap rebuild. Completed sessions always survive. */}
+          rebuilt. The proactive trigger now lives in the single "Adjust today"
+          entry (BehindSheet) — no separate amber banner. Completed work survives. */}
       {recovered && (
         <div
           aria-live="polite"
@@ -284,23 +316,6 @@ export default async function TodayPage({
           {t("behind.failed")}
         </div>
       )}
-      {!recovered && !lightened && needsRecovery(recovery) && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-          <p className="font-semibold">{t("today.recoveryTitle")}</p>
-          <p className="mt-1">
-            {t("today.recoveryBody", {
-              sessions: recovery.overdueSessions,
-              time: fmtDuration(recovery.overdueMinutes),
-            })}
-          </p>
-          <form action={recoverPlan} className="mt-3">
-            <SubmitButton variant="primary" pendingLabel={t("today.recoveryPending")}>
-              {t("today.recoveryCta")}
-            </SubmitButton>
-          </form>
-        </div>
-      )}
-
       {blocks.length > 0 ? (
         <>
           {/* The calm spine: hero next action + one honest status line + a quiet
@@ -311,6 +326,9 @@ export default async function TodayPage({
             lanes={lanes}
             hero={hero}
             risk={risk}
+            status={status}
+            examName={status === "doesnt_fit" ? nextExam?.name ?? null : null}
+            examDays={status === "doesnt_fit" ? examFeasibility?.daysUntil ?? null : null}
           />
 
           {/* Demoted secondary context: today's classes + upcoming deadlines. */}
