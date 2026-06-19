@@ -1,4 +1,11 @@
-# Deploying StudyFlow (Railway + Postgres + Google sign-in)
+# Deploying StudyFlow (Postgres + Google sign-in)
+
+> **The live public app is on Prisma Compute**, not Railway — see
+> [PRODUCTION.md](PRODUCTION.md) for the actual deploy command, the two deploy
+> targets, and the current blockers. The Google OAuth setup in section 1 below is
+> the canonical, platform-agnostic part and applies to any host (just register the
+> right callback domain). The Railway-specific sections (2, 4) are kept as an
+> alternative path and are **not** how the live app is currently deployed.
 
 This covers the production deploy with real authentication. Locally and on the
 Pi, the app runs with `ALLOW_DEV_USER=1` and SQLite — no Google creds needed.

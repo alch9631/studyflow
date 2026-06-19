@@ -25,10 +25,22 @@ export const MINUTES_PER_DAY = 24 * 60;
  * @param minutes minutes from local midnight (0…1439)
  */
 export function dayMinutesToInstant(dayISO: string, minutes: number, tz = DEFAULT_TZ): Date {
-  const h = String(Math.floor(minutes / 60)).padStart(2, "0");
-  const m = String(minutes % 60).padStart(2, "0");
+  // A block's exclusive end can legitimately be local midnight (minute 1440 —
+  // a study window ending at 24:00, or a resize to the bottom of the day). "24:00"
+  // is not a valid wall-clock string (date-fns reads it as 00:00 of the SAME day,
+  // landing the instant ~a day early), so roll any minute ≥ 1440 onto the next day.
+  let day = dayISO;
+  let mins = minutes;
+  if (mins >= MINUTES_PER_DAY) {
+    const d = new Date(`${dayISO}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    day = d.toISOString().slice(0, 10);
+    mins -= MINUTES_PER_DAY;
+  }
+  const h = String(Math.floor(mins / 60)).padStart(2, "0");
+  const m = String(mins % 60).padStart(2, "0");
   // Interpret "this wall-clock time, in tz" → the UTC instant.
-  return fromZonedTime(`${dayISO}T${h}:${m}:00`, tz);
+  return fromZonedTime(`${day}T${h}:${m}:00`, tz);
 }
 
 /** The calendar day (YYYY-MM-DD) an instant falls on, in `tz`. */

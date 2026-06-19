@@ -125,12 +125,10 @@ export async function addFromCatalog(formData: FormData) {
     .slice(0, LIMITS.MAX_CATALOG_ADD_BATCH);
   if (ids.length === 0) redirect("/catalog");
 
-  console.error(`[catalog] start user=${userId} ids=${ids.length}`);
   const templates = await prisma.moduleTemplate.findMany({
     where: { id: { in: ids } },
     select: { name: true, content: true, ects: true, code: true, examDate: true },
   });
-  console.error(`[catalog] templates=${templates.length}`);
 
   // Don't let a bulk catalog add push the user past the course cap.
   guardCountBy(
@@ -167,7 +165,6 @@ export async function addFromCatalog(formData: FormData) {
       }));
     }
 
-    console.error(`[catalog] creating course "${t.name}" topics=${topics.length}`);
     const course = await prisma.course.create({
       data: {
         name: t.name,
@@ -180,12 +177,9 @@ export async function addFromCatalog(formData: FormData) {
         topics: { create: topics.map((tp, i) => ({ title: tp.title, effort: tp.effort, order: i })) },
       },
     });
-    console.error(`[catalog] created course=${course.id}, regenerating plan...`);
     await regeneratePlan(course.id);
-    console.error(`[catalog] plan done for course=${course.id}`);
   }
 
-  console.error(`[catalog] all done, redirecting to /courses`);
   redirect("/courses");
 }
 
@@ -283,7 +277,11 @@ export async function reoptimizeCourse(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
+  // Rate-limit per USER (not per course id): the AI budget is a per-user resource,
+  // so keying on the course would give each course its own bucket (letting one user
+  // exceed their intended AI spend across courses) and, under real multi-user auth,
+  // let another user drain this course's bucket. Owner check stays below.
+  if (!rateLimitOK("AI", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   // Don't let a non-owner trigger an (AI-spending) replan of someone else's course.
   if (!(await ownsCourse(userId, id))) redirect("/courses");
 
@@ -323,7 +321,8 @@ export async function analyzeModuleUpload(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  if (!rateLimitOK("AI", courseId)) redirect(`/courses/${courseId}?msg=rate-limited`);
+  // AI budget is per-user (see reoptimizeCourse): key on userId, not the course id.
+  if (!rateLimitOK("AI", userId)) redirect(`/courses/${courseId}?msg=rate-limited`);
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
@@ -477,7 +476,8 @@ export async function applyProgress(formData: FormData) {
   } catch {
     return;
   }
-  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
+  // AI budget is per-user (see reoptimizeCourse): key on userId, not the course id.
+  if (!rateLimitOK("AI", userId)) redirect(`/courses/${id}?msg=rate-limited`);
 
   // Ownership-scoped: only load (and later mutate) a course the current user owns.
   const course = await prisma.course.findFirst({

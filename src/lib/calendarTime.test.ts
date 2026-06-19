@@ -90,6 +90,16 @@ check("hhmmToMinutes rejects 12:60", hhmmToMinutes("12:60") === null);
   check("UTC anchor round-trip", instantToDayMinutes(inst, "UTC") === 600);
 }
 
+// ── exclusive end at local midnight (minute 1440) rolls to next day ───────────
+// A block ending at 24:00 (study window end / resize to bottom of day) must map
+// to next-day local midnight, NOT "24:00 same day" (which lands a day early).
+{
+  const start = dayMinutesToInstant("2026-06-15", 1380, DEFAULT_TZ); // 23:00 Berlin = 21:00Z
+  const end = dayMinutesToInstant("2026-06-15", MINUTES_PER_DAY, DEFAULT_TZ); // 24:00 → next midnight
+  check("midnight end = next-day 00:00 Berlin (22:00Z summer)", end.toISOString() === "2026-06-15T22:00:00.000Z");
+  check("midnight end is after a same-day start", end.getTime() > start.getTime());
+}
+
 // ── overlap detection ─────────────────────────────────────────────────────────
 check("overlap: clear overlap true", rangesOverlap(600, 660, 630, 690) === true);
 check("overlap: identical true", rangesOverlap(600, 660, 600, 660) === true);

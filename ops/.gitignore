@@ -2,3 +2,5 @@ loop-state.json
 
 .deployed-sha
 deploy-*.log
+
+compute-*.log
