@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { regeneratePlan, healCoursePlan, aiOptimizeCourse, todayISO } from "@/lib/planService";
+import {
+  regeneratePlan,
+  rebuildSchedule,
+  healCoursePlan,
+  aiOptimizeCourse,
+  todayISO,
+} from "@/lib/planService";
 import {
   extractSyllabus,
   isSyllabusAIEnabled,
@@ -111,8 +117,14 @@ export async function createCourse(formData: FormData) {
 
 /**
  * Add courses straight from the university catalog (e.g. TUHH IIW modules).
- * Topics: extracted from the handbook text by AI when a key is set, else
- * sensible ECTS-sized placeholder units the student can refine.
+ * Topics start as sensible ECTS-sized placeholder units the student can refine.
+ *
+ * No AI calls and no per-module replan here on purpose: a bulk add must stay a
+ * fast, bounded request. Calling the LLM once per module (sequentially) plus a
+ * full-account replan per module made a multi-module add run for minutes and
+ * blow the serverless request budget — the page just spun. Courses are created
+ * with placeholder topics immediately, the schedule is rebuilt ONCE after the
+ * loop, and AI topic-extraction is available on demand later (course page).
  */
 export async function addFromCatalog(formData: FormData) {
   const userId = await getCurrentUserId();
@@ -127,7 +139,7 @@ export async function addFromCatalog(formData: FormData) {
 
   const templates = await prisma.moduleTemplate.findMany({
     where: { id: { in: ids } },
-    select: { name: true, content: true, ects: true, code: true, examDate: true },
+    select: { name: true, ects: true, code: true, examDate: true },
   });
 
   // Don't let a bulk catalog add push the user past the course cap.
@@ -137,35 +149,19 @@ export async function addFromCatalog(formData: FormData) {
     LIMITS.MAX_COURSES_PER_USER,
     "courses",
   );
-  const aiOn = isSyllabusAIEnabled();
   // Fallback when a module has no published exam date (seminars, labs, electives).
   const defaultExam = new Date(Date.now() + 84 * 86400_000);
 
   for (const t of templates) {
-    let topics: { title: string; effort: number }[] = [];
-    // Each extraction is a paid LLM call, so a bulk add must spend from the AI
-    // budget per module — not ride in under the cheaper COURSE_WRITE check.
-    // When the AI budget runs out mid-batch, remaining modules get the
-    // placeholder units below instead of blocking the add.
-    if (aiOn && rateLimitOK("AI", userId)) {
-      try {
-        const extracted = await extractSyllabus(`${t.name}\n\n${t.content}`);
-        topics = extracted.topics;
-      } catch (e) {
-        // Log, then fall through to placeholder units — a flaky AI call must not
-        // block the catalog add (the student still gets a usable course).
-        logActionError("addFromCatalog.extractSyllabus", e);
-      }
-    }
-    if (topics.length === 0) {
-      const units = Math.max(3, Math.round(t.ects / 2));
-      topics = Array.from({ length: units }, (_, i) => ({
-        title: `${t.name} (part ${i + 1})`,
-        effort: 1,
-      }));
-    }
+    // Placeholder units sized from ECTS — the student refines them (or runs AI
+    // topic-extraction) on the course page afterwards.
+    const units = Math.max(3, Math.round(t.ects / 2));
+    const topics = Array.from({ length: units }, (_, i) => ({
+      title: `${t.name} (part ${i + 1})`,
+      effort: 1,
+    }));
 
-    const course = await prisma.course.create({
+    await prisma.course.create({
       data: {
         name: t.name,
         examDate: t.examDate ?? defaultExam,
@@ -177,8 +173,12 @@ export async function addFromCatalog(formData: FormData) {
         topics: { create: topics.map((tp, i) => ({ title: tp.title, effort: tp.effort, order: i })) },
       },
     });
-    await regeneratePlan(course.id);
   }
+
+  // Single replan for the whole account after all courses exist — rebuildSchedule
+  // plans ALL of the user's courses together, so one call covers every new one
+  // (instead of an O(N) full-account replan per module).
+  if (templates.length > 0) await rebuildSchedule(userId);
 
   redirect("/courses");
 }

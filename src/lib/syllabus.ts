@@ -29,8 +29,13 @@ async function jsonComplete<T>(
 ): Promise<T> {
   const p = provider();
 
+  // Bounded timeout + a single retry so a stalled provider call fails fast
+  // instead of hanging the request (the SDK default is a 10-min timeout × 2
+  // retries, which can wedge a server action for minutes behind a proxy).
+  const AI_TIMEOUT_MS = 25_000;
+
   if (p === "openai") {
-    const client = new OpenAI();
+    const client = new OpenAI({ timeout: AI_TIMEOUT_MS, maxRetries: 1 });
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -48,7 +53,7 @@ async function jsonComplete<T>(
   }
 
   if (p === "anthropic") {
-    const client = new Anthropic();
+    const client = new Anthropic({ timeout: AI_TIMEOUT_MS, maxRetries: 1 });
     const msg = await client.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 4000,
