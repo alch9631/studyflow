@@ -153,8 +153,27 @@ self.addEventListener("notificationclick", (event) => {
   const url = (event.notification.data && event.notification.data.url) || "/today";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const c of clients) {
-        if ("focus" in c) return c.focus();
+      // Prefer a window already on the target route — just focus it.
+      const samePath = (c) => {
+        try {
+          return new URL(c.url).pathname === url;
+        } catch {
+          return false;
+        }
+      };
+      const onTarget = clients.find((c) => "focus" in c && samePath(c));
+      if (onTarget) return onTarget.focus();
+      // Otherwise focus an existing window AND navigate it to the reminder's target
+      // (focusing alone would leave the user wherever they were, ignoring the URL).
+      const open = clients.find((c) => "focus" in c);
+      if (open) {
+        const focused = open.focus();
+        if ("navigate" in open) {
+          return Promise.resolve(focused)
+            .then(() => open.navigate(url))
+            .catch(() => open);
+        }
+        return focused;
       }
       return self.clients.openWindow(url);
     })

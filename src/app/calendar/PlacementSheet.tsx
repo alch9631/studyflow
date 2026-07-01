@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useT } from "@/components/i18n/I18nProvider";
+import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import {
@@ -56,6 +57,7 @@ export default function PlacementSheet({
   onPlaced: () => void;
 }) {
   const t = useT();
+  const { toast } = useToast();
   const [isPlacing, startPlacing] = useTransition();
 
   // Default the day to today (if in this week) else Monday, and the start time to
@@ -113,23 +115,31 @@ export default function PlacementSheet({
   async function place() {
     if (sessions.length === 0) return;
     startPlacing(async () => {
-      // Lay sessions back-to-back from the chosen start; stop when the day is full.
-      let cursor = startMin;
-      for (const block of sessions) {
-        const duration = block.minutes;
-        if (cursor >= MINUTES_PER_DAY) break;
-        const end = Math.min(cursor + duration, MINUTES_PER_DAY);
-        if (end <= cursor) break;
-        const fd = new FormData();
-        fd.set("blockId", block.id);
-        fd.set("date", day);
-        fd.set("start", dayMinutesToInstant(day, cursor).toISOString());
-        fd.set("end", dayMinutesToInstant(day, end).toISOString());
-        await updateBlockTime(fd);
-        cursor = end;
+      try {
+        // Lay sessions back-to-back from the chosen start; stop when the day is full.
+        let cursor = startMin;
+        for (const block of sessions) {
+          const duration = block.minutes;
+          if (cursor >= MINUTES_PER_DAY) break;
+          const end = Math.min(cursor + duration, MINUTES_PER_DAY);
+          if (end <= cursor) break;
+          const fd = new FormData();
+          fd.set("blockId", block.id);
+          fd.set("date", day);
+          fd.set("start", dayMinutesToInstant(day, cursor).toISOString());
+          fd.set("end", dayMinutesToInstant(day, end).toISOString());
+          await updateBlockTime(fd);
+          cursor = end;
+        }
+        onPlaced();
+        onClose();
+      } catch {
+        // A mid-loop write failure must not silently strand the sheet open with no
+        // feedback (some blocks may already be placed) — surface it and close.
+        toast(t("calendar.placeNextError"), "error");
+        onPlaced();
+        onClose();
       }
-      onPlaced();
-      onClose();
     });
   }
 

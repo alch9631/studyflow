@@ -161,9 +161,6 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
             {confidenceLabel}
           </p>
 
-          {/* One calm health sentence — quiet words, not stacked alarm badges. */}
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{health.line}</p>
-
           {/* Footer: the single next action. Teal when there's something to do;
               quiet (secondary) once the course is comfortably on track. */}
           <div className="mt-3 flex justify-end">

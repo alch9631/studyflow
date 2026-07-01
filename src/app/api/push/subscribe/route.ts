@@ -31,9 +31,13 @@ export async function POST(req: Request) {
     // Existence check only — no need to load the stored keys.
     const existing = await prisma.pushSubscription.findUnique({
       where: { endpoint },
-      select: { id: true },
+      select: { userId: true },
     });
-    if (!existing) {
+    // Count against the cap unless this endpoint already belongs to THIS user (a
+    // key refresh). A brand-new endpoint — or one being re-bound from another user
+    // (a shared device) — is a new subscription for the current user, so it must
+    // be guarded too; otherwise the per-user cap is bypassable via a foreign endpoint.
+    if (!existing || existing.userId !== userId) {
       guardCount(
         await prisma.pushSubscription.count({ where: { userId } }),
         LIMITS.MAX_PUSH_SUBSCRIPTIONS_PER_USER,

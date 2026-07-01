@@ -34,7 +34,7 @@ import {
   isValidISODate,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
-import { checkBlockTimes, instantToDayMinutes, dayMinutesToInstant } from "@/lib/calendarTime";
+import { checkBlockTimes, instantToDayMinutes, instantToDayISO, dayMinutesToInstant } from "@/lib/calendarTime";
 import { placeDayBlocks, parsePrefs } from "@/lib/timePlacer";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
@@ -277,9 +277,11 @@ export async function reoptimizeCourse(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
-  // Don't let a non-owner trigger an (AI-spending) replan of someone else's course.
+  // Verify ownership BEFORE the rate-limit check: the AI limiter is keyed by
+  // courseId, so checking it first would let a non-owner consume (and exhaust) the
+  // budget of a course they don't own, locking the real owner out of AI features.
   if (!(await ownsCourse(userId, id))) redirect("/courses");
+  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
 
   // Distinguish "AI isn't set up" from "the AI call failed" so the banner is
   // honest. redirect() must stay OUTSIDE the try (it throws NEXT_REDIRECT).
@@ -317,14 +319,16 @@ export async function analyzeModuleUpload(formData: FormData) {
   } catch {
     redirect("/courses");
   }
+  // Ownership-scoped, and BEFORE the rate-limit check: the AI limiter is keyed by
+  // courseId, so a non-owner probing this endpoint must be bounced before it can
+  // drain the budget of a course they don't own.
+  const course = await findOwnedCourse(userId, courseId);
+  if (!course) redirect("/courses");
   if (!rateLimitOK("AI", courseId)) redirect(`/courses/${courseId}?msg=rate-limited`);
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
   }
-  // Ownership-scoped: a non-owner (or bad id) gets bounced, never another user's course.
-  const course = await findOwnedCourse(userId, courseId);
-  if (!course) redirect("/courses");
 
   // The user explicitly picks the document type in the upload form (pre-filled
   // with the filename auto-detect). We honour their choice if it's a valid
@@ -348,41 +352,59 @@ export async function analyzeModuleUpload(formData: FormData) {
     const analysisType = chosenType ?? classifyFile(file.name);
     const analysis = await analyzeModuleContent(course.name, text, analysisType);
     if (analysis.topics.length > 0) {
-      // Bound the content-derived topics to the per-course cap before writing.
-      const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
+      const effortFor = (estMinutes: number) => Math.max(0.5, estMinutes / MINUTES_PER_EFFORT);
+      // Existing topics keyed by normalised title. A re-analysis that keeps a topic
+      // (same title) must preserve that row — and with it the student's confidence
+      // rating, note, done flag and questions, plus its id (StudyBlocks reference
+      // topicId; recreating topics would orphan completed history from the plan's
+      // completion fold, so finished work would get rescheduled).
+      const existing = await prisma.topic.findMany({
+        where: { courseId },
+        select: { id: true, title: true, order: true },
+      });
+      const byTitle = new Map(existing.map((t) => [t.title.trim().toLowerCase(), t]));
+
       if (mode === "append") {
-        // Append: keep existing topics, create the new ones with `order`
-        // continuing after the current max order for this course.
-        const last = await prisma.topic.findFirst({
-          where: { courseId },
-          orderBy: { order: "desc" },
-          select: { order: true },
-        });
-        const base = (last?.order ?? -1) + 1;
+        // Append after the current max order, but bound the TOTAL to the per-course
+        // cap (not just the new set — else append could exceed the limit).
+        const room = Math.max(0, LIMITS.MAX_TOPICS_PER_COURSE - existing.length);
+        const newTopics = analysis.topics.slice(0, room);
+        const base = existing.reduce((mx, t) => Math.max(mx, t.order), -1) + 1;
         await prisma.topic.createMany({
           data: newTopics.map((t, i) => ({
             courseId,
             title: t.title,
-            effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
+            effort: effortFor(t.estMinutes),
             order: base + i,
           })),
         });
+        n = newTopics.length;
       } else {
-        // Replace topics with the content-derived ones (effort from estimated time).
-        // Atomic: a crash between delete and create must not destroy all topics.
-        await prisma.$transaction([
-          prisma.topic.deleteMany({ where: { courseId } }),
-          prisma.topic.createMany({
-            data: newTopics.map((t, i) => ({
-              courseId,
-              title: t.title,
-              effort: Math.max(0.5, t.estMinutes / MINUTES_PER_EFFORT),
-              order: i,
-            })),
-          }),
-        ]);
+        // Replace: reconcile the topic set to the content-derived one. A topic whose
+        // title still appears is UPDATED in place (keeping its id + user metadata);
+        // genuinely-new topics are created; dropped topics are deleted. One
+        // transaction, so a crash never leaves the course topic-less.
+        const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
+        const keep = new Set<string>();
+        await prisma.$transaction(async (tx) => {
+          for (let i = 0; i < newTopics.length; i++) {
+            const t = newTopics[i];
+            const prev = byTitle.get(t.title.trim().toLowerCase());
+            const data = { effort: effortFor(t.estMinutes), order: i };
+            if (prev && !keep.has(prev.id)) {
+              keep.add(prev.id);
+              await tx.topic.update({ where: { id: prev.id }, data });
+            } else {
+              await tx.topic.create({ data: { courseId, title: t.title, ...data } });
+            }
+          }
+          const removedIds = existing.filter((tp) => !keep.has(tp.id)).map((tp) => tp.id);
+          if (removedIds.length) {
+            await tx.topic.deleteMany({ where: { id: { in: removedIds } } });
+          }
+        });
+        n = newTopics.length;
       }
-      n = newTopics.length;
       // Stored category: the user's explicit choice wins; if they left it on a
       // value we can't read, fall back to the auto-classifier (filename
       // heuristics, then the AI-derived category).
@@ -471,17 +493,17 @@ export async function applyProgress(formData: FormData) {
   } catch {
     return;
   }
-  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
-
-  // Ownership-scoped: only load (and later mutate) a course the current user owns.
+  // Ownership-scoped, and BEFORE the rate-limit check (the AI limiter is keyed by
+  // courseId, so a non-owner must be bounced before it can drain a victim's budget).
   const course = await prisma.course.findFirst({
     where: { id, userId },
     select: { topics: { select: { id: true, title: true, done: true } } },
   });
   if (!course) return;
+  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
 
   // Note: redirect() must live OUTSIDE the try (it throws NEXT_REDIRECT).
-  let result: "progress" | "progress-none" | "progress-error" = "progress-none";
+  let result = "progress-none";
   try {
     const updates = await interpretProgress(course.topics.map((t) => t.title), status);
     const wanted = new Map(updates.map((u) => [u.title.toLowerCase(), u.done]));
@@ -494,8 +516,13 @@ export async function applyProgress(formData: FormData) {
       }
     }
     result = changed > 0 ? "progress" : "progress-none";
-  } catch {
-    result = "progress-error";
+  } catch (e) {
+    // Never swallow an AI failure silently (the file's convention — see
+    // reoptimizeCourse / analyzeModuleUpload): log it with a greppable tag and
+    // map it to an honest banner ("AI not set up" / "AI offline" / generic
+    // error) instead of a catch-all "progress-error".
+    logActionError("applyProgress", e);
+    result = aiFailureBanner(e, "progress-error");
   }
   await regeneratePlan(id);
   redirect(`/courses/${id}?msg=${result}`);
@@ -895,12 +922,24 @@ export async function moveBlockToTomorrow(formData: FormData) {
   // is scoped through course.userId so this can't read another user's block.
   const row = await prisma.studyBlock.findFirst({
     where: { id, course: { userId } },
-    select: { date: true },
+    select: { date: true, startTime: true, endTime: true },
   });
   if (!row) return;
   const next = new Date(row.date.getTime() + 86400_000);
-  await prisma.studyBlock.update({ where: { id }, data: { date: next } });
+  // Keep the time-of-day in sync with the new day. The calendar derives a timed
+  // block's day from startTime, so shifting only `date` would desync it (moved on
+  // /today, unmoved on the calendar). Re-place at the same local start on the next
+  // day, preserving the exact duration (DST-safe via the tz helpers).
+  let startTime = row.startTime;
+  let endTime = row.endTime;
+  if (row.startTime && row.endTime) {
+    const nextDayISO = instantToDayISO(next);
+    startTime = dayMinutesToInstant(nextDayISO, instantToDayMinutes(row.startTime));
+    endTime = new Date(startTime.getTime() + (row.endTime.getTime() - row.startTime.getTime()));
+  }
+  await prisma.studyBlock.update({ where: { id }, data: { date: next, startTime, endTime } });
   revalidatePath("/today");
+  revalidatePath("/calendar");
 }
 
 /**

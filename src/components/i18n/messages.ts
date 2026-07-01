@@ -210,7 +210,7 @@ const en = {
     myCourses: "My courses",
     insights: "Insights",
     // ── Cockpit (guided "what now / what can wait / am I okay") ──
-    heroNextAction: "Start {minutes}m: {topic}",
+    heroNextAction: "Start {minutes}m",
     heroAllDone: "All caught up for today",
     heroAllDoneSub: "Every session is done. Enjoy the rest of your day.",
     heroStartTimer: "Start timer",
@@ -274,17 +274,17 @@ const en = {
     statusDoesntFitSubGeneric:
       "There isn't enough time left before your next exam. Tap Adjust today to respread or trim.",
     reassureCount: "{essentials} essential, {protected} protected",
-    heroOptions: "Other options",
+    heroOptions: "Options",
     laterToggle: "Protected for later ({count})",
     laterHint: "Lower-priority and optional work, kept aside so today stays light.",
     contextEmpty: "No exams or classes on the horizon. Just today's sessions.",
     // ── Minimum Viable Day (the smallest day that still moves you forward) ──
-    mvdTitle: "Here's the smallest day that still moves you forward",
-    mvdSubtitle: "One core session, one quick review, one optional. About {time}.",
+    mvdTitle: "Smallest useful day",
+    mvdSubtitle: "About {time}.",
     mvdCore: "Core",
     mvdRetrieval: "Review",
     mvdOptional: "Optional",
-    mvdStart: "Start {minutes}m: {topic}",
+    mvdStart: "Start {minutes}m",
   },
   focus: {
     title: "Focus",
@@ -1330,7 +1330,7 @@ const de: Messages = {
     myCourses: "Meine Kurse",
     insights: "Statistiken",
     // ── Cockpit ("was jetzt / was kann warten / passt alles") ──
-    heroNextAction: "{minutes} Min starten: {topic}",
+    heroNextAction: "{minutes} Min starten",
     heroAllDone: "Heute alles geschafft",
     heroAllDoneSub: "Alle Einheiten erledigt. Genieß den restlichen Tag.",
     heroStartTimer: "Timer starten",
@@ -1394,17 +1394,17 @@ const de: Messages = {
     statusDoesntFitSubGeneric:
       "Bis zu deiner nächsten Prüfung bleibt nicht genug Zeit. Tippe auf Heute anpassen, um neu zu verteilen oder zu kürzen.",
     reassureCount: "{essentials} wichtig, {protected} geschützt",
-    heroOptions: "Andere Optionen",
+    heroOptions: "Optionen",
     laterToggle: "Für später aufbewahrt ({count})",
     laterHint: "Optionales und Nachrangiges, beiseitegelegt, damit heute leicht bleibt.",
     contextEmpty: "Keine Prüfungen oder Vorlesungen in Sicht. Nur die heutigen Einheiten.",
     // ── Minimaler sinnvoller Tag (der kleinste Tag, der dich trotzdem voranbringt) ──
-    mvdTitle: "Das ist der kleinste Tag, der dich trotzdem voranbringt",
-    mvdSubtitle: "Eine Kerneinheit, eine kurze Wiederholung, eine optionale. Ca. {time}.",
+    mvdTitle: "Kleinster sinnvoller Tag",
+    mvdSubtitle: "Ca. {time}.",
     mvdCore: "Kern",
     mvdRetrieval: "Wiederholung",
     mvdOptional: "Optional",
-    mvdStart: "{minutes} Min starten: {topic}",
+    mvdStart: "{minutes} Min starten",
   },
   focus: {
     title: "Fokus",

@@ -301,15 +301,14 @@ export default async function TodayPage({
         single spine can breathe as a calm TWO-PANE — the cockpit spine on the
         left, today's context on the right. The grid below only kicks in at lg. */}
     <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-5xl">
-      <div className="mb-3">
+      {/* Header row: page title left, exam-countdown chips right — aligned on one
+          baseline. Chips stack under the title on mobile (full-width scroll strip),
+          and sit to the right of the title, bounded, on desktop. */}
+      <div className="mb-4 lg:flex lg:items-start lg:justify-between lg:gap-6">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
-      </div>
-
-      {/* Exam-countdown strip — a single quiet line of countdowns at the very top
-          ("OS 4d · Algorithms 24d"). The only urgency signal on the page.
-          On lg+ it moves into the right context pane (see below), so hide it here. */}
-      <div className="lg:hidden">
-        <ExamStrip exams={examChips} t={t} />
+        <div className="mt-3 min-w-0 lg:mt-1 lg:max-w-[24rem]">
+          <ExamStrip exams={examChips} t={t} />
+        </div>
       </div>
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
@@ -369,8 +368,6 @@ export default async function TodayPage({
               status={status}
               mvd={mvd}
               previews={previews}
-              examName={status === "doesnt_fit" ? nextExam?.name ?? null : null}
-              examDays={status === "doesnt_fit" ? examFeasibility?.daysUntil ?? null : null}
             />
           </div>
 
@@ -378,11 +375,6 @@ export default async function TodayPage({
               the exam countdowns at its head; on mobile it stacks under the spine
               and the exam strip stays at the very top of the page (above). */}
           <aside className="mt-6 lg:mt-0">
-          {/* Exam-countdown strip — shown here only on lg+ (hidden at top there). */}
-          <div className="mb-6 hidden lg:block">
-            <ExamStrip exams={examChips} t={t} />
-          </div>
-
           {/* When there's no context at all, the right pane would be empty on
               lg+ — show a single calm line there instead of a hollow column.
               Hidden on mobile (nothing to fill, so the column just collapses). */}

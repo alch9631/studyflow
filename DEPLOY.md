@@ -52,14 +52,28 @@ DATABASE_URL="<railway-postgres-url>" npx prisma migrate deploy
 ```
 
 The committed migrations (`prisma/migrations/*`) include `5_add_auth_tables`
-(Account / Session / VerificationToken + User.emailVerified/image). `migrate
-deploy` runs them in order with no prompts. Seed the module catalog if wanted:
-`DATABASE_URL=... npx tsx prisma/seedCatalog.ts`.
+(Account / Session / VerificationToken + User.emailVerified/image). Seed the
+module catalog if wanted: `DATABASE_URL=... npx tsx prisma/seedCatalog.ts`.
 
-> Note: the SQL in the existing migration files uses SQLite syntax. For a clean
-> Postgres deploy you can either keep the provider on `postgresql` and let
-> `prisma migrate deploy` apply them (Prisma adapts the standard DDL), or
-> regenerate a fresh baseline with `prisma migrate diff` once on Postgres.
+> **Important — provider mismatch.** The committed migrations were authored on
+> SQLite: `prisma/migrations/migration_lock.toml` pins `provider = "sqlite"`,
+> and the SQL uses SQLite syntax. Running `prisma migrate deploy` against
+> Postgres will **fail with P3019** (datasource provider `postgresql` does not
+> match the migration lock's `sqlite`). You cannot just flip the datasource and
+> replay these files. For a clean Postgres deploy, generate a fresh baseline on
+> the Postgres schema instead:
+>
+> ```bash
+> # 1. Set the datasource provider to "postgresql" (step above).
+> # 2. Archive the SQLite-authored migrations (they're not Postgres-portable):
+> mv prisma/migrations prisma/migrations.sqlite.bak
+> # 3. Create a Postgres baseline from the current schema and apply it:
+> DATABASE_URL="<railway-postgres-url>" npx prisma migrate dev --name init
+> # (on the deploy host / CI, apply with:)
+> DATABASE_URL="<railway-postgres-url>" npx prisma migrate deploy
+> ```
+>
+> Keep the SQLite migrations only if you still deploy SQLite targets (the Pi).
 
 ## 4. Required environment variables (Railway app service)
 
@@ -69,11 +83,17 @@ deploy` runs them in order with no prompts. Seed the module catalog if wanted:
 | `AUTH_SECRET`        | yes      | `npx auth secret` or `openssl rand -base64 33`.              |
 | `AUTH_GOOGLE_ID`     | yes      | Google OAuth Web client ID (step 1).                         |
 | `AUTH_GOOGLE_SECRET` | yes      | Google OAuth Web client secret (step 1).                     |
-| `ALLOW_DEV_USER`     | no       | Do **not** set in production — leaving it unset enforces real sign-in. |
-| `AUTH_URL`           | maybe    | Set to `https://<your-domain>` if Auth.js can't infer it behind Railway's proxy. |
+| `ALLOW_DEV_USER`     | no       | Do **not** set in production — leaving it unset enforces real sign-in. Setting it to `1` disables auth and treats every request as the shared seeded dev user (fine for the private Pi, a security hole on a public URL). |
+| `AUTH_URL`           | yes\*    | `https://<your-domain>`. Auth.js v5 only auto-trusts the request host on known platforms (e.g. Vercel); behind Railway's proxy it must be told the canonical URL or OAuth callbacks fail with `UntrustedHost`. \*Alternatively set `AUTH_TRUST_HOST=true`. |
 
 Optional features (AI import, web push, reminders) use the same vars documented
 in `.env.example` — all safe to leave blank.
+
+> **SQLite on Docker/Railway = data loss.** The Dockerfile's default DB is
+> ephemeral. If you deploy with a SQLite `DATABASE_URL`, mount the image's
+> `/app/data` volume and point the URL inside it
+> (`DATABASE_URL="file:/app/data/prod.db"`); otherwise every redeploy starts
+> from an empty DB. Postgres (this guide) avoids the problem entirely.
 
 ## 5. Verify after deploy
 

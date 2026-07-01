@@ -126,11 +126,19 @@ export const CSV_COLUMNS = [
 
 /**
  * Escape one value for an RFC-4180 CSV field. Wraps in double quotes (and
- * doubles any embedded quote) when the value contains a comma, quote, CR or LF;
- * otherwise returns it unchanged.
+ * doubles any embedded quote) when the value contains a comma, quote, CR or LF.
+ *
+ * Also neutralizes spreadsheet formula injection: a string cell that starts with
+ * `=`, `+`, `-`, `@` (or a leading tab / CR) is executed as a formula by Excel /
+ * Google Sheets on open. Since course names and topic titles are user-controlled
+ * and exported to CSV, we prefix such values with a single quote so they render as
+ * literal text. Numbers/booleans are left bare so numeric columns stay numeric.
  */
 export function csvEscape(value: string | number | boolean): string {
-  const s = String(value);
+  let s = String(value);
+  if (typeof value === "string" && /^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+  }
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

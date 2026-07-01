@@ -41,6 +41,21 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Schema + migrations so a deploy step can run `prisma migrate deploy` if desired.
 COPY --from=builder /app/prisma ./prisma
 
+# Persist data written at runtime across container restarts. If you run with a
+# SQLite DATABASE_URL, point it INSIDE this volume so the DB survives redeploys —
+# an ephemeral container filesystem loses it on every restart:
+#   -v studyflow-data:/app/data -e DATABASE_URL="file:/app/data/prod.db"
+# (Postgres/Railway users ignore this — DATABASE_URL points at the DB service.)
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+VOLUME ["/app/data"]
+
+# Container-level healthcheck (Railway has its own; this covers a bare
+# `docker run`). The slim base has no curl/wget, so probe with node's http.
+# Hits /api/health, which returns 503 when the DB is unreachable (unlike "/",
+# which swallows DB errors and 200s), so a broken DB fails the check.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "require('http').get({host:'127.0.0.1',port:process.env.PORT||3000,path:'/api/health'},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]

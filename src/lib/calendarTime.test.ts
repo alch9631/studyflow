@@ -90,6 +90,20 @@ check("hhmmToMinutes rejects 12:60", hhmmToMinutes("12:60") === null);
   check("UTC anchor round-trip", instantToDayMinutes(inst, "UTC") === 600);
 }
 
+// ── exactly-midnight end (minutes === 1440 → next day 00:00, not this day 24:00) ─
+// checkBlockTimes/clampToDay bless a 1440 end as valid; dayMinutesToInstant must
+// map it to the NEXT day's midnight (the true end-of-day), never this day's start.
+{
+  const startOfDay = dayMinutesToInstant("2026-06-15", 0, DEFAULT_TZ);
+  const endAtMidnight = dayMinutesToInstant("2026-06-15", MINUTES_PER_DAY, DEFAULT_TZ);
+  check("midnight end = next day 00:00", endAtMidnight.toISOString() === "2026-06-15T22:00:00.000Z");
+  check("midnight end is 24h after day start", endAtMidnight.getTime() - startOfDay.getTime() === 24 * 60 * 60 * 1000);
+  check("midnight end lands on next calendar day", instantToDayISO(endAtMidnight, DEFAULT_TZ) === "2026-06-16");
+  // A 23:30 → 24:00 block: end must be strictly after start (was a 23.5h-early bug).
+  const start2330 = dayMinutesToInstant("2026-06-15", 1410, DEFAULT_TZ);
+  check("23:30→midnight end after start", endAtMidnight.getTime() > start2330.getTime());
+}
+
 // ── overlap detection ─────────────────────────────────────────────────────────
 check("overlap: clear overlap true", rangesOverlap(600, 660, 630, 690) === true);
 check("overlap: identical true", rangesOverlap(600, 660, 600, 660) === true);

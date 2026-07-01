@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   // Docker image and run `node server.js` on any host (Fly/Render/VPS), not just
   // the Pi. Additive: `next start` still works locally/on the Pi.
   output: "standalone",
+  // Don't advertise the framework/version in prod responses. Removes the
+  // `X-Powered-By: Next.js` header (harmless but a needless fingerprinting hint).
+  poweredByHeader: false,
   // Hide the Next.js dev indicator (the floating "N" button, bottom-left) — it
   // only shows in `next dev` and isn't part of StudyFlow.
   devIndicators: false,

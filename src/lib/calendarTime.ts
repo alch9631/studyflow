@@ -25,10 +25,24 @@ export const MINUTES_PER_DAY = 24 * 60;
  * @param minutes minutes from local midnight (0…1439)
  */
 export function dayMinutesToInstant(dayISO: string, minutes: number, tz = DEFAULT_TZ): Date {
-  const h = String(Math.floor(minutes / 60)).padStart(2, "0");
-  const m = String(minutes % 60).padStart(2, "0");
+  // An exactly-midnight end (minutes === 1440, blessed as valid by checkBlockTimes
+  // / clampToDay) is the NEXT day's 00:00, not this day's hour "24" — the latter is
+  // parsed by date-fns-tz as this day's 00:00 (the day's START), which would store
+  // an end 24h before the start. Roll any full-day overflow into the date so the
+  // instant is the true end-of-day.
+  const dayCarry = Math.floor(minutes / MINUTES_PER_DAY);
+  const mins = minutes - dayCarry * MINUTES_PER_DAY;
+  const iso = dayCarry > 0 ? addDaysISO(dayISO, dayCarry) : dayISO;
+  const h = String(Math.floor(mins / 60)).padStart(2, "0");
+  const m = String(mins % 60).padStart(2, "0");
   // Interpret "this wall-clock time, in tz" → the UTC instant.
-  return fromZonedTime(`${dayISO}T${h}:${m}:00`, tz);
+  return fromZonedTime(`${iso}T${h}:${m}:00`, tz);
+}
+
+/** Advance a YYYY-MM-DD calendar date by `n` days (pure, tz-free UTC math). */
+function addDaysISO(dayISO: string, n: number): string {
+  const [y, mo, d] = dayISO.split("-").map(Number);
+  return new Date(Date.UTC(y, mo - 1, d + n)).toISOString().slice(0, 10);
 }
 
 /** The calendar day (YYYY-MM-DD) an instant falls on, in `tz`. */

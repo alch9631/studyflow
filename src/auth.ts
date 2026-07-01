@@ -15,6 +15,11 @@ import { prisma } from "@/lib/db";
  * callback copies the user's id onto `session.user.id` for getCurrentUserId().
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Auth.js v5 only auto-trusts the request host on Vercel. This app self-hosts
+  // (Docker / Railway / Pi) behind a reverse proxy, so without this the OAuth
+  // callback fails with `UntrustedHost`. We run behind a trusted proxy, so trust
+  // the forwarded host. (AUTH_URL can still pin an explicit origin if preferred.)
+  trustHost: true,
   // Session/JWT signing key. Production MUST supply a real AUTH_SECRET (stays
   // undefined here if unset, so Auth.js still errors out — we never weaken prod).
   // Outside production we fall back to a fixed dev-only secret so plain `npm run

@@ -3,10 +3,13 @@ node_modules
 .git
 .github
 ops
+docs
 *.db
 *.db-*
 prisma/dev.db
 prisma/dev.db-*
+.overnight-test.db
+.overnight-test.db-*
 .env
 .env.*
 npm-debug.log*
@@ -14,3 +17,5 @@ npm-debug.log*
 Dockerfile
 .dockerignore
 README*
+*.md
+tsconfig.tsbuildinfo

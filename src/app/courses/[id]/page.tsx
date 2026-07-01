@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/devUser";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import { daysUntil, formatFriendlyDate } from "@/lib/dates";
@@ -41,7 +42,10 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const course = await prisma.course.findUnique({ where: { id }, select: { name: true } });
+  // Ownership-scoped so a non-owner can't read another user's course name via the
+  // page <title> / meta description (the page body itself is scoped below).
+  const userId = await getCurrentUserId();
+  const course = await prisma.course.findFirst({ where: { id, userId }, select: { name: true } });
   return {
     title: course?.name ?? "Course",
     description: course
@@ -195,9 +199,13 @@ export default async function CoursePage({
   const { id } = await params;
   const { msg } = await searchParams;
   const t = await getT();
+  const userId = await getCurrentUserId();
   const banner = msg && BANNER_KEYS.has(msg) ? t(`courseDetail.banners.${msg}` as MessageKey) : undefined;
-  const course = await prisma.course.findUnique({
-    where: { id },
+  // Ownership-scoped: a course id the current user doesn't own is treated as
+  // not-found, never rendered — otherwise any signed-in user could read another
+  // user's topics, notes, grades and uploaded-file analyses by guessing the id.
+  const course = await prisma.course.findFirst({
+    where: { id, userId },
     select: {
       id: true,
       name: true,

@@ -1,7 +1,17 @@
 # Going to production
 
 Local dev runs on SQLite with a dev-user stand-in. To ship for real you need a
-Postgres database, real auth, and a deploy. Here's the exact path. ~30–45 min.
+Postgres database, real auth, and a deploy.
+
+> **The current, supported production path is [DEPLOY.md](DEPLOY.md)** —
+> Railway + Postgres + Google sign-in via Auth.js (already implemented in
+> `src/auth.ts`; the adapter tables are in the schema). Start there.
+>
+> The Supabase + Vercel walkthrough below is an **alternative / historical**
+> route from before Auth.js landed. In particular, its step 2 ("replace the body
+> of `getCurrentUserId()`") is **out of date** — real auth already exists; you
+> only need to provide `AUTH_SECRET` + Google OAuth creds and leave
+> `ALLOW_DEV_USER` unset (see DEPLOY.md). Ignore that step.
 
 > None of this is required to **test** locally — see [START_HERE.md](START_HERE.md).
 

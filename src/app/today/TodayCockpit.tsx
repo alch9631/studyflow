@@ -54,8 +54,6 @@ export default function TodayCockpit({
   status,
   mvd = null,
   previews = null,
-  examName = null,
-  examDays = null,
 }: {
   blocks: CockpitBlock[];
   /** Plain object map of blockId → lane (serializable across the boundary). */
@@ -72,10 +70,6 @@ export default function TodayCockpit({
     move: RecoveryActionPreview;
     lighter: RecoveryActionPreview;
   } | null;
-  /** Nearest exam name, only when status is "doesnt_fit" (else null). */
-  examName?: string | null;
-  /** Days to that exam, only when status is "doesnt_fit" (else null). */
-  examDays?: number | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -99,12 +93,6 @@ export default function TodayCockpit({
   const overflowRest = restMustDo.slice(VISIBLE_MUST_DO);
   const laterBlocks = [...overflowRest, ...optional];
 
-  // Honest reassurance counts: "essentials" is what's actually shown (hero +
-  // the capped visible rows), never the inflated full must-do pile. Everything
-  // beyond the cap, plus deferrable work, is honestly counted as "protected".
-  const visibleEssentials = (hero ? 1 : 0) + visibleRest.length;
-  const protectedCount = laterBlocks.length;
-
   // The single honest status line. NEVER calm when the state needs a choice or
   // can't make the exam — those map to truthful, non-reassuring copy that points
   // at the one recovery entry ("Adjust today").
@@ -116,16 +104,6 @@ export default function TodayCockpit({
       : status === "needs_choice"
         ? t("today.statusNeedsChoice")
         : t("today.statusProtected");
-  // Secondary line: the calm next-step for the two non-protected states.
-  const statusSub = allDone
-    ? null
-    : status === "doesnt_fit"
-      ? examName != null && examDays != null
-        ? t("today.statusDoesntFitSub", { exam: examName, days: examDays })
-        : t("today.statusDoesntFitSubGeneric")
-      : status === "needs_choice"
-        ? t("today.statusNeedsChoiceSub")
-        : null;
   const needsAdjust = !allDone && status !== "protected";
 
   // Richer before→after preview for the one "Adjust today" sheet, computed
@@ -149,22 +127,9 @@ export default function TodayCockpit({
     <>
       <GuardianScaffold
         status={
-          <div>
-            <p className="text-balance text-xl font-semibold leading-snug sm:text-2xl">
-              {statusLine}
-            </p>
-            {statusSub && (
-              <p className="mt-2 text-balance text-sm text-muted-foreground">
-                {statusSub}
-              </p>
-            )}
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t("today.reassureCount", {
-                essentials: visibleEssentials,
-                protected: protectedCount,
-              })}
-            </p>
-          </div>
+          <p className="text-balance text-xl font-semibold leading-snug sm:text-2xl">
+            {statusLine}
+          </p>
         }
         action={
           hero ? (
@@ -312,7 +277,7 @@ function MinimumViableDayCard({
                 {label}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block break-words font-medium">{block.topicTitle}</span>
+                <span className="block truncate font-medium">{block.topicTitle}</span>
                 <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                   {fmtDuration(block.minutes)} · {block.course.name}
                 </span>

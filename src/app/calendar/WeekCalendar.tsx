@@ -590,8 +590,14 @@ export default function WeekCalendar({
     router.refresh();
   }
 
+  // Per-block in-flight guard so a fast double-tap on the ✓ can't fire two
+  // opposing toggleBlock calls that race each other (and flicker the row).
+  const togglingRef = useRef<Set<string>>(new Set());
+
   // Tap-to-complete via the shared toggleBlock action (blockId + revalidate path).
   function toggle(block: CalBlock) {
+    if (togglingRef.current.has(block.id)) return;
+    togglingRef.current.add(block.id);
     const next = !(doneOverride[block.id] ?? block.completed);
     setDoneOverride((m) => ({ ...m, [block.id]: next }));
     const fd = new FormData();
@@ -609,6 +615,8 @@ export default function WeekCalendar({
           return rest;
         });
         toast(t("calendar.blockError"), "error");
+      } finally {
+        togglingRef.current.delete(block.id);
       }
     })();
   }
@@ -621,9 +629,23 @@ export default function WeekCalendar({
     origEnd: number;
     latestEnd: number;
   } | null>(null);
+  // Teardown for the window pointer listeners of the *current* resize gesture.
+  // Held on a ref so an unmount mid-drag can detach them (they're normally
+  // removed on pointerup, but a navigation during a resize would otherwise leak
+  // the global listeners and keep this unmounted component's closures alive).
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+      resizeCleanupRef.current = null;
+      resizeRef.current = null;
+    };
+  }, []);
 
   function beginResize(block: CalBlock, clientY: number) {
     if (block.startMin == null || block.endMin == null) return;
+    // A previous gesture's listeners should never outlive a new one.
+    resizeCleanupRef.current?.();
     resizeRef.current = {
       block,
       startClientY: clientY,
@@ -645,9 +667,14 @@ export default function WeekCalendar({
       setEndOverride((m) => ({ ...m, [cur.block.id]: clamped.endMin }));
     };
 
-    const onUp = () => {
+    const detach = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      resizeCleanupRef.current = null;
+    };
+
+    const onUp = () => {
+      detach();
       const cur = resizeRef.current;
       resizeRef.current = null;
       if (!cur) return;
@@ -675,6 +702,8 @@ export default function WeekCalendar({
 
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    // Register teardown so an unmount mid-drag (navigation) can detach these.
+    resizeCleanupRef.current = detach;
   }
 
   function onDragStart(e: DragStartEvent) {

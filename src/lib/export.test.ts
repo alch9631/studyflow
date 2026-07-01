@@ -61,6 +61,20 @@ check("doubles embedded quotes", csvEscape('say "hi"') === '"say ""hi"""');
 check("wraps value with newline", csvEscape("line1\nline2") === '"line1\nline2"');
 check("wraps value with CR", csvEscape("a\rb") === '"a\rb"');
 
+// --- csvEscape: CSV formula-injection mitigation -------------------------------
+// A string cell starting with a spreadsheet formula trigger (= + - @, or a
+// leading tab/CR) is executed as a formula by Excel / Google Sheets on open.
+// Course names and topic titles are user-controlled and flow into the CSV export,
+// so csvEscape prefixes such values with a single quote to render them as literal
+// text. Numbers/booleans stay bare so numeric columns remain numeric.
+check("neutralizes leading = ", csvEscape("=1+1") === "'=1+1");
+check("neutralizes leading +", csvEscape("+cmd") === "'+cmd");
+check("neutralizes leading -", csvEscape("-2+3") === "'-2+3");
+check("neutralizes leading @", csvEscape("@SUM(A1)") === "'@SUM(A1)");
+check("neutralizes leading tab", csvEscape("\tcmd") === "'\tcmd");
+check("negative NUMBER stays bare (not a formula)", csvEscape(-5) === "-5");
+check("formula with comma is prefixed AND quoted", csvEscape("=A,B") === `"'=A,B"`);
+
 // --- buildExportJSON ---
 const json = buildExportJSON([course()], new Date("2026-06-08T12:00:00Z"));
 check("deterministic exportedAt", json.exportedAt === "2026-06-08T12:00:00.000Z");

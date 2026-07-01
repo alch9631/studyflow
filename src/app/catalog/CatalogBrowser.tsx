@@ -189,8 +189,16 @@ export default function CatalogBrowser({
         )}
 
         {/* Confirm modal lives INSIDE the form so the SubmitButton's pending
-            state flows through Radix's portal via form-status context. */}
-        <ConfirmAddDialog open={confirmOpen} setOpen={setConfirmOpen} count={selectedCount} t={t} />
+            state flows through Radix's portal via form-status context. Radix also
+            portals the button OUT of the form's DOM, so it's tied back to the form
+            by id (form={formId}) — without that its click submits nothing. */}
+        <ConfirmAddDialog
+          open={confirmOpen}
+          setOpen={setConfirmOpen}
+          count={selectedCount}
+          formId={formId}
+          t={t}
+        />
       </form>
 
       {/* Sticky bottom tray — only while something is selected. */}
@@ -286,11 +294,13 @@ function ConfirmAddDialog({
   open,
   setOpen,
   count,
+  formId,
   t,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   count: number;
+  formId: string;
   t: ReturnType<typeof useT>;
 }) {
   return (
@@ -305,6 +315,7 @@ function ConfirmAddDialog({
             </Button>
           </DialogClose>
           <SubmitButton
+            form={formId}
             variant="primary"
             size="md"
             pendingLabel={t("catalog.adding")}
