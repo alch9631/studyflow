@@ -18,14 +18,28 @@ export function resolveDatabaseUrl(env = process.env) {
   return env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 }
 
+// Pure (no side effects): how to invoke npx on a platform. On Windows npx is a
+// .cmd shim, and Node >= 20 refuses to spawn .cmd/.bat files without a shell
+// (EINVAL — the CVE-2024-27980 mitigation), so it must go through cmd.exe via
+// shell: true. Everywhere else the direct, shell-less spawn is kept as-is (this
+// also runs nightly on the Pi). The args passed here are fixed literals with no
+// spaces/metacharacters, so shell interpretation on Windows is safe.
+/**
+ * @param {string} [platform]
+ * @returns {{ command: string, shell: boolean }}
+ */
+export function npxInvocation(platform = process.platform) {
+  return { command: "npx", shell: platform === "win32" };
+}
+
 function bootstrap() {
   // Set before invoking prisma so a clean checkout (no .env) still has a target.
   process.env.DATABASE_URL = resolveDatabaseUrl();
 
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+  const { command, shell } = npxInvocation();
   function run(args) {
     console.log(`> npx ${args.join(" ")}`);
-    const result = spawnSync(npx, args, { stdio: "inherit", env: process.env });
+    const result = spawnSync(command, args, { stdio: "inherit", env: process.env, shell });
     if (result.status !== 0) process.exit(result.status ?? 1);
   }
 

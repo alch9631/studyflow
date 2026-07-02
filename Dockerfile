@@ -22,6 +22,15 @@ COPY . .
 # client happy during `next build` (all data pages are force-dynamic, no DB hit).
 ENV DATABASE_URL="file:./build.db"
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* vars are inlined into the client bundle at BUILD time — they
+# cannot be injected at runtime. Without the VAPID public key baked in here the
+# push-reminders UI is permanently stuck on "coming soon" in any Docker deploy.
+# Pass it at build time:
+#   docker build --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=... .
+# (Railway forwards a service variable of the same name as a build arg because
+# this ARG is declared.) Leaving it unset keeps push cleanly disabled.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 RUN npx prisma generate && npm run build
 
 # ---- runner: minimal image, non-root, just the standalone output ----

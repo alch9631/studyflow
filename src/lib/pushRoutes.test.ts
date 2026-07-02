@@ -111,6 +111,48 @@ async function main() {
     check('subscribe while unconfigured stores "" (flags a later rollover)', row?.vapidKey === "");
   }
 
+  // --- subscribe honors a client-sent vapidKey (the key the browser ACTUALLY
+  //     bound to, read off subscription.options.applicationServerKey) over the
+  //     server's current key — env drift between the page build and the
+  //     subscribe call must stay detectable, not get papered over.
+  {
+    enablePush();
+    const ep = "https://example.com/client-bound";
+    const res = await subscribePOST(
+      jsonPost({ endpoint: ep, keys: { p256dh: "k", auth: "a" }, vapidKey: "older-baked-key" }),
+    );
+    check("subscribe (client-sent key) succeeds", res.status === 200);
+    const row = await prisma.pushSubscription.findUnique({
+      where: { endpoint: ep },
+      select: { vapidKey: true },
+    });
+    check(
+      "subscribe stores the client-sent key, not the server's",
+      row?.vapidKey === "older-baked-key",
+    );
+  }
+
+  // --- encoding differences are NOT a key rotation: the client re-encodes its
+  //     bound key as unpadded base64url, so a padded/standard-base64 env key of
+  //     the same bytes must compare equal — otherwise every healthy subscription
+  //     would be flagged stale and loop the heal path forever.
+  {
+    process.env.VAPID_PUBLIC_KEY = "abc+def/ghi=";
+    process.env.VAPID_PRIVATE_KEY = "test-private-key";
+    const ep = "https://example.com/normalized";
+    const res = await subscribePOST(
+      jsonPost({ endpoint: ep, keys: { p256dh: "k", auth: "a" }, vapidKey: "abc-def_ghi" }),
+    );
+    check("subscribe (url-safe client key) succeeds", res.status === 200);
+    const normRes = await checkPOST(jsonPost({ endpoint: ep }));
+    const normBody = (await normRes.json()) as { needsResync?: boolean };
+    check(
+      "check treats base64 vs base64url of the same key as equal",
+      normBody.needsResync === false,
+    );
+    enablePush(); // restore the standard test keys
+  }
+
   // --- check: the re-validate endpoint flags an unconfigured-state subscription
   //     as needing a resync once keys are present, but not a current-key one.
   {
@@ -124,6 +166,10 @@ async function main() {
     const freshRes = await checkPOST(jsonPost({ endpoint: "https://example.com/keyed" }));
     const freshBody = (await freshRes.json()) as { needsResync?: boolean };
     check("check does NOT flag a current-key sub", freshBody.needsResync === false);
+
+    const clientRes = await checkPOST(jsonPost({ endpoint: "https://example.com/client-bound" }));
+    const clientBody = (await clientRes.json()) as { needsResync?: boolean };
+    check("check flags a client-bound outdated key as needsResync", clientBody.needsResync === true);
 
     const unknownRes = await checkPOST(jsonPost({ endpoint: "https://example.com/never-stored" }));
     const unknownBody = (await unknownRes.json()) as { needsResync?: boolean };

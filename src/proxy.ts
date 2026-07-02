@@ -30,6 +30,16 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
   // Auth.js endpoints (sign-in/callback/sign-out) must stay reachable.
   if (pathname.startsWith("/api/auth/")) return true;
+  // Token/secret-authed endpoints hit by cookie-less clients — each does its own
+  // auth, and a 307 to /login would break it:
+  //  - /api/calendar/<token>: webcal feed polled by calendar apps; the secret
+  //    URL token IS the auth. The bare /api/calendar (session-authed .ics
+  //    download) is NOT exempted and stays cookie-gated.
+  //  - /api/reminders/run: cron trigger, requires Bearer CRON_SECRET.
+  //  - /api/health: deploy healthcheck (Railway/Docker); leaks only ok/503.
+  if (pathname.startsWith("/api/calendar/")) return true;
+  if (pathname === "/api/reminders/run") return true;
+  if (pathname === "/api/health") return true;
   // PWA + static assets.
   if (pathname === "/manifest.webmanifest" || pathname === "/sw.js") return true;
   return false;

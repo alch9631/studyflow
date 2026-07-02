@@ -77,17 +77,17 @@ check("empty studyDays -> []", JSON.stringify(emptyDays.studyDays) === JSON.stri
 // ---- blockKey -------------------------------------------------------------
 
 check(
-  "blockKey is topicTitle|YYYY-MM-DD|kind",
-  blockKey("Sorting", new Date("2026-06-20T00:00:00Z"), "study") === "Sorting|2026-06-20|study",
+  "blockKey is topicId|YYYY-MM-DD|kind",
+  blockKey("t1", new Date("2026-06-20T00:00:00Z"), "study") === "t1|2026-06-20|study",
 );
 check(
   "blockKey ignores time-of-day component",
-  blockKey("Graphs", new Date("2026-06-20T23:59:59Z"), "study") === "Graphs|2026-06-20|study",
+  blockKey("t2", new Date("2026-06-20T23:59:59Z"), "study") === "t2|2026-06-20|study",
 );
 check(
-  "blockKey is stable for same title+date+kind",
-  blockKey("DP", new Date("2026-06-07T00:00:00Z"), "study") ===
-    blockKey("DP", new Date("2026-06-07T00:00:00Z"), "study"),
+  "blockKey is stable for same topic+date+kind",
+  blockKey("t3", new Date("2026-06-07T00:00:00Z"), "study") ===
+    blockKey("t3", new Date("2026-06-07T00:00:00Z"), "study"),
 );
 // Regression (replan dropping a review): a scheduled "review" and a completed
 // "study" on the SAME topic+date are DISTINCT keys, so persistBlocks no longer
@@ -95,8 +95,16 @@ check(
 // block and drops it.
 check(
   "blockKey separates kinds on the same topic+date",
-  blockKey("DP", new Date("2026-06-07T00:00:00Z"), "study") !==
-    blockKey("DP", new Date("2026-06-07T00:00:00Z"), "review"),
+  blockKey("t3", new Date("2026-06-07T00:00:00Z"), "study") !==
+    blockKey("t3", new Date("2026-06-07T00:00:00Z"), "review"),
+);
+// Regression (same-titled topics colliding): the key is the topic's ID, so two
+// topics that happen to share a title get DISTINCT keys — a completed block on
+// one can no longer suppress the other's freshly-planned minutes.
+check(
+  "blockKey separates same-titled topics (keyed by id, not title)",
+  blockKey("t-a", new Date("2026-06-07T00:00:00Z"), "study") !==
+    blockKey("t-b", new Date("2026-06-07T00:00:00Z"), "study"),
 );
 
 // ---- foldCompletedSessions ------------------------------------------------
@@ -160,6 +168,62 @@ const noneCompleted = foldCompletedSessions({
 check(
   "no completed blocks -> efforts unchanged",
   noneCompleted.topics.every((t, i) => t.effort === foldCourse.topics[i].effort),
+);
+
+// ---- Regression: review blocks must not count as study effort ---------------
+// A topic with ALL study done but reviews still pending previously looked
+// part-unstudied (pending reviews inflated `planned` without matching `done`),
+// so heal/rebuild re-scheduled ~45% of its study from scratch. Reviews are
+// recall sessions layered ON TOP of study — they carry no study effort.
+const reviewsPending = foldCompletedSessions({
+  ...foldCourse,
+  blocks: [
+    // t1: all study completed (240/240) + three pending 25-min reviews.
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-08T00:00:00Z"), minutes: 120, completed: true, kind: "study" },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-09T00:00:00Z"), minutes: 120, completed: true, kind: "study" },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-10T00:00:00Z"), minutes: 25, completed: false, kind: "review" },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-12T00:00:00Z"), minutes: 25, completed: false, kind: "review" },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-16T00:00:00Z"), minutes: 25, completed: false, kind: "review" },
+    // t2: untouched.
+    { topicId: "t2", topicTitle: "Graphs", date: new Date("2026-06-10T00:00:00Z"), minutes: 120, completed: false, kind: "study" },
+  ],
+});
+check(
+  "fold: all study done + pending reviews -> topic fully done (no study re-scheduled)",
+  reviewsPending.topics.find((t) => t.id === "t1")?.done === true,
+);
+check(
+  "fold: pending reviews don't shrink another topic's effort",
+  reviewsPending.topics.find((t) => t.id === "t2")?.effort === 4,
+);
+
+// The converse: a COMPLETED review must not count as done STUDY minutes (it
+// would otherwise shrink the topic's remaining study effort).
+const reviewDone = foldCompletedSessions({
+  ...foldCourse,
+  blocks: [
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-08T00:00:00Z"), minutes: 120, completed: false, kind: "study" },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-10T00:00:00Z"), minutes: 25, completed: true, kind: "review" },
+  ],
+});
+check(
+  "fold: a completed review leaves study effort untouched",
+  reviewDone.topics.find((t) => t.id === "t1")?.effort === 4 &&
+    reviewDone.topics.find((t) => t.id === "t1")?.done === false,
+);
+
+// Drift-tolerance: a block with NO kind at all (legacy row) folds as "study",
+// matching the schema default — the pre-kind behavior is preserved.
+const kindlessFold = foldCompletedSessions({
+  ...foldCourse,
+  blocks: [
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-08T00:00:00Z"), minutes: 120, completed: true },
+    { topicId: "t1", topicTitle: "Sorting", date: new Date("2026-06-09T00:00:00Z"), minutes: 120, completed: false },
+  ],
+});
+check(
+  "fold: kind-less legacy blocks still fold as study (effort 4 -> 2)",
+  kindlessFold.topics.find((t) => t.id === "t1")?.effort === 2,
 );
 
 // ===========================================================================

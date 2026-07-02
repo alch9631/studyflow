@@ -41,6 +41,7 @@ export default function TodayBlockRow({ b }: { b: TodayBlock }) {
     doneMessage: t("block.sessionDone"),
     undoneMessage: t("block.sessionNotDone"),
     errorMessage: t("block.sessionError"),
+    fields: { blockId: b.id, revalidate: "/today" },
   });
   const formRef = useRef<HTMLFormElement>(null);
   const formData = () => new FormData(formRef.current ?? undefined);

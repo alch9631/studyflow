@@ -57,6 +57,8 @@ const queue: QueuedToggle[] = [];
 let draining = false;
 let onReplayError: ((key: string, error: unknown) => void) | null = null;
 const listeners = new Set<(count: number) => void>();
+/** Per-key replay-failure listeners (rows roll back their sticky override). */
+const failureListeners = new Set<(key: string, error: unknown) => void>();
 /** Maps a descriptor's `actionId` back to the live server action to replay. */
 const actionRegistry = new Map<string, ServerAction>();
 
@@ -101,7 +103,8 @@ function persist(): void {
   }
 }
 
-function fieldsToFormData(fields: Record<string, string>): FormData {
+/** Build a FormData from a descriptor's plain string fields. */
+export function fieldsToFormData(fields: Record<string, string>): FormData {
   const fd = new FormData();
   for (const [name, value] of Object.entries(fields)) fd.set(name, value);
   return fd;
@@ -260,6 +263,21 @@ export function subscribe(listener: (count: number) => void): () => void {
 }
 
 /**
+ * Subscribe to genuine replay failures (the item is dropped from the queue).
+ * Unlike {@link setReplayErrorHandler} — the single global toast — this fans
+ * out to every listener, so the toggle that queued the flip can roll its
+ * sticky optimistic override back to server truth. Returns an unsubscribe fn.
+ */
+export function subscribeReplayFailures(
+  listener: (key: string, error: unknown) => void,
+): () => void {
+  failureListeners.add(listener);
+  return () => {
+    failureListeners.delete(listener);
+  };
+}
+
+/**
  * Replay queued toggles in FIFO order. Re-entrant calls are ignored — a single
  * drain runs at a time, so a reconnect storm can't double-submit. A replay that
  * throws because we've gone offline again is put back and the drain stops; any
@@ -291,6 +309,7 @@ export async function flushQueue(): Promise<void> {
           return;
         }
         onReplayError?.(item.key, error);
+        for (const fn of failureListeners) fn(item.key, error);
       }
     }
   } finally {

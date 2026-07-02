@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { rebuildSchedule, todayISO } from "@/lib/planService";
+import { instantToDayISO, instantToDayMinutes, dayMinutesToInstant } from "@/lib/calendarTime";
 import { assessRecovery } from "@/lib/recovery";
 import { checkRateLimit } from "@/lib/rateLimitPolicy";
 import { logActionError } from "@/lib/actionErrors";
@@ -58,12 +59,25 @@ async function shiftBlocksToTomorrow(
       course: { userId },
       ...(where.kind ? { kind: where.kind } : {}),
     },
-    select: { id: true, date: true },
+    select: { id: true, date: true, startTime: true, endTime: true },
   });
   for (const b of blocks) {
+    const next = new Date(b.date.getTime() + 86400_000);
+    // Keep the time-of-day in sync with the day shift. The calendar derives a
+    // timed block's column from startTime, so shifting only `date` would desync
+    // it (gone from /today, still rendered in today's calendar column). Re-place
+    // at the same local start on the next day, preserving the exact duration
+    // (DST-safe via the tz helpers) — mirrors moveBlockToTomorrow.
+    let startTime = b.startTime;
+    let endTime = b.endTime;
+    if (b.startTime && b.endTime) {
+      const nextDayISO = instantToDayISO(next);
+      startTime = dayMinutesToInstant(nextDayISO, instantToDayMinutes(b.startTime));
+      endTime = new Date(startTime.getTime() + (b.endTime.getTime() - b.startTime.getTime()));
+    }
     await prisma.studyBlock.update({
       where: { id: b.id },
-      data: { date: new Date(b.date.getTime() + 86400_000) },
+      data: { date: next, startTime, endTime },
     });
   }
   return blocks.length;

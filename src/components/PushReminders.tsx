@@ -31,6 +31,73 @@ function browserSupportsPush(): boolean {
   );
 }
 
+/** Encode an ArrayBuffer as unpadded base64url (the wire format of a VAPID key). */
+function arrayBufferToBase64Url(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Create a browser push subscription bound to the deploy's current VAPID key. */
+function subscribeWithCurrentKey(reg: ServiceWorkerRegistration): Promise<PushSubscription> {
+  return reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC as string),
+  });
+}
+
+/**
+ * Persist a subscription server-side. Alongside the standard subscription JSON
+ * it sends the VAPID key the browser ACTUALLY bound to (read off
+ * `subscription.options.applicationServerKey`), so the server records the real
+ * binding instead of assuming its current env key — the difference is exactly
+ * what makes a later key rotation detectable. Returns whether the save succeeded.
+ */
+async function savePushSubscription(sub: PushSubscription): Promise<boolean> {
+  const boundKey = sub.options?.applicationServerKey ?? null;
+  const res = await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...sub.toJSON(),
+      vapidKey: boundKey ? arrayBufferToBase64Url(boundKey) : undefined,
+    }),
+  });
+  return res.ok;
+}
+
+/**
+ * Key-rollover heal: ask the server (POST /api/push/check) whether this stored
+ * subscription is bound to an outdated VAPID key; if so, re-subscribe with the
+ * current key and persist the fresh subscription. Best-effort — any failure
+ * returns the subscription we still have (possibly null after an unsubscribe)
+ * and never blocks the normal UI flow.
+ */
+async function healStaleSubscription(
+  reg: ServiceWorkerRegistration,
+  sub: PushSubscription,
+): Promise<PushSubscription | null> {
+  try {
+    const res = await fetch("/api/push/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    if (!res.ok) return sub;
+    const data = (await res.json()) as { needsResync?: boolean };
+    if (!data.needsResync) return sub;
+    // Bound to a dead key — it can never receive our pushes again. Replace it:
+    // a subscription can't be re-keyed in place, so unsubscribe first.
+    await sub.unsubscribe();
+    const fresh = await subscribeWithCurrentKey(reg);
+    await savePushSubscription(fresh);
+    return fresh;
+  } catch {
+    return sub;
+  }
+}
+
 /**
  * High-level state of the opt-in:
  *  - checking      reading browser caps + asking the server if push is configured
@@ -94,7 +161,11 @@ export default function PushReminders() {
           return;
         }
         const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
+        let sub = await reg.pushManager.getSubscription();
+        // Existing subscription: run the key-rollover heal loop — if the server
+        // says it's bound to an outdated VAPID key, silently re-subscribe with
+        // the current one (permission is already granted, so no prompt).
+        if (sub) sub = await healStaleSubscription(reg, sub);
         if (!active) return;
         setSubscribed(!!sub);
         setStatus("ready");
@@ -122,16 +193,10 @@ export default function PushReminders() {
         );
       }
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC as string),
-      });
-      const res = await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub),
-      });
-      if (!res.ok) throw new Error(t("pushReminders.saveFailed"));
+      const sub = await subscribeWithCurrentKey(reg);
+      if (!(await savePushSubscription(sub))) {
+        throw new Error(t("pushReminders.saveFailed"));
+      }
       setSubscribed(true);
       toast(t("pushReminders.onForDevice"), "success");
     } catch (e) {

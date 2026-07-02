@@ -178,6 +178,71 @@ check("no event spills past 23:59 on an overflow day", (() => {
 const huge = buildCalendar([block({ minutes: 10_000 })]); // ~7 days of minutes
 check("end time clamps at 23:59", huge.includes("DTEND:20260608T235900"));
 
+// ── placed blocks: real startTime/endTime beats the 09:00 packing ────────────
+// Regression: the feed used to pack EVERYTHING sequentially from 09:00, so a
+// block the in-app calendar showed at 14:00 landed at 09:00 in Apple/Google.
+// Instants are UTC; June 2026 Berlin (the display tz) is CEST = UTC+2.
+const placed = buildCalendar([
+  block({
+    startTime: new Date("2026-06-08T12:00:00Z"), // 14:00 Berlin
+    endTime: new Date("2026-06-08T13:30:00Z"), // 15:30 Berlin
+  }),
+]);
+check("placed block emits its real start (14:00, not the 09:00 fallback)", placed.includes("DTSTART:20260608T140000"));
+check("placed block emits its real end (15:30)", placed.includes("DTEND:20260608T153000"));
+check("placed block does not fall back to 09:00", !placed.includes("DTSTART:20260608T090000"));
+
+// Mixed day: placed keeps its slot; unplaced siblings still pack from 09:00.
+const mixed = buildCalendar([
+  block({
+    topicTitle: "Placed",
+    startTime: new Date("2026-06-08T12:00:00Z"), // 14:00 Berlin
+    endTime: new Date("2026-06-08T13:00:00Z"), // 15:00 Berlin
+  }),
+  block({ topicTitle: "Loose A" }),
+  block({ topicTitle: "Loose B" }),
+]);
+check("mixed day emits all three events", (mixed.match(/BEGIN:VEVENT/g) || []).length === 3);
+check("unplaced still packs from 09:00", mixed.includes("DTSTART:20260608T090000"));
+check("second unplaced packs behind the first (09:30), unmoved by the placed one", mixed.includes("DTSTART:20260608T093000"));
+check("placed sibling keeps its exact 14:00 slot", mixed.includes("DTSTART:20260608T140000"));
+
+// A start-only block (endTime missing) stays day-granular → packs like before.
+const halfPlaced = buildCalendar([
+  block({ startTime: new Date("2026-06-08T12:00:00Z"), endTime: null }),
+]);
+check("start-only block is day-granular → packs at 09:00", halfPlaced.includes("DTSTART:20260608T090000"));
+
+// A placed block ending exactly at local midnight (reads back as minute 0 of
+// the next day) clamps to 23:59 on ITS day instead of collapsing/spilling.
+const midnight = buildCalendar([
+  block({
+    startTime: new Date("2026-06-08T21:00:00Z"), // 23:00 Berlin
+    endTime: new Date("2026-06-08T22:00:00Z"), // 24:00 Berlin (midnight)
+  }),
+]);
+check("midnight-ending placed block starts at its real 23:00", midnight.includes("DTSTART:20260608T230000"));
+check("…and its end clamps to 23:59, same day", midnight.includes("DTEND:20260608T235900"));
+
+// Placed blocks bucket by the DISPLAY-tz day of their start (like the app):
+// 22:30Z on the 8th is 00:30 Berlin on the 9th.
+const lateNight = buildCalendar([
+  block({
+    date: new Date("2026-06-09T00:00:00Z"),
+    startTime: new Date("2026-06-08T22:30:00Z"), // 00:30 Berlin, June 9
+    endTime: new Date("2026-06-08T23:00:00Z"), // 01:00 Berlin, June 9
+  }),
+]);
+check("placed day derives from the display tz (00:30 Berlin lands on the 9th)", lateNight.includes("DTSTART:20260609T003000"));
+
+// Determinism holds for placed blocks too (stable feed UIDs across polls).
+const placedTwice = () =>
+  buildCalendar([
+    block({ startTime: new Date("2026-06-08T12:00:00Z"), endTime: new Date("2026-06-08T13:00:00Z") }),
+    block({ topicTitle: "DP" }),
+  ]);
+check("placed output is deterministic across builds", placedTwice() === placedTwice());
+
 // ── line folding (RFC 5545 §3.1): ≤75 octets per wire line ───────────────────
 const longName =
   "Advanced Theoretical Foundations of Distributed Consensus and Concurrent Programming Systems";

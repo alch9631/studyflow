@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     const body = await readJsonBody<{
       endpoint?: unknown;
       keys?: { p256dh?: unknown; auth?: unknown };
+      vapidKey?: unknown;
     }>(req, LIMITS.MAX_REQUEST_BODY_BYTES);
     // Validate every field through the shared body-string validator (presence +
     // length bound) — the same helper the rest of the input layer uses, so a
@@ -45,11 +46,21 @@ export async function POST(req: Request) {
       );
     }
     // Record which VAPID key this subscription is bound to so a later key change
-    // (or first-time setup) is detectable as a rollover. `""` when push is
+    // (or first-time setup) is detectable as a rollover. Prefer the key the
+    // CLIENT sends (read off `subscription.options.applicationServerKey` — the
+    // key the browser actually bound to), because the server's env key can have
+    // drifted since the page was built; recording the server's key for a
+    // subscription bound to an older one would hide the very rollover this
+    // column exists to detect. Older clients that don't send it fall back to the
+    // server's current key (the pre-existing behaviour), and `""` when push is
     // unconfigured — distinct from a legacy null — so it's flagged stale the
     // moment keys are added. A re-subscribe (update) refreshes it to the live
     // key, which is exactly how a stale subscription heals itself.
-    const vapidKey = getVapidPublicKey() ?? "";
+    const clientKey =
+      typeof body.vapidKey === "string" && body.vapidKey.length > 0 && body.vapidKey.length <= 500
+        ? body.vapidKey
+        : null;
+    const vapidKey = clientKey ?? getVapidPublicKey() ?? "";
     await prisma.pushSubscription.upsert({
       where: { endpoint },
       update: { p256dh, auth, userId, vapidKey },

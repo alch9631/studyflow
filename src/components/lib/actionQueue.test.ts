@@ -12,9 +12,11 @@ import {
   flushQueue,
   subscribe,
   setReplayErrorHandler,
+  subscribeReplayFailures,
   restoreQueue,
   registerReplayAction,
   formDataToFields,
+  fieldsToFormData,
   __setConnectivityProbe,
   __setStorage,
 } from "./actionQueue";
@@ -136,6 +138,45 @@ async function main() {
   check("flush continued past the failure", ranAfter);
   check("queue drained despite the failure", pendingCount() === 0);
   setReplayErrorHandler(null);
+
+  // ---- failure subscribers hear a genuine failure (per-key rollback hook) ---
+  clearQueue();
+  __setConnectivityProbe(() => true); // online → a throw is a genuine failure
+  const failedKeys: string[] = [];
+  const unsubFail = subscribeReplayFailures((key) => failedKeys.push(key));
+  queueToggle("boom", () => {
+    throw new Error("nope");
+  });
+  queueToggle("fine", () => {});
+  await flushQueue();
+  check("failure subscriber fired for the failed key only", failedKeys.join(",") === "boom");
+  unsubFail();
+  queueToggle("boom2", () => {
+    throw new Error("nope again");
+  });
+  await flushQueue();
+  check("unsubscribed failure listener stays silent", failedKeys.join(",") === "boom");
+
+  // ---- failure subscribers are NOT told about an offline re-queue -----------
+  clearQueue();
+  __setConnectivityProbe(() => false); // offline → a throw is a re-queue, not a failure
+  const offlineFails: string[] = [];
+  const unsubOffline = subscribeReplayFailures((key) => offlineFails.push(key));
+  queueToggle("held", () => {
+    throw new Error("still offline");
+  });
+  await flushQueue();
+  check("offline re-queue does not notify failure subscribers", offlineFails.length === 0);
+  check("the held item stays queued", hasPending("held"));
+  unsubOffline();
+  __setConnectivityProbe(null);
+
+  // ---- fieldsToFormData round-trips a descriptor's fields --------------------
+  check(
+    "fieldsToFormData round-trips through toggleKey",
+    toggleKey(fieldsToFormData({ blockId: "b9", revalidate: "/today" })) ===
+      toggleKey(form({ blockId: "b9", revalidate: "/today" })),
+  );
 
   // ---- failed replay (offline) re-queues and stops the drain ----------------
   clearQueue();

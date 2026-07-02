@@ -294,6 +294,63 @@ async function main() {
     check("non-string userId ignored", statsWriteOwner("Course", "create", { data: { userId: 42 } }) === undefined);
   }
 
+  // 14) SEPARATOR REGRESSION: a reader arriving AFTER a scoped mid-load
+  // invalidation must NOT join the pre-write in-flight load. (The inflight-drop
+  // prefix match once used a different separator than the key builder, so the
+  // stale in-flight promise survived invalidateUser and was handed to the next
+  // reader.)
+  {
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let value = 5;
+    const load: StatsLoader = async () => {
+      calls++;
+      const snapshot = value; // pre/post-write is observable via the snapshot
+      await gate;
+      return fakeStats(snapshot);
+    };
+    const cache = createStatsCache({ load, now: clock().now });
+    const preWrite = cache.get("u1", TODAY); // in-flight, snapshots 5
+    value = 50; // the write lands...
+    cache.invalidateUser("u1"); // ...and scoped-invalidates mid-load
+    const postWrite = cache.get("u1", TODAY); // must start a FRESH load
+    release();
+    check("post-invalidation reader gets post-write data (did not join stale in-flight)", (await postWrite).loggedMinutes === 50);
+    check("a second compute ran (stale in-flight was dropped)", calls === 2);
+    check("original awaiter still resolves with its own snapshot", (await preWrite).loggedMinutes === 5);
+    check("only the fresh (post-write) result was cached", (await cache.get("u1", TODAY)).loggedMinutes === 50 && calls === 2);
+  }
+
+  // 15) BOUNDED userGen: generation entries never accumulate one-per-user. ------
+  {
+    let n = 0;
+    const { load } = countingLoader(() => ++n);
+    const cache = createStatsCache({ load, now: clock().now });
+    // Many distinct users each load + mutate once (the long-lived-server case).
+    for (let i = 0; i < 100; i++) {
+      await cache.get(`user${i}`, TODAY);
+      cache.invalidateUser(`user${i}`);
+    }
+    check("gen map holds nothing once no loads are in flight", cache.genCount() === 0);
+
+    // A gen entry exists exactly while it guards an in-flight load…
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const slow: StatsLoader = async () => {
+      await gate;
+      return fakeStats(1);
+    };
+    const slowCache = createStatsCache({ load: slow, now: clock().now });
+    const read = slowCache.get("u1", TODAY);
+    slowCache.invalidateUser("u1"); // mid-load → gen must be held
+    check("gen entry held while its load is in flight", slowCache.genCount() === 1);
+    release();
+    await read;
+    check("gen entry pruned once the load settles", slowCache.genCount() === 0);
+    check("…and the guarded (pre-write) result was not cached", slowCache.size() === 0);
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }

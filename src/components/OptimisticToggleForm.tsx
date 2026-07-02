@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Check, Undo2 } from "lucide-react";
 import SwipeRow from "./SwipeRow";
+import { formDataToFields } from "./lib/actionQueue";
 import { useOptimisticToggle } from "./useOptimisticToggle";
 
 /**
@@ -29,7 +30,7 @@ export default function OptimisticToggleForm({
   done,
   doneMessage,
   undoneMessage,
-  errorMessage = "Something went wrong. Please try again.",
+  errorMessage,
   swipe,
   children,
   className,
@@ -44,13 +45,22 @@ export default function OptimisticToggleForm({
   doneMessage: string;
   /** Green toast shown when the toggle lands on not-done (false). */
   undoneMessage: string;
-  /** Red toast shown if the action throws a real error. */
+  /** Red toast shown if the action throws a real error (localized default). */
   errorMessage?: string;
   /** Enable swipe-to-complete / swipe-to-reopen with these panel labels. */
   swipe?: { completeLabel: string; reopenLabel: string };
   /** Renders the checkbox + label, given the current (optimistic) done state. */
   children: (done: boolean) => ReactNode;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  // The toggle's queue-key fields live in the caller-rendered hidden inputs,
+  // so read them from the DOM once mounted. They let the hook show a flip
+  // still sitting in the offline queue (e.g. restored after a reload) instead
+  // of silently rendering server truth.
+  const [fields, setFields] = useState<Record<string, string> | undefined>();
+  useEffect(() => {
+    if (formRef.current) setFields(formDataToFields(new FormData(formRef.current)));
+  }, []);
   const { optimisticDone, fire } = useOptimisticToggle({
     action,
     actionId,
@@ -58,8 +68,8 @@ export default function OptimisticToggleForm({
     doneMessage,
     undoneMessage,
     errorMessage,
+    fields,
   });
-  const formRef = useRef<HTMLFormElement>(null);
   const formData = () => new FormData(formRef.current ?? undefined);
 
   const body = children(optimisticDone);

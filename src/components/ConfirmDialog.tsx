@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import { useT } from "./i18n/I18nProvider";
 import { useSheetConfirm } from "./lib/confirmSheet";
 import ToastForm from "./ToastForm";
 import SubmitButton from "./SubmitButton";
@@ -49,7 +50,7 @@ type Props = {
   fields?: Record<string, string>;
   /** Green toast after a successful, non-redirecting submit. Omit to stay silent. */
   successMessage?: string;
-  /** Red toast if the action throws. */
+  /** Red toast if the action throws (localized default). */
   errorMessage?: string;
 
   /** Visible content of the trigger button (text and/or icon). */
@@ -66,11 +67,11 @@ type Props = {
   title: string;
   /** Dialog body — what's about to happen, and that it can't be undone. */
   message: ReactNode;
-  /** Confirm (destructive) button label. */
+  /** Confirm (destructive) button label (localized default). */
   confirmLabel?: string;
-  /** Confirm button label while the action is in flight. */
+  /** Confirm button label while the action is in flight (localized default). */
   pendingLabel?: string;
-  /** Cancel button label. */
+  /** Cancel button label (localized default). */
   cancelLabel?: string;
 
   /** Classes for the wrapping <form> (e.g. layout helpers like `shrink-0`). */
@@ -91,7 +92,7 @@ export default function ConfirmDialog({
   action,
   fields,
   successMessage,
-  errorMessage = "Couldn't complete that. Please try again.",
+  errorMessage,
   triggerLabel,
   triggerVariant,
   triggerSize = "md",
@@ -99,12 +100,13 @@ export default function ConfirmDialog({
   triggerAriaLabel,
   title,
   message,
-  confirmLabel = "Delete",
-  pendingLabel = "Deleting…",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  pendingLabel,
+  cancelLabel,
   className,
   nested = false,
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   // The confirm button is portaled out of the <form> by Radix, so it's wired
   // back to it by id (`form={formId}`) — that keeps the real submit + the
@@ -130,7 +132,7 @@ export default function ConfirmDialog({
       id={formId}
       action={action}
       successMessage={successMessage}
-      errorMessage={errorMessage}
+      errorMessage={errorMessage ?? t("confirmDialog.error")}
       onDone={() => setConfirmOpen(false)}
       className={className}
     >
@@ -148,9 +150,9 @@ export default function ConfirmDialog({
         triggerAriaLabel={triggerAriaLabel}
         title={title}
         message={message}
-        confirmLabel={confirmLabel}
-        pendingLabel={pendingLabel}
-        cancelLabel={cancelLabel}
+        confirmLabel={confirmLabel ?? t("confirmDialog.confirm")}
+        pendingLabel={pendingLabel ?? t("confirmDialog.pending")}
+        cancelLabel={cancelLabel ?? t("common.cancel")}
       />
     </ToastForm>
   );

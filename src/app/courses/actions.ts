@@ -277,11 +277,12 @@ export async function reoptimizeCourse(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  // Verify ownership BEFORE the rate-limit check: the AI limiter is keyed by
-  // courseId, so checking it first would let a non-owner consume (and exhaust) the
-  // budget of a course they don't own, locking the real owner out of AI features.
+  // Verify ownership BEFORE the rate-limit check so a non-owner probing this
+  // endpoint is bounced without touching the AI budget. The limiter is keyed by
+  // userId (NOT courseId — per-course keys would multiply one user's AI budget
+  // by their course count).
   if (!(await ownsCourse(userId, id))) redirect("/courses");
-  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
+  if (!rateLimitOK("AI", userId)) redirect(`/courses/${id}?msg=rate-limited`);
 
   // Distinguish "AI isn't set up" from "the AI call failed" so the banner is
   // honest. redirect() must stay OUTSIDE the try (it throws NEXT_REDIRECT).
@@ -319,12 +320,12 @@ export async function analyzeModuleUpload(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  // Ownership-scoped, and BEFORE the rate-limit check: the AI limiter is keyed by
-  // courseId, so a non-owner probing this endpoint must be bounced before it can
-  // drain the budget of a course they don't own.
+  // Ownership-scoped, and BEFORE the rate-limit check, so a non-owner probing
+  // this endpoint is bounced without touching the AI budget. The limiter is
+  // keyed by userId (per-course keys would multiply the budget by course count).
   const course = await findOwnedCourse(userId, courseId);
   if (!course) redirect("/courses");
-  if (!rateLimitOK("AI", courseId)) redirect(`/courses/${courseId}?msg=rate-limited`);
+  if (!rateLimitOK("AI", userId)) redirect(`/courses/${courseId}?msg=rate-limited`);
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
@@ -493,14 +494,15 @@ export async function applyProgress(formData: FormData) {
   } catch {
     return;
   }
-  // Ownership-scoped, and BEFORE the rate-limit check (the AI limiter is keyed by
-  // courseId, so a non-owner must be bounced before it can drain a victim's budget).
+  // Ownership-scoped, and BEFORE the rate-limit check, so a non-owner probing
+  // this endpoint is bounced without touching the AI budget. The limiter is
+  // keyed by userId (per-course keys would multiply the budget by course count).
   const course = await prisma.course.findFirst({
     where: { id, userId },
     select: { topics: { select: { id: true, title: true, done: true } } },
   });
   if (!course) return;
-  if (!rateLimitOK("AI", id)) redirect(`/courses/${id}?msg=rate-limited`);
+  if (!rateLimitOK("AI", userId)) redirect(`/courses/${id}?msg=rate-limited`);
 
   // Note: redirect() must live OUTSIDE the try (it throws NEXT_REDIRECT).
   let result = "progress-none";
@@ -638,11 +640,23 @@ export async function logFocus(formData: FormData) {
   // Scoped: only a block whose course the current user owns is logged against.
   const block = await findOwnedBlock(userId, id);
   if (block) {
-    const actual = (block.actualMinutes ?? 0) + minutes;
-    await prisma.studyBlock.update({
-      where: { id },
-      data: { actualMinutes: actual, completed: actual >= block.minutes || block.completed },
+    // Atomic increment so two concurrent logs can't drop minutes (the old
+    // read-modify-write raced). actualMinutes is nullable and SQL NULL + n stays
+    // NULL, so coalesce NULL → 0 first (idempotent, race-safe on its own).
+    await prisma.studyBlock.updateMany({
+      where: { id, actualMinutes: null },
+      data: { actualMinutes: 0 },
     });
+    const updated = await prisma.studyBlock.update({
+      where: { id },
+      data: { actualMinutes: { increment: minutes } },
+      select: { actualMinutes: true, minutes: true, completed: true },
+    });
+    // Completion is judged against the post-increment total, so concurrent logs
+    // each see at least their own minutes included. Only ever flips false → true.
+    if (!updated.completed && (updated.actualMinutes ?? 0) >= updated.minutes) {
+      await prisma.studyBlock.update({ where: { id }, data: { completed: true } });
+    }
   }
   revalidatePath(path);
 }
@@ -709,6 +723,11 @@ export async function updateBlockTime(formData: FormData) {
   const endMin = startMin + Math.round((end.getTime() - start.getTime()) / 60000);
   const check = checkBlockTimes(startMin, endMin);
   if (!check.ok) return;
+
+  // The stored day and the start instant must agree: day-granular views read
+  // `date` while the calendar derives a timed block's column from `startTime`,
+  // so a mismatched pair would make the block appear on TWO different days.
+  if (instantToDayISO(start) !== dateISO) return;
 
   // Scoped: a non-owner moving another user's block id is a silent no-op.
   const block = await findOwnedBlock(userId, id);
@@ -974,11 +993,6 @@ export async function saveBlockNote(formData: FormData) {
   revalidatePath("/today");
 }
 
-/** Local YYYY-MM-DD (zero-padded) — mirrors the calendar page's day key. */
-function isoDayLocal(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 /**
  * Auto-assign clock times (startTime/endTime) to a week's study blocks. This is a
  * PURELY ADDITIVE placement layer on top of the day-level scheduler: it never
@@ -1003,20 +1017,18 @@ export async function autoScheduleWeekTimes(
   const userId = await getCurrentUserId();
   if (!rateLimitOK("MUTATION", userId)) return { placed: 0, unplaced: 0 };
 
-  // Resolve the week's Monday. An explicit weekStart must be a real ISO date
+  // Resolve the week's Monday as a UTC-midnight instant: block `date`s are
+  // stored at UTC midnight, so UTC day math keys them exactly regardless of the
+  // server's local timezone (server-local math shifted the window and the day
+  // keys on hosts west of UTC). An explicit weekStart must be a real ISO date
   // (allowing past/future weeks); anything malformed silently falls back to the
-  // current week — never a thrown error or a bogus Date in the query.
+  // week containing the app's "today" (Europe/Berlin, via todayISO) — never a
+  // thrown error or a bogus Date in the query.
   const weekStartRaw = str(formData.get("weekStart"));
-  let monday: Date;
-  if (weekStartRaw && isValidISODate(weekStartRaw)) {
-    const [y, m, d] = weekStartRaw.split("-").map(Number);
-    monday = new Date(y, m - 1, d);
-  } else {
-    const now = new Date();
-    const back = (now.getDay() + 6) % 7; // days since Monday
-    monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
-  }
-  const weekEnd = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
+  const anchorISO = weekStartRaw && isValidISODate(weekStartRaw) ? weekStartRaw : todayISO();
+  const anchor = new Date(anchorISO + "T00:00:00Z");
+  const monday = new Date(anchor.getTime() - ((anchor.getUTCDay() + 6) % 7) * 86400_000);
+  const weekEnd = new Date(monday.getTime() + 7 * 86400_000);
 
   // Prefs (study window + energy) and the user's recurring lectures (busy).
   const [user, lectures] = await Promise.all([
@@ -1041,20 +1053,38 @@ export async function autoScheduleWeekTimes(
   let unplacedTotal = 0;
 
   for (let i = 0; i < 7; i++) {
-    const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
-    const dayISO = isoDayLocal(day);
-    const weekday = day.getDay(); // 0=Sun … 6=Sat, matching Lecture.weekday
+    const day = new Date(monday.getTime() + i * 86400_000);
+    const dayISO = day.toISOString().slice(0, 10);
+    const weekday = day.getUTCDay(); // 0=Sun … 6=Sat, matching Lecture.weekday
 
     // Blocks on this day that still have no time-of-day → candidates for placement.
     const dayBlocks = weekBlocks.filter(
-      (b) => isoDayLocal(b.date) === dayISO && b.startTime == null && b.endTime == null,
+      (b) =>
+        b.date.toISOString().slice(0, 10) === dayISO && b.startTime == null && b.endTime == null,
     );
     if (dayBlocks.length === 0) continue;
 
-    // This weekday's lectures are the busy intervals to flow around.
-    const busy = lectures
-      .filter((l) => l.weekday === weekday)
-      .map((l) => ({ startMin: l.startMin, endMin: l.endMin }));
+    // Busy = this weekday's lectures PLUS blocks already pinned to a time on this
+    // day (hand-placed or previously auto-placed) — the placer must flow around
+    // both, or fresh placements would overlap what's already on the calendar. A
+    // timed block's day is derived from startTime (Europe/Berlin), matching how
+    // the calendar columns it; its end is start + duration so a rolled-past-
+    // midnight end still reads as a same-day interval.
+    const busy = [
+      ...lectures
+        .filter((l) => l.weekday === weekday)
+        .map((l) => ({ startMin: l.startMin, endMin: l.endMin })),
+      ...weekBlocks
+        .filter(
+          (b) => b.startTime != null && b.endTime != null && instantToDayISO(b.startTime) === dayISO,
+        )
+        .map((b) => {
+          const startMin = instantToDayMinutes(b.startTime!);
+          const endMin =
+            startMin + Math.round((b.endTime!.getTime() - b.startTime!.getTime()) / 60000);
+          return { startMin, endMin };
+        }),
+    ];
 
     const { placed, unplaced } = placeDayBlocks(
       dayBlocks.map((b) => ({ id: b.id, minutes: b.minutes })),

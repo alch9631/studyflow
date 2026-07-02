@@ -89,22 +89,41 @@ export default function FocusSession({
     doneMessage: t("focus.doneToast"),
     undoneMessage: t("focus.reopenToast"),
     errorMessage: t("focus.doneError"),
+    fields: { blockId: block.id, revalidate: "/today" },
   });
 
-  // Tick the elapsed clock only while running. When the elapsed time reaches the
-  // student's focus length, the session has earned a rest → flip to "resting" so
-  // "Mark session done" surfaces on its own (no nagging before then).
+  // Latest elapsed value for the running effect to baseline against without
+  // re-subscribing each second (pausing keeps it; resuming continues from it).
+  const elapsedRef = useRef(elapsedSec);
+  useEffect(() => {
+    elapsedRef.current = elapsedSec;
+  });
+
+  // Advance the elapsed clock only while running. When the elapsed time reaches
+  // the student's focus length, the session has earned a rest → flip to
+  // "resting" so "Mark session done" surfaces on its own (no nagging before
+  // then). Timestamp-based math (not per-tick increments): background tabs and
+  // a suspended iOS PWA throttle or pause timers, which would freeze a
+  // tick-counting clock — so recompute from Date.now() on every tick and again
+  // whenever the tab becomes visible.
   useEffect(() => {
     if (phase !== "running") return;
     const targetSec = readFocusMin() * 60;
-    const id = setInterval(() => {
-      setElapsedSec((s) => {
-        const next = s + 1;
-        if (next >= targetSec) setPhase("resting");
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
+    const startedAt = Date.now() - elapsedRef.current * 1000;
+    const sync = () => {
+      const next = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsedSec(next);
+      if (next >= targetSec) setPhase("resting");
+    };
+    const id = setInterval(sync, 1000);
+    const onVisibility = () => {
+      if (!document.hidden) sync();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [phase]);
 
   // Marking the block done from elsewhere (or reopening it) keeps the controls

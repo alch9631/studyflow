@@ -79,21 +79,35 @@ type DbCourseWithTopics = {
   topics: { id: string; title: string; effort: number; done: boolean }[];
 };
 
-type DbBlock = { topicId: string; topicTitle: string; date: Date; minutes: number; completed: boolean };
+type DbBlock = {
+  topicId: string;
+  topicTitle: string;
+  date: Date;
+  minutes: number;
+  completed: boolean;
+  /** "study" | "review". Optional for drift-tolerance; missing → "study". */
+  kind?: string;
+};
 
 /**
  * Stable identity for a session, so completion survives a wipe-and-recreate.
- * Includes `kind` so a scheduled "review" can't collide with a completed
- * "study" block on the same topic+date (which would otherwise make the replan
- * silently drop the review as "already covered").
+ * Keyed by topicId (not title) so two same-titled topics can't collide — a
+ * title collision would make persistBlocks silently drop one topic's planned
+ * minutes as "already covered". Includes `kind` so a scheduled "review" can't
+ * collide with a completed "study" block on the same topic+date.
  */
-export const blockKey = (topicTitle: string, date: Date, kind: string) =>
-  `${topicTitle}|${date.toISOString().slice(0, 10)}|${kind}`;
+export const blockKey = (topicId: string, date: Date, kind: string) =>
+  `${topicId}|${date.toISOString().slice(0, 10)}|${kind}`;
 
 /**
  * Fold per-session completion into the course the engine sees: a topic with
  * finished sessions carries less (or zero) effort into the next plan, so heal
  * doesn't redistribute work the student already did.
+ *
+ * Only STUDY blocks count: reviews are short recall sessions layered ON TOP of
+ * a topic's study effort, so counting them as planned/done study minutes would
+ * make a topic with all study finished but reviews pending look part-unstudied
+ * and get its study re-scheduled from scratch on heal/rebuild.
  */
 export function foldCompletedSessions(
   course: DbCourseWithTopics & { blocks: DbBlock[] },
@@ -101,6 +115,9 @@ export function foldCompletedSessions(
   const planned: Record<string, number> = {};
   const done: Record<string, number> = {};
   for (const b of course.blocks ?? []) {
+    // Reviews don't carry study effort; missing kind (drift) folds as "study",
+    // matching the schema default.
+    if ((b.kind ?? "study") !== "study") continue;
     // Guard against null/NaN minutes from DB drift so a single bad row can't
     // poison a topic's planned/done totals (and ultimately its folded effort).
     const minutes = Number.isFinite(b.minutes) ? b.minutes : 0;
@@ -164,13 +181,13 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   // topic+date a completed session already covers (matching on topic+date).
   const existing = await prisma.studyBlock.findMany({
     where: { courseId },
-    select: { completed: true, topicTitle: true, date: true, kind: true },
+    select: { completed: true, topicId: true, date: true, kind: true },
   });
   const completedKeys = new Set(
-    existing.filter((b) => b.completed).map((b) => blockKey(b.topicTitle, b.date, b.kind)),
+    existing.filter((b) => b.completed).map((b) => blockKey(b.topicId, b.date, b.kind)),
   );
   const fresh = blocks.filter(
-    (b) => !completedKeys.has(blockKey(b.topicTitle, new Date(b.date + "T00:00:00Z"), b.kind)),
+    (b) => !completedKeys.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
   );
   // Atomic swap: a crash between the delete and the create must never leave a
   // course with no plan, so both run in one transaction.
@@ -307,6 +324,7 @@ async function rebuildScheduleInner(
           date: true,
           minutes: true,
           completed: true,
+          kind: true,
           actualMinutes: true,
         },
       },
@@ -670,7 +688,7 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
         orderBy: { order: "asc" },
         select: { id: true, title: true, effort: true, done: true, confidence: true },
       },
-      blocks: { select: { topicId: true, topicTitle: true, date: true, minutes: true, completed: true, actualMinutes: true } },
+      blocks: { select: { topicId: true, topicTitle: true, date: true, minutes: true, completed: true, kind: true, actualMinutes: true } },
     },
   });
 

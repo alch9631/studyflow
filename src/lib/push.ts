@@ -110,6 +110,18 @@ export function getVapidPublicKey(): string | null {
 }
 
 /**
+ * Canonicalize a VAPID public key for comparison: standard-base64 chars mapped
+ * to their url-safe forms, padding stripped. The client derives its copy by
+ * re-encoding `subscription.options.applicationServerKey` as unpadded base64url,
+ * so an env key that happens to carry padding (or `+`/`/`) must not read as a
+ * different key — that would flag every healthy subscription as a rollover and
+ * loop the heal path forever.
+ */
+export function normalizeVapidKey(key: string): string {
+  return key.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
  * Decide whether a stored subscription must be re-synced (re-subscribed) by the
  * client because the key it was registered against no longer matches the deploy.
  *
@@ -130,7 +142,8 @@ export function subscriptionNeedsResync(
 ): boolean {
   if (currentKey === null) return false;
   if (storedKey === null) return false;
-  return storedKey !== currentKey;
+  // Compare canonicalized (encoding differences are not a key rotation).
+  return normalizeVapidKey(storedKey) !== normalizeVapidKey(currentKey);
 }
 
 /**

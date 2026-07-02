@@ -319,6 +319,7 @@ function QuietRow({
     doneMessage: t("block.sessionDone"),
     undoneMessage: t("block.sessionNotDone"),
     errorMessage: t("block.sessionError"),
+    fields: { blockId: block.id, revalidate: "/today" },
   });
   const formRef = useRef<HTMLFormElement>(null);
   const formData = () => new FormData(formRef.current ?? undefined);
@@ -395,6 +396,15 @@ function SessionSheet({
   const [note, setNote] = useState("");
   const [pendingNote, setPendingNote] = useState(false);
 
+  // The draft note belongs to ONE block: when the sheet switches to a different
+  // block, reset it during render (the "adjust state when a prop changes"
+  // pattern) so block A's draft can never be saved onto block B.
+  const [noteBlockId, setNoteBlockId] = useState<string | null>(null);
+  if (block && block.id !== noteBlockId) {
+    setNoteBlockId(block.id);
+    setNote("");
+  }
+
   const { optimisticDone, fire } = useOptimisticToggle({
     action: toggleBlock,
     actionId: "toggleBlock",
@@ -402,6 +412,7 @@ function SessionSheet({
     doneMessage: t("block.sessionDone"),
     undoneMessage: t("block.sessionNotDone"),
     errorMessage: t("block.sessionError"),
+    fields: block ? { blockId: block.id, revalidate: "/today" } : undefined,
   });
 
   async function move() {

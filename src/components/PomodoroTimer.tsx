@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { RotateCcw, Settings, Timer, Coffee } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import { Input } from "./ui/input";
@@ -45,6 +45,9 @@ const PRESETS = [
   { f: 15, b: 3, label: "15 / 3" },
 ];
 
+/** Never notifies — pairs with useSyncExternalStore as a pure hydration flag. */
+const emptySubscribe = () => () => {};
+
 /**
  * Pomodoro focus timer with editable, persisted focus/break durations.
  *
@@ -75,6 +78,19 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
   // Blocks still open today — the only sensible targets to log a sprint against.
   const loggable = blocks.filter((b) => !b.completed);
 
+  // True only once hydration is done. The server HTML (and the hydration
+  // render, which must match it byte-for-byte) can't read the persisted custom
+  // durations, so until this flips the clock presents the default length; the
+  // post-hydration re-render then shows the real value — no mismatch, and no
+  // stale 25:00 stuck on screen for custom durations (which is what
+  // suppressHydrationWarning used to cause: React adopted the server text and
+  // never repainted it).
+  const hydrated = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+
   // Latest values for the interval to read without re-subscribing each tick.
   const leftRef = useRef(left);
   const modeRef = useRef(mode);
@@ -91,31 +107,50 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
 
   useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => {
-      // All setState here runs in the interval callback (not the effect body),
-      // and each runs once per tick — so no nested-updater double-counting.
-      if (leftRef.current > 1) {
-        setLeft(leftRef.current - 1);
-      } else if (modeRef.current === "focus") {
-        setCycles((c) => c + 1);
-        setMode("break");
-        setLeft(breakRef.current * 60);
-        // Sprint done → offer to log it against a Today block (if any are open).
-        if (loggableRef.current.length > 0) {
-          setLogMinutes(focusRef.current);
-          setLogEpisode((n) => n + 1);
-          setLogOpen(true);
+    // Deadline-based countdown: derive what's left from a wall-clock target on
+    // every tick — and again when the tab becomes visible — instead of counting
+    // ticks. Background tabs and a suspended iOS PWA throttle or pause timers,
+    // which froze a tick-decrementing clock; wall-clock math stays honest.
+    let endAt = Date.now() + leftRef.current * 1000;
+    const sync = () => {
+      let remaining = Math.ceil((endAt - Date.now()) / 1000);
+      // Roll over any phase boundaries the suspended clock slept through,
+      // keeping the phase timeline continuous (as if it had kept ticking).
+      while (remaining <= 0) {
+        if (modeRef.current === "focus") {
+          setCycles((c) => c + 1);
+          setMode("break");
+          modeRef.current = "break";
+          endAt += breakRef.current * 60 * 1000;
+          // Sprint done → offer to log it against a Today block (if any are open).
+          if (loggableRef.current.length > 0) {
+            setLogMinutes(focusRef.current);
+            setLogEpisode((n) => n + 1);
+            setLogOpen(true);
+          }
+        } else {
+          setMode("focus");
+          modeRef.current = "focus";
+          endAt += focusRef.current * 60 * 1000;
         }
-      } else {
-        setMode("focus");
-        setLeft(focusRef.current * 60);
+        remaining = Math.ceil((endAt - Date.now()) / 1000);
       }
-    }, 1000);
-    return () => clearInterval(id);
+      setLeft(remaining);
+    };
+    const id = setInterval(sync, 1000);
+    const onVisibility = () => {
+      if (!document.hidden) sync();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [running]);
 
-  const mm = String(Math.floor(Math.max(left, 0) / 60)).padStart(2, "0");
-  const ss = String(Math.max(left, 0) % 60).padStart(2, "0");
+  const shownLeft = hydrated ? left : DEFAULT_FOCUS * 60;
+  const mm = String(Math.floor(Math.max(shownLeft, 0) / 60)).padStart(2, "0");
+  const ss = String(Math.max(shownLeft, 0) % 60).padStart(2, "0");
 
   function persist(key: string, val: number) {
     try {
@@ -149,7 +184,7 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
       {/* Compact one-line bar: time · phase · sessions · start/pause · reset · settings.
           Full duration controls live behind the gear (settings panel below). */}
       <div className="flex items-center gap-2">
-        <span suppressHydrationWarning className="shrink-0 text-2xl font-bold tabular-nums">
+        <span className="shrink-0 text-2xl font-bold tabular-nums">
           {mm}:{ss}
         </span>
         <span

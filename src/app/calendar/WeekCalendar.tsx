@@ -586,8 +586,15 @@ export default function WeekCalendar({
 
     fd.set("start", dayMinutesToInstant(dayISO, startMin).toISOString());
     fd.set("end", dayMinutesToInstant(dayISO, endMin).toISOString());
-    await updateBlockTime(fd);
-    router.refresh();
+    try {
+      await updateBlockTime(fd);
+      router.refresh();
+    } catch {
+      // The card never moved optimistically (the drag overlay resets on drop
+      // and the grid still renders server truth), so there's nothing to revert
+      // — but a silent failure would look like the drop just didn't take.
+      toast(t("calendar.blockError"), "error");
+    }
   }
 
   // Per-block in-flight guard so a fast double-tap on the ✓ can't fire two

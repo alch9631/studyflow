@@ -49,9 +49,16 @@ const en = {
     refreshing: "Refreshing…",
     dismiss: "Dismiss",
     close: "Close",
+    undo: "Undo",
+    genericError: "Something went wrong. Please try again.",
     of: "of",
     min: "min",
     minPerDay: "min/day",
+  },
+  confirmDialog: {
+    confirm: "Delete",
+    pending: "Deleting…",
+    error: "Couldn't complete that. Please try again.",
   },
   nav: {
     today: "Today",
@@ -1153,6 +1160,18 @@ const en = {
   },
   offlineSync: {
     syncError: "Couldn't sync an offline change. Please toggle it again.",
+    queued: "Saved offline. We'll sync this when you're back online.",
+    queueCanceled: "Offline change undone. Nothing is waiting to sync.",
+    bannerOffline: "Offline: {note}",
+    bannerLastSynced: "showing last synced content",
+    bannerQueuedOffline: {
+      one: "{count} change queued, will sync when you reconnect",
+      other: "{count} changes queued, will sync when you reconnect",
+    },
+    bannerQueuedSyncing: {
+      one: "{count} change queued, syncing…",
+      other: "{count} changes queued, syncing…",
+    },
   },
 };
 
@@ -1169,9 +1188,16 @@ const de: Messages = {
     refreshing: "Aktualisieren…",
     dismiss: "Schließen",
     close: "Schließen",
+    undo: "Rückgängig",
+    genericError: "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
     of: "von",
     min: "Min",
     minPerDay: "Min/Tag",
+  },
+  confirmDialog: {
+    confirm: "Löschen",
+    pending: "Löschen…",
+    error: "Das hat nicht geklappt. Bitte erneut versuchen.",
   },
   nav: {
     today: "Heute",
@@ -2266,6 +2292,18 @@ const de: Messages = {
   },
   offlineSync: {
     syncError: "Eine Offline-Änderung konnte nicht synchronisiert werden. Bitte erneut umschalten.",
+    queued: "Offline gespeichert. Wir synchronisieren das, sobald du wieder online bist.",
+    queueCanceled: "Offline-Änderung rückgängig gemacht. Es wartet nichts mehr auf die Synchronisierung.",
+    bannerOffline: "Offline: {note}",
+    bannerLastSynced: "zuletzt synchronisierte Inhalte werden angezeigt",
+    bannerQueuedOffline: {
+      one: "{count} Änderung gespeichert, wird synchronisiert, sobald du wieder online bist",
+      other: "{count} Änderungen gespeichert, werden synchronisiert, sobald du wieder online bist",
+    },
+    bannerQueuedSyncing: {
+      one: "{count} Änderung wird synchronisiert…",
+      other: "{count} Änderungen werden synchronisiert…",
+    },
   },
 };
 export const MESSAGES: Record<Locale, Messages> = { en, de };

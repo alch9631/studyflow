@@ -1,22 +1,30 @@
 "use client";
 
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { useToast } from "./Toast";
+import { useT } from "./i18n/I18nProvider";
 import { isNextControlFlow } from "./ToastForm";
 import { haptics } from "./haptics";
 import {
+  fieldsToFormData,
   formDataToFields,
+  hasPending,
   queueToggle,
   registerReplayAction,
+  subscribe as subscribeQueue,
+  subscribeReplayFailures,
   toggleKey,
 } from "./lib/actionQueue";
 
 /** Grace window (ms) during which the success toast offers an Undo. */
 export const UNDO_GRACE_MS = 5000;
-
-/** Toast shown when a toggle is stashed for replay because we're offline. */
-const OFFLINE_QUEUED_MESSAGE =
-  "Saved offline. We'll sync this when you're back online.";
 
 function isOffline(): boolean {
   return typeof navigator !== "undefined" && navigator.onLine === false;
@@ -38,8 +46,17 @@ export type UseOptimisticToggleArgs = {
   doneMessage: string;
   /** Green toast shown when the toggle lands on not-done (false). */
   undoneMessage: string;
-  /** Red toast shown if the action throws a real error. */
+  /** Red toast shown if the action throws a real error (localized default). */
   errorMessage?: string;
+  /**
+   * The toggle form's plain fields (e.g. `{ blockId, revalidate }`). When set,
+   * a flip for this target still sitting in the offline queue when the row
+   * mounts (queued, persisted, then restored across a reload — or queued
+   * before navigating away and back while offline) is shown immediately
+   * instead of silently rendering server truth. Without it a second tap would
+   * parity-cancel the restored flip the user can't even see.
+   */
+  fields?: Record<string, string>;
 };
 
 /**
@@ -64,9 +81,11 @@ export function useOptimisticToggle({
   done,
   doneMessage,
   undoneMessage,
-  errorMessage = "Something went wrong. Please try again.",
+  errorMessage,
+  fields,
 }: UseOptimisticToggleArgs) {
   const { toast } = useToast();
+  const t = useT();
   // Register the live action so a toggle persisted+restored across a reload has
   // something to replay against once this row mounts.
   useEffect(() => {
@@ -83,15 +102,60 @@ export function useOptimisticToggle({
   const [override, setOverride] = useState<{ value: boolean; base: boolean } | null>(
     null,
   );
+  // The queue key of this row's pending offline flip (if any) — lets us react
+  // when its replay later fails for real.
+  const [queuedKey, setQueuedKey] = useState<string | null>(null);
+
+  // A flip for this target may already sit in the offline queue when this row
+  // renders (queued, persisted, then restored across a reload — before this
+  // row's own override state existed). Read it live from the queue store:
+  // otherwise the row renders server truth, the queued change is invisible,
+  // and a well-meaning second tap parity-cancels it while the toast still
+  // claims it was saved. The server snapshot is `false` (SSR can't see the
+  // queue), so hydration stays clean and the flip appears right after mount.
+  const pendingKey = fields ? toggleKey(fieldsToFormData(fields)) : null;
+  const hasQueuedFlip = useSyncExternalStore(
+    subscribeQueue,
+    () => (pendingKey ? hasPending(pendingKey) : false),
+    () => false,
+  );
+
   const effectiveDone =
-    override && override.base === done ? override.value : optimisticDone;
+    override && override.base === done
+      ? override.value
+      : hasQueuedFlip
+        ? !done
+        : optimisticDone;
   // Guard against a double-fire (a fast double-tap, or a swipe + the click it
   // would otherwise synthesise).
   const inFlight = useRef(false);
 
+  // If the queued flip's replay genuinely fails on reconnect, drop the sticky
+  // override so the row rolls back to server truth (OfflineQueueSync surfaces
+  // the error toast) — otherwise the row keeps showing a change that never
+  // saved until the next reload.
+  useEffect(() => {
+    const watchKey = queuedKey ?? pendingKey;
+    if (!watchKey) return;
+    return subscribeReplayFailures((key) => {
+      if (key !== watchKey) return;
+      setOverride(null);
+      setQueuedKey(null);
+    });
+  }, [queuedKey, pendingKey]);
+
+  // Latest-render `fire` for the success toast's Undo: the toast's click
+  // handler outlives the render that created it, and re-entering that stale
+  // closure would trip the parity guard (its captured `effectiveDone` already
+  // equals the undo target) — turning every Undo into a no-op.
+  const fireRef = useRef(fire);
+  useEffect(() => {
+    fireRef.current = fire;
+  });
+
   // A hoisted declaration (not useCallback) so the success toast's Undo can
-  // re-enter `fire` to reverse itself. It's only ever called from event
-  // handlers, so a fresh identity per render is fine.
+  // re-enter `fire` (via fireRef) to reverse itself. It's only ever called
+  // from event handlers, so a fresh identity per render is fine.
   function fire(formData: FormData, next: boolean, withUndo: boolean) {
     if (inFlight.current) return;
     // Already in the target state (e.g. swiping "complete" on a done row).
@@ -110,8 +174,8 @@ export function useOptimisticToggle({
             ? {
                 duration: UNDO_GRACE_MS,
                 action: {
-                  label: "Undo",
-                  onClick: () => fire(formData, !next, false),
+                  label: t("common.undo"),
+                  onClick: () => fireRef.current(formData, !next, false),
                 },
               }
             : undefined,
@@ -121,17 +185,22 @@ export function useOptimisticToggle({
         if (isOffline()) {
           // Stash the flip and keep it visible; it replays on reconnect. A
           // second offline tap on the same row cancels it out (parity) — no
-          // double-submit — so mirror that in the sticky override.
-          const stillQueued = queueToggle(
-            toggleKey(formData),
-            () => action(formData),
-            { actionId, fields: formDataToFields(formData) },
-          );
+          // double-submit — so mirror that in the sticky override AND in the
+          // toast: never claim a canceled flip was saved.
+          const key = toggleKey(formData);
+          const stillQueued = queueToggle(key, () => action(formData), {
+            actionId,
+            fields: formDataToFields(formData),
+          });
           setOverride(stillQueued ? { value: next, base: done } : null);
-          toast(OFFLINE_QUEUED_MESSAGE, "info");
+          setQueuedKey(stillQueued ? key : null);
+          toast(
+            t(stillQueued ? "offlineSync.queued" : "offlineSync.queueCanceled"),
+            "info",
+          );
           return; // not a real failure — don't roll back / rethrow
         }
-        toast(errorMessage, "error"); // optimistic value rolls back automatically
+        toast(errorMessage ?? t("common.genericError"), "error"); // optimistic value rolls back automatically
         throw err;
       } finally {
         inFlight.current = false;

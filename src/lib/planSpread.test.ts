@@ -208,6 +208,42 @@ async function main() {
   }
 
   // ===========================================================================
+  // 4b) Regression (review-fold): a topic with ALL study COMPLETED but reviews
+  //     still pending must NOT get study re-scheduled on rebuild. Pending
+  //     reviews used to inflate the topic's "planned" study minutes (reviews
+  //     counted as study effort), making a finished topic look part-unstudied
+  //     and re-spreading ~45% of its study from scratch on heal/rebuild.
+  // ===========================================================================
+  const rf = await seed([
+    { name: "ReviewFold", daysOut: 30, topics: [{ title: "Mastered", effort: 2 }, { title: "Open", effort: 2 }] },
+  ]);
+  {
+    // Complete EVERY study block of "Mastered"; its spaced reviews stay pending.
+    await prisma.studyBlock.updateMany({
+      where: { courseId: rf.ids[0].id, topicTitle: "Mastered", kind: "study" },
+      data: { completed: true },
+    });
+    await rebuildSchedule(rf.userId);
+
+    const blocks = await blocksFor(rf.ids[0].id);
+    const freshMasteredStudy = blocks.filter(
+      (b) => b.topicTitle === "Mastered" && b.kind === "study" && !b.completed,
+    );
+    check(
+      "all-study-done topic gets NO fresh study on rebuild (reviews pending)",
+      freshMasteredStudy.length === 0,
+    );
+    check(
+      "its completed study history survives the rebuild",
+      blocks.some((b) => b.topicTitle === "Mastered" && b.kind === "study" && b.completed),
+    );
+    check(
+      "the untouched topic still has study scheduled",
+      blocks.some((b) => b.topicTitle === "Open" && b.kind === "study" && !b.completed),
+    );
+  }
+
+  // ===========================================================================
   // 5) NEVER schedules past the exam; never emits a non-positive block.
   // ===========================================================================
   const sane = await seed([

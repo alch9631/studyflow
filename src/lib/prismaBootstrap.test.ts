@@ -8,7 +8,11 @@
  * usable default URL, while any explicit DATABASE_URL is always honored.
  * Run: npx tsx src/lib/prismaBootstrap.test.ts
  */
-import { DEFAULT_DATABASE_URL, resolveDatabaseUrl } from "../../scripts/prisma-bootstrap.mjs";
+import {
+  DEFAULT_DATABASE_URL,
+  npxInvocation,
+  resolveDatabaseUrl,
+} from "../../scripts/prisma-bootstrap.mjs";
 
 let passed = 0;
 let failed = 0;
@@ -39,6 +43,20 @@ check(
 // Only `undefined` triggers the fallback (??), so an explicit empty string is
 // left as-is rather than masked — a misconfig should surface, not get papered over.
 check("an explicit empty string is left untouched", resolveDatabaseUrl({ DATABASE_URL: "" }) === "");
+
+// --- npxInvocation: cross-platform spawn contract ---
+// Windows must go through the shell: npx is a .cmd shim, and Node >= 20 throws
+// EINVAL spawning .cmd files without one (CVE-2024-27980 mitigation). Every
+// other platform keeps the direct, shell-less spawn (identical to before).
+{
+  const win = npxInvocation("win32");
+  check("win32 spawns npx through the shell", win.command === "npx" && win.shell === true);
+  const linux = npxInvocation("linux");
+  check("linux keeps the direct shell-less spawn", linux.command === "npx" && linux.shell === false);
+  const mac = npxInvocation("darwin");
+  check("darwin keeps the direct shell-less spawn", mac.command === "npx" && mac.shell === false);
+  check("defaults to the current platform", npxInvocation().shell === (process.platform === "win32"));
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

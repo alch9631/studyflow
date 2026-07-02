@@ -17,6 +17,8 @@ export async function GET() {
         minutes: true,
         topicTitle: true,
         kind: true,
+        startTime: true,
+        endTime: true,
         course: { select: { name: true } },
       },
       orderBy: [{ date: "asc" }, { kind: "asc" }],
