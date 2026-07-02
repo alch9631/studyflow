@@ -358,15 +358,20 @@ async function main() {
       "isSubscriptionResyncNeeded is false for a current-key sub",
       (await isSubscriptionResyncNeeded(checker, freshEp)) === false,
     );
+    // An endpoint the server has no row for is an orphan (e.g. a subscribe
+    // whose save failed): report it as needing a resync so the client
+    // re-subscribes + re-saves instead of claiming "reminders on" forever.
     check(
-      "isSubscriptionResyncNeeded is false for an unknown endpoint",
-      (await isSubscriptionResyncNeeded(checker, "https://push.example/nope")) === false,
+      "isSubscriptionResyncNeeded is TRUE for an unknown endpoint (orphan heals by re-saving)",
+      (await isSubscriptionResyncNeeded(checker, "https://push.example/nope")) === true,
     );
-    // Ownership: another user's stale sub is invisible to this user's check.
+    // Ownership: another user's row is invisible — the endpoint reads exactly
+    // like any unknown endpoint (needs resync), so the check leaks nothing
+    // about other users' subscriptions (stale or fresh).
     const intruder = await makeUser("intruder@studyflow.local");
     check(
-      "isSubscriptionResyncNeeded never probes another user's subscription",
-      (await isSubscriptionResyncNeeded(intruder, staleEp)) === false,
+      "isSubscriptionResyncNeeded treats another user's endpoint as unknown (no probe)",
+      (await isSubscriptionResyncNeeded(intruder, staleEp)) === true,
     );
     disablePush();
     check(

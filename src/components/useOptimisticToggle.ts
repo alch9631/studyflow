@@ -20,11 +20,54 @@ import {
   registerReplayAction,
   subscribe as subscribeQueue,
   subscribeReplayFailures,
+  subscribeReplaySuccess,
   toggleKey,
 } from "./lib/actionQueue";
 
 /** Grace window (ms) during which the success toast offers an Undo. */
 export const UNDO_GRACE_MS = 5000;
+
+/**
+ * Sticky offline overrides, SHARED across every mounted row for the same
+ * target and keyed by the offline queue key (the same key the action queue
+ * collapses parity on). One target can be rendered by several components at
+ * once — e.g. a Today QuietRow and the SessionSheet for the same block. With
+ * per-instance override state, the instance that parity-canceled a queued
+ * flip could only clear ITS copy; the sibling's override survived and
+ * reactivated whenever server truth returned to its base — a phantom done
+ * state driving inverted writes. One shared store keeps all rows coherent.
+ *
+ * While offline, the server `done` prop can't update, so `useOptimistic`
+ * would snap a row back to server truth the moment its failed transition
+ * settles. The override keeps the queued state visible until the replay
+ * lands. It's tagged with the server value it was based on, so it
+ * auto-expires (becomes inert) as soon as a revalidation moves `done` — and a
+ * later genuine server change still wins.
+ */
+type StickyOverride = { value: boolean; base: boolean };
+const stickyOverrides = new Map<string, StickyOverride>();
+const overrideListeners = new Set<() => void>();
+
+function setStickyOverride(key: string, next: StickyOverride | null): void {
+  if (next) stickyOverrides.set(key, next);
+  else if (!stickyOverrides.delete(key)) return; // no change — skip the notify
+  for (const fn of overrideListeners) fn();
+}
+
+function subscribeOverrides(onChange: () => void): () => void {
+  overrideListeners.add(onChange);
+  return () => {
+    overrideListeners.delete(onChange);
+  };
+}
+
+// A queued flip leaving the queue terminally clears its override for EVERY
+// mounted row of that target: after a successful replay server truth is about
+// to revalidate; after a genuine failure the rows must roll back to server
+// truth (OfflineQueueSync surfaces the error toast). Module-level wiring so it
+// also fires when no row is currently mounted.
+subscribeReplaySuccess((key) => setStickyOverride(key, null));
+subscribeReplayFailures((key) => setStickyOverride(key, null));
 
 function isOffline(): boolean {
   return typeof navigator !== "undefined" && navigator.onLine === false;
@@ -93,17 +136,9 @@ export function useOptimisticToggle({
   }, [actionId, action]);
   const [optimisticDone, setOptimisticDone] = useOptimistic(done);
   const [, startTransition] = useTransition();
-  // While offline, the server `done` prop can't update, so `useOptimistic`
-  // would snap the row back to server truth the moment the failed transition
-  // settles. This sticky override keeps the queued state visible until the
-  // replay lands. We tag it with the server value it was based on, so it
-  // auto-expires (becomes inert) as soon as a revalidation moves `done` — no
-  // effect/cleanup needed, and a later genuine server change still wins.
-  const [override, setOverride] = useState<{ value: boolean; base: boolean } | null>(
-    null,
-  );
-  // The queue key of this row's pending offline flip (if any) — lets us react
-  // when its replay later fails for real.
+  // The queue key this row last queued an offline flip under — a fallback for
+  // the shared-override lookup when `fields` isn't provided (or isn't read
+  // from the DOM yet).
   const [queuedKey, setQueuedKey] = useState<string | null>(null);
 
   // A flip for this target may already sit in the offline queue when this row
@@ -120,6 +155,15 @@ export function useOptimisticToggle({
     () => false,
   );
 
+  // The sticky override for this target, read live from the SHARED store so
+  // every mounted row for the same queue key agrees (see stickyOverrides).
+  const overrideKey = queuedKey ?? pendingKey;
+  const override = useSyncExternalStore(
+    subscribeOverrides,
+    () => (overrideKey ? stickyOverrides.get(overrideKey) ?? null : null),
+    () => null,
+  );
+
   const effectiveDone =
     override && override.base === done
       ? override.value
@@ -129,20 +173,6 @@ export function useOptimisticToggle({
   // Guard against a double-fire (a fast double-tap, or a swipe + the click it
   // would otherwise synthesise).
   const inFlight = useRef(false);
-
-  // If the queued flip's replay genuinely fails on reconnect, drop the sticky
-  // override so the row rolls back to server truth (OfflineQueueSync surfaces
-  // the error toast) — otherwise the row keeps showing a change that never
-  // saved until the next reload.
-  useEffect(() => {
-    const watchKey = queuedKey ?? pendingKey;
-    if (!watchKey) return;
-    return subscribeReplayFailures((key) => {
-      if (key !== watchKey) return;
-      setOverride(null);
-      setQueuedKey(null);
-    });
-  }, [queuedKey, pendingKey]);
 
   // Latest-render `fire` for the success toast's Undo: the toast's click
   // handler outlives the render that created it, and re-entering that stale
@@ -164,9 +194,15 @@ export function useOptimisticToggle({
     startTransition(async () => {
       setOptimisticDone(next);
       haptics.tap();
+      // Send the explicit target so the server writes `next` instead of
+      // flipping whatever it reads — two rapid taps can no longer both read
+      // the same "before" state and lose one. toggleKey ignores this field,
+      // so parity-cancel and restored-descriptor matching are unaffected.
+      formData.set("done", String(next));
+      const key = toggleKey(formData);
       try {
         await action(formData);
-        setOverride(null); // server round-trip succeeded — clear any override
+        setStickyOverride(key, null); // server round-trip succeeded — clear any override
         toast(
           next ? doneMessage : undoneMessage,
           "success",
@@ -184,15 +220,16 @@ export function useOptimisticToggle({
         if (isNextControlFlow(err)) throw err; // redirect / notFound — not a failure
         if (isOffline()) {
           // Stash the flip and keep it visible; it replays on reconnect. A
-          // second offline tap on the same row cancels it out (parity) — no
-          // double-submit — so mirror that in the sticky override AND in the
-          // toast: never claim a canceled flip was saved.
-          const key = toggleKey(formData);
+          // second offline tap on the same target cancels it out (parity) —
+          // no double-submit — so mirror that in the sticky override AND in
+          // the toast: never claim a canceled flip was saved. The override
+          // lives in the shared store, so a parity-cancel clears it for
+          // EVERY mounted row of this target, not just the one tapped.
           const stillQueued = queueToggle(key, () => action(formData), {
             actionId,
             fields: formDataToFields(formData),
           });
-          setOverride(stillQueued ? { value: next, base: done } : null);
+          setStickyOverride(key, stillQueued ? { value: next, base: done } : null);
           setQueuedKey(stillQueued ? key : null);
           toast(
             t(stillQueued ? "offlineSync.queued" : "offlineSync.queueCanceled"),

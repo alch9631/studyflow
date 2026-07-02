@@ -68,16 +68,20 @@ async function savePushSubscription(sub: PushSubscription): Promise<boolean> {
 }
 
 /**
- * Key-rollover heal: ask the server (POST /api/push/check) whether this stored
- * subscription is bound to an outdated VAPID key; if so, re-subscribe with the
- * current key and persist the fresh subscription. Best-effort — any failure
- * returns the subscription we still have (possibly null after an unsubscribe)
- * and never blocks the normal UI flow.
+ * Heal loop: ask the server (POST /api/push/check) whether this stored
+ * subscription is bound to an outdated VAPID key OR is an orphan the server
+ * has no row for (a failed save); if so, re-subscribe with the current key and
+ * persist the fresh subscription. Best-effort — a failure never blocks the
+ * normal UI flow — but the return value stays truthful: once the old
+ * subscription has been torn down, a failed replacement reports `null`
+ * (unsubscribed) rather than handing back a dead subscription the UI would
+ * render as "Reminders on".
  */
 async function healStaleSubscription(
   reg: ServiceWorkerRegistration,
   sub: PushSubscription,
 ): Promise<PushSubscription | null> {
+  let unsubscribed = false;
   try {
     const res = await fetch("/api/push/check", {
       method: "POST",
@@ -87,14 +91,25 @@ async function healStaleSubscription(
     if (!res.ok) return sub;
     const data = (await res.json()) as { needsResync?: boolean };
     if (!data.needsResync) return sub;
-    // Bound to a dead key — it can never receive our pushes again. Replace it:
-    // a subscription can't be re-keyed in place, so unsubscribe first.
+    // Bound to a dead key (or unknown to the server) — it can never receive
+    // our pushes. Replace it: a subscription can't be re-keyed in place, so
+    // unsubscribe first.
     await sub.unsubscribe();
+    unsubscribed = true;
     const fresh = await subscribeWithCurrentKey(reg);
-    await savePushSubscription(fresh);
+    if (!(await savePushSubscription(fresh))) {
+      // The server never learned of the fresh subscription — drop it rather
+      // than leave an orphan claiming "on" with no server row behind it.
+      await fresh.unsubscribe().catch(() => {});
+      return null;
+    }
     return fresh;
   } catch {
-    return sub;
+    // If the old subscription was already torn down it can't receive anything
+    // anymore — returning it would render a false "Reminders on". (A fresh
+    // browser subscription orphaned here self-heals on the next mount: the
+    // check endpoint reports unknown endpoints as needing a resync.)
+    return unsubscribed ? null : sub;
   }
 }
 
@@ -194,7 +209,12 @@ export default function PushReminders() {
       }
       const reg = await navigator.serviceWorker.ready;
       const sub = await subscribeWithCurrentKey(reg);
-      if (!(await savePushSubscription(sub))) {
+      const saved = await savePushSubscription(sub).catch(() => false);
+      if (!saved) {
+        // Don't leave the just-created browser subscription standing: the
+        // server has no row for it, so later mounts would read it back and
+        // claim "Reminders on" while nothing can ever be delivered.
+        await sub.unsubscribe().catch(() => {});
         throw new Error(t("pushReminders.saveFailed"));
       }
       setSubscribed(true);
@@ -215,11 +235,17 @@ export default function PushReminders() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch("/api/push/unsubscribe", {
+        const res = await fetch("/api/push/unsubscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: sub.endpoint }),
         });
+        if (!res.ok) {
+          // Proceed anyway: unsubscribing locally still stops notifications on
+          // this device, and the orphaned server row self-heals — its next
+          // send is rejected by the push service and pruned.
+          console.warn("Push unsubscribe was not acknowledged by the server");
+        }
         await sub.unsubscribe();
       }
       setSubscribed(false);

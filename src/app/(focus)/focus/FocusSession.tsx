@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
@@ -49,6 +49,45 @@ function readFocusMin(): number {
   return DEFAULT_FOCUS_MIN;
 }
 
+/** Never notifies — pairs with useSyncExternalStore as a pure hydration flag. */
+const emptySubscribe = () => () => {};
+
+/** sessionStorage key for an in-progress session (survives client-side nav). */
+const SESSION_STATE_KEY = "sf-focus-session";
+
+type SavedSession = {
+  blockId: string;
+  phase: Phase;
+  elapsedSec: number;
+  /** Wall-clock time of the save, so a running clock keeps counting away. */
+  at: number;
+};
+
+/** Read a persisted session for `blockId`, advancing a running clock. */
+function readSession(blockId: string): { phase: Phase; elapsedSec: number } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STATE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Partial<SavedSession>;
+    if (
+      s.blockId !== blockId ||
+      (s.phase !== "running" && s.phase !== "resting") ||
+      typeof s.elapsedSec !== "number" ||
+      typeof s.at !== "number"
+    ) {
+      return null;
+    }
+    let elapsedSec = Math.max(0, Math.floor(s.elapsedSec));
+    // Deadline-based math: a running clock kept counting while we were away.
+    if (s.phase === "running") {
+      elapsedSec += Math.max(0, Math.floor((Date.now() - s.at) / 1000));
+    }
+    return { phase: s.phase, elapsedSec };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Distraction-free Focus island: ONE task, a big timer, quick notes, and a
  * single state-driven control pair — rendered as a full-screen overlay (fixed
@@ -81,6 +120,51 @@ export default function FocusSession({
   // Pomodoro's own countdown, which keeps doing the sprint timing + logging).
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsedSec, setElapsedSec] = useState(0);
+
+  // Restore an in-progress session lost to client-side navigation (this is all
+  // component state, so an unmount would otherwise silently reset the session
+  // to idle while the embedded Pomodoro sprint kept running). Done during
+  // render once hydration allows it (the adjust-state-during-render pattern —
+  // the server HTML must show the idle default). If the focus length elapsed
+  // while away, land on "resting" so "Mark session done" is offered instead
+  // of a clock that overshot.
+  const hydrated = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+  const [restoredSession, setRestoredSession] = useState(false);
+  if (hydrated && !restoredSession) {
+    setRestoredSession(true);
+    const saved = readSession(block.id);
+    if (saved) {
+      const finished =
+        saved.phase === "running" && saved.elapsedSec >= readFocusMin() * 60;
+      setElapsedSec(saved.elapsedSec);
+      setPhase(finished ? "resting" : saved.phase);
+    }
+  }
+
+  // Mirror the live session to sessionStorage so navigating away and back
+  // keeps the clock honest. Removed only on an active→idle transition (e.g. a
+  // reopened block starting fresh): surviving state means "still mid-session".
+  const hadSession = useRef(false);
+  useEffect(() => {
+    try {
+      if (phase !== "idle") {
+        const state: SavedSession = {
+          blockId: block.id,
+          phase,
+          elapsedSec,
+          at: Date.now(),
+        };
+        sessionStorage.setItem(SESSION_STATE_KEY, JSON.stringify(state));
+      } else if (hadSession.current) {
+        sessionStorage.removeItem(SESSION_STATE_KEY);
+      }
+      hadSession.current = phase !== "idle";
+    } catch {}
+  }, [phase, elapsedSec, block.id]);
 
   const { optimisticDone, fire } = useOptimisticToggle({
     action: toggleBlock,

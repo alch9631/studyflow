@@ -149,9 +149,15 @@ export function subscriptionNeedsResync(
 /**
  * Does the current user's stored subscription for `endpoint` need a client-side
  * re-sync? Backs the re-validate-on-load check (POST /api/push/check). Scoped to
- * the owner so it can never probe another user's subscriptions; an unknown or
- * unowned endpoint is reported as not-stale (the normal subscribe flow handles
- * brand-new subscriptions).
+ * the owner so it can never probe another user's subscriptions.
+ *
+ * An endpoint the server has no row for (for THIS user) also needs a re-sync:
+ * the browser is holding a subscription the server never learned of — e.g. a
+ * subscribe whose save failed after the browser subscription was created —
+ * which would otherwise claim "reminders on" forever while nothing can be
+ * delivered. Reporting `true` makes the client re-subscribe + re-save, healing
+ * the orphan. Unknown and unowned endpoints answer identically, so the check
+ * leaks nothing about other users' rows.
  */
 export async function isSubscriptionResyncNeeded(
   userId: string,
@@ -163,7 +169,8 @@ export async function isSubscriptionResyncNeeded(
     where: { endpoint, userId },
     select: { vapidKey: true },
   });
-  return subscriptionNeedsResync(sub?.vapidKey ?? null, currentKey);
+  if (!sub) return true; // orphan: no server row — re-subscribe + re-save heals it
+  return subscriptionNeedsResync(sub.vapidKey, currentKey);
 }
 
 /** A dead-subscription HTTP status from the Push service — safe to prune. */

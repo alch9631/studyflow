@@ -54,11 +54,20 @@ type StorageLike = {
 const STORAGE_KEY = "studyflow.offlineQueue.v1";
 
 const queue: QueuedToggle[] = [];
+/**
+ * Items lifted out of the in-memory queue but not yet terminal — mid-replay,
+ * or deferred within a drain until their action registers. Kept in persisted
+ * storage so a reload during an in-flight replay can't silently lose the
+ * change; dropped only once the replay lands (or genuinely fails).
+ */
+let held: QueuedToggle[] = [];
 let draining = false;
 let onReplayError: ((key: string, error: unknown) => void) | null = null;
 const listeners = new Set<(count: number) => void>();
 /** Per-key replay-failure listeners (rows roll back their sticky override). */
 const failureListeners = new Set<(key: string, error: unknown) => void>();
+/** Per-key replay-success listeners (rows clear their sticky override). */
+const successListeners = new Set<(key: string) => void>();
 /** Maps a descriptor's `actionId` back to the live server action to replay. */
 const actionRegistry = new Map<string, ServerAction>();
 
@@ -91,7 +100,8 @@ function persist(): void {
   const storage = getStorage();
   if (!storage) return;
   try {
-    const entries = queue
+    // `held` items are mid-replay/deferred, not terminal — keep them stored.
+    const entries = [...held, ...queue]
       .filter((t): t is QueuedToggle & { descriptor: ToggleDescriptor } =>
         t.descriptor !== undefined,
       )
@@ -174,7 +184,8 @@ export function restoreQueue(): void {
     ) {
       continue;
     }
-    if (queue.some((t) => t.key === entry.key)) continue; // dedupe
+    if (queue.some((t) => t.key === entry.key) || held.some((t) => t.key === entry.key))
+      continue; // dedupe (queued or mid-replay)
     const descriptor: ToggleDescriptor = {
       actionId: entry.actionId,
       fields: entry.fields as Record<string, string>,
@@ -199,10 +210,17 @@ function isOffline(): boolean {
   return !onlineProbe();
 }
 
-/** Build a stable, order-independent key from a toggle form's fields. */
+/**
+ * Build a stable, order-independent key from a toggle form's fields.
+ *
+ * The explicit target field ("done") is excluded: opposite flips of the same
+ * row must share a key so they parity-cancel, and a restored descriptor
+ * (which persists the field) must match a live row's key (computed without it).
+ */
 export function toggleKey(formData: FormData): string {
   const parts: string[] = [];
   for (const [name, value] of formData.entries()) {
+    if (name === "done") continue;
     parts.push(`${name}=${typeof value === "string" ? value : "(file)"}`);
   }
   return parts.sort().join("&");
@@ -243,6 +261,7 @@ export function hasPending(key: string): boolean {
 /** Reset the queue (used by tests). */
 export function clearQueue(): void {
   queue.length = 0;
+  held = [];
   draining = false;
   notify();
 }
@@ -278,6 +297,22 @@ export function subscribeReplayFailures(
 }
 
 /**
+ * Subscribe to successful replays of queued toggles. Lets the optimistic layer
+ * drop its sticky per-key override the moment the queued flip actually lands
+ * (server truth revalidates right after), instead of holding the override
+ * forever and having it reactivate whenever `done` later returns to its base.
+ * Returns an unsubscribe fn.
+ */
+export function subscribeReplaySuccess(
+  listener: (key: string) => void,
+): () => void {
+  successListeners.add(listener);
+  return () => {
+    successListeners.delete(listener);
+  };
+}
+
+/**
  * Replay queued toggles in FIFO order. Re-entrant calls are ignored — a single
  * drain runs at a time, so a reconnect storm can't double-submit. A replay that
  * throws because we've gone offline again is put back and the drain stops; any
@@ -295,6 +330,10 @@ export async function flushQueue(): Promise<void> {
   try {
     while (queue.length > 0) {
       const item = queue.shift()!;
+      // The item leaves the in-memory queue but stays in persisted storage
+      // (via `held`) until its replay lands — a reload during the in-flight
+      // request must not silently lose the change.
+      held.push(item);
       notify();
       if (item.descriptor && !actionRegistry.has(item.descriptor.actionId)) {
         deferred.push(item); // can't replay yet — keep for when it registers
@@ -302,22 +341,38 @@ export async function flushQueue(): Promise<void> {
       }
       try {
         await item.replay();
+        held = held.filter((t) => t !== item);
+        persist(); // replay landed — now safe to drop it from storage
+        for (const fn of successListeners) fn(item.key);
       } catch (error) {
+        held = held.filter((t) => t !== item);
         if (isOffline()) {
           queue.unshift(item); // still offline — keep it for next reconnect
           notify();
           return;
         }
+        persist(); // genuinely failed — dropped (listeners roll the UI back)
         onReplayError?.(item.key, error);
         for (const fn of failureListeners) fn(item.key, error);
       }
     }
   } finally {
     if (deferred.length > 0) {
+      held = held.filter((t) => !deferred.includes(t));
       queue.unshift(...deferred);
       notify();
     }
     draining = false;
+  }
+  // Work queued or registered mid-drain hit the `draining` guard and would
+  // otherwise stall until the next `online` event — run another drain now if
+  // anything replayable is waiting. (Items whose action still isn't
+  // registered don't count: re-flushing them would just loop the deferral.)
+  if (
+    onlineProbe() &&
+    queue.some((t) => !t.descriptor || actionRegistry.has(t.descriptor.actionId))
+  ) {
+    void flushQueue();
   }
 }
 

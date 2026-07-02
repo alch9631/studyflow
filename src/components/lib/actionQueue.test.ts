@@ -17,6 +17,7 @@ import {
   registerReplayAction,
   formDataToFields,
   fieldsToFormData,
+  subscribeReplaySuccess,
   __setConnectivityProbe,
   __setStorage,
 } from "./actionQueue";
@@ -270,6 +271,78 @@ async function main() {
   await flushQueue();
   check("it replays once the action registers", replayed.includes("late:b2"));
   check("queue is empty after the late replay", pendingCount() === 0);
+
+  // ---- an in-flight replay stays persisted until it lands (reload-safety) ---
+  clearQueue();
+  __setConnectivityProbe(() => true);
+  const inflightStore = fakeStorage();
+  __setStorage(inflightStore);
+  registerReplayAction("inflightAction", () => {}); // queue empty → no auto-flush
+  let releaseInflight: () => void = () => {};
+  const inflightGate = new Promise<void>((r) => {
+    releaseInflight = r;
+  });
+  queueToggle("blk:if1", () => inflightGate, {
+    actionId: "inflightAction",
+    fields: { blockId: "if1" },
+  });
+  const inflightFlush = flushQueue(); // starts replaying, awaits the gate
+  check("an in-flight replay is no longer pending", pendingCount() === 0);
+  check(
+    "an in-flight replay stays in persisted storage (a reload can't lose it)",
+    (inflightStore.getItem(STORAGE_KEY) ?? "").includes("if1"),
+  );
+  releaseInflight();
+  await inflightFlush;
+  check(
+    "a landed replay is dropped from persisted storage",
+    !(inflightStore.getItem(STORAGE_KEY) ?? "").includes("if1"),
+  );
+
+  // ---- success subscribers hear a landed replay (override-clear hook) -------
+  clearQueue();
+  const successKeys: string[] = [];
+  const unsubSuccess = subscribeReplaySuccess((key) => successKeys.push(key));
+  queueToggle("ok1", () => {});
+  await flushQueue();
+  check("success subscriber fired for the landed key", successKeys.join(",") === "ok1");
+  unsubSuccess();
+  queueToggle("ok2", () => {});
+  await flushQueue();
+  check("unsubscribed success listener stays silent", successKeys.join(",") === "ok1");
+
+  // ---- a deferral re-queued by a drain flushes once it can replay -----------
+  // registerReplayAction DURING a drain hits the `draining` guard, so the
+  // drain itself must schedule the follow-up flush — otherwise the restored
+  // item stalls until the next `online` event.
+  clearQueue();
+  const lateStore = fakeStorage();
+  __setStorage(lateStore);
+  lateStore.setItem(
+    STORAGE_KEY,
+    JSON.stringify([
+      { key: "blk:late1", actionId: "lateDrainAction", fields: { blockId: "late1" } },
+    ]),
+  );
+  restoreQueue(); // "blk:late1" can't replay yet — its action isn't registered
+  let releaseSlow: () => void = () => {};
+  const slowGate = new Promise<void>((r) => {
+    releaseSlow = r;
+  });
+  queueToggle("slow2", () => slowGate); // keeps the drain open past the deferral
+  const lateReplayed: string[] = [];
+  const drain = flushQueue(); // defers late1, then awaits slow2's gate
+  registerReplayAction("lateDrainAction", (fd) => {
+    lateReplayed.push(String(fd.get("blockId")));
+  }); // its own flushQueue() hits the draining guard
+  releaseSlow();
+  await drain;
+  await new Promise((r) => setTimeout(r, 0)); // let the follow-up drain settle
+  check(
+    "a deferred toggle replays right after the drain (no stall until next online)",
+    lateReplayed.join(",") === "late1",
+  );
+  check("the follow-up drain empties the queue", pendingCount() === 0);
 
   __setStorage(null);
   __setConnectivityProbe(null);

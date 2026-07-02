@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
  * The client posts the endpoint of its current browser subscription; we answer
  * whether that subscription is still usable or must be re-synced (re-subscribed)
  * because it was registered against a different VAPID key — the key-rollover
- * case (created while push was unconfigured, or before a key rotation). The
- * client re-subscribes when `needsResync` is true and POSTs the fresh
- * subscription to /api/push/subscribe, which heals the stored row.
+ * case (created while push was unconfigured, or before a key rotation) — or
+ * because the server has no row for it at all (an orphan left by a failed
+ * save). The client re-subscribes when `needsResync` is true and POSTs the
+ * fresh subscription to /api/push/subscribe, which heals the stored row.
  *
  * Scoped to the current user (never probes another user's subscriptions) and
  * shares the per-user PUSH rate-limit budget. Leaks nothing but two booleans.

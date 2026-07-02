@@ -171,9 +171,11 @@ async function main() {
     const clientBody = (await clientRes.json()) as { needsResync?: boolean };
     check("check flags a client-bound outdated key as needsResync", clientBody.needsResync === true);
 
+    // An unknown endpoint is an orphan (browser subscription without a server
+    // row, e.g. a failed save) — it must be flagged so the client re-saves.
     const unknownRes = await checkPOST(jsonPost({ endpoint: "https://example.com/never-stored" }));
     const unknownBody = (await unknownRes.json()) as { needsResync?: boolean };
-    check("check reports an unknown endpoint as not needing resync", unknownBody.needsResync === false);
+    check("check flags an unknown endpoint (orphan) as needsResync", unknownBody.needsResync === true);
   }
 
   // --- check: missing endpoint is a clean 400 (validation reached, not 429).

@@ -28,6 +28,8 @@ const FOCUS_KEY = "sf-focus-min";
 const BREAK_KEY = "sf-break-min";
 const DEFAULT_FOCUS = 25;
 const DEFAULT_BREAK = 5;
+/** sessionStorage key for a running timer (survives client-side navigation). */
+const TIMER_STATE_KEY = "sf-timer-state";
 
 /** Read a persisted minute setting (1–180), guarded for SSR. */
 function readMin(key: string, def: number): number {
@@ -37,6 +39,42 @@ function readMin(key: string, def: number): number {
     if (!Number.isNaN(v) && v >= 1 && v <= 180) return v;
   } catch {}
   return def;
+}
+
+/** The persisted shape of a running timer (only running timers are saved). */
+type SavedTimer = {
+  /** Wall-clock deadline of the current phase. */
+  endAt: number;
+  mode: "focus" | "break";
+  cycles: number;
+  /** Planned length of the running/last sprint (see sprintMinRef). */
+  sprintMin: number;
+};
+
+/** Seconds remaining until a wall-clock deadline (negative once passed). */
+function remainingSec(endAt: number): number {
+  return Math.ceil((endAt - Date.now()) / 1000);
+}
+
+/** Read (and validate) the persisted running-timer state, if any. */
+function readTimerState(): SavedTimer | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(TIMER_STATE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Partial<SavedTimer>;
+    if (
+      typeof s.endAt !== "number" ||
+      (s.mode !== "focus" && s.mode !== "break") ||
+      typeof s.cycles !== "number" ||
+      typeof s.sprintMin !== "number"
+    ) {
+      return null;
+    }
+    return { endAt: s.endAt, mode: s.mode, cycles: s.cycles, sprintMin: s.sprintMin };
+  } catch {
+    return null;
+  }
 }
 
 const PRESETS = [
@@ -105,6 +143,63 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
     loggableRef.current = loggable;
   });
 
+  // Planned length of the sprint that's actually RUNNING — captured when a
+  // sprint starts (and on each break→focus rollover), not read live from the
+  // settings when it completes: changing 25→50 mid-sprint must not log a 50
+  // for the 25 that ran (that would poison adaptive pacing and could
+  // auto-complete blocks early).
+  const sprintMinRef = useRef(focusMin);
+
+  // Restore a sprint that was running when this component last unmounted —
+  // client-side navigation drops component state, so without this a running
+  // sprint was silently lost (durations persisted, the clock didn't). Done
+  // during render once hydration allows it (the adjust-state-during-render
+  // pattern, same as the clock's own storage-backed durations): the server
+  // HTML must show the idle default, and the restored clock appears on the
+  // first post-hydration render. The deadline survives as wall-clock time;
+  // the running effect's immediate sync() rolls over any phases that
+  // completed while away (including offering to log a finished sprint).
+  const [restoredTimer, setRestoredTimer] = useState(false);
+  if (hydrated && !restoredTimer) {
+    setRestoredTimer(true);
+    const s = readTimerState();
+    if (s) {
+      setMode(s.mode);
+      setCycles(s.cycles);
+      setLeft(remainingSec(s.endAt));
+      setRunning(true);
+    }
+  }
+
+  // The restored sprint's planned length goes into a ref, and refs must not
+  // be written during render — apply it in a one-shot effect instead. It runs
+  // before the persist effect below, while the saved state is still stored.
+  useEffect(() => {
+    const s = readTimerState();
+    if (s) sprintMinRef.current = s.sprintMin;
+  }, []);
+
+  // Mirror the running timer to sessionStorage so navigation can't lose it.
+  // Removed only on the running→paused transition (pause/reset): surviving
+  // state means "was still running", which the next mount restores.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    try {
+      if (running) {
+        const state: SavedTimer = {
+          endAt: Date.now() + left * 1000,
+          mode,
+          cycles,
+          sprintMin: sprintMinRef.current,
+        };
+        sessionStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
+      } else if (wasRunning.current) {
+        sessionStorage.removeItem(TIMER_STATE_KEY);
+      }
+      wasRunning.current = running;
+    } catch {}
+  }, [running, left, mode, cycles]);
+
   useEffect(() => {
     if (!running) return;
     // Deadline-based countdown: derive what's left from a wall-clock target on
@@ -112,6 +207,13 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
     // ticks. Background tabs and a suspended iOS PWA throttle or pause timers,
     // which froze a tick-decrementing clock; wall-clock math stays honest.
     let endAt = Date.now() + leftRef.current * 1000;
+    // A freshly-started focus sprint runs at the current focus setting; a
+    // resumed or restored one keeps the length it was planned with (a pause +
+    // duration change resets `left` to the new full length, so this stays
+    // truthful).
+    if (modeRef.current === "focus" && leftRef.current === focusRef.current * 60) {
+      sprintMinRef.current = focusRef.current;
+    }
     const sync = () => {
       let remaining = Math.ceil((endAt - Date.now()) / 1000);
       // Roll over any phase boundaries the suspended clock slept through,
@@ -122,9 +224,11 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
           setMode("break");
           modeRef.current = "break";
           endAt += breakRef.current * 60 * 1000;
-          // Sprint done → offer to log it against a Today block (if any are open).
+          // Sprint done → offer to log it against a Today block (if any are
+          // open) — crediting the minutes the sprint was PLANNED with, not
+          // whatever the focus setting happens to be now.
           if (loggableRef.current.length > 0) {
-            setLogMinutes(focusRef.current);
+            setLogMinutes(sprintMinRef.current);
             setLogEpisode((n) => n + 1);
             setLogOpen(true);
           }
@@ -132,11 +236,15 @@ export default function PomodoroTimer({ blocks = [] }: { blocks?: TimerBlock[] }
           setMode("focus");
           modeRef.current = "focus";
           endAt += focusRef.current * 60 * 1000;
+          sprintMinRef.current = focusRef.current; // the new sprint's planned length
         }
         remaining = Math.ceil((endAt - Date.now()) / 1000);
       }
       setLeft(remaining);
     };
+    // Sync once immediately: a restored deadline may already have passed
+    // while we were away — complete it gracefully now, not a tick later.
+    sync();
     const id = setInterval(sync, 1000);
     const onVisibility = () => {
       if (!document.hidden) sync();
