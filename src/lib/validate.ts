@@ -22,6 +22,14 @@ export class ValidationError extends Error {
 
 const MAX_TEXT = 200_000; // generous cap for pasted syllabi / module text
 
+/**
+ * Per-topic title cap, shared by every path that creates topics (pasted lines,
+ * AI-extracted syllabi/analyses). Titles are denormalized into every
+ * StudyBlock.topicTitle and the ICS export, so one unbounded line would be
+ * copied into every scheduled session.
+ */
+export const MAX_TOPIC_TITLE_LENGTH = 300;
+
 /** Trim a FormData/body string field; returns "" when missing. */
 export function str(value: FormDataEntryValue | null | undefined): string {
   return typeof value === "string" ? value.trim() : "";
@@ -91,9 +99,23 @@ export function isValidISODate(iso: string): boolean {
 }
 
 /**
+ * How far into the future a user-supplied date may lie. Every date the app
+ * accepts (exam dates, due dates, block days) drives day-by-day scheduling, so
+ * an unbounded value like 9999-12-31 would trigger massive date enumeration
+ * downstream. ~2 years comfortably covers any real degree planning horizon.
+ */
+export const MAX_DATE_YEARS_AHEAD = 2;
+
+/** Latest acceptable ISO date: `todayISO` shifted MAX_DATE_YEARS_AHEAD years. */
+function maxFutureISO(todayISO: string): string {
+  return `${Number(todayISO.slice(0, 4)) + MAX_DATE_YEARS_AHEAD}${todayISO.slice(4)}`;
+}
+
+/**
  * The canonical "date-reject" check. Validates a YYYY-MM-DD field:
  *  - throws if blank (when required) or malformed
  *  - throws if it's before `todayISO` and `allowPast` is false
+ *  - throws if it's more than {@link MAX_DATE_YEARS_AHEAD} years ahead
  * Returns the ISO string (caller turns it into a UTC Date with `+"T00:00:00Z"`).
  */
 export function requireDate(
@@ -107,6 +129,9 @@ export function requireDate(
   if (!isValidISODate(iso)) throw new ValidationError(`Invalid ${label.toLowerCase()}.`);
   if (!opts.allowPast && iso < todayISO) {
     throw new ValidationError(`${label} can't be in the past.`);
+  }
+  if (iso > maxFutureISO(todayISO)) {
+    throw new ValidationError(`${label} is too far in the future.`);
   }
   return iso;
 }
@@ -172,7 +197,9 @@ export function clampInt(
 
 /**
  * Parse an optional grade in [min, max] (German scale 1.0–5.0). Accepts comma
- * decimals. Returns null when blank OR out of range (clearing the grade).
+ * decimals. Returns null only when blank (an intentional clear); throws
+ * ValidationError when a value is present but unparseable or out of range, so
+ * a typo (e.g. "6") is rejected instead of silently wiping the stored grade.
  */
 export function parseGrade(
   value: FormDataEntryValue | null | undefined,
@@ -182,7 +209,9 @@ export function parseGrade(
   const raw = str(value).replace(",", ".");
   if (!raw) return null;
   const n = parseFloat(raw);
-  if (Number.isNaN(n) || n < min || n > max) return null;
+  if (Number.isNaN(n) || n < min || n > max) {
+    throw new ValidationError(`Grade must be between ${min} and ${max}.`);
+  }
   return n;
 }
 

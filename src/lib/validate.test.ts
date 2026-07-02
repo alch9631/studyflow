@@ -89,6 +89,18 @@ check(
   "requireDate allowPast lets past through",
   requireDate("2020-01-01", "Due date", TODAY, { allowPast: true }) === "2020-01-01",
 );
+// Upper bound: ~2 years ahead. Unbounded dates (9999-12-31) would trigger
+// massive date enumeration in the scheduler.
+check(
+  "requireDate accepts the +2y boundary",
+  requireDate("2028-06-07", "Exam date", TODAY) === "2028-06-07",
+);
+check("requireDate rejects just past +2y", throws(() => requireDate("2028-06-08", "Exam date", TODAY)));
+check("requireDate rejects far future", throws(() => requireDate("9999-12-31", "Exam date", TODAY)));
+check(
+  "requireDate far-future rejected even with allowPast",
+  throws(() => requireDate("9999-12-31", "Due date", TODAY, { allowPast: true })),
+);
 
 // optionalDate
 check("optionalDate blank = null", optionalDate("", "Exam date", TODAY) === null);
@@ -123,12 +135,14 @@ check("clamps low", clampInt("-5", 1, 600, 25) === 1);
 check("default on NaN", clampInt("", 1, 600, 25) === 25);
 check("passes valid", clampInt("42", 1, 600, 25) === 42);
 
-// parseGrade
+// parseGrade — blank clears (null); an invalid value throws instead of
+// silently wiping the stored grade.
 check("valid grade", parseGrade("1.7") === 1.7);
 check("comma decimal", parseGrade("2,3") === 2.3);
 check("blank = null", parseGrade("") === null);
-check("out of range = null", parseGrade("6") === null);
-check("below range = null", parseGrade("0.5") === null);
+check("out of range throws", throws(() => parseGrade("6")));
+check("below range throws", throws(() => parseGrade("0.5")));
+check("garbage throws", throws(() => parseGrade("abc")));
 
 // ── payload size guards ──────────────────────────────────────────────────────
 

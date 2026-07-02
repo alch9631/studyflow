@@ -59,10 +59,23 @@ async function shiftBlocksToTomorrow(
       course: { userId },
       ...(where.kind ? { kind: where.kind } : {}),
     },
-    select: { id: true, date: true, startTime: true, endTime: true },
+    select: {
+      id: true,
+      date: true,
+      startTime: true,
+      endTime: true,
+      course: { select: { examDate: true } },
+    },
   });
+  let moved = 0;
   for (const b of blocks) {
     const next = new Date(b.date.getTime() + 86400_000);
+    // Never push work onto or past its course's exam day — the scheduler's
+    // "everything lands before the exam" invariant. A block that can't legally
+    // move simply stays on today (still visible, still doable) rather than
+    // being dropped or scheduled after the exam. Both dates are UTC midnight,
+    // so a plain timestamp compare is exact.
+    if (next.getTime() >= b.course.examDate.getTime()) continue;
     // Keep the time-of-day in sync with the day shift. The calendar derives a
     // timed block's column from startTime, so shifting only `date` would desync
     // it (gone from /today, still rendered in today's calendar column). Re-place
@@ -79,8 +92,9 @@ async function shiftBlocksToTomorrow(
       where: { id: b.id },
       data: { date: next, startTime, endTime },
     });
+    moved++;
   }
-  return blocks.length;
+  return moved;
 }
 
 /**

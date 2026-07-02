@@ -32,6 +32,7 @@ import {
   clampInt,
   parseGrade,
   isValidISODate,
+  MAX_TOPIC_TITLE_LENGTH,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 import { checkBlockTimes, instantToDayMinutes, instantToDayISO, dayMinutesToInstant } from "@/lib/calendarTime";
@@ -66,6 +67,44 @@ function rateLimitOK(category: RateLimitCategory, key: string): boolean {
   }
 }
 
+/**
+ * Spend `n` tokens from a category's budget — one per paid model call the
+ * follow-up work makes (e.g. `aiOptimizeCourse` = optimize + self-tests = 2).
+ * Returns false as soon as the budget runs dry; tokens already taken stay
+ * spent, which errs on the cheap side for the next caller.
+ */
+function rateLimitOKTimes(category: RateLimitCategory, key: string, n: number): boolean {
+  for (let i = 0; i < n; i++) {
+    if (!rateLimitOK(category, key)) return false;
+  }
+  return true;
+}
+
+/**
+ * Sanitize the form-provided `revalidate` path. Forms only ever send the app
+ * routes below; anything else (a tampered field) falls back to `fallback` so
+ * user input can never revalidate arbitrary cache paths.
+ */
+function safeRevalidatePath(raw: string, fallback: string): string {
+  if (raw === "/today" || raw === "/calendar" || /^\/courses\/[\w-]{1,200}$/.test(raw)) {
+    return raw;
+  }
+  return fallback;
+}
+
+/**
+ * Resolve a toggle's target state. Prefers the client's explicit `done` field
+ * (the optimistic layer knows the intended state, so two rapid taps each carry
+ * their own intent instead of racing a read-modify-write flip that loses one);
+ * falls back to flipping the stored value for callers that don't send it.
+ */
+function toggleTarget(formData: FormData, current: boolean): boolean {
+  const raw = str(formData.get("done"));
+  if (raw === "true" || raw === "1") return true;
+  if (raw === "false" || raw === "0") return false;
+  return !current;
+}
+
 /** Create a course (+ its topics) and generate the first plan. */
 export async function createCourse(formData: FormData) {
   const userId = await getCurrentUserId();
@@ -76,9 +115,12 @@ export async function createCourse(formData: FormData) {
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
   // Difficulty dial: integer 1–5, defaulting to 3 (normal) when missing/invalid.
   const difficulty = clampInt(formData.get("difficulty"), 1, 5, 3);
+  // Per-line title cap (same bound the AI extraction paths apply): titles are
+  // denormalized into every StudyBlock.topicTitle + the ICS export, so one
+  // unbounded pasted line must never become a 200k-char title.
   const topicLines = longText(formData.get("topics"))
     .split("\n")
-    .map((l) => l.trim())
+    .map((l) => l.trim().slice(0, MAX_TOPIC_TITLE_LENGTH))
     .filter(Boolean)
     .slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
 
@@ -99,12 +141,17 @@ export async function createCourse(formData: FormData) {
   });
 
   await regeneratePlan(course.id);
-  // Auto AI-optimize once (difficulty/order/review). Safe to fail — the
-  // deterministic plan already exists — but log so the failure isn't invisible.
-  try {
-    await aiOptimizeCourse(course.id);
-  } catch (e) {
-    logActionError("createCourse.aiOptimize", e);
+  // Auto AI-optimize once (difficulty/order/review) — 2 paid model calls, so it
+  // must spend from the AI budget like addFromCatalog does, not ride in under
+  // the cheaper COURSE_WRITE check. Out of budget → skip the bonus (the
+  // deterministic plan already exists). Safe to fail — but log so the failure
+  // isn't invisible.
+  if (isSyllabusAIEnabled() && rateLimitOKTimes("AI", userId, 2)) {
+    try {
+      await aiOptimizeCourse(course.id);
+    } catch (e) {
+      logActionError("createCourse.aiOptimize", e);
+    }
   }
   redirect(`/courses/${course.id}`);
 }
@@ -138,9 +185,16 @@ export async function addFromCatalog(formData: FormData) {
     "courses",
   );
   const aiOn = isSyllabusAIEnabled();
-  // Fallback when a module has no published exam date (seminars, labs, electives).
-  const defaultExam = new Date(Date.now() + 84 * 86400_000);
+  // Fallback when a module has no published exam date (seminars, labs,
+  // electives) — UTC midnight of today's Berlin calendar day + 12 weeks, like
+  // every other stored exam date (a raw Date.now() would keep the time-of-day
+  // and render on different days in different views near midnight).
+  const defaultExam = new Date(toUTCDate(todayISO()).getTime() + 84 * 86400_000);
 
+  // Phase 1 — the paid AI extractions, OUTSIDE the transaction (a network call
+  // must never hold a write transaction open). Each module's topics are
+  // prepared up front so phase 2 is a pure batch of writes.
+  const prepared: { name: string; examDate: Date; ects: number; code: string; topics: { title: string; effort: number }[] }[] = [];
   for (const t of templates) {
     let topics: { title: string; effort: number }[] = [];
     // Each extraction is a paid LLM call, so a bulk add must spend from the AI
@@ -164,20 +218,45 @@ export async function addFromCatalog(formData: FormData) {
         effort: 1,
       }));
     }
+    prepared.push({ name: t.name, examDate: t.examDate ?? defaultExam, ects: t.ects, code: t.code, topics });
+  }
 
-    const course = await prisma.course.create({
-      data: {
-        name: t.name,
-        examDate: t.examDate ?? defaultExam,
-        minutesPerDay: 120,
-        studyDays: "1,2,3,4,5",
-        ects: t.ects,
-        sourceCode: t.code,
-        userId,
-        topics: { create: topics.map((tp, i) => ({ title: tp.title, effort: tp.effort, order: i })) },
-      },
+  // Phase 2 — create the whole batch in ONE transaction: a mid-batch failure
+  // must not leave half the modules imported (a resubmit would then duplicate
+  // the committed half). On failure, redirect with a msg instead of surfacing
+  // the raw error.
+  let createdIds: string[] = [];
+  try {
+    createdIds = await prisma.$transaction(async (tx) => {
+      const ids: string[] = [];
+      for (const p of prepared) {
+        const course = await tx.course.create({
+          data: {
+            name: p.name,
+            examDate: p.examDate,
+            minutesPerDay: 120,
+            studyDays: "1,2,3,4,5",
+            ects: p.ects,
+            sourceCode: p.code,
+            userId,
+            topics: { create: p.topics.map((tp, i) => ({ title: tp.title, effort: tp.effort, order: i })) },
+          },
+        });
+        ids.push(course.id);
+      }
+      return ids;
     });
-    await regeneratePlan(course.id);
+  } catch (e) {
+    logActionError("addFromCatalog", e);
+    redirect("/catalog?msg=add-failed");
+  }
+
+  // Plans are rebuilt AFTER the committed batch; a replan hiccup is logged, not
+  // fatal — the courses exist and "I fell behind" can rebuild any plan later.
+  try {
+    for (const id of createdIds) await regeneratePlan(id);
+  } catch (e) {
+    logActionError("addFromCatalog.regeneratePlan", e);
   }
 
   redirect("/courses");
@@ -232,11 +311,14 @@ export async function importSyllabus(formData: FormData) {
 
   // Fall back to ~4 weeks out if the syllabus didn't state an exam date — or if
   // the model returned a non-ISO string ("TBD", "Februar 2026"), which would
-  // otherwise become an Invalid Date and crash the Prisma write.
+  // otherwise become an Invalid Date and crash the Prisma write. The fallback is
+  // UTC midnight of today's Berlin calendar day + 28 days, like every other
+  // stored exam date (a raw Date.now() would keep the time-of-day and render on
+  // different days in different views near midnight).
   const examDate =
     extracted.examDate && isValidISODate(extracted.examDate)
       ? new Date(extracted.examDate + "T00:00:00Z")
-      : new Date(Date.now() + 28 * 86400_000);
+      : new Date(toUTCDate(todayISO()).getTime() + 28 * 86400_000);
 
   // Bound AI-extracted topics so a huge syllabus can't create unbounded rows.
   const topics = extracted.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
@@ -258,12 +340,16 @@ export async function importSyllabus(formData: FormData) {
   });
 
   await regeneratePlan(course.id);
-  // Bonus optimization — log if it fails so the swallowed error is diagnosable;
-  // the deterministic plan is already saved, so we still land on the course.
-  try {
-    await aiOptimizeCourse(course.id);
-  } catch (e) {
-    logActionError("importSyllabus.aiOptimize", e);
+  // Bonus optimization — 2 more paid model calls, so it spends 2 more AI tokens
+  // (the token charged up top only covered the extraction). Out of budget →
+  // skip; the deterministic plan is already saved, so we still land on the
+  // course. Log a failure so the swallowed error is diagnosable.
+  if (rateLimitOKTimes("AI", userId, 2)) {
+    try {
+      await aiOptimizeCourse(course.id);
+    } catch (e) {
+      logActionError("importSyllabus.aiOptimize", e);
+    }
   }
   redirect(`/courses/${course.id}`);
 }
@@ -280,9 +366,10 @@ export async function reoptimizeCourse(formData: FormData) {
   // Verify ownership BEFORE the rate-limit check so a non-owner probing this
   // endpoint is bounced without touching the AI budget. The limiter is keyed by
   // userId (NOT courseId — per-course keys would multiply one user's AI budget
-  // by their course count).
+  // by their course count). aiOptimizeCourse makes 2 paid model calls
+  // (optimize + self-tests), so it charges 2 AI tokens.
   if (!(await ownsCourse(userId, id))) redirect("/courses");
-  if (!rateLimitOK("AI", userId)) redirect(`/courses/${id}?msg=rate-limited`);
+  if (!rateLimitOKTimes("AI", userId, 2)) redirect(`/courses/${id}?msg=rate-limited`);
 
   // Distinguish "AI isn't set up" from "the AI call failed" so the banner is
   // honest. redirect() must stay OUTSIDE the try (it throws NEXT_REDIRECT).
@@ -364,30 +451,37 @@ export async function analyzeModuleUpload(formData: FormData) {
         select: { id: true, title: true, order: true },
       });
       const byTitle = new Map(existing.map((t) => [t.title.trim().toLowerCase(), t]));
+      // Stored category: the user's explicit choice wins; if they left it on a
+      // value we can't read, fall back to the auto-classifier (filename
+      // heuristics, then the AI-derived category).
+      const category = chosenType ?? classifyFile(file.name, analysis.category);
 
-      if (mode === "append") {
-        // Append after the current max order, but bound the TOTAL to the per-course
-        // cap (not just the new set — else append could exceed the limit).
-        const room = Math.max(0, LIMITS.MAX_TOPICS_PER_COURSE - existing.length);
-        const newTopics = analysis.topics.slice(0, room);
-        const base = existing.reduce((mx, t) => Math.max(mx, t.order), -1) + 1;
-        await prisma.topic.createMany({
-          data: newTopics.map((t, i) => ({
-            courseId,
-            title: t.title,
-            effort: effortFor(t.estMinutes),
-            order: base + i,
-          })),
-        });
-        n = newTopics.length;
-      } else {
-        // Replace: reconcile the topic set to the content-derived one. A topic whose
-        // title still appears is UPDATED in place (keeping its id + user metadata);
-        // genuinely-new topics are created; dropped topics are deleted. One
-        // transaction, so a crash never leaves the course topic-less.
-        const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
-        const keep = new Set<string>();
-        await prisma.$transaction(async (tx) => {
+      // ONE transaction for ALL the DB writes (topic reconcile/append, the
+      // stored file record, the aiOptimized flag): a throw after the topics
+      // were replaced must never report analyze-error while the course was
+      // already rewritten — either everything commits or nothing does.
+      await prisma.$transaction(async (tx) => {
+        if (mode === "append") {
+          // Append after the current max order, but bound the TOTAL to the per-course
+          // cap (not just the new set — else append could exceed the limit).
+          const room = Math.max(0, LIMITS.MAX_TOPICS_PER_COURSE - existing.length);
+          const newTopics = analysis.topics.slice(0, room);
+          const base = existing.reduce((mx, t) => Math.max(mx, t.order), -1) + 1;
+          await tx.topic.createMany({
+            data: newTopics.map((t, i) => ({
+              courseId,
+              title: t.title,
+              effort: effortFor(t.estMinutes),
+              order: base + i,
+            })),
+          });
+          n = newTopics.length;
+        } else {
+          // Replace: reconcile the topic set to the content-derived one. A topic whose
+          // title still appears is UPDATED in place (keeping its id + user metadata);
+          // genuinely-new topics are created; dropped topics are deleted.
+          const newTopics = analysis.topics.slice(0, LIMITS.MAX_TOPICS_PER_COURSE);
+          const keep = new Set<string>();
           for (let i = 0; i < newTopics.length; i++) {
             const t = newTopics[i];
             const prev = byTitle.get(t.title.trim().toLowerCase());
@@ -403,34 +497,25 @@ export async function analyzeModuleUpload(formData: FormData) {
           if (removedIds.length) {
             await tx.topic.deleteMany({ where: { id: { in: removedIds } } });
           }
+          n = newTopics.length;
+        }
+        await tx.moduleFile.create({
+          data: {
+            courseId,
+            filename: file.name,
+            mimeType: file.type || null,
+            sizeBytes: file.size,
+            extractedChars: text.length,
+            category,
+            analysis: JSON.stringify({
+              summary: analysis.summary,
+              concepts: analysis.concepts,
+              prerequisites: analysis.prerequisites,
+            }),
+          },
         });
-        n = newTopics.length;
-      }
-      // Stored category: the user's explicit choice wins; if they left it on a
-      // value we can't read, fall back to the auto-classifier (filename
-      // heuristics, then the AI-derived category).
-      const category = chosenType ?? classifyFile(file.name, analysis.category);
-      await prisma.moduleFile.create({
-        data: {
-          courseId,
-          filename: file.name,
-          mimeType: file.type || null,
-          sizeBytes: file.size,
-          extractedChars: text.length,
-          category,
-          analysis: JSON.stringify({
-            summary: analysis.summary,
-            concepts: analysis.concepts,
-            prerequisites: analysis.prerequisites,
-          }),
-        },
+        await tx.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
       });
-      await prisma.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
-      await regeneratePlan(courseId);
-      // New material rebuilt the topics + plan — refresh Today (and the course
-      // page) so the new schedule shows immediately without a manual reload.
-      revalidatePath("/today");
-      revalidatePath(`/courses/${courseId}`);
       result = "analyzed";
     }
   } catch (e) {
@@ -442,6 +527,21 @@ export async function analyzeModuleUpload(formData: FormData) {
       // (e.g. an unreadable file) so the banner reason is accurate.
       result = aiFailureBanner(e, "analyze-error");
     }
+  }
+  // Replan AFTER the committed write, and treat its failure separately: the
+  // analysis genuinely succeeded, so a replan hiccup must not claim it failed —
+  // "heal-failed" ("couldn't rebuild the plan, try again") is the honest banner.
+  if (result === "analyzed") {
+    try {
+      await regeneratePlan(courseId);
+    } catch (e) {
+      logActionError("analyzeModuleUpload.regeneratePlan", e);
+      result = "heal-failed";
+    }
+    // New material rebuilt the topics (+ plan) — refresh Today (and the course
+    // page) so the new state shows immediately without a manual reload.
+    revalidatePath("/today");
+    revalidatePath(`/courses/${courseId}`);
   }
   redirect(`/courses/${courseId}?msg=${result}&n=${n}`);
 }
@@ -636,7 +736,7 @@ export async function logFocus(formData: FormData) {
   // Clamp to a sane session length so a bad/negative value can't corrupt the
   // adaptive pacing estimates (actualMinutes feeds the calibration factor).
   const minutes = clampInt(formData.get("minutes"), 1, 600, 25);
-  const path = str(formData.get("revalidate")) || "/today";
+  const path = safeRevalidatePath(str(formData.get("revalidate")), "/today");
   // Scoped: only a block whose course the current user owns is logged against.
   const block = await findOwnedBlock(userId, id);
   if (block) {
@@ -671,13 +771,13 @@ export async function toggleBlock(formData: FormData) {
   } catch {
     return;
   }
-  const path = str(formData.get("revalidate")) || "/today";
+  const path = safeRevalidatePath(str(formData.get("revalidate")), "/today");
   // Scoped: a non-owner toggling another user's block id is a silent no-op.
   const block = await findOwnedBlock(userId, id);
   if (block) {
     await prisma.studyBlock.update({
       where: { id },
-      data: { completed: !block.completed },
+      data: { completed: toggleTarget(formData, block.completed) },
     });
   }
   revalidatePath(path);
@@ -812,13 +912,17 @@ export async function toggleAssignment(formData: FormData) {
   } catch {
     return;
   }
-  const path = str(formData.get("revalidate"));
   // Scoped: a non-owner's assignment id resolves to null → no-op.
   const a = await findOwnedAssignment(userId, id);
   if (a) {
-    await prisma.assignment.update({ where: { id }, data: { done: !a.done } });
+    await prisma.assignment.update({
+      where: { id },
+      data: { done: toggleTarget(formData, a.done) },
+    });
   }
-  revalidatePath(path || `/courses/${a?.courseId ?? ""}`);
+  revalidatePath(
+    safeRevalidatePath(str(formData.get("revalidate")), `/courses/${a?.courseId ?? ""}`),
+  );
 }
 
 /** Remove an assignment. */
@@ -848,7 +952,14 @@ export async function setGrade(formData: FormData) {
     redirect("/courses");
   }
   if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
-  const grade = parseGrade(formData.get("grade"));
+  // Blank = intentional clear (null); an invalid value (e.g. "6") throws and is
+  // rejected here — it must neither wipe the stored grade nor claim "graded".
+  let grade: number | null;
+  try {
+    grade = parseGrade(formData.get("grade"));
+  } catch {
+    redirect(`/courses/${id}?msg=grade-invalid`);
+  }
   if (!(await updateOwnedCourse(userId, id, { grade }))) redirect("/courses");
   redirect(`/courses/${id}?msg=graded`);
 }
@@ -869,7 +980,10 @@ export async function toggleTopic(formData: FormData) {
   // replan + revalidate always target the topic's real course.
   const topic = await findOwnedTopic(userId, id);
   if (topic) {
-    await prisma.topic.update({ where: { id }, data: { done: !topic.done } });
+    await prisma.topic.update({
+      where: { id },
+      data: { done: toggleTarget(formData, topic.done) },
+    });
     await regeneratePlan(topic.courseId);
     revalidatePath(`/courses/${topic.courseId}`);
   }
@@ -941,10 +1055,14 @@ export async function moveBlockToTomorrow(formData: FormData) {
   // is scoped through course.userId so this can't read another user's block.
   const row = await prisma.studyBlock.findFirst({
     where: { id, course: { userId } },
-    select: { date: true, startTime: true, endTime: true },
+    select: { date: true, startTime: true, endTime: true, course: { select: { examDate: true } } },
   });
   if (!row) return;
   const next = new Date(row.date.getTime() + 86400_000);
+  // Never push work onto or past the course's exam day — the scheduler's
+  // "everything lands before the exam" invariant (mirrors shiftBlocksToTomorrow).
+  // Both dates are UTC midnight, so a plain timestamp compare is exact.
+  if (next.getTime() >= row.course.examDate.getTime()) return;
   // Keep the time-of-day in sync with the new day. The calendar derives a timed
   // block's day from startTime, so shifting only `date` would desync it (moved on
   // /today, unmoved on the calendar). Re-place at the same local start on the next

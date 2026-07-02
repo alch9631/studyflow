@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { isFileCategory, type FileCategory } from "./fileCategory";
+import { MAX_TOPIC_TITLE_LENGTH } from "./validate";
 
 /**
  * AI extraction layer — provider-flexible. Uses OpenAI if OPENAI_API_KEY is set,
@@ -80,6 +81,28 @@ export function stripToJson(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Bounds for AI-returned numeric topic fields. The model occasionally returns
+ * junk (Infinity, 1e12) which would poison every later plan rebuild — effort is
+ * a study-time multiplier and estMinutes feeds effort directly — so the
+ * normalizers clamp instead of trusting "any positive number".
+ *  - effort: relative weight, ~1 normal; 20 (× MINUTES_PER_EFFORT ≈ 30h) is far
+ *    beyond any real single topic.
+ *  - estMinutes: per-topic study estimate; 1800 (30h) is the matching ceiling.
+ */
+const MAX_TOPIC_EFFORT = 20;
+const MIN_TOPIC_EFFORT = 0.25;
+const MAX_TOPIC_EST_MINUTES = 1800;
+
+/**
+ * Clamp an AI-returned number to [min, max]. Missing, non-numeric, non-finite
+ * (Infinity/NaN) or non-positive values fall back to `dflt`.
+ */
+function clampAINumber(value: unknown, dflt: number, min: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return dflt;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
  * Shared instruction appended to every prompt that produces human-readable text
  * (titles, summaries, concepts, questions…). The model must write those VALUES
  * in the SAME language as the supplied study material — German source material
@@ -136,9 +159,11 @@ export const SYLLABUS_SYSTEM =
 /**
  * Coerce a raw model object into a safe ExtractedSyllabus. Never throws: a
  * null/undefined/non-object input, missing fields, non-string/array fields, and
- * blank/whitespace topic titles all collapse to predictable defaults. The exam
- * date is passed through verbatim (this layer doesn't validate date formats —
- * downstream storage does); it only guarantees the shape, not the value.
+ * blank/whitespace topic titles all collapse to predictable defaults. Titles are
+ * capped (they're denormalized into every StudyBlock) and efforts clamped to a
+ * finite sane range. The exam date is passed through verbatim (this layer
+ * doesn't validate date formats — downstream storage does); it only guarantees
+ * the shape, not the value.
  */
 export function normalizeSyllabus(
   parsed:
@@ -153,9 +178,9 @@ export function normalizeSyllabus(
   const topics: { title: string; effort: number }[] = [];
   for (const t of rawTopics) {
     if (!t || typeof t.title !== "string") continue;
-    const title = t.title.trim();
+    const title = t.title.trim().slice(0, MAX_TOPIC_TITLE_LENGTH);
     if (!title) continue;
-    const effort = typeof t.effort === "number" && t.effort > 0 ? t.effort : 1;
+    const effort = clampAINumber(t.effort, 1, MIN_TOPIC_EFFORT, MAX_TOPIC_EFFORT);
     topics.push({ title, effort });
   }
   return {
@@ -351,7 +376,8 @@ export type ModuleAnalysis = {
 /**
  * Coerce a raw model object into a safe ModuleAnalysis. Same fail-safe contract
  * as {@link normalizeSyllabus}: never throws, defaults missing/ill-typed fields,
- * drops blank-title topics, and clamps non-positive difficulty/estMinutes.
+ * drops blank-title topics, caps titles, and clamps difficulty/estMinutes to a
+ * finite sane range (Infinity/1e12 from the model must never reach the planner).
  */
 export function normalizeModuleAnalysis(
   parsed:
@@ -372,10 +398,10 @@ export function normalizeModuleAnalysis(
   const topics: { title: string; difficulty: number; estMinutes: number }[] = [];
   for (const t of rawTopics) {
     if (!t || typeof t.title !== "string") continue;
-    const title = t.title.trim();
+    const title = t.title.trim().slice(0, MAX_TOPIC_TITLE_LENGTH);
     if (!title) continue;
-    const difficulty = typeof t.difficulty === "number" && t.difficulty > 0 ? t.difficulty : 1;
-    const estMinutes = typeof t.estMinutes === "number" && t.estMinutes > 0 ? t.estMinutes : 60;
+    const difficulty = clampAINumber(t.difficulty, 1, 1, 3);
+    const estMinutes = clampAINumber(t.estMinutes, 60, 1, MAX_TOPIC_EST_MINUTES);
     topics.push({ title, difficulty, estMinutes });
   }
   return {

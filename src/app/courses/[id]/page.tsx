@@ -185,6 +185,7 @@ const BANNER_KEYS = new Set([
   "analyze-unsupported",
   "analyze-nofile",
   "graded",
+  "grade-invalid",
   "past-exam",
   "rate-limited",
 ]);
