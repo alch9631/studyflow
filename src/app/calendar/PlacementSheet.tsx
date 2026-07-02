@@ -116,20 +116,53 @@ export default function PlacementSheet({
     if (sessions.length === 0) return;
     startPlacing(async () => {
       try {
-        // Lay sessions back-to-back from the chosen start; stop when the day is full.
+        // Lay sessions back-to-back from the chosen start; stop when the day is
+        // full. Count only writes the server actually ACCEPTED as placed — the
+        // action reports per-block outcomes (rate limit, exam day, invalid
+        // times) and pretending those landed would quietly lose sessions.
         let cursor = startMin;
+        let placed = 0;
+        let failed = 0;
+        let limited = false;
         for (const block of sessions) {
           const duration = block.minutes;
           if (cursor >= MINUTES_PER_DAY) break;
           const end = Math.min(cursor + duration, MINUTES_PER_DAY);
           if (end <= cursor) break;
+          const startInstant = dayMinutesToInstant(day, cursor);
+          const endInstant = dayMinutesToInstant(day, end);
+          // DST-gap guard: the spring-forward hour can collapse two different
+          // wall-clock minutes to the same instant → a zero-length pair the
+          // server would reject. Skip it and report honestly below.
+          if (endInstant.getTime() <= startInstant.getTime()) {
+            failed += 1;
+            continue;
+          }
           const fd = new FormData();
           fd.set("blockId", block.id);
           fd.set("date", day);
-          fd.set("start", dayMinutesToInstant(day, cursor).toISOString());
-          fd.set("end", dayMinutesToInstant(day, end).toISOString());
-          await updateBlockTime(fd);
-          cursor = end;
+          fd.set("start", startInstant.toISOString());
+          fd.set("end", endInstant.toISOString());
+          const outcome = await updateBlockTime(fd);
+          if (outcome.ok) {
+            cursor = end;
+            placed += 1;
+          } else if (outcome.reason === "rate-limited") {
+            limited = true;
+            break;
+          } else {
+            failed += 1; // the slot stays free for the next session
+          }
+        }
+        if (limited) {
+          toast(t("calendar.rateLimited"), "error");
+        } else if (failed > 0 && placed > 0) {
+          toast(
+            t("calendar.placedPartial", { placed: String(placed), failed: String(failed) }),
+            "info",
+          );
+        } else if (failed > 0) {
+          toast(t("calendar.placeNextError"), "error");
         }
         onPlaced();
         onClose();

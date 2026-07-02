@@ -20,7 +20,12 @@ import {
 import { useT } from "@/components/i18n/I18nProvider";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
-import { updateBlockTime, autoScheduleWeekTimes, toggleBlock } from "../courses/actions";
+import {
+  updateBlockTime,
+  autoScheduleWeekTimes,
+  toggleBlock,
+  type ActionOutcome,
+} from "../courses/actions";
 import {
   dayMinutesToInstant,
   instantToDayMinutes,
@@ -31,8 +36,6 @@ import {
 import { layoutDayBlocks } from "@/lib/calendarLayout";
 import MobileDayView from "./MobileDayView";
 import PlacementSheet, { type PlacementTarget } from "./PlacementSheet";
-
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Visible time window + granularity (configurable here). Rows are SLOT_MIN apart.
 const DAY_START_MIN = 6 * 60; // 06:00
@@ -349,8 +352,15 @@ function DayColumn({
             onToggle={onToggle}
             onResize={onResize}
             positioned={{
-              top: topPx(b.startMin!),
-              height: heightPx(b.startMin!, b.endMin!),
+              // Clamp into the visible window (same treatment as LectureBlock):
+              // a block placed before 06:00 pins to the top of the grid and
+              // shrinks, instead of getting a negative `top` and being clipped
+              // out of reach above the scroll area.
+              top: topPx(Math.max(b.startMin!, DAY_START_MIN)),
+              height: heightPx(
+                Math.max(b.startMin!, DAY_START_MIN),
+                Math.min(b.endMin!, DAY_END_MIN),
+              ),
               left: `calc(${idx * widthPct}% + 2px)`,
               width: `calc(${widthPct}% - ${lanes > 1 ? 3 : 4}px)`,
             }}
@@ -391,6 +401,17 @@ export default function WeekCalendar({
   const t = useT();
   const router = useRouter();
   const { toast } = useToast();
+
+  // Localized weekday headers (Mon–Sun), matching the order of `dayISOs`.
+  const weekdayLabels = [
+    t("calendar.mon"),
+    t("calendar.tue"),
+    t("calendar.wed"),
+    t("calendar.thu"),
+    t("calendar.fri"),
+    t("calendar.sat"),
+    t("calendar.sun"),
+  ];
   const [isArranging, startArranging] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -410,6 +431,18 @@ export default function WeekCalendar({
   const [doneOverride, setDoneOverride] = useState<Record<string, boolean>>({});
   // Optimistic duration overlay (block id → end minutes) while/after a resize.
   const [endOverride, setEndOverride] = useState<Record<string, number>>({});
+  // Optimistic unschedule overlay (block id → the day whose unscheduled lane it
+  // was dropped on) — the card jumps into the lane immediately and snaps back
+  // with a toast if the server rejects the clear.
+  const [unscheduledOverride, setUnscheduledOverride] = useState<Record<string, string>>({});
+
+  /** Honest toast copy for a failed updateBlockTime outcome. */
+  function failureMessage(reason: Extract<ActionOutcome, { ok: false }>["reason"]): string {
+    if (reason === "rate-limited") return t("calendar.rateLimited");
+    if (reason === "invalid") return t("calendar.invalidTime");
+    if (reason === "exam-day") return t("calendar.examDayBlocked");
+    return t("calendar.blockError");
+  }
 
   // Mobile selected day: default to today if it's in the shown week, else Monday.
   // When the week changes (new weekStart), reset the selection during render —
@@ -459,10 +492,14 @@ export default function WeekCalendar({
     startArranging(async () => {
       const fd = new FormData();
       fd.set("weekStart", weekStartISO);
-      const { placed, unplaced } = await autoScheduleWeekTimes(fd);
+      const { placed, unplaced, rateLimited } = await autoScheduleWeekTimes(fd);
       router.refresh();
       if (silent) return;
-      if (placed === 0 && unplaced === 0) {
+      if (rateLimited) {
+        // Nothing was arranged because the action was rate-limited — say so
+        // instead of the misleading "nothing needed a time".
+        toast(t("calendar.rateLimited"), "error");
+      } else if (placed === 0 && unplaced === 0) {
         toast(t("calendar.autoNone"), "info");
       } else if (unplaced > 0) {
         toast(
@@ -527,21 +564,50 @@ export default function WeekCalendar({
       try {
         let cursor = BATCH_START_MIN;
         let placed = 0;
+        let failed = 0;
+        let limited = false;
         for (const block of batch) {
           if (cursor >= MINUTES_PER_DAY) break;
           const end = Math.min(cursor + block.minutes, MINUTES_PER_DAY);
           if (end <= cursor) break;
+          const startInstant = dayMinutesToInstant(day, cursor);
+          const endInstant = dayMinutesToInstant(day, end);
+          // DST-gap guard: two different minutes can map to the same instant.
+          if (endInstant.getTime() <= startInstant.getTime()) {
+            failed += 1;
+            continue;
+          }
           const fd = new FormData();
           fd.set("blockId", block.id);
           fd.set("date", day);
-          fd.set("start", dayMinutesToInstant(day, cursor).toISOString());
-          fd.set("end", dayMinutesToInstant(day, end).toISOString());
-          await updateBlockTime(fd);
-          cursor = end;
-          placed += 1;
+          fd.set("start", startInstant.toISOString());
+          fd.set("end", endInstant.toISOString());
+          const outcome = await updateBlockTime(fd);
+          if (outcome.ok) {
+            cursor = end;
+            placed += 1;
+          } else if (outcome.reason === "rate-limited") {
+            limited = true;
+            break;
+          } else {
+            failed += 1; // slot stays free for the next block
+          }
         }
         router.refresh();
-        toast(t("calendar.placedNext", { count: String(placed) }), "success");
+        // Only count writes the server actually accepted, and be honest about
+        // the rest instead of celebrating them as placed.
+        if (limited) {
+          toast(t("calendar.rateLimited"), "error");
+        } else if (failed > 0 && placed > 0) {
+          toast(
+            t("calendar.placedPartial", { placed: String(placed), failed: String(failed) }),
+            "info",
+          );
+        } else if (failed > 0) {
+          toast(t("calendar.placeNextError"), "error");
+        } else {
+          toast(t("calendar.placedNext", { count: String(placed) }), "success");
+        }
       } catch {
         toast(t("calendar.placeNextError"), "error");
       }
@@ -559,15 +625,21 @@ export default function WeekCalendar({
   );
   const hourStarts = useMemo(() => slotStarts.filter((m) => m % 60 === 0), [slotStarts]);
 
-  // Apply the optimistic overlays so render reflects in-flight toggles/resizes.
+  // Apply the optimistic overlays so render reflects in-flight toggles/resizes
+  // and unschedules.
   const viewBlocks = useMemo(
     () =>
-      blocks.map((b) => ({
-        ...b,
-        completed: doneOverride[b.id] ?? b.completed,
-        endMin: endOverride[b.id] ?? b.endMin,
-      })),
-    [blocks, doneOverride, endOverride],
+      blocks.map((b) => {
+        const laneDay = unscheduledOverride[b.id];
+        return {
+          ...b,
+          completed: doneOverride[b.id] ?? b.completed,
+          dayISO: laneDay ?? b.dayISO,
+          startMin: laneDay != null ? null : b.startMin,
+          endMin: laneDay != null ? null : endOverride[b.id] ?? b.endMin,
+        };
+      }),
+    [blocks, doneOverride, endOverride, unscheduledOverride],
   );
 
   const activeBlock = activeId ? viewBlocks.find((b) => b.id === activeId) ?? null : null;
@@ -576,24 +648,73 @@ export default function WeekCalendar({
     const fd = new FormData();
     fd.set("blockId", block.id);
     fd.set("date", dayISO);
-    if (startMin == null) return; // dropping on the unscheduled lane: no times to set
+
+    // Dropping on an unscheduled lane: UNSCHEDULE the block. The action's
+    // clear path nulls startTime/endTime but keeps the block's own day, so the
+    // card lands in ITS day's lane (not necessarily the lane it was dropped
+    // on). Optimistic — it jumps there immediately and snaps back with a toast
+    // if the server says no.
+    if (startMin == null) {
+      fd.set("clear", "1");
+      setUnscheduledOverride((m) => ({ ...m, [block.id]: block.dayISO }));
+      const revert = () =>
+        setUnscheduledOverride((m) => {
+          const rest = { ...m };
+          delete rest[block.id];
+          return rest;
+        });
+      try {
+        const outcome = await updateBlockTime(fd);
+        if (!outcome.ok) {
+          revert();
+          toast(failureMessage(outcome.reason), "error");
+          return;
+        }
+        router.refresh();
+      } catch {
+        revert();
+        toast(t("calendar.blockError"), "error");
+      }
+      return;
+    }
+
     const duration =
       block.startMin != null && block.endMin != null
         ? block.endMin - block.startMin
         : DEFAULT_DURATION;
     let endMin = startMin + duration;
     if (endMin > MINUTES_PER_DAY) endMin = MINUTES_PER_DAY;
-    if (endMin <= startMin) return;
+    const start = dayMinutesToInstant(dayISO, startMin);
+    const end = dayMinutesToInstant(dayISO, endMin);
+    // A DST spring-forward gap can collapse two different wall-clock minutes to
+    // the same instant → a zero/negative-length pair the server would reject.
+    // Surface that honestly instead of a silent snap-back.
+    if (endMin <= startMin || end.getTime() <= start.getTime()) {
+      toast(t("calendar.invalidTime"), "error");
+      return;
+    }
 
-    fd.set("start", dayMinutesToInstant(dayISO, startMin).toISOString());
-    fd.set("end", dayMinutesToInstant(dayISO, endMin).toISOString());
+    fd.set("start", start.toISOString());
+    fd.set("end", end.toISOString());
     try {
-      await updateBlockTime(fd);
+      const outcome = await updateBlockTime(fd);
+      if (!outcome.ok) {
+        // The card never moved optimistically (the drag overlay resets on drop
+        // and the grid still renders server truth), so there's nothing to
+        // revert — but a silent failure would look like the drop didn't take.
+        toast(failureMessage(outcome.reason), "error");
+        return;
+      }
+      // A successful timed placement supersedes any earlier optimistic
+      // unschedule of the same block (lane → grid drag).
+      setUnscheduledOverride((m) => {
+        if (!(block.id in m)) return m;
+        const rest = { ...m };
+        delete rest[block.id];
+        return rest;
+      });
       router.refresh();
     } catch {
-      // The card never moved optimistically (the drag overlay resets on drop
-      // and the grid still renders server truth), so there's nothing to revert
-      // — but a silent failure would look like the drop just didn't take.
       toast(t("calendar.blockError"), "error");
     }
   }
@@ -693,16 +814,23 @@ export default function WeekCalendar({
       fd.set("date", cur.block.dayISO);
       fd.set("start", dayMinutesToInstant(cur.block.dayISO, cur.block.startMin!).toISOString());
       fd.set("end", dayMinutesToInstant(cur.block.dayISO, endMin).toISOString());
+      const revert = () =>
+        setEndOverride((m) => {
+          const rest = { ...m };
+          delete rest[cur.block.id];
+          return rest;
+        });
       void (async () => {
         try {
-          await updateBlockTime(fd);
+          const outcome = await updateBlockTime(fd);
+          if (!outcome.ok) {
+            revert();
+            toast(failureMessage(outcome.reason), "error");
+            return;
+          }
           router.refresh();
         } catch {
-          setEndOverride((m) => {
-            const rest = { ...m };
-            delete rest[cur.block.id];
-            return rest;
-          });
+          revert();
           toast(t("calendar.blockError"), "error");
         }
       })();
@@ -725,6 +853,8 @@ export default function WeekCalendar({
     const block = e.active.data.current?.block as CalBlock | undefined;
     if (!data || !block) return;
     if (block.dayISO === data.dayISO && block.startMin === data.startMin) return;
+    // A lane→lane drop of an already-unscheduled block is a no-op: the action's
+    // unschedule (clear) keeps the block's own day, so nothing would change.
     if (data.startMin == null && block.startMin == null) return;
     void move(block, data.dayISO, data.startMin);
   }
@@ -848,7 +978,7 @@ export default function WeekCalendar({
                         : "text-gray-500 dark:text-gray-400"
                   }`}
                 >
-                  <span>{WEEKDAYS[i]}</span>
+                  <span>{weekdayLabels[i]}</span>
                   <span className="tabular-nums">{Number(dayISO.slice(8, 10))}</span>
                 </button>
               );
@@ -919,7 +1049,7 @@ export default function WeekCalendar({
                           : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
                       }`}
                     >
-                      {WEEKDAYS[i]} {dayNum}
+                      {weekdayLabels[i]} {dayNum}
                     </div>
                   );
                 })}
