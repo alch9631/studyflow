@@ -3,6 +3,7 @@
  */
 import {
   parseExportFormat,
+  filterExportCourses,
   buildExportJSON,
   buildExportCSV,
   csvEscape,
@@ -112,6 +113,22 @@ const csvComma = buildExportCSV([
 ]);
 check("CSV escapes comma in course name", csvComma.includes('"Math, Advanced"'));
 check("CSV escapes quotes in topic title", csvComma.includes('"A ""B"""'));
+
+// --- filterExportCourses (single-course export via ?courseId=) ---
+const two = [course(), course({ id: "c2", name: "Databases" })];
+check("no courseId → all courses", filterExportCourses(two, undefined).length === 2);
+check("null courseId → all courses", filterExportCourses(two, null).length === 2);
+check("blank courseId → all courses", filterExportCourses(two, "  ").length === 2);
+const onlyC2 = filterExportCourses(two, "c2");
+check("filters to the matching course", onlyC2.length === 1 && onlyC2[0].id === "c2");
+check("unknown courseId throws ValidationError", throws(() => filterExportCourses(two, "nope")));
+check("unknown id on empty list throws", throws(() => filterExportCourses([], "c1")));
+
+// filtered set flows through both serializers
+const filteredJson = buildExportJSON(onlyC2, new Date("2026-06-08T12:00:00Z"));
+check("filtered JSON has one course", filteredJson.courseCount === 1 && filteredJson.courses[0].id === "c2");
+const filteredCsv = buildExportCSV(onlyC2).split("\r\n");
+check("filtered CSV only carries that course", filteredCsv.slice(1).every((l) => l.startsWith("c2,")));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

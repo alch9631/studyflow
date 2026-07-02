@@ -163,6 +163,10 @@ const en = {
     autoArrangeBuilding: "Building your week…",
     refineHint: "Nudge anything by dragging it on the grid.",
     allArranged: "Your week is arranged. Drag to fine-tune.",
+    rateLimited: "Too quick. Wait a moment, then try again.",
+    invalidTime: "That start and end don't make a valid time (the clocks may change then). Try a different slot.",
+    examDayBlocked: "That's an exam day, so sessions can't be placed there.",
+    placedPartial: "Placed {placed} sessions; {failed} couldn't be placed. Try those again.",
   },
   theme: {
     light: "Light",
@@ -204,6 +208,7 @@ const en = {
       other: "{count} courses are now very tight. Consider trimming low-priority topics.",
     },
     recoverFailed: "Rebuild failed. Nothing changed. Try again.",
+    rateLimited: "You're doing that a lot. Give it a minute and try again.",
     emptyNoPlanTitle: "Let's build your study plan",
     emptyNoPlanDesc:
       "Add your first course and we lay out what to study each day, backward from your exams.",
@@ -255,6 +260,7 @@ const en = {
     sheetMoving: "Moving…",
     sheetMoved: "Moved to tomorrow.",
     sheetMoveError: "Couldn't move that session. Please try again.",
+    sheetMoveExamEve: "Can't move it. The exam is tomorrow.",
     sheetStartTimer: "Start timer",
     sheetNoteLabel: "Quick note",
     sheetNotePlaceholder: "Jot a thought for this session…",
@@ -323,6 +329,10 @@ const en = {
     notesError: "Couldn't save that note. Please try again.",
     addNote: "Add note",
     nextUp: "Up next: {topic}",
+    // ── The one honest clock: paused hint + end-of-countdown log offer ──
+    paused: "Paused",
+    timeUp: "Time's up",
+    timeUpBody: "You focused for {minutes} min on this session. Log it?",
   },
   practice: {
     title: "Practice",
@@ -456,6 +466,7 @@ const en = {
   },
   courses: {
     title: "My Courses",
+    rateLimited: "You're doing that a lot. Give it a minute and try again.",
     newCourse: "+ New course",
     emptyTitle: "No courses yet",
     emptyDesc: "Pick a start and we build the plan.",
@@ -712,6 +723,8 @@ const en = {
       graded: "Grade saved.",
       "grade-invalid": "That grade isn't valid, so it wasn't saved. Use 1.0 to 5.0.",
       "past-exam": "Exam date can't be in the past, so it wasn't saved.",
+      "exam-too-far": "Exam date is too far in the future, so it wasn't saved.",
+      "limit-assignments": "This course hit the assignments limit, so nothing was added.",
       "rate-limited": "You're doing that a lot. Give it a minute and try again.",
     },
   },
@@ -1045,6 +1058,10 @@ const en = {
     confirmTitle: { one: "Add {count} module?", other: "Add {count} modules?" },
     confirmBody: "We'll build a study plan for each one. You can edit the exam dates afterwards.",
     confirmAdd: { one: "Add module", other: "Add {count} modules" },
+    banners: {
+      "add-failed": "Couldn't add those courses just now. Nothing was saved — try again.",
+      "rate-limited": "You're adding courses very quickly. Give it a minute and try again.",
+    },
   },
   timetable: {
     title: "My timetable",
@@ -1091,6 +1108,10 @@ const en = {
     hint: "We work out the daily hours, so you don't set them.",
     creating: "Creating…",
     submit: "Create & build my plan",
+    banners: {
+      "exam-past": "That exam date is in the past, so the course wasn't created. Pick today or later.",
+      "exam-too-far": "That exam date is more than 2 years away, so the course wasn't created. Pick a closer date.",
+    },
   },
   importCourse: {
     back: "My Courses",
@@ -1107,9 +1128,14 @@ const en = {
     uploadFormats: "(PDF, txt, md)",
     pasteLabel: "…or paste syllabus text",
     pastePlaceholder: "Paste the syllabus: weeks, chapters, exam dates.",
+    emptyError: "Paste text or upload a study material first.",
     studyDays: "Study days",
     extracting: "Extracting…",
     submit: "Extract & build my plan",
+    banners: {
+      "import-empty": "Nothing to import. Paste text or upload a study material first.",
+      "rate-limited": "You're importing a lot quickly. Give it a minute and try again.",
+    },
   },
   calendarSync: {
     googleAriaLabel: "Subscribe in Google Calendar (opens in a new tab)",
@@ -1303,6 +1329,10 @@ const de: Messages = {
     autoArrangeBuilding: "Deine Woche wird erstellt…",
     refineHint: "Verschiebe etwas im Raster, um es anzupassen.",
     allArranged: "Deine Woche ist geplant. Zum Feinjustieren ziehen.",
+    rateLimited: "Zu schnell. Warte kurz und versuch es erneut.",
+    invalidTime: "Start und Ende ergeben keine gültige Zeit (evtl. Zeitumstellung). Versuch einen anderen Slot.",
+    examDayBlocked: "An dem Tag ist eine Prüfung, dort können keine Einheiten geplant werden.",
+    placedPartial: "{placed} Einheiten eingeplant; {failed} konnten nicht eingeplant werden. Versuch sie erneut.",
   },
   theme: {
     light: "Hell",
@@ -1344,6 +1374,7 @@ const de: Messages = {
       other: "{count} Kurse sind jetzt sehr eng getaktet. Kürze dort ggf. Themen mit niedriger Priorität.",
     },
     recoverFailed: "Neuaufbau fehlgeschlagen. Nichts geändert. Versuch es erneut.",
+    rateLimited: "Das machst du ziemlich oft. Warte eine Minute und versuch es erneut.",
     emptyNoPlanTitle: "Lass uns deinen Lernplan erstellen",
     emptyNoPlanDesc:
       "Füge deinen ersten Kurs hinzu, und wir legen fest, was du täglich lernst, rückwärts von deinen Prüfungen.",
@@ -1395,6 +1426,7 @@ const de: Messages = {
     sheetMoving: "Wird verschoben…",
     sheetMoved: "Auf morgen verschoben.",
     sheetMoveError: "Diese Einheit konnte nicht verschoben werden. Bitte erneut versuchen.",
+    sheetMoveExamEve: "Verschieben geht nicht. Die Prüfung ist morgen.",
     sheetStartTimer: "Timer starten",
     sheetNoteLabel: "Kurze Notiz",
     sheetNotePlaceholder: "Notier dir etwas zu dieser Einheit…",
@@ -1463,6 +1495,10 @@ const de: Messages = {
     notesError: "Notiz konnte nicht gespeichert werden. Bitte erneut versuchen.",
     addNote: "Notiz hinzufügen",
     nextUp: "Als Nächstes: {topic}",
+    // ── Die eine ehrliche Uhr: Pause-Hinweis + Eintragen-Angebot am Ende ──
+    paused: "Pausiert",
+    timeUp: "Zeit ist um",
+    timeUpBody: "Du hast {minutes} Min an dieser Einheit gearbeitet. Eintragen?",
   },
   practice: {
     title: "Üben",
@@ -1593,6 +1629,7 @@ const de: Messages = {
   },
   courses: {
     title: "Meine Kurse",
+    rateLimited: "Das machst du ziemlich oft. Warte eine Minute und versuch es erneut.",
     newCourse: "+ Neuer Kurs",
     emptyTitle: "Noch keine Kurse",
     emptyDesc: "Wähle einen Start, und wir bauen den Plan.",
@@ -1847,6 +1884,8 @@ const de: Messages = {
       graded: "Note gespeichert.",
       "grade-invalid": "Diese Note ist ungültig und wurde nicht gespeichert. Nutze 1,0 bis 5,0.",
       "past-exam": "Der Prüfungstermin darf nicht in der Vergangenheit liegen, also wurde er nicht gespeichert.",
+      "exam-too-far": "Der Prüfungstermin liegt zu weit in der Zukunft, also wurde er nicht gespeichert.",
+      "limit-assignments": "Dieser Kurs hat das Aufgaben-Limit erreicht, also wurde nichts hinzugefügt.",
       "rate-limited": "Das machst du ziemlich oft. Warte eine Minute und versuch es erneut.",
     },
   },
@@ -2178,6 +2217,10 @@ const de: Messages = {
     confirmTitle: { one: "{count} Modul hinzufügen?", other: "{count} Module hinzufügen?" },
     confirmBody: "Wir erstellen für jedes einen Lernplan. Die Prüfungstermine kannst du danach anpassen.",
     confirmAdd: { one: "Modul hinzufügen", other: "{count} Module hinzufügen" },
+    banners: {
+      "add-failed": "Diese Kurse konnten gerade nicht hinzugefügt werden. Es wurde nichts gespeichert — versuch es erneut.",
+      "rate-limited": "Du fügst sehr schnell Kurse hinzu. Warte eine Minute und versuch es erneut.",
+    },
   },
   timetable: {
     title: "Mein Stundenplan",
@@ -2224,6 +2267,10 @@ const de: Messages = {
     hint: "Wir berechnen die täglichen Stunden, du legst sie nicht fest.",
     creating: "Erstellen…",
     submit: "Anlegen & Plan erstellen",
+    banners: {
+      "exam-past": "Dieser Prüfungstermin liegt in der Vergangenheit, der Kurs wurde nicht erstellt. Wähle heute oder später.",
+      "exam-too-far": "Dieser Prüfungstermin liegt mehr als 2 Jahre in der Zukunft, der Kurs wurde nicht erstellt. Wähle ein näheres Datum.",
+    },
   },
   importCourse: {
     back: "Meine Kurse",
@@ -2240,9 +2287,14 @@ const de: Messages = {
     uploadFormats: "(PDF, txt, md)",
     pasteLabel: "…oder Lehrplantext einfügen",
     pastePlaceholder: "Lehrplan einfügen: Wochen, Kapitel, Prüfungstermine.",
+    emptyError: "Füge zuerst Text ein oder lade Material hoch.",
     studyDays: "Lerntage",
     extracting: "Extrahieren…",
     submit: "Extrahieren & Plan erstellen",
+    banners: {
+      "import-empty": "Nichts zu importieren. Füge zuerst Text ein oder lade Material hoch.",
+      "rate-limited": "Du importierst gerade sehr viel. Warte eine Minute und versuch es erneut.",
+    },
   },
   calendarSync: {
     googleAriaLabel: "In Google Kalender abonnieren (öffnet in neuem Tab)",

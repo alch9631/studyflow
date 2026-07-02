@@ -83,7 +83,7 @@ export default function CourseCardMenu({
           <DropdownMenuLabel className="truncate">{courseName}</DropdownMenuLabel>
 
           <DropdownMenuItem asChild>
-            <a href="/api/export?format=json">
+            <a href={`/api/export?format=json&courseId=${encodeURIComponent(courseId)}`}>
               <Download className="h-4 w-4" aria-hidden="true" />
               {t("courses.export")}
             </a>

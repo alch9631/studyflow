@@ -187,6 +187,8 @@ const BANNER_KEYS = new Set([
   "graded",
   "grade-invalid",
   "past-exam",
+  "exam-too-far",
+  "limit-assignments",
   "rate-limited",
 ]);
 
@@ -341,6 +343,10 @@ export default async function CoursePage({
                     type="date"
                     name="examDate"
                     defaultValue={course.examDate.toISOString().slice(0, 10)}
+                    // Mirror the server's requireDate bounds (not past, ≤ 2 years
+                    // out) so bad dates are blocked before the round-trip.
+                    min={todayISO()}
+                    max={`${Number(todayISO().slice(0, 4)) + 2}${todayISO().slice(4)}`}
                     className="mt-1"
                   />
                 </div>
@@ -531,7 +537,7 @@ export default async function CoursePage({
         <PageToast
           message={banner}
           variant={
-            ["progress-none", "progress-error", "optimize-failed", "ai-unconfigured", "ai-offline", "heal-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "rate-limited"].includes(msg ?? "")
+            ["progress-none", "progress-error", "optimize-failed", "ai-unconfigured", "ai-offline", "heal-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "exam-too-far", "limit-assignments", "rate-limited"].includes(msg ?? "")
               ? "error"
               : "success"
           }

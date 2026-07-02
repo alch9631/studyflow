@@ -24,6 +24,25 @@ export function parseExportFormat(value: string | null | undefined): ExportForma
   throw new ValidationError(`Unsupported export format "${value}". Use "json" or "csv".`);
 }
 
+/**
+ * Optionally narrow an export to a single course (`?courseId=` on the route).
+ * A blank/absent id is a no-op (full export). A non-empty id that matches no
+ * course throws `ValidationError` (→ 400 via handleApiError) — the id is either
+ * unknown or belongs to another user, and both read the same from outside.
+ */
+export function filterExportCourses(
+  courses: ExportCourse[],
+  courseId: string | null | undefined,
+): ExportCourse[] {
+  const id = (courseId ?? "").trim();
+  if (!id) return courses;
+  const filtered = courses.filter((c) => c.id === id);
+  if (filtered.length === 0) {
+    throw new ValidationError(`Unknown course id "${id}".`);
+  }
+  return filtered;
+}
+
 /** Minimal shape the serializers need from a topic. */
 export type ExportTopic = {
   id: string;

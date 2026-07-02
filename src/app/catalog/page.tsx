@@ -6,6 +6,7 @@ import { addFromCatalog } from "../courses/actions";
 import { programByCode, PROGRAMS } from "@/lib/programs";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/components/i18n/server";
+import type { MessageKey } from "@/components/i18n/messages";
 import CatalogBrowser, { type CatalogModule } from "./CatalogBrowser";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +18,18 @@ export const metadata: Metadata = {
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ program?: string }>;
+  searchParams: Promise<{ program?: string; msg?: string }>;
 }) {
-  const { program: programParam } = await searchParams;
+  const { program: programParam, msg } = await searchParams;
   const program = programByCode(programParam ?? "IIW") ?? PROGRAMS[0];
   const t = await getT();
+
+  // Failure banners the add-from-catalog action redirects back with (allowlisted
+  // so an arbitrary ?msg= can never render).
+  const banner =
+    msg === "add-failed" || msg === "rate-limited"
+      ? t(`catalog.banners.${msg}` as MessageKey)
+      : undefined;
 
   // Detect "already added": compare each module's `code` against the source code
   // of the student's existing catalog-sourced courses (Course.sourceCode).
@@ -67,6 +75,15 @@ export default async function CatalogPage({
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8">
+      {banner && (
+        <div
+          role="status"
+          className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+        >
+          {banner}
+        </div>
+      )}
+
       <div className="mb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {t("catalog.modulesLabel")} · {program.code}

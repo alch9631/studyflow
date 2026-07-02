@@ -110,7 +110,12 @@ function deriveHealth(
   return { status, confidence, line, next };
 }
 
-export default async function CoursesPage() {
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ msg?: string }>;
+}) {
+  const { msg } = await searchParams;
   const userId = await getCurrentUserId();
   const t = await getT();
   const courses = await prisma.course.findMany({
@@ -148,6 +153,15 @@ export default async function CoursesPage() {
           <Link href="/catalog">{t("courses.newCourse")}</Link>
         </Button>
       </div>
+
+      {msg === "rate-limited" && (
+        <div
+          role="status"
+          className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+        >
+          {t("courses.rateLimited")}
+        </div>
+      )}
 
       {courses.length === 0 ? (
         <EmptyState

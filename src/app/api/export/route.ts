@@ -3,6 +3,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { handleApiError } from "@/lib/apiError";
 import {
   parseExportFormat,
+  filterExportCourses,
   buildExportJSON,
   buildExportCSV,
   type ExportCourse,
@@ -18,15 +19,20 @@ function todayStamp(): string {
 /**
  * Exports the current user's courses, topics, and progress as a downloadable
  * file in either JSON (?format=json, default) or flat CSV (?format=csv).
+ * `?courseId=` narrows the export to that single course (400 on an unknown id).
  */
 export async function GET(req: Request) {
   try {
-    const format = parseExportFormat(new URL(req.url).searchParams.get("format"));
+    const params = new URL(req.url).searchParams;
+    const format = parseExportFormat(params.get("format"));
+    const courseId = params.get("courseId")?.trim() || undefined;
     const userId = await getCurrentUserId();
 
     // One query (include) — no N+1. Topics pulled in their explicit order.
-    const courses: ExportCourse[] = await prisma.course.findMany({
-      where: { userId },
+    // Ownership-scoped: a courseId the user doesn't own matches nothing here
+    // and reads as unknown below — never another user's data.
+    const rows: ExportCourse[] = await prisma.course.findMany({
+      where: { userId, ...(courseId ? { id: courseId } : {}) },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -39,6 +45,9 @@ export async function GET(req: Request) {
         },
       },
     });
+
+    // No-op without a courseId; throws ValidationError (→ 400) on unknown id.
+    const courses = filterExportCourses(rows, courseId);
 
     if (format === "csv") {
       return new Response(buildExportCSV(courses), {
