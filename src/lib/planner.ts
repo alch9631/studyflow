@@ -102,6 +102,15 @@ export const MINUTES_PER_EFFORT = 90;
 /** Above this computed daily pace, finishing in time is unrealistic — flag it. */
 export const INTENSE_MINUTES_PER_DAY = 360; // 6h/day
 
+/**
+ * Hard cap on how many study dates one enumeration may yield. A pathological
+ * far-future exam (e.g. year 9999) would otherwise walk ~2.9M days here before
+ * callers ever slice the result. Sized just above the app's scheduling horizon
+ * (MAX_SCHEDULE_DAYS = 400 in planService) so it never bites on a real course —
+ * defense-in-depth alongside exam-date validation at the API boundary.
+ */
+export const MAX_STUDY_DATES = 450;
+
 /** Inclusive list of ISO dates from `start` up to (not including) `end`. */
 export function studyDatesBetween(
   startISO: string,
@@ -114,7 +123,12 @@ export function studyDatesBetween(
   const dates: string[] = [];
   // Invalid/missing dates yield NaN getTime(), so the loop simply produces no
   // dates rather than throwing.
-  for (let t = start.getTime(); t < end.getTime(); t += MS_PER_DAY) {
+  // Bound the WALK, not just the collected dates: any weekday set with a real
+  // match collects at least one date per 7-day window, so MAX_STUDY_DATES * 7
+  // calendar days always suffices — and a set that never matches (or an absurd
+  // horizon) terminates instead of enumerating day-by-day to the exam.
+  const limit = Math.min(end.getTime(), start.getTime() + MAX_STUDY_DATES * 7 * MS_PER_DAY);
+  for (let t = start.getTime(); t < limit && dates.length < MAX_STUDY_DATES; t += MS_PER_DAY) {
     const d = new Date(t);
     if (days.includes(d.getUTCDay())) {
       dates.push(d.toISOString().slice(0, 10));

@@ -8,6 +8,7 @@ import {
   generatePlan,
   healPlan,
   INTENSE_MINUTES_PER_DAY,
+  MAX_STUDY_DATES,
   MIN_MINUTES_PER_EFFORT,
   planForDeadline,
   REVIEW_INTERVALS_BY_DIFFICULTY,
@@ -1062,6 +1063,42 @@ for (const { course } of invariantFixtures) {
   }
 }
 check("INV6: every block lands on an allowed study day within [today, exam)", inv6Ok);
+
+// ===========================================================================
+// studyDatesBetween HARD CAP — a pathological far-future exam (year 9999) used
+// to walk ~2.9M days here before callers ever sliced the result. Enumeration is
+// now bounded inside the function itself: at most MAX_STUDY_DATES dates, and
+// the day-by-day WALK terminates too (even when no weekday ever matches).
+// ===========================================================================
+
+const tCap = Date.now();
+const farFuture = studyDatesBetween("2026-06-08", "9999-12-31", [0, 1, 2, 3, 4, 5, 6]);
+const capElapsed = Date.now() - tCap;
+check("far-future exam yields exactly the capped date count", farFuture.length === MAX_STUDY_DATES);
+check(`far-future enumeration is prompt (${capElapsed}ms < 1000ms)`, capElapsed < 1000);
+
+// Sparse study days still fill the cap (the walk bound is sized for the
+// sparsest real case: >= 1 matching day per 7-day window).
+const tSparse = Date.now();
+const sparseFar = studyDatesBetween("2026-06-08", "9999-12-31", [0]); // Sundays only
+const sparseElapsed = Date.now() - tSparse;
+check("sparse (weekly) study days still reach the cap", sparseFar.length === MAX_STUDY_DATES);
+check(`sparse far-future enumeration is prompt (${sparseElapsed}ms < 1000ms)`, sparseElapsed < 1000);
+
+// The walk itself is bounded: a weekday set that never matches must not
+// enumerate millions of days just to return nothing.
+const tNone = Date.now();
+const neverMatches = studyDatesBetween("2026-06-08", "9999-12-31", []);
+const noneElapsed = Date.now() - tNone;
+check("far-future exam with no study days yields no dates", neverMatches.length === 0);
+check(`no-match far-future walk is prompt (${noneElapsed}ms < 1000ms)`, noneElapsed < 1000);
+
+// Real horizons are unaffected by the cap: a one-year daily course still
+// enumerates every day, and the results are identical to before.
+check(
+  "cap never bites on a real horizon (1 year daily = 365 dates)",
+  studyDatesBetween("2026-06-08", "2027-06-08", [0, 1, 2, 3, 4, 5, 6]).length === 365,
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

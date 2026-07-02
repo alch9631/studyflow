@@ -5,6 +5,7 @@ import {
   studyDatesBetween,
   difficultyMultiplier,
   MINUTES_PER_EFFORT,
+  REVIEW_MINUTES,
   SESSION_MINUTES,
   type Course as EngineCourse,
   type StudyBlock as EngineBlock,
@@ -44,6 +45,31 @@ const MIN_BLOCK_MINUTES = 15;
 const MAX_SCHEDULE_DAYS = 400;
 /** Even on a heavy lecture day, still allow at least this much study time. */
 export const MIN_DAILY_AFTER_LECTURES = 30;
+
+/**
+ * Study dates from `start` to the exam, capped at MAX_SCHEDULE_DAYS so a
+ * far-future exam can't enumerate an unbounded list. The cap only bites on
+ * pathological horizons (>~400 study days); normal courses are unaffected and
+ * still spread across their entire real runway.
+ */
+const runwayDates = (start: string, exam: string, days: number[]) =>
+  studyDatesBetween(start, exam, days).slice(0, MAX_SCHEDULE_DAYS);
+
+/**
+ * Hard bound on a stored topic's effort before it becomes minutes. Efforts are
+ * clamped where they enter the system (AI parse / form validation), but bad
+ * PERSISTED data (legacy rows, hand-edited DB) must not be able to break every
+ * future rebuild: effort = Infinity would flow through
+ * `Math.ceil(effort * MINUTES_PER_EFFORT * …)` straight into a createMany with
+ * `minutes: Infinity`. Defense-in-depth next to the parse-boundary clamp.
+ */
+export const MAX_TOPIC_EFFORT = 100;
+
+/** Effort as a finite value in [0, MAX_TOPIC_EFFORT]; junk coerces to 0. */
+export function clampEffort(effort: number | null | undefined): number {
+  if (!Number.isFinite(effort as number)) return 0;
+  return Math.min(Math.max(effort as number, 0), MAX_TOPIC_EFFORT);
+}
 
 /**
  * The study-time ceiling for one weekday, AFTER that day's lectures are
@@ -179,36 +205,63 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   // Completed sessions are durable history — never wipe them. We rebuild only
   // the unfinished plan, and skip any freshly-planned block that lands on a
   // topic+date a completed session already covers (matching on topic+date).
-  const existing = await prisma.studyBlock.findMany({
-    where: { courseId },
-    select: { completed: true, topicId: true, date: true, kind: true },
-  });
-  const completedKeys = new Set(
-    existing.filter((b) => b.completed).map((b) => blockKey(b.topicId, b.date, b.kind)),
-  );
-  const fresh = blocks.filter(
-    (b) => !completedKeys.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
-  );
   // Atomic swap: a crash between the delete and the create must never leave a
-  // course with no plan, so both run in one transaction.
-  await prisma.$transaction([
-    prisma.studyBlock.deleteMany({ where: { courseId, completed: false } }),
-    ...(fresh.length > 0
-      ? [
-          prisma.studyBlock.createMany({
-            data: fresh.map((b) => ({
-              courseId,
-              topicId: b.topicId,
-              topicTitle: b.topicTitle,
-              date: new Date(b.date + "T00:00:00Z"),
-              minutes: b.minutes,
-              completed: false,
-              kind: b.kind,
-            })),
-          }),
-        ]
-      : []),
-  ]);
+  // course with no plan, so everything runs in ONE interactive transaction —
+  // including the snapshot read: read outside it, a block completed in between
+  // would survive the delete AND get a duplicate fresh row created.
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.studyBlock.findMany({
+      where: { courseId },
+      select: {
+        completed: true,
+        topicId: true,
+        date: true,
+        kind: true,
+        startTime: true,
+        endTime: true,
+      },
+    });
+    const completedKeys = new Set(
+      existing.filter((b) => b.completed).map((b) => blockKey(b.topicId, b.date, b.kind)),
+    );
+    // Hand-set clock times on unfinished blocks survive the wipe-and-recreate:
+    // a re-created block matching an existing timed uncompleted block (same
+    // topic+date+kind) inherits its startTime/endTime, honouring
+    // autoScheduleWeekTimes' promise to never stomp times the student set.
+    const timesByKey = new Map<string, { startTime: Date; endTime: Date }>();
+    for (const b of existing) {
+      if (b.completed || b.startTime == null || b.endTime == null) continue;
+      const key = blockKey(b.topicId, b.date, b.kind);
+      if (!timesByKey.has(key)) timesByKey.set(key, { startTime: b.startTime, endTime: b.endTime });
+    }
+    const fresh = blocks.filter(
+      (b) => !completedKeys.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
+    );
+    await tx.studyBlock.deleteMany({ where: { courseId, completed: false } });
+    if (fresh.length > 0) {
+      await tx.studyBlock.createMany({
+        data: fresh.map((b) => {
+          const date = new Date(b.date + "T00:00:00Z");
+          const key = blockKey(b.topicId, date, b.kind);
+          // First fresh block per key only: a topic can earn two chunks on one
+          // day, and both inheriting the same clock slot would overlap.
+          const times = timesByKey.get(key);
+          if (times) timesByKey.delete(key);
+          return {
+            courseId,
+            topicId: b.topicId,
+            topicTitle: b.topicTitle,
+            date,
+            minutes: b.minutes,
+            completed: false,
+            kind: b.kind,
+            startTime: times?.startTime ?? null,
+            endTime: times?.endTime ?? null,
+          };
+        }),
+      });
+    }
+  });
 }
 
 /**
@@ -216,13 +269,61 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
  * (via the Pomodoro timer), learn whether they study faster/slower than the
  * estimate and scale future plans. Clamped, and only once there's enough data.
  */
-function calibrationFromHistory(blocks: { minutes: number; actualMinutes: number | null }[]): number {
-  const logged = blocks.filter((b) => b.actualMinutes && b.actualMinutes > 0);
+export function calibrationFromHistory(
+  blocks: { minutes: number; actualMinutes: number | null; completed: boolean }[],
+): number {
+  // Only COMPLETED sessions are evidence of pace: an abandoned sprint has
+  // actual < planned by construction, so counting it would read as "student is
+  // faster than the estimate" and shrink the plan for work never finished.
+  const logged = blocks.filter((b) => b.completed && b.actualMinutes && b.actualMinutes > 0);
   if (logged.length < 3) return 1;
   const planned = logged.reduce((s, b) => s + b.minutes, 0);
   const actual = logged.reduce((s, b) => s + (b.actualMinutes ?? 0), 0);
   if (planned <= 0) return 1;
   return Math.min(2.5, Math.max(0.5, actual / planned));
+}
+
+/**
+ * Fit freshly-built review blocks under the global daily ceiling. Reviews used
+ * to be persisted without touching `dayLoad`, so they stacked on top of the
+ * ~6h cap without bound. Each review now counts toward its day's load, and one
+ * whose target day is already full slides to the NEXT study day with room
+ * (still before the exam — `dates` is the runway — and still at most one
+ * recall of a topic per day). If no later day has room it keeps its original
+ * slot: a short recall is never dropped, so a genuinely crowded run-up can
+ * still exceed the ceiling by at most these 25-min sessions.
+ */
+export function fitReviews(
+  reviews: EngineBlock[],
+  dates: string[],
+  dayLoad: Map<string, number>,
+  ceilingFor: (date: string) => number,
+): EngineBlock[] {
+  // Days each topic already reviews on, so a slide can't create a same-day dup.
+  const usedByTopic = new Map<string, Set<string>>();
+  for (const r of reviews) {
+    const used = usedByTopic.get(r.topicId) ?? new Set<string>();
+    used.add(r.date);
+    usedByTopic.set(r.topicId, used);
+  }
+  const out: EngineBlock[] = [];
+  for (const r of reviews) {
+    const used = usedByTopic.get(r.topicId)!;
+    let slot = r.date;
+    if ((dayLoad.get(slot) ?? 0) + r.minutes > ceilingFor(slot)) {
+      const later = dates.find(
+        (d) => d > r.date && !used.has(d) && (dayLoad.get(d) ?? 0) + r.minutes <= ceilingFor(d),
+      );
+      if (later) {
+        used.delete(r.date);
+        used.add(later);
+        slot = later;
+      }
+    }
+    dayLoad.set(slot, (dayLoad.get(slot) ?? 0) + r.minutes);
+    out.push(slot === r.date ? r : { ...r, date: slot });
+  }
+  return out;
 }
 
 type Work = {
@@ -343,12 +444,8 @@ async function rebuildScheduleInner(
   }
 
   const today = todayISO();
-  // Study dates from today to the exam, capped at MAX_SCHEDULE_DAYS so a far-future
-  // exam can't enumerate an unbounded list. The cap only bites on pathological
-  // horizons (>~400 study days); normal courses are unaffected and still spread
-  // across their entire real runway.
-  const runwayDates = (start: string, exam: string, days: number[]) =>
-    studyDatesBetween(start, exam, days).slice(0, MAX_SCHEDULE_DAYS);
+  // Courses the scheduler could not fully fit before their exam (→ `intense`).
+  const overloaded = new Set<string>();
 
   // Build a per-course pacing plan: its remaining topic-work and the even-spread
   // target/day needed to finish exactly on its exam over its remaining study days.
@@ -371,10 +468,20 @@ async function rebuildScheduleInner(
     for (const t of folded.topics) {
       const o = order++;
       if (t.done) continue;
-      const minutes = Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration * difficulty);
+      const minutes = Math.ceil(clampEffort(t.effort) * MINUTES_PER_EFFORT * calibration * difficulty);
       if (minutes > 0) {
         work.push({ courseId: c.id, topicId: t.id, title: t.title, rem: minutes, order: o, exam, studyDays: days });
       }
+    }
+    // INV1: never schedule on/after the exam. A course whose exam is today or
+    // already past has NO runway — mirror the pure engine (empty plan, flagged
+    // intense while work remains) instead of letting the leftover pile-on dump
+    // everything onto *today*, which ate the whole global ceiling and starved
+    // every live course's day.
+    if (exam <= today) {
+      if (work.length > 0) overloaded.add(c.id);
+      paces.push({ courseId: c.id, exam, studyDays: days, work: [], targetPerDay: 0 });
+      continue;
     }
     if (work.length === 0) {
       paces.push({ courseId: c.id, exam, studyDays: days, work, targetPerDay: 0 });
@@ -407,6 +514,24 @@ async function rebuildScheduleInner(
     return dailyStudyCeiling(lectureMinByDow[dow]);
   };
 
+  // Completed sessions consume real capacity. Seed each day's load with the
+  // already-completed blocks from today on (that time is spent — fresh work must
+  // fit around it), and remember each topic's completed STUDY days: a fresh
+  // study block re-planned onto such a day would collide with the durable
+  // completed row in persistBlocks and be silently dropped — its minutes lost
+  // instead of redistributed — so the day loop steers that topic elsewhere.
+  const completedTopicDays = new Set<string>();
+  for (const c of courses) {
+    for (const b of c.blocks) {
+      if (!b.completed) continue;
+      const day = b.date.toISOString().slice(0, 10);
+      if (day < today) continue;
+      const minutes = Number.isFinite(b.minutes) ? Math.max(b.minutes, 0) : 0;
+      dayLoad.set(day, (dayLoad.get(day) ?? 0) + minutes);
+      if ((b.kind ?? "study") === "study") completedTopicDays.add(`${b.topicId}|${day}`);
+    }
+  }
+
   // EVEN-SPREAD per course, ACROSS THE FULL RUNWAY. The core change vs the old
   // front-packer: we don't pour each course into the earliest days until its work
   // is gone. Instead we walk EVERY study day from today to the exam and give the
@@ -414,7 +539,6 @@ async function rebuildScheduleInner(
   // short session spaced out the whole way (steady study, no empty tail) and a
   // heavy course fills more per day. Nearer exams are processed first so they win
   // contested minutes when the global ceiling binds on a crowded day.
-  const overloaded = new Set<string>();
   const orderedPaces = [...paces].sort((a, b) => a.exam.localeCompare(b.exam));
   for (const p of orderedPaces) {
     if (p.work.length === 0) continue;
@@ -451,10 +575,16 @@ async function rebuildScheduleInner(
         // Next still-owing topic from the round-robin cursor, in course order, so
         // foundational topics lead, later topics follow, and each is touched
         // across several days (no single-day cram) — bounded by the per-topic cap.
+        // A day the topic already has a COMPLETED study session on is skipped:
+        // persistBlocks would drop the colliding fresh block (lost minutes).
         let pick: Work | null = null;
         for (let k = 0; k < p.work.length; k++) {
           const w = p.work[(ti + k) % p.work.length];
-          if (w.rem > 0 && (perTopicToday[w.topicId] ?? 0) < MAX_TOPIC_MINUTES_PER_DAY) {
+          if (
+            w.rem > 0 &&
+            (perTopicToday[w.topicId] ?? 0) < MAX_TOPIC_MINUTES_PER_DAY &&
+            !completedTopicDays.has(`${w.topicId}|${date}`)
+          ) {
             pick = w;
             ti = (ti + k + 1) % p.work.length;
             break;
@@ -492,8 +622,16 @@ async function rebuildScheduleInner(
     for (const w of p.work) {
       if (w.rem <= 0) continue;
       overloaded.add(w.courseId);
-      const dates2 = studyDatesBetween(today, w.exam, w.studyDays);
-      const target = dates2.length ? dates2[dates2.length - 1] : today;
+      const dates2 = runwayDates(today, w.exam, w.studyDays);
+      // Latest study day WITHOUT a completed session of this topic — a pile-on
+      // colliding with a durable completed block would be silently dropped.
+      let target = dates2.length ? dates2[dates2.length - 1] : today;
+      for (let i = dates2.length - 1; i >= 0; i--) {
+        if (!completedTopicDays.has(`${w.topicId}|${dates2[i]}`)) {
+          target = dates2[i];
+          break;
+        }
+      }
       studyByCourse.get(w.courseId)!.push({
         date: target,
         topicId: w.topicId,
@@ -511,16 +649,57 @@ async function rebuildScheduleInner(
   const result = new Map<string, { isOverloaded: boolean; minutesPerDay: number }>();
   for (const c of courses) {
     const study = studyByCourse.get(c.id) ?? [];
-    const dates = studyDatesBetween(
+    const exam = c.examDate.toISOString().slice(0, 10);
+    const dates = runwayDates(
       today,
-      c.examDate.toISOString().slice(0, 10),
+      exam,
       c.studyDays.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !Number.isNaN(n)),
     );
+
+    // A topic that produces NO new study this rebuild (done / fully folded) gets
+    // no reviews from buildReviewBlocks (it derives them from fresh study only),
+    // so the wipe-and-recreate used to erase its pending retention schedule on
+    // EVERY rebuild — even one triggered by a different course. Carry its
+    // still-valid pending reviews over instead: never past ones, never on/after
+    // the exam, at most one per topic+day, and only for topics that still exist.
+    const liveTopicIds = new Set(c.topics.map((t) => t.id));
+    const studiedTopicIds = new Set(study.map((b) => b.topicId));
+    const preserved: EngineBlock[] = [];
+    const preservedSeen = new Set<string>();
+    for (const b of c.blocks) {
+      if ((b.kind ?? "study") !== "review" || b.completed) continue;
+      if (!liveTopicIds.has(b.topicId) || studiedTopicIds.has(b.topicId)) continue;
+      const day = b.date.toISOString().slice(0, 10);
+      if (day < today || day >= exam) continue;
+      const key = `${b.topicId}|${day}`;
+      if (preservedSeen.has(key)) continue;
+      preservedSeen.add(key);
+      const minutes = Number.isFinite(b.minutes) && b.minutes > 0 ? b.minutes : REVIEW_MINUTES;
+      preserved.push({
+        date: day,
+        topicId: b.topicId,
+        topicTitle: b.topicTitle,
+        minutes,
+        completed: false,
+        kind: "review",
+      });
+      // Preserved reviews already sit on the calendar — count them toward the
+      // day's load so freshly-fitted reviews see an honest total.
+      dayLoad.set(day, (dayLoad.get(day) ?? 0) + minutes);
+    }
+
     // Confidence signal from the student's per-topic self-rating: struggling
     // topics earn more/earlier reviews, solid fewer. Unrated topics aren't in
     // the map, so they keep the unchanged baseline spacing (no regression).
-    const reviews = buildReviewBlocks(study, dates, reviewDifficultyByTopic(c.topics));
-    await persistBlocks(c.id, [...study, ...reviews]);
+    // fitReviews then counts each review toward the global daily ceiling,
+    // sliding it to the next study day with room when its slot is full.
+    const reviews = fitReviews(
+      buildReviewBlocks(study, dates, reviewDifficultyByTopic(c.topics)),
+      dates,
+      dayLoad,
+      ceilingFor,
+    );
+    await persistBlocks(c.id, [...study, ...reviews, ...preserved]);
 
     const daysUsed = new Set(study.map((b) => b.date)).size || 1;
     const minutesPerDay = Math.round(study.reduce((s, b) => s + b.minutes, 0) / daysUsed);
@@ -553,6 +732,19 @@ export async function healCoursePlan(courseId: string) {
 }
 
 /**
+ * Marker for AI-added review topics: their (AI-only) `questions` column is set
+ * to an EMPTY question array at creation — a value that never occurs naturally
+ * (generateSelfTests only ever stores non-empty arrays; review topics are
+ * excluded from it) and that every consumer already renders as "no questions".
+ * Re-optimizing clears exactly the review topics the AI created by this tag,
+ * never by title: the old `startsWith: "Review:"` delete (case-insensitive
+ * under SQLite LIKE) also swept away topics the STUDENT happened to title
+ * "Review: ...". Legacy untagged AI review topics degrade gracefully — they're
+ * treated as real topics and deduped by title, so they don't pile up either.
+ */
+const AI_REVIEW_TOPIC_TAG = "[]";
+
+/**
  * AI optimization (hybrid): the model judges difficulty/order and adds spaced
  * review sessions; we persist those as topic effort/order (+ review topics), then
  * the deterministic engine schedules them. Runs once per course (or on demand);
@@ -565,7 +757,7 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
     select: {
       name: true,
       examDate: true,
-      topics: { select: { id: true, title: true } },
+      topics: { select: { id: true, title: true, questions: true } },
     },
   });
   if (!course || course.topics.length === 0) return false;
@@ -574,7 +766,7 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
     1,
     Math.round((course.examDate.getTime() - Date.now()) / 86_400_000),
   );
-  const realTopics = course.topics.filter((t) => !/^review:/i.test(t.title));
+  const realTopics = course.topics.filter((t) => t.questions !== AI_REVIEW_TOPIC_TAG);
   const items = await optimizeStudyPlan(
     course.name,
     realTopics.map((t) => t.title),
@@ -582,22 +774,27 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
   );
   if (items.length === 0) return false;
 
-  // Clear previously AI-added review topics so re-optimizing doesn't pile them up.
+  // Clear previously AI-added review topics so re-optimizing doesn't pile them
+  // up — matched by our own tag, so a student's "Review: ..." topic is safe.
   await prisma.topic.deleteMany({
-    where: { courseId, title: { startsWith: "Review:" } },
+    where: { courseId, questions: AI_REVIEW_TOPIC_TAG },
   });
 
   const byTitle = new Map(realTopics.map((t) => [t.title.trim().toLowerCase(), t]));
   let order = 0;
   for (const it of items) {
     const title = it.title.trim();
-    const effort = it.effort > 0 ? it.effort : 1;
+    // Clamped defensively (junk/absurd model output must never persist an
+    // effort that later explodes the rebuild maths); 0/invalid falls back to 1.
+    const effort = clampEffort(it.effort) || 1;
     const existing = byTitle.get(title.toLowerCase());
     if (existing) {
       await prisma.topic.update({ where: { id: existing.id }, data: { effort, order } });
       byTitle.delete(title.toLowerCase());
     } else if (it.isReview || /^review:/i.test(title)) {
-      await prisma.topic.create({ data: { courseId, title, effort, order } });
+      await prisma.topic.create({
+        data: { courseId, title, effort, order, questions: AI_REVIEW_TOPIC_TAG },
+      });
     }
     order++;
   }
@@ -608,10 +805,12 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
 
   // Active recall: generate self-test questions per topic (one call), store as JSON.
   try {
-    const fresh = await prisma.topic.findMany({
-      where: { courseId, title: { not: { startsWith: "Review:" } } },
-      select: { id: true, title: true },
+    const all = await prisma.topic.findMany({
+      where: { courseId },
+      select: { id: true, title: true, questions: true },
     });
+    // Filtered in JS (not SQL) so the AI-review tag match is exact, never LIKE.
+    const fresh = all.filter((t) => t.questions !== AI_REVIEW_TOPIC_TAG);
     const tests = await generateSelfTests(course.name, fresh.map((t) => t.title));
     const qByTitle = new Map(tests.map((x) => [x.title.trim().toLowerCase(), x.questions]));
     for (const t of fresh) {
@@ -713,7 +912,7 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
   let remainingMinutes = 0;
   for (const t of folded.topics) {
     if (t.done) continue;
-    remainingMinutes += Math.ceil(Math.max(t.effort, 0) * MINUTES_PER_EFFORT * calibration * difficulty);
+    remainingMinutes += Math.ceil(clampEffort(t.effort) * MINUTES_PER_EFFORT * calibration * difficulty);
   }
 
   const today = todayISO();
@@ -722,7 +921,10 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
     .split(",")
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => !Number.isNaN(n));
-  const dates = studyDatesBetween(today, exam, days);
+  // Capped like the scheduler's runway: this runs on every course-detail render,
+  // so a pathological far-future exam must not enumerate (or loop over) an
+  // unbounded date list here either.
+  const dates = runwayDates(today, exam, days);
   const daysLeft = dates.length;
 
   // Required even pace to finish on time over the days that remain.

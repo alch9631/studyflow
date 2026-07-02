@@ -1,17 +1,28 @@
 /**
- * Unit tests for the pure mapping/folding logic in planService.ts.
+ * Tests for planService.ts: the pure mapping/folding logic, plus DB-backed
+ * regression tests for the global rebuild at the bottom (isolated throwaway
+ * test DB — see ./testDb — never dev/prod).
  * Run with: npx tsx src/lib/planService.test.ts
- * (Dependency-free, same style as planner.test.ts.)
  */
+import "./testDb"; // MUST be first: points ./db at the test DB before it loads.
+import { prisma } from "./db";
 import {
   toEngineCourse,
   foldCompletedSessions,
   blockKey,
   reviewDifficultyByTopic,
   dailyStudyCeiling,
+  calibrationFromHistory,
+  clampEffort,
+  fitReviews,
+  rebuildSchedule,
+  courseOverloadInfo,
+  todayISO,
   MIN_DAILY_AFTER_LECTURES,
   GLOBAL_DAILY_MINUTES,
+  MAX_TOPIC_EFFORT,
 } from "./planService";
+import { REVIEW_MINUTES, type StudyBlock as EngineBlock } from "./planner";
 
 let passed = 0;
 let failed = 0;
@@ -479,5 +490,289 @@ check("ceiling: undefined lecture minutes → full cap", dailyStudyCeiling(undef
 check("ceiling: NaN lecture minutes → full cap", dailyStudyCeiling(NaN) === GLOBAL_DAILY_MINUTES);
 check("ceiling: negative lecture minutes → full cap (no inflation)", dailyStudyCeiling(-200) === GLOBAL_DAILY_MINUTES);
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+// ---- calibrationFromHistory (adaptive pace — completed sessions only) -------
+// Regression: incomplete blocks with logged time used to feed the ratio. An
+// abandoned sprint has actual < planned by construction, so 3 abandonments read
+// as "student is 2x faster" and halved the plan with ZERO work finished.
+check("calibration: no history → neutral 1", calibrationFromHistory([]) === 1);
+check(
+  "calibration: abandoned (incomplete) sprints are NOT evidence — stays neutral",
+  calibrationFromHistory([
+    { minutes: 60, actualMinutes: 30, completed: false },
+    { minutes: 60, actualMinutes: 30, completed: false },
+    { minutes: 60, actualMinutes: 30, completed: false },
+  ]) === 1,
+);
+check(
+  "calibration: 3 completed slower-than-planned sessions raise the estimate",
+  calibrationFromHistory([
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 90, completed: true },
+  ]) === 1.5,
+);
+check(
+  "calibration: incomplete blocks don't dilute completed evidence",
+  calibrationFromHistory([
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 5, completed: false },
+    { minutes: 60, actualMinutes: 5, completed: false },
+  ]) === 1.5,
+);
+check(
+  "calibration: fewer than 3 completed sessions → neutral",
+  calibrationFromHistory([
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 90, completed: true },
+    { minutes: 60, actualMinutes: 30, completed: false },
+  ]) === 1,
+);
+check(
+  "calibration: ratio stays clamped to [0.5, 2.5]",
+  calibrationFromHistory([
+    { minutes: 10, actualMinutes: 600, completed: true },
+    { minutes: 10, actualMinutes: 600, completed: true },
+    { minutes: 10, actualMinutes: 600, completed: true },
+  ]) === 2.5 &&
+    calibrationFromHistory([
+      { minutes: 600, actualMinutes: 10, completed: true },
+      { minutes: 600, actualMinutes: 10, completed: true },
+      { minutes: 600, actualMinutes: 10, completed: true },
+    ]) === 0.5,
+);
+
+// ---- clampEffort (defense against absurd persisted efforts) ----------------
+// Bad stored data (Infinity/NaN/huge) must never reach the rebuild maths — it
+// would land in createMany as `minutes: Infinity` and break every future plan.
+check("clampEffort: normal efforts pass through", clampEffort(3) === 3 && clampEffort(0.5) === 0.5);
+check("clampEffort: Infinity → 0", clampEffort(Infinity) === 0);
+check("clampEffort: NaN/null/undefined → 0", clampEffort(NaN) === 0 && clampEffort(null) === 0 && clampEffort(undefined) === 0);
+check("clampEffort: negative → 0", clampEffort(-5) === 0);
+check("clampEffort: absurd values clamp to the bound", clampEffort(1e12) === MAX_TOPIC_EFFORT);
+
+// ---- fitReviews (reviews respect the global daily ceiling) -----------------
+// Regression: reviews were persisted without touching dayLoad, stacking on top
+// of the ~6h ceiling without bound. They now count toward the day's load and
+// slide to the next study day with room when their slot is full.
+const rev = (date: string, topicId: string): EngineBlock => ({
+  date,
+  topicId,
+  topicTitle: topicId,
+  minutes: REVIEW_MINUTES,
+  completed: false,
+  kind: "review",
+});
+const fitDates = ["2026-06-10", "2026-06-11", "2026-06-12"];
+const flatCeiling = () => 360;
+{
+  // A full day pushes the review to the NEXT study day with room.
+  const load = new Map([["2026-06-10", 350]]);
+  const fitted = fitReviews([rev("2026-06-10", "t1")], fitDates, load, flatCeiling);
+  check("fitReviews: full day slides the review to the next study day", fitted[0].date === "2026-06-11");
+  check("fitReviews: the review counts toward its new day's load", load.get("2026-06-11") === REVIEW_MINUTES);
+  check("fitReviews: the full day is left untouched", load.get("2026-06-10") === 350);
+}
+{
+  // A roomy day keeps the review in place (and still counts it).
+  const load = new Map<string, number>();
+  const fitted = fitReviews([rev("2026-06-10", "t1")], fitDates, load, flatCeiling);
+  check("fitReviews: roomy day keeps the original slot", fitted[0].date === "2026-06-10");
+  check("fitReviews: kept review still counts toward the day", load.get("2026-06-10") === REVIEW_MINUTES);
+}
+{
+  // Sliding never creates a same-day duplicate for a topic: with tomorrow
+  // already reviewing t1, the displaced review skips to the day after.
+  const load = new Map([["2026-06-10", 350]]);
+  const fitted = fitReviews([rev("2026-06-11", "t1"), rev("2026-06-10", "t1")], fitDates, load, flatCeiling);
+  const t1Days = fitted.map((r) => r.date);
+  check("fitReviews: a slide never lands on a day the topic already reviews", new Set(t1Days).size === t1Days.length);
+}
+{
+  // Every day full → the review keeps its slot (short recall, never dropped).
+  const load = new Map(fitDates.map((d) => [d, 360]));
+  const fitted = fitReviews([rev("2026-06-10", "t1")], fitDates, load, flatCeiling);
+  check("fitReviews: nowhere to go → keeps its slot rather than dropping", fitted[0].date === "2026-06-10");
+}
+
+// ===========================================================================
+// DB-BACKED REBUILD REGRESSIONS — run against the isolated throwaway test DB
+// (./testDb). Each scenario seeds its own user so cases can't interfere.
+// ===========================================================================
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+
+async function dbTests() {
+  const today = todayISO();
+  const daysFromNow = (n: number) => {
+    const d = new Date(today + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + n);
+    return d;
+  };
+  const newUser = () =>
+    prisma.user.create({
+      data: { email: `svc-${Math.random().toString(36).slice(2)}@studyflow.local`, name: "Svc" },
+    });
+  type TopicSeed = { title: string; effort: number };
+  const newCourse = (userId: string, name: string, daysOut: number, topics: TopicSeed[]) =>
+    prisma.course.create({
+      data: {
+        name,
+        userId,
+        examDate: daysFromNow(daysOut),
+        studyDays: "0,1,2,3,4,5,6", // every day, so "today" is always a study day
+        topics: { create: topics.map((t, i) => ({ title: t.title, effort: t.effort, order: i }))},
+      },
+    });
+
+  // ---- Past/today exam: no blocks, flagged intense, live courses untouched --
+  // Regression: a course whose exam is <= today fell through to the leftover
+  // pile-on, dumping ALL its work on *today* — and because earliest exams are
+  // scheduled first, it ate the whole 360-min global ceiling and starved every
+  // live course's day (violating INV1 in the process).
+  {
+    const user = await newUser();
+    const past = await newCourse(user.id, "Past", 0, [{ title: "P1", effort: 8 }]);
+    const live = await newCourse(user.id, "Live", 14, [{ title: "L1", effort: 20 }]);
+    await rebuildSchedule(user.id);
+    const pastBlocks = await prisma.studyBlock.findMany({ where: { courseId: past.id } });
+    const liveBlocks = await prisma.studyBlock.findMany({ where: { courseId: live.id } });
+    const pastCourse = await prisma.course.findUnique({ where: { id: past.id }, select: { intense: true } });
+    check("exam<=today: course gets NO blocks (INV1, mirrors the pure engine)", pastBlocks.length === 0);
+    check("exam<=today: unschedulable work is flagged intense", pastCourse?.intense === true);
+    check(
+      "exam<=today: a live course still studies today (ceiling not eaten)",
+      liveBlocks.some((b) => isoDay(b.date) === today && b.kind === "study" && !b.completed),
+    );
+  }
+
+  // ---- Graduated topics keep their retention schedule across rebuilds -------
+  // Regression: rebuilds derived reviews ONLY from freshly generated study
+  // blocks, then wiped all pending blocks — so a topic whose study was fully
+  // completed (review-only from then on) lost its spaced reviews on ANY rebuild.
+  {
+    const user = await newUser();
+    // Asymmetric efforts so "Mastered" finishes its study well before the exam
+    // (a topic whose last study is the final runway day earns no reviews — all
+    // its intervals would land on/after the exam and are correctly clipped).
+    const course = await newCourse(user.id, "Retention", 30, [
+      { title: "Mastered", effort: 1 },
+      { title: "Open", effort: 6 },
+    ]);
+    await rebuildSchedule(user.id);
+    // Graduate "Mastered": every study session completed, reviews still pending.
+    await prisma.studyBlock.updateMany({
+      where: { courseId: course.id, topicTitle: "Mastered", kind: "study" },
+      data: { completed: true },
+    });
+    await rebuildSchedule(user.id);
+    const pending = await prisma.studyBlock.findMany({
+      where: { courseId: course.id, topicTitle: "Mastered", kind: "review", completed: false },
+    });
+    check("graduated topic keeps pending reviews after a rebuild", pending.length > 0);
+    // A further rebuild (any confidence tap / other-course edit) keeps them too.
+    await rebuildSchedule(user.id);
+    const pending2 = await prisma.studyBlock.findMany({
+      where: { courseId: course.id, topicTitle: "Mastered", kind: "review", completed: false },
+    });
+    check("preserved reviews are stable across repeated rebuilds", pending2.length === pending.length);
+    const exam = isoDay(daysFromNow(30));
+    check(
+      "preserved reviews stay within [today, exam)",
+      pending2.every((b) => isoDay(b.date) >= today && isoDay(b.date) < exam),
+    );
+    const dayKeys = pending2.map((b) => isoDay(b.date));
+    check("at most one preserved review per day (dedup invariant)", new Set(dayKeys).size === dayKeys.length);
+  }
+
+  // ---- Completing a session never makes planned minutes vanish --------------
+  // Regression: after completing today's block, the rebuild re-planned the
+  // topic onto today again; persistBlocks dropped the colliding fresh block as
+  // "already covered" and its minutes silently vanished from the plan.
+  {
+    const user = await newUser();
+    const course = await newCourse(user.id, "NoLoss", 21, [{ title: "T", effort: 4 }]); // 360 min
+    await rebuildSchedule(user.id);
+    const todayBlock = await prisma.studyBlock.findFirst({
+      where: { courseId: course.id, kind: "study", date: daysFromNow(0) },
+    });
+    check("no-loss seed: a study block landed on today", !!todayBlock);
+    await prisma.studyBlock.update({ where: { id: todayBlock!.id }, data: { completed: true } });
+    await rebuildSchedule(user.id);
+    const fresh = await prisma.studyBlock.findMany({
+      where: { courseId: course.id, kind: "study", completed: false },
+    });
+    const freshSum = fresh.reduce((s, b) => s + b.minutes, 0);
+    // Fold maths: planned 360, done m → remaining = 360 - m, to the minute.
+    check(
+      "re-plan after completion keeps every remaining minute (none dropped)",
+      freshSum === 360 - todayBlock!.minutes,
+    );
+    check(
+      "no fresh study lands on the day the topic already completed",
+      fresh.every((b) => isoDay(b.date) !== today),
+    );
+  }
+
+  // ---- Hand-set clock times survive a rebuild --------------------------------
+  // Regression: the wipe-and-recreate dropped startTime/endTime on unfinished
+  // blocks, contradicting autoScheduleWeekTimes' "never stomp hand-set times".
+  {
+    const user = await newUser();
+    const course = await newCourse(user.id, "Timed", 21, [{ title: "T", effort: 2 }]);
+    await rebuildSchedule(user.id);
+    const block = await prisma.studyBlock.findFirst({
+      where: { courseId: course.id, kind: "study", completed: false },
+      orderBy: { date: "asc" },
+    });
+    const start = new Date(block!.date.getTime() + 9 * 3600_000); // 09:00
+    const end = new Date(block!.date.getTime() + 10 * 3600_000); // 10:00
+    await prisma.studyBlock.update({ where: { id: block!.id }, data: { startTime: start, endTime: end } });
+    await rebuildSchedule(user.id);
+    const timed = await prisma.studyBlock.findFirst({
+      where: { courseId: course.id, topicId: block!.topicId, date: block!.date, kind: "study", startTime: { not: null } },
+    });
+    check(
+      "hand-set times carry over to the matching re-created block",
+      !!timed && timed.startTime!.getTime() === start.getTime() && timed.endTime!.getTime() === end.getTime(),
+    );
+  }
+
+  // ---- Far-future exam stays bounded end-to-end ------------------------------
+  // Defense-in-depth for the enumeration cap: the read path that runs on every
+  // course-detail render AND a full rebuild must finish promptly.
+  {
+    const user = await newUser();
+    const course = await prisma.course.create({
+      data: {
+        name: "Far",
+        userId: user.id,
+        examDate: new Date("9999-12-31T00:00:00Z"),
+        studyDays: "0,1,2,3,4,5,6",
+        topics: { create: [{ title: "F", effort: 2, order: 0 }] },
+      },
+    });
+    const t0 = Date.now();
+    const info = await courseOverloadInfo(course.id);
+    const infoElapsed = Date.now() - t0;
+    check("courseOverloadInfo: far-future daysLeft is capped (<= 400)", info.daysLeft <= 400);
+    check(`courseOverloadInfo: far-future exam is prompt (${infoElapsed}ms < 5000ms)`, infoElapsed < 5000);
+    const t1 = Date.now();
+    await rebuildSchedule(user.id);
+    const rebuildElapsed = Date.now() - t1;
+    check(`rebuild: far-future exam is prompt (${rebuildElapsed}ms < 15000ms)`, rebuildElapsed < 15000);
+  }
+}
+
+dbTests()
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+    failed++;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    console.log(`\n${passed} passed, ${failed} failed`);
+    if (failed > 0) process.exit(1);
+  });
