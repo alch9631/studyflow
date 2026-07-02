@@ -3,11 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
-import PomodoroTimer, { type TimerBlock } from "@/components/PomodoroTimer";
-import { toggleBlock, saveBlockNote } from "@/app/courses/actions";
+import { toggleBlock, saveBlockNote, logFocus } from "@/app/courses/actions";
 import { fmtDuration } from "@/app/today/cockpit";
 
 /** The single block Focus mode works on (serializable across the boundary). */
@@ -34,20 +39,6 @@ export type FocusBlock = {
  * idle so the flow can begin again.
  */
 type Phase = "idle" | "running" | "resting";
-
-/** localStorage key the shared PomodoroTimer persists its focus length under. */
-const FOCUS_MIN_KEY = "sf-focus-min";
-const DEFAULT_FOCUS_MIN = 25;
-
-/** Read the persisted focus length (1–180 min), guarded for SSR. */
-function readFocusMin(): number {
-  if (typeof window === "undefined") return DEFAULT_FOCUS_MIN;
-  try {
-    const v = parseInt(localStorage.getItem(FOCUS_MIN_KEY) ?? "", 10);
-    if (!Number.isNaN(v) && v >= 1 && v <= 180) return v;
-  } catch {}
-  return DEFAULT_FOCUS_MIN;
-}
 
 /** Never notifies — pairs with useSyncExternalStore as a pure hydration flag. */
 const emptySubscribe = () => () => {};
@@ -93,8 +84,14 @@ function readSession(blockId: string): { phase: Phase; elapsedSec: number } | nu
  * single state-driven control pair — rendered as a full-screen overlay (fixed
  * inset-0, z-50) so the global nav/tab-bar are visually out of the way without
  * touching the root layout. Mark-done reuses the shared optimistic toggleBlock;
- * notes reuse the existing saveBlockNote path; the timer reuses the shared
- * PomodoroTimer (which logs finished sprints against this block).
+ * notes reuse the existing saveBlockNote path.
+ *
+ * There is exactly ONE clock here: a countdown over the BLOCK's planned
+ * minutes, owned by this component and driven only by the bottom session
+ * controls (no embedded Pomodoro with its own Start button — two disconnected
+ * timers is how "Start focus does nothing" happens). When the countdown hits
+ * zero the session lands on "resting" and offers to log the focused minutes
+ * against this block via the shared `logFocus` action.
  *
  * The bottom controls follow the session `Phase` (see above) instead of always
  * offering Stop / Mark done: before any focus, the leading action is "Start
@@ -115,19 +112,25 @@ export default function FocusSession({
   const [savingNote, setSavingNote] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
-  // Session lifecycle + the elapsed focus clock FocusSession owns (the source of
-  // truth for whether any real focus has happened — independent of the embedded
-  // Pomodoro's own countdown, which keeps doing the sprint timing + logging).
+  // Session lifecycle + the elapsed focus clock FocusSession owns — the ONE
+  // source of truth for both the visible countdown and whether any real focus
+  // has happened. The target is always the block's planned length.
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsedSec, setElapsedSec] = useState(0);
+  const targetSec = block.minutes * 60;
+
+  // The end-of-countdown log offer: `logOpen` drives the dialog; `logMinutes`
+  // holds the focused minutes it credits (capped at the block's plan).
+  const [logOpen, setLogOpen] = useState(false);
+  const [logMinutes, setLogMinutes] = useState(block.minutes);
 
   // Restore an in-progress session lost to client-side navigation (this is all
   // component state, so an unmount would otherwise silently reset the session
   // to idle while the embedded Pomodoro sprint kept running). Done during
   // render once hydration allows it (the adjust-state-during-render pattern —
-  // the server HTML must show the idle default). If the focus length elapsed
-  // while away, land on "resting" so "Mark session done" is offered instead
-  // of a clock that overshot.
+  // the server HTML must show the idle default). If the block's length elapsed
+  // while away, cap the clock at the target and land on "resting" with the log
+  // offer open — instead of a clock that overshot.
   const hydrated = useSyncExternalStore(
     emptySubscribe,
     () => true,
@@ -138,10 +141,13 @@ export default function FocusSession({
     setRestoredSession(true);
     const saved = readSession(block.id);
     if (saved) {
-      const finished =
-        saved.phase === "running" && saved.elapsedSec >= readFocusMin() * 60;
-      setElapsedSec(saved.elapsedSec);
+      const finished = saved.phase === "running" && saved.elapsedSec >= targetSec;
+      setElapsedSec(finished ? targetSec : saved.elapsedSec);
       setPhase(finished ? "resting" : saved.phase);
+      if (finished) {
+        setLogMinutes(block.minutes);
+        setLogOpen(true);
+      }
     }
   }
 
@@ -184,20 +190,27 @@ export default function FocusSession({
   });
 
   // Advance the elapsed clock only while running. When the elapsed time reaches
-  // the student's focus length, the session has earned a rest → flip to
-  // "resting" so "Mark session done" surfaces on its own (no nagging before
-  // then). Timestamp-based math (not per-tick increments): background tabs and
-  // a suspended iOS PWA throttle or pause timers, which would freeze a
-  // tick-counting clock — so recompute from Date.now() on every tick and again
-  // whenever the tab becomes visible.
+  // the block's planned length, the session has earned a rest → flip to
+  // "resting" and open the log offer (no nagging before then). Timestamp-based
+  // math (not per-tick increments): background tabs and a suspended iOS PWA
+  // throttle or pause timers, which would freeze a tick-counting clock — so
+  // recompute from Date.now() on every tick and again whenever the tab becomes
+  // visible.
   useEffect(() => {
     if (phase !== "running") return;
-    const targetSec = readFocusMin() * 60;
     const startedAt = Date.now() - elapsedRef.current * 1000;
+    // "Keep working" after the countdown already hit zero counts overtime
+    // quietly — without this guard the first tick would bounce straight back
+    // to "resting" and re-open the log offer in a loop.
+    const alreadyFinished = elapsedRef.current >= targetSec;
     const sync = () => {
       const next = Math.floor((Date.now() - startedAt) / 1000);
       setElapsedSec(next);
-      if (next >= targetSec) setPhase("resting");
+      if (!alreadyFinished && next >= targetSec) {
+        setPhase("resting");
+        setLogMinutes(block.minutes);
+        setLogOpen(true);
+      }
     };
     const id = setInterval(sync, 1000);
     const onVisibility = () => {
@@ -208,7 +221,7 @@ export default function FocusSession({
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [phase]);
+  }, [phase, targetSec, block.minutes]);
 
   // Marking the block done from elsewhere (or reopening it) keeps the controls
   // honest: a reopened block starts a fresh session at idle with a clean clock.
@@ -221,13 +234,13 @@ export default function FocusSession({
     prevDone.current = optimisticDone;
   }, [optimisticDone]);
 
-  // The shared Pomodoro logs a finished sprint against the open block.
-  const timerBlocks: TimerBlock[] = optimisticDone
-    ? []
-    : [{ id: block.id, topicTitle: block.topicTitle, completed: false, course: { name: block.course.name } }];
-
   // Whether any real focus has happened — gates "Mark session done".
   const hasFocused = elapsedSec > 0;
+
+  // The visible countdown, clamped at 0:00 (overtime never shows negative).
+  const remainingSec = Math.max(0, targetSec - elapsedSec);
+  const mm = String(Math.floor(remainingSec / 60)).padStart(2, "0");
+  const ss = String(remainingSec % 60).padStart(2, "0");
 
   function markDone() {
     const fd = new FormData();
@@ -243,8 +256,12 @@ export default function FocusSession({
     fd.set("blockId", block.id);
     fd.set("body", note);
     try {
-      await saveBlockNote(fd);
-      toast(t("focus.notesSaved"), "success");
+      const res = await saveBlockNote(fd);
+      if (res.ok) {
+        toast(t("focus.notesSaved"), "success");
+      } else {
+        toast(t("focus.notesError"), "error");
+      }
     } catch {
       toast(t("focus.notesError"), "error");
     } finally {
@@ -292,11 +309,16 @@ export default function FocusSession({
           </p>
         </div>
 
-        {/* The big timer (shared Pomodoro, logs sprints to this block). A plain
-            timer in Focus: the reset/settings icon buttons are hidden so only
-            Start remains — this is a quiet room, not a control panel. */}
-        <div className="mt-12 [&_button[aria-label]]:hidden">
-          <PomodoroTimer blocks={timerBlocks} />
+        {/* The big clock — the block's planned minutes counting down, driven
+            only by the bottom session controls. No buttons up here: this is a
+            quiet room, not a control panel. */}
+        <div className="mt-12 text-center">
+          <div className="text-6xl font-semibold tabular-nums sm:text-7xl">
+            {mm}:{ss}
+          </div>
+          {phase === "resting" && remainingSec > 0 && (
+            <p className="mt-2 text-sm text-muted-foreground">{t("focus.paused")}</p>
+          )}
         </div>
 
         {/* One collapsible note — clearly a control even when collapsed (a
@@ -418,6 +440,92 @@ export default function FocusSession({
           </p>
         )}
       </div>
+
+      <LogFocusDialog
+        open={logOpen}
+        minutes={logMinutes}
+        blockId={block.id}
+        onClose={() => setLogOpen(false)}
+      />
     </div>
+  );
+}
+
+/**
+ * End-of-countdown confirmation: the block's planned time is up — offer to log
+ * the focused minutes against THIS block via the shared `logFocus` action (the
+ * same path the Pomodoro sprint logging and the "🍅 +Nm" buttons use, so it
+ * feeds adaptive pacing and can auto-complete the block server-side).
+ * Dismissing logs nothing; "Mark session done" below stays available either way.
+ */
+function LogFocusDialog({
+  open,
+  minutes,
+  blockId,
+  onClose,
+}: {
+  open: boolean;
+  minutes: number;
+  blockId: string;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const t = useT();
+  const [pending, setPending] = useState(false);
+
+  async function submit() {
+    if (pending) return;
+    setPending(true);
+    const fd = new FormData();
+    fd.set("blockId", blockId);
+    fd.set("minutes", String(minutes));
+    fd.set("revalidate", "/today");
+    try {
+      await logFocus(fd);
+      toast(t("pomodoro.logged", { minutes }), "success");
+      onClose();
+    } catch {
+      toast(t("pomodoro.logError"), "error");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // While logging, hold the dialog open so nothing races the submit.
+  const lockWhilePending = (e: Event) => {
+    if (pending) e.preventDefault();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && !pending && onClose()}>
+      <DialogContent
+        showCloseButton={!pending}
+        onEscapeKeyDown={lockWhilePending}
+        onPointerDownOutside={lockWhilePending}
+        onInteractOutside={lockWhilePending}
+      >
+        <DialogTitle>{t("focus.timeUp")}</DialogTitle>
+        <DialogDescription>{t("focus.timeUpBody", { minutes })}</DialogDescription>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending}
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
+            {t("pomodoro.notNow")}
+          </Button>
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={submit}
+            className="w-full sm:w-auto"
+          >
+            {pending ? t("pomodoro.logging") : t("pomodoro.log", { minutes })}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
