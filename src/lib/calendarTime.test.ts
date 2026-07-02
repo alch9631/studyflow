@@ -72,6 +72,24 @@ check("hhmmToMinutes rejects 12:60", hhmmToMinutes("12:60") === null);
   check("spring-forward 06:00 Berlin = 04:00Z", inst.toISOString() === "2026-03-29T04:00:00.000Z");
 }
 
+// ── DST: the SKIPPED hour itself (02:00–02:59 doesn't exist on 2026-03-29) ────
+// A skipped wall time has no instant; it must be pushed FORWARD past the gap by
+// its width (02:30 → 03:30), never mapped to an earlier instant — date-fns-tz's
+// raw resolution lands one hour BEFORE the jump (02:30 read back as 01:30),
+// which could put a block's end before its start.
+{
+  const gapStart = dayMinutesToInstant("2026-03-29", 120, DEFAULT_TZ); // 02:00 → 03:00
+  check("skipped 02:00 snaps to 03:00 (01:00Z)", gapStart.toISOString() === "2026-03-29T01:00:00.000Z");
+  check("skipped 02:00 reads back as 03:00", instantToDayMinutes(gapStart, DEFAULT_TZ) === 180);
+  const gapMid = dayMinutesToInstant("2026-03-29", 150, DEFAULT_TZ); // 02:30 → 03:30
+  check("skipped 02:30 pushed to 03:30 (01:30Z)", gapMid.toISOString() === "2026-03-29T01:30:00.000Z");
+  check("skipped 02:30 reads back at/after input", instantToDayMinutes(gapMid, DEFAULT_TZ) === 210);
+  check("skipped 02:30 day stable", instantToDayISO(gapMid, DEFAULT_TZ) === "2026-03-29");
+  // Ordering survives the gap: an 01:59 start stays strictly before a 02:30 end.
+  const preGap = dayMinutesToInstant("2026-03-29", 119, DEFAULT_TZ);
+  check("skipped hour keeps ordering", gapMid.getTime() > preGap.getTime());
+}
+
 // ── DST: fall-back day (2026-10-25, clocks 03:00→02:00 local) ─────────────────
 // A 06:00 local block on the fall-back day round-trips; 06:00 Berlin is 05:00 UTC
 // (winter time after the change).

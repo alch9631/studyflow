@@ -87,19 +87,23 @@ export default async function InsightsPage() {
   }));
 
   // "Not enough logged data yet" — a course (and its plan) exists, so hasData is
-  // true, but nothing has actually been completed. The streak/heatmap/activity
+  // true, but nothing has recently been completed (loggedMinutes is all-time
+  // focus, activeDays covers the last 14 days). The streak/activity/consistency
   // visualizations would all render as empty grids that read like a failure
   // report, so we hide them behind one gentle note instead. The Load section
-  // (what's planned next) is still genuinely useful and stays.
+  // (what's planned next) is still genuinely useful and stays. NOTE: this 14-day
+  // proxy must NOT gate the 12-week heatmap — a student whose completed history
+  // is older than 14 days still has a real rhythm to show there.
   const noLoggedData = loggedMinutes === 0 && activeDays === 0;
 
   // Study heatmap — per-day completed minutes over the last 12 weeks, plus exam
   // dates so exam weeks can be highlighted. Read directly here (not via the stats
   // bundle) because the heatmap needs the raw completed blocks, day-bucketed in
-  // Berlin time. Scoped to the window so it stays a cheap, bounded read. Skipped
-  // entirely when nothing's been logged — an all-empty grid is hidden, not shown.
+  // Berlin time. Scoped to the window so it stays a cheap, bounded read. The
+  // section renders only when the window actually contains completed minutes
+  // (`hasHeatmapData`) — an all-empty grid is hidden, not shown.
   let heatmapDays: HeatmapDay[] = [];
-  if (hasData && !noLoggedData) {
+  if (hasData) {
     // 13 weeks before today (a generous lower bound for the 12-week grid),
     // derived from the Berlin "today" so the read window stays deterministic.
     const since = new Date(new Date(today + "T00:00:00Z").getTime() - 13 * 7 * 86_400_000);
@@ -121,6 +125,7 @@ export default async function InsightsPage() {
       instantToDayISO,
     );
   }
+  const hasHeatmapData = heatmapDays.some((d) => d.min > 0);
 
   // ONE soft lead line — a single calm reflection, never a stacked report. We
   // pick the gentlest true sentence for where the day/week stands, leading with
@@ -195,10 +200,11 @@ export default async function InsightsPage() {
             </summary>
 
             <div className="mt-4 space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
-          {/* Nothing logged yet: hide the would-be-empty activity chart, heatmap
-              and consistency gauge behind ONE gentle note, so the disclosure
-              never opens onto a wall of empty grids. The Load section below still
-              shows — what's planned next is genuinely useful. */}
+          {/* Nothing logged recently: hide the would-be-empty activity chart and
+              consistency gauge behind ONE gentle note, so the disclosure never
+              opens onto a wall of empty grids. The Load section below still
+              shows — what's planned next is genuinely useful — and the 12-week
+              heatmap keeps its own data-driven gate (hasHeatmapData). */}
           {noLoggedData && (
             <section className={`${panelClass} bg-surface-muted p-5 lg:col-span-2`}>
               <h2 className="font-semibold">{t("insights.notEnoughData")}</h2>
@@ -285,8 +291,10 @@ export default async function InsightsPage() {
           </section>
 
           {/* Recovery — the 12-week shape of when you studied and rested, exam
-              weeks gently marked. Rest reads as part of the rhythm, not a gap. */}
-          {heatmapDays.length > 0 && (
+              weeks gently marked. Rest reads as part of the rhythm, not a gap.
+              Gated on the heatmap's own window having completed minutes — not on
+              the 14-day proxy above, which would hide older history. */}
+          {hasHeatmapData && (
             <section className={`${panelClass} p-5 lg:col-span-2`}>
               <div className="flex items-baseline justify-between">
                 <h2 className="font-semibold">{t("insights.recovery")}</h2>

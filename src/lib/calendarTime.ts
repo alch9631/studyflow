@@ -18,8 +18,11 @@ export const MINUTES_PER_DAY = 24 * 60;
 
 /**
  * The absolute UTC instant for a wall-clock minute-of-day on a calendar date, as
- * seen in `tz`. Round-trips with {@link instantToDayMinutes}. DST-safe: e.g. on a
- * spring-forward day the skipped local hour still maps to a real instant.
+ * seen in `tz`. Round-trips with {@link instantToDayMinutes} for every wall-clock
+ * time that exists. DST-safe: a time inside the spring-forward gap (which has no
+ * instant — Berlin 02:00→03:00) is pushed FORWARD past the gap by its width
+ * (02:30 → 03:30), never mapped to an earlier instant, so it reads back as a
+ * real wall time at/after the requested one and ordering is preserved.
  *
  * @param dayISO  YYYY-MM-DD (the calendar day in `tz`)
  * @param minutes minutes from local midnight (0…1439)
@@ -36,7 +39,19 @@ export function dayMinutesToInstant(dayISO: string, minutes: number, tz = DEFAUL
   const h = String(Math.floor(mins / 60)).padStart(2, "0");
   const m = String(mins % 60).padStart(2, "0");
   // Interpret "this wall-clock time, in tz" → the UTC instant.
-  return fromZonedTime(`${iso}T${h}:${m}:00`, tz);
+  const instant = fromZonedTime(`${iso}T${h}:${m}:00`, tz);
+  // Spring-forward gap: the requested wall time doesn't exist, and date-fns-tz
+  // resolves it with the POST-gap offset — an instant one hour BEFORE the jump
+  // (Berlin 02:30 → 01:30 local), which reads back earlier than the input and
+  // can put a block's end before its start. Detect the broken round-trip and
+  // push the instant forward by the gap's width instead.
+  const back = instantToDayMinutes(instant, tz);
+  if (back !== mins || instantToDayISO(instant, tz) !== iso) {
+    const dayShift = instantToDayISO(instant, tz) === iso ? 0 : MINUTES_PER_DAY;
+    const gap = mins + dayShift - back;
+    if (gap > 0) return new Date(instant.getTime() + gap * 60_000);
+  }
+  return instant;
 }
 
 /** Advance a YYYY-MM-DD calendar date by `n` days (pure, tz-free UTC math). */

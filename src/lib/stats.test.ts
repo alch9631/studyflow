@@ -118,44 +118,50 @@ check("days with no activity = 0", series[5].min === 0);
 
 // ---- calibrationFactor -----------------------------------------------------
 check("calibration neutral with <3 logged", calibrationFactor([
-  block({ minutes: 60, actualMinutes: 90 }),
-  block({ minutes: 60, actualMinutes: 90 }),
+  block({ minutes: 60, actualMinutes: 90, completed: true }),
+  block({ minutes: 60, actualMinutes: 90, completed: true }),
 ]) === 1);
 check(
   "calibration > 1 when slower than planned",
   calibrationFactor([
-    block({ minutes: 60, actualMinutes: 90 }),
-    block({ minutes: 60, actualMinutes: 90 }),
-    block({ minutes: 60, actualMinutes: 90 }),
+    block({ minutes: 60, actualMinutes: 90, completed: true }),
+    block({ minutes: 60, actualMinutes: 90, completed: true }),
+    block({ minutes: 60, actualMinutes: 90, completed: true }),
   ]) === 1.5,
 );
 check(
   "calibration < 1 when faster than planned",
   calibrationFactor([
-    block({ minutes: 60, actualMinutes: 30 }),
-    block({ minutes: 60, actualMinutes: 30 }),
-    block({ minutes: 60, actualMinutes: 30 }),
+    block({ minutes: 60, actualMinutes: 30, completed: true }),
+    block({ minutes: 60, actualMinutes: 30, completed: true }),
+    block({ minutes: 60, actualMinutes: 30, completed: true }),
   ]) === 0.5,
 );
 check(
   "calibration clamped to 2.5 max",
   calibrationFactor([
-    block({ minutes: 10, actualMinutes: 100 }),
-    block({ minutes: 10, actualMinutes: 100 }),
-    block({ minutes: 10, actualMinutes: 100 }),
+    block({ minutes: 10, actualMinutes: 100, completed: true }),
+    block({ minutes: 10, actualMinutes: 100, completed: true }),
+    block({ minutes: 10, actualMinutes: 100, completed: true }),
   ]) === 2.5,
 );
 check(
   "calibration clamped to 0.5 min",
   calibrationFactor([
-    block({ minutes: 100, actualMinutes: 1 }),
-    block({ minutes: 100, actualMinutes: 1 }),
-    block({ minutes: 100, actualMinutes: 1 }),
+    block({ minutes: 100, actualMinutes: 1, completed: true }),
+    block({ minutes: 100, actualMinutes: 1, completed: true }),
+    block({ minutes: 100, actualMinutes: 1, completed: true }),
   ]) === 0.5,
 );
 check("calibration ignores zero/blank actuals", calibrationFactor([
-  block({ minutes: 60, actualMinutes: 0 }),
-  block({ minutes: 60, actualMinutes: null }),
+  block({ minutes: 60, actualMinutes: 0, completed: true }),
+  block({ minutes: 60, actualMinutes: null, completed: true }),
+]) === 1);
+// Abandoned sprints (logged time on incomplete blocks) must not read as "faster".
+check("calibration ignores incomplete blocks", calibrationFactor([
+  block({ minutes: 60, actualMinutes: 10 }),
+  block({ minutes: 60, actualMinutes: 10 }),
+  block({ minutes: 60, actualMinutes: 10 }),
 ]) === 1);
 
 // ---- gradeSummary / lpOf ---------------------------------------------------

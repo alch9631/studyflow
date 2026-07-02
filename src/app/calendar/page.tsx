@@ -15,17 +15,10 @@ export const metadata: Metadata = {
   description: "Drag study blocks onto a time-of-day week view.",
 };
 
-// Local YYYY-MM-DD (zero-padded) — used to bucket day-granular blocks into
-// columns and as the serializable day key passed to <WeekCalendar/>. Mirrors the
-// dashboard's helper (kept local so the dashboard view stays untouched).
-const isoDay = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-/** The Monday (local) of the week containing `d`. */
-function mondayOf(d: Date): Date {
-  const back = (d.getDay() + 6) % 7; // days since Monday
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
-}
+// YYYY-MM-DD of a UTC-midnight Date — the serializable day key passed to
+// <WeekCalendar/>. The week window below is built in pure UTC day math, so UTC
+// getters (not server-local ones) read the intended calendar day back out.
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 export default async function CalendarPage({
   searchParams,
@@ -35,23 +28,26 @@ export default async function CalendarPage({
 }) {
   const userId = await getCurrentUserId();
   const now = new Date();
-  // "Today" and all day bucketing anchor to the calendar's display tz
-  // (Europe/Berlin) via instantToDayISO — NOT the server's local tz. On a
-  // UTC-hosted server the two disagree near midnight, which would mis-highlight
-  // "today" and place day-granular blocks in a different column than the timed
-  // blocks/exams (which already use instantToDayISO).
+  // "Today" anchors to the calendar's display tz (Europe/Berlin) via
+  // instantToDayISO — NOT the server's local tz, which disagrees near midnight
+  // on a UTC-hosted server and would mis-highlight "today". The window math
+  // below is deliberately NOT tz-independent either: it must run in UTC, since
+  // that's how block/exam dates are stored.
   const todayISO = instantToDayISO(now);
 
-  // ── Week window (Mon–Sun, Berlin time) ──────────────────────────────────────
+  // ── Week window (Mon–Sun) ────────────────────────────────────────────────────
   // `?week=YYYY-MM-DD` picks the week containing that date; anything missing or
   // malformed falls back to the current (Berlin) week. We always normalise to the
   // Monday so the seven-column window is stable regardless of which day was linked.
+  // Block/exam `date`s are stored at UTC midnight of their Berlin calendar day, so
+  // the window is built with pure UTC day math (same pattern as
+  // autoScheduleWeekTimes) — server-local midnights would shift the window on any
+  // host west of UTC, dropping Monday's rows and leaking next Monday's in.
   const { week } = await searchParams;
   const anchorISO = week && isValidISODate(week) ? week : todayISO;
-  const [ay, am, ad] = anchorISO.split("-").map(Number);
-  const anchor = new Date(ay, am - 1, ad);
-  const weekStart = mondayOf(anchor);
-  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
+  const anchor = new Date(anchorISO + "T00:00:00Z");
+  const weekStart = new Date(anchor.getTime() - ((anchor.getUTCDay() + 6) % 7) * 86400_000);
+  const weekEnd = new Date(weekStart.getTime() + 7 * 86400_000);
 
   const [weekBlocks, lectureRows, examCourses] = await Promise.all([
     prisma.studyBlock.findMany({
@@ -83,7 +79,7 @@ export default async function CalendarPage({
   ]);
 
   const dayISOs = Array.from({ length: 7 }, (_, i) =>
-    isoDay(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i)),
+    isoDay(new Date(weekStart.getTime() + i * 86400_000)),
   );
   // Map weekday (0=Sun..6=Sat) → the day's ISO in this week, so lectures land in
   // the right column. dayISOs is Mon→Sun, so weekday 1(Mon)=idx0 … 0(Sun)=idx6.
@@ -139,7 +135,7 @@ export default async function CalendarPage({
         dayISOs={dayISOs}
         todayISO={todayISO}
         weekStartISO={isoDay(weekStart)}
-        prevWeekISO={isoDay(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7))}
+        prevWeekISO={isoDay(new Date(weekStart.getTime() - 7 * 86400_000))}
         nextWeekISO={isoDay(weekEnd)}
         blocks={blocks}
         lectures={lectures}

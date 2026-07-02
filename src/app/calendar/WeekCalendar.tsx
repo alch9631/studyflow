@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { updateBlockTime, autoScheduleWeekTimes, toggleBlock } from "../courses/actions";
 import {
   dayMinutesToInstant,
+  instantToDayMinutes,
   minutesToHHMM,
   clampToDay,
   MINUTES_PER_DAY,
@@ -433,22 +434,22 @@ export default function WeekCalendar({
   // client render are identical — no hydration mismatch from the client clock.
   const [nowMin, setNowMin] = useState<number | null>(null);
   useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      setNowMin(d.getHours() * 60 + d.getMinutes());
-    };
+    // Minutes-of-day in the grid's tz (Europe/Berlin) via the same conversion
+    // the blocks use — NOT the device clock, which draws the line an hour+ off
+    // (or in yesterday's column near midnight) for a viewer outside Berlin.
+    const tick = () => setNowMin(instantToDayMinutes(new Date()));
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, []);
 
   // Auto-scroll the grid to roughly "now" on load (when today is in view).
+  // Berlin minutes-of-day again, so we scroll to where the now-line actually is.
   useEffect(() => {
     if (!dayISOs.includes(todayISO)) return;
     const el = scrollRef.current;
     if (!el) return;
-    const d = new Date();
-    const min = d.getHours() * 60 + d.getMinutes();
+    const min = instantToDayMinutes(new Date());
     el.scrollTop = Math.max(0, topPx(min) - el.clientHeight / 3);
   }, [dayISOs, todayISO]);
 

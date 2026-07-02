@@ -177,7 +177,17 @@ export function createStatsCache(opts: StatsCacheOptions = {}): StatsCache {
 
 // ---- Process-wide default instance ------------------------------------------
 
-const statsCache = createStatsCache();
+// In dev, Next.js hot reloads re-evaluate this module while the Prisma client —
+// whose extension calls the invalidation helpers below — survives on globalThis
+// (see db.ts). Persist the cache the same way, so the surviving client's
+// invalidations and the new module's readers hit the SAME instance; otherwise a
+// write would clear a dead cache while reads serve stale data from the new one
+// until the TTL backstop.
+const globalForStats = globalThis as unknown as { statsCache?: StatsCache };
+
+const statsCache = globalForStats.statsCache ?? createStatsCache();
+
+if (process.env.NODE_ENV !== "production") globalForStats.statsCache = statsCache;
 
 /** Cached analytics for a user as-of `todayISO` (drop-in for `gatherStats`). */
 export function getStatsCached(userId: string, todayISO: string): Promise<Stats> {

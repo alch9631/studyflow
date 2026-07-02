@@ -116,12 +116,16 @@ export function dailyLoadSeries(
  * Planning-fallacy calibration: how the student's *logged* (Pomodoro) time
  * compares to the estimate. >1 = they take longer than planned, <1 = faster.
  * Returns 1 (neutral) until there are at least 3 logged sessions; clamped to a
- * sane range. Mirrors the scheduler's `calibrationFromHistory`.
+ * sane range. Mirrors the scheduler's `calibrationFromHistory` — including
+ * only counting COMPLETED blocks: an abandoned sprint has actual < planned by
+ * construction and would otherwise read as "faster than planned".
  */
 export function calibrationFactor(
-  blocks: { minutes: number; actualMinutes: number | null }[],
+  blocks: { minutes: number; actualMinutes: number | null; completed: boolean }[],
 ): number {
-  const logged = blocks.filter((b) => b.actualMinutes && b.actualMinutes > 0);
+  const logged = blocks.filter(
+    (b) => b.completed && b.actualMinutes && b.actualMinutes > 0,
+  );
   if (logged.length < 3) return 1;
   const planned = logged.reduce((s, b) => s + b.minutes, 0);
   const actual = logged.reduce((s, b) => s + (b.actualMinutes ?? 0), 0);
