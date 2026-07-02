@@ -32,6 +32,7 @@ import {
   clampInt,
   parseGrade,
   isValidISODate,
+  maxFutureISO,
   MAX_TOPIC_TITLE_LENGTH,
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
@@ -51,6 +52,16 @@ import {
   upsertOwnedTopicNote,
   deleteOwnedTopicNote,
 } from "@/lib/ownership";
+
+/**
+ * Serializable result for actions that previously failed via silent `return`.
+ * Client callers (optimistic hooks, ValidatedForm) inspect it to show an honest
+ * error instead of implying success. Success paths return `{ ok: true }` AFTER
+ * their revalidate calls.
+ */
+export type ActionOutcome =
+  | { ok: true }
+  | { ok: false; reason: "rate-limited" | "exam-day" | "invalid" | "not-found" };
 
 /**
  * Boolean wrapper around `enforceRateLimit` for the action style here: actions
@@ -111,7 +122,18 @@ export async function createCourse(formData: FormData) {
   if (!rateLimitOK("COURSE_WRITE", userId)) redirect("/courses?msg=rate-limited");
 
   const name = requireText(formData.get("name"), "Course name");
-  const examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
+  // A past or too-far-future exam date must NOT hit the error boundary (the
+  // typed form would be lost) — redirect back with a specific banner instead.
+  let examDate: string;
+  try {
+    examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
+  } catch (e) {
+    if (!(e instanceof ValidationError)) throw e;
+    const iso = str(formData.get("examDate"));
+    const msg =
+      isValidISODate(iso) && iso > maxFutureISO(todayISO()) ? "exam-too-far" : "exam-past";
+    redirect(`/courses/new?msg=${msg}`);
+  }
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
   // Difficulty dial: integer 1–5, defaulting to 3 (normal) when missing/invalid.
   const difficulty = clampInt(formData.get("difficulty"), 1, 5, 3);
@@ -291,9 +313,9 @@ async function extractTextFromFile(file: File): Promise<string> {
  */
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("AI", userId)) {
-    throw new Error("You're importing a lot quickly. Give it a minute and try again.");
-  }
+  // Redirect-with-banner instead of throwing — a thrown error here lands on the
+  // full-page error boundary and loses the typed form.
+  if (!rateLimitOK("AI", userId)) redirect("/courses/import?msg=rate-limited");
   let text = longText(formData.get("syllabus"));
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
@@ -302,7 +324,7 @@ export async function importSyllabus(formData: FormData) {
     const fromFile = await extractTextFromFile(file);
     text = text ? `${text}\n\n${fromFile}` : fromFile;
   }
-  if (!text) throw new Error("Paste text or upload a study material first");
+  if (!text) redirect("/courses/import?msg=import-empty");
 
   // Defensive cap before the AI call + write: don't exceed the course limit.
   guardCount(await prisma.course.count({ where: { userId } }), LIMITS.MAX_COURSES_PER_USER, "courses");
@@ -682,7 +704,12 @@ export async function updateCourse(formData: FormData) {
   try {
     examDate = optionalDate(formData.get("examDate"), "Exam date", todayISO());
   } catch {
-    redirect(`/courses/${id}?msg=past-exam`);
+    // Distinguish "in the past" from "more than 2 years out" so the banner
+    // doesn't claim a 2032 date is in the past.
+    const iso = str(formData.get("examDate"));
+    const msg =
+      isValidISODate(iso) && iso > maxFutureISO(todayISO()) ? "exam-too-far" : "past-exam";
+    redirect(`/courses/${id}?msg=${msg}`);
   }
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
   // Difficulty dial: integer 1–5, defaulting to 3 (normal) when missing/invalid.
@@ -793,19 +820,40 @@ export async function toggleBlock(formData: FormData) {
  * Ownership-scoped via findOwnedBlock so a guessed blockId can never move another
  * user's block. The day is stored at UTC midnight, matching every other block
  * date; the times are stored as the supplied instants. A non-owner or an invalid
- * time pair is a silent no-op.
+ * time pair returns an {@link ActionOutcome} so the caller can surface it.
+ *
+ * UNSCHEDULING: when `clear` = "1", the block's startTime/endTime are nulled
+ * (it keeps its day and returns to the untimed pool) — ownership + rate limit
+ * still enforced, `date`/`start`/`end` are ignored on this path.
  */
-export async function updateBlockTime(formData: FormData) {
+export async function updateBlockTime(formData: FormData): Promise<ActionOutcome> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
   let id: string;
-  let dateISO: string;
   try {
     id = requireId(formData.get("blockId"), "Block");
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+
+  // Unschedule: drop the block's time-of-day, keep its day.
+  if (str(formData.get("clear")) === "1") {
+    const block = await findOwnedBlock(userId, id);
+    if (!block) return { ok: false, reason: "not-found" };
+    await prisma.studyBlock.update({
+      where: { id },
+      data: { startTime: null, endTime: null },
+    });
+    revalidatePath("/calendar");
+    return { ok: true };
+  }
+
+  let dateISO: string;
+  try {
     // A block can legitimately be scheduled on a past day (catch-up sessions).
     dateISO = requireDate(formData.get("date"), "Date", todayISO(), { allowPast: true });
   } catch {
-    return;
+    return { ok: false, reason: "invalid" };
   }
 
   const startRaw = str(formData.get("start"));
@@ -813,7 +861,9 @@ export async function updateBlockTime(formData: FormData) {
   const start = new Date(startRaw);
   const end = new Date(endRaw);
   // Reject junk ISO strings before they become Invalid Dates in the write.
-  if (!startRaw || !endRaw || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+  if (!startRaw || !endRaw || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { ok: false, reason: "invalid" };
+  }
 
   // Validate the time pair on its local day: positive length, no cross-midnight.
   // endMin is measured from the SAME local midnight as start (so an end that has
@@ -822,22 +872,22 @@ export async function updateBlockTime(formData: FormData) {
   const startMin = instantToDayMinutes(start);
   const endMin = startMin + Math.round((end.getTime() - start.getTime()) / 60000);
   const check = checkBlockTimes(startMin, endMin);
-  if (!check.ok) return;
+  if (!check.ok) return { ok: false, reason: "invalid" };
 
   // The stored day and the start instant must agree: day-granular views read
   // `date` while the calendar derives a timed block's column from `startTime`,
   // so a mismatched pair would make the block appear on TWO different days.
-  if (instantToDayISO(start) !== dateISO) return;
+  if (instantToDayISO(start) !== dateISO) return { ok: false, reason: "invalid" };
 
-  // Scoped: a non-owner moving another user's block id is a silent no-op.
+  // Scoped: a non-owner moving another user's block id resolves to not-found.
   const block = await findOwnedBlock(userId, id);
-  if (block) {
-    await prisma.studyBlock.update({
-      where: { id },
-      data: { date: toUTCDate(dateISO), startTime: start, endTime: end },
-    });
-    revalidatePath("/calendar");
-  }
+  if (!block) return { ok: false, reason: "not-found" };
+  await prisma.studyBlock.update({
+    where: { id },
+    data: { date: toUTCDate(dateISO), startTime: start, endTime: end },
+  });
+  revalidatePath("/calendar");
+  return { ok: true };
 }
 
 const CONFIDENCE = new Set(["solid", "practice", "struggling"]);
@@ -847,32 +897,38 @@ const CONFIDENCE = new Set(["solid", "practice", "struggling"]);
  * clear) and re-adapt the plan immediately: struggling earns more/earlier spaced
  * reviews, solid fewer/later. Set once per topic (from the course-detail list),
  * not per study session. Ownership-scoped — the owning courseId is derived from
- * the row, never trusted from the form; junk values are a silent no-op.
+ * the row, never trusted from the form. Returns an {@link ActionOutcome}.
  */
-export async function setTopicConfidence(formData: FormData) {
+export async function setTopicConfidence(formData: FormData): Promise<ActionOutcome> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
   let id: string;
   try {
     id = requireId(formData.get("topicId"), "Topic");
   } catch {
-    return;
+    return { ok: false, reason: "invalid" };
   }
   const raw = str(formData.get("confidence"));
   const confidence = raw === "" ? null : CONFIDENCE.has(raw) ? raw : undefined;
-  if (confidence === undefined) return; // junk → ignore, never persist garbage
+  // Junk → reject, never persist garbage.
+  if (confidence === undefined) return { ok: false, reason: "invalid" };
   const topic = await findOwnedTopic(userId, id);
-  if (topic) {
-    await prisma.topic.update({ where: { id }, data: { confidence } });
-    await regeneratePlan(topic.courseId);
-    revalidatePath(`/courses/${topic.courseId}`);
-  }
+  if (!topic) return { ok: false, reason: "not-found" };
+  await prisma.topic.update({ where: { id }, data: { confidence } });
+  await regeneratePlan(topic.courseId);
+  revalidatePath(`/courses/${topic.courseId}`);
+  return { ok: true };
 }
 
-/** Add a dated deliverable (homework, lab report, project) to a course. */
-export async function addAssignment(formData: FormData) {
+/**
+ * Add a dated deliverable (homework, lab report, project) to a course.
+ * Returns an {@link ActionOutcome} so the form can distinguish a real save from
+ * a rejected one (a silent `return` here used to toast "Deadline added." while
+ * nothing was saved — e.g. a due date past the +2y bound).
+ */
+export async function addAssignment(formData: FormData): Promise<ActionOutcome> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
   let courseId: string;
   let title: string;
   let dueDate: string;
@@ -882,10 +938,10 @@ export async function addAssignment(formData: FormData) {
     // Deliverables can legitimately be logged with a past due date.
     dueDate = requireDate(formData.get("dueDate"), "Due date", todayISO(), { allowPast: true });
   } catch {
-    return;
+    return { ok: false, reason: "invalid" };
   }
   // Ownership-scoped: never attach an assignment to another user's course.
-  if (!(await ownsCourse(userId, courseId))) return;
+  if (!(await ownsCourse(userId, courseId))) return { ok: false, reason: "not-found" };
   // Defensive cap: don't let a course accumulate unbounded assignments.
   try {
     guardCount(
@@ -900,6 +956,7 @@ export async function addAssignment(formData: FormData) {
     data: { courseId, title, dueDate: toUTCDate(dueDate) },
   });
   revalidatePath(`/courses/${courseId}`);
+  return { ok: true };
 }
 
 /** Tick an assignment done/undone. */
@@ -1020,49 +1077,53 @@ export async function saveNote(formData: FormData) {
 }
 
 /** Explicitly clear a topic's note (the editor's "Clear note" control). */
-export async function deleteNote(formData: FormData) {
+export async function deleteNote(formData: FormData): Promise<ActionOutcome> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
   let topicId: string;
   try {
     topicId = requireId(formData.get("topicId"), "Topic");
   } catch {
-    return;
+    return { ok: false, reason: "invalid" };
   }
   await deleteOwnedTopicNote(userId, topicId);
+  return { ok: true };
 }
 
 /**
  * Today cockpit — "Move to tomorrow": push a single study block forward by one
  * day. Ownership-scoped via findOwnedBlock so a guessed blockId can never move
  * another user's block. The block keeps its time-of-day (if any); only the day
- * shifts +1, stored at UTC midnight like every other block date. Junk input is a
- * silent no-op, matching rescheduleBlock. Revalidates /today so the queue re-reads.
+ * shifts +1, stored at UTC midnight like every other block date. Returns an
+ * {@link ActionOutcome} — notably "exam-day" when the shift is blocked by the
+ * exam invariant, so the UI can say why nothing moved. Revalidates /today.
  */
-export async function moveBlockToTomorrow(formData: FormData) {
+export async function moveBlockToTomorrow(formData: FormData): Promise<ActionOutcome> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
   let id: string;
   try {
     id = requireId(formData.get("blockId"), "Block");
   } catch {
-    return;
+    return { ok: false, reason: "invalid" };
   }
-  // Scoped: a non-owner moving another user's block id is a silent no-op.
+  // Scoped: a non-owner moving another user's block id resolves to not-found.
   const block = await findOwnedBlock(userId, id);
-  if (!block) return;
+  if (!block) return { ok: false, reason: "not-found" };
   // Read the block's current day to compute "+1 day" at UTC midnight. The select
   // is scoped through course.userId so this can't read another user's block.
   const row = await prisma.studyBlock.findFirst({
     where: { id, course: { userId } },
     select: { date: true, startTime: true, endTime: true, course: { select: { examDate: true } } },
   });
-  if (!row) return;
+  if (!row) return { ok: false, reason: "not-found" };
   const next = new Date(row.date.getTime() + 86400_000);
   // Never push work onto or past the course's exam day — the scheduler's
   // "everything lands before the exam" invariant (mirrors shiftBlocksToTomorrow).
   // Both dates are UTC midnight, so a plain timestamp compare is exact.
-  if (next.getTime() >= row.course.examDate.getTime()) return;
+  if (next.getTime() >= row.course.examDate.getTime()) {
+    return { ok: false, reason: "exam-day" };
+  }
   // Keep the time-of-day in sync with the new day. The calendar derives a timed
   // block's day from startTime, so shifting only `date` would desync it (moved on
   // /today, unmoved on the calendar). Re-place at the same local start on the next
@@ -1077,6 +1138,7 @@ export async function moveBlockToTomorrow(formData: FormData) {
   await prisma.studyBlock.update({ where: { id }, data: { date: next, startTime, endTime } });
   revalidatePath("/today");
   revalidatePath("/calendar");
+  return { ok: true };
 }
 
 /**
@@ -1084,31 +1146,38 @@ export async function moveBlockToTomorrow(formData: FormData) {
  * note (StudyBlock has no note column; the note lives on the owning topic, the
  * same store the course-detail note editor uses). Ownership-scoped: the block's
  * topicId is derived from the row (never trusted from the form) and the upsert is
- * itself owner-checked, so a guessed blockId is a silent no-op. An empty body
+ * itself owner-checked, so a guessed blockId resolves to not-found. An empty body
  * clears the note. Revalidates /today so the saved state reflects on reload.
+ * Returns an {@link ActionOutcome} so the note UI can surface a failed save.
  */
-export async function saveBlockNote(formData: FormData) {
+export async function saveBlockNote(formData: FormData): Promise<ActionOutcome> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
   let id: string;
   try {
     id = requireId(formData.get("blockId"), "Block");
   } catch {
-    return;
+    return { ok: false, reason: "invalid" };
   }
   // Ownership-scoped read of the block's owning topic (via course.userId).
   const row = await prisma.studyBlock.findFirst({
     where: { id, course: { userId } },
     select: { topicId: true },
   });
-  if (!row) return;
-  const body = optionalText(formData.get("body"), LIMITS.MAX_NOTE_LENGTH);
+  if (!row) return { ok: false, reason: "not-found" };
+  let body: string | null;
+  try {
+    body = optionalText(formData.get("body"), LIMITS.MAX_NOTE_LENGTH);
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
   if (body === null) {
     await deleteOwnedTopicNote(userId, row.topicId);
   } else {
     await upsertOwnedTopicNote(userId, row.topicId, body);
   }
   revalidatePath("/today");
+  return { ok: true };
 }
 
 /**
@@ -1131,9 +1200,9 @@ export async function saveBlockNote(formData: FormData) {
  */
 export async function autoScheduleWeekTimes(
   formData: FormData,
-): Promise<{ placed: number; unplaced: number }> {
+): Promise<{ placed: number; unplaced: number; rateLimited: boolean }> {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return { placed: 0, unplaced: 0 };
+  if (!rateLimitOK("MUTATION", userId)) return { placed: 0, unplaced: 0, rateLimited: true };
 
   // Resolve the week's Monday as a UTC-midnight instant: block `date`s are
   // stored at UTC midnight, so UTC day math keys them exactly regardless of the
@@ -1211,24 +1280,34 @@ export async function autoScheduleWeekTimes(
       prefs.energy,
     );
     unplacedTotal += unplaced.length;
-    if (placed.length === 0) continue;
+
+    // DST guard: converting day-minutes to instants can collapse a placement
+    // that straddles a spring-forward gap (Europe/Berlin) into start >= end;
+    // persisting start == end renders as a 24h block on the calendar. Drop any
+    // zero-or-negative-length placement into the unplaced count instead.
+    const persistable = placed
+      .map((p) => ({
+        id: p.id,
+        startTime: dayMinutesToInstant(dayISO, p.startMin),
+        endTime: dayMinutesToInstant(dayISO, p.endMin),
+      }))
+      .filter((p) => p.endTime.getTime() > p.startTime.getTime());
+    unplacedTotal += placed.length - persistable.length;
+    if (persistable.length === 0) continue;
 
     // Persist the day's placements in one transaction: each placed block gets its
     // start/end as a UTC instant on this local day (Europe/Berlin via calendarTime).
     await prisma.$transaction(
-      placed.map((p) =>
+      persistable.map((p) =>
         prisma.studyBlock.update({
           where: { id: p.id },
-          data: {
-            startTime: dayMinutesToInstant(dayISO, p.startMin),
-            endTime: dayMinutesToInstant(dayISO, p.endMin),
-          },
+          data: { startTime: p.startTime, endTime: p.endTime },
         }),
       ),
     );
-    placedTotal += placed.length;
+    placedTotal += persistable.length;
   }
 
   revalidatePath("/calendar");
-  return { placed: placedTotal, unplaced: unplacedTotal };
+  return { placed: placedTotal, unplaced: unplacedTotal, rateLimited: false };
 }

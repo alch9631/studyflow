@@ -24,6 +24,10 @@ const DAYS = [
  */
 export default function NewCourseForm() {
   const t = useT();
+  // Browser-side bounds matching the server's date-reject rule (today … +2y).
+  // The server still validates; these just block the obvious cases up front.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const maxIso = `${Number(todayIso.slice(0, 4)) + 2}${todayIso.slice(4)}`;
   return (
     <ValidatedForm
       action={createCourse}
@@ -43,7 +47,9 @@ export default function NewCourseForm() {
       </Field>
 
       <Field name="examDate" label={t("newCourse.examDate")} required>
-        {(p) => <Input {...p} type="date" required className="mt-1 w-full" />}
+        {(p) => (
+          <Input {...p} type="date" required min={todayIso} max={maxIso} className="mt-1 w-full" />
+        )}
       </Field>
 
       <Field name="topics" label={t("newCourse.topics")}>

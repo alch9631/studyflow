@@ -32,8 +32,22 @@ type FormSubmitEvent = Parameters<FormSubmitHandler>[0];
  * navigation still happens with no spurious error toast.
  */
 
-type ServerAction = (formData: FormData) => void | Promise<void>;
+/**
+ * Actions may return nothing (redirect / fire-and-forget) OR a serializable
+ * outcome (`{ ok: false, reason }` — see ActionOutcome in courses/actions).
+ * A returned `ok: false` shows the error toast instead of the success one, so
+ * a server-side reject (e.g. an out-of-range date) is never reported as saved.
+ */
+type ServerAction = (formData: FormData) => unknown | Promise<unknown>;
 type Errors = Record<string, string>;
+
+function isFailedOutcome(result: unknown): boolean {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    (result as { ok?: unknown }).ok === false
+  );
+}
 
 function isNextControlFlow(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
@@ -147,7 +161,11 @@ export default function ValidatedForm({
       if (inFlight.current) return;
       inFlight.current = true;
       try {
-        await action(formData);
+        const result = await action(formData);
+        if (isFailedOutcome(result)) {
+          toast(errorMessage, "error");
+          return;
+        }
         if (successMessage) toast(successMessage, "success");
         onDone?.();
       } catch (err) {

@@ -78,6 +78,11 @@ check("valid iso date", isValidISODate("2026-06-07"));
 check("rejects garbage", !isValidISODate("not-a-date"));
 check("rejects wrong shape", !isValidISODate("2026/06/07"));
 check("rejects impossible date", !isValidISODate("2026-13-40"));
+// Rolled-over days: Date parses 2025-02-30 as Mar 2 — must be rejected, not rolled.
+check("rejects rolled-over Feb 30", !isValidISODate("2025-02-30"));
+check("rejects rolled-over Jun 31", !isValidISODate("2025-06-31"));
+check("accepts real leap day", isValidISODate("2024-02-29"));
+check("rejects Feb 29 in non-leap year", !isValidISODate("2025-02-29"));
 
 // requireDate (the date-reject pattern)
 check("requireDate valid future", requireDate("2026-12-01", "Exam date", TODAY) === "2026-12-01");

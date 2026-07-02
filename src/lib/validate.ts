@@ -95,7 +95,11 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** Is `iso` a real YYYY-MM-DD calendar date? */
 export function isValidISODate(iso: string): boolean {
   if (!ISO_DATE.test(iso)) return false;
-  return !Number.isNaN(new Date(iso + "T00:00:00Z").getTime());
+  const d = new Date(iso + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return false;
+  // Round-trip guard: Date rolls impossible days over (2025-02-30 → Mar 2), so
+  // require the parsed instant to render back to the exact same calendar day.
+  return d.toISOString().slice(0, 10) === iso;
 }
 
 /**
@@ -107,7 +111,7 @@ export function isValidISODate(iso: string): boolean {
 export const MAX_DATE_YEARS_AHEAD = 2;
 
 /** Latest acceptable ISO date: `todayISO` shifted MAX_DATE_YEARS_AHEAD years. */
-function maxFutureISO(todayISO: string): string {
+export function maxFutureISO(todayISO: string): string {
   return `${Number(todayISO.slice(0, 4)) + MAX_DATE_YEARS_AHEAD}${todayISO.slice(4)}`;
 }
 

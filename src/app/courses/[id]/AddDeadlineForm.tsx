@@ -15,6 +15,10 @@ const LABEL = "block text-xs font-medium text-gray-500 dark:text-gray-400";
  */
 export default function AddDeadlineForm({ courseId }: { courseId: string }) {
   const t = useT();
+  // Browser-side bounds matching the server's date-reject rule: past due dates
+  // are allowed (logging old deliverables), but nothing beyond ~2 years out.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const maxIso = `${Number(todayIso.slice(0, 4)) + 2}${todayIso.slice(4)}`;
   return (
     <ValidatedForm
       action={addAssignment}
@@ -41,7 +45,7 @@ export default function AddDeadlineForm({ courseId }: { courseId: string }) {
         )}
       </Field>
       <Field name="dueDate" label={t("courseDetail.dueLabelField")} required className="text-sm" labelClassName={LABEL}>
-        {(p) => <Input {...p} type="date" required className="mt-1" />}
+        {(p) => <Input {...p} type="date" required min="2000-01-01" max={maxIso} className="mt-1" />}
       </Field>
       <SubmitButton variant="primary" size="md" className="mt-5" pendingLabel={t("courseDetail.adding")}>
         {t("courseDetail.add")}

@@ -29,6 +29,16 @@ export default function ImportForm({ enabled }: { enabled: boolean }) {
     <ValidatedForm
       action={importSyllabus}
       errorMessage={t("importCourse.formError")}
+      // Cross-field rule the browser can't express: at least ONE of pasted text
+      // or an uploaded file. Mirrors the server's empty-submit reject so most
+      // users never round-trip for it.
+      validate={(fd) => {
+        const raw = fd.get("syllabus");
+        const text = typeof raw === "string" ? raw.trim() : "";
+        const file = fd.get("file");
+        const hasFile = file instanceof File && file.size > 0;
+        return !text && !hasFile ? { syllabus: t("importCourse.emptyError") } : null;
+      }}
       className="space-y-5"
     >
       <div>

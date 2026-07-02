@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import ImportForm from "./ImportForm";
+import PageToast from "../[id]/PageToast";
 import { getT } from "@/components/i18n/server";
+import type { MessageKey } from "@/components/i18n/messages";
 
 // Render per-request so the AI-key gating reflects the current env (not build time).
 export const dynamic = "force-dynamic";
@@ -13,7 +15,16 @@ export const metadata: Metadata = {
   description: "Turn a syllabus or module handbook into a ready-made course and study plan.",
 };
 
-export default async function ImportPage() {
+// Server-reject banners `importSyllabus` can bounce back with (allowlist so a
+// tampered ?msg can never reach t() with an arbitrary key).
+const BANNER_KEYS = new Set(["import-empty", "rate-limited"]);
+
+export default async function ImportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ msg?: string }>;
+}) {
+  const { msg } = await searchParams;
   const enabled = isSyllabusAIEnabled();
   const isDev = process.env.NODE_ENV !== "production";
 
@@ -25,9 +36,12 @@ export default async function ImportPage() {
   }
 
   const t = await getT();
+  const banner =
+    msg && BANNER_KEYS.has(msg) ? t(`importCourse.banners.${msg}` as MessageKey) : undefined;
 
   return (
     <main className="mx-auto max-w-xl p-4 sm:p-8">
+      {banner && <PageToast message={banner} variant="error" />}
       <Link
         href="/courses"
         className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
