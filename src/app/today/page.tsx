@@ -16,6 +16,7 @@ import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList
 import { parsePrefs } from "@/lib/timePlacer";
 import {
   assignLanes,
+  canMoveBlockToTomorrow,
   cockpitStatus,
   computeCapacity,
   minimumViableDay,
@@ -77,6 +78,9 @@ export default async function TodayPage({
   const lightened = sp.lightened === "protect" || sp.lightened === "move" ? sp.lightened : null;
   const lightenedCount = clampParam(sp.blocks, 1000);
   const behindFailed = sp.msg === "behind-failed";
+  // Rate-limited redirects (today/actions.ts → ?msg=rate-limited) get an honest,
+  // calm banner instead of silently rendering nothing.
+  const rateLimited = sp.msg === "rate-limited";
 
   // These four reads are independent, so fire them concurrently in a single
   // round-trip batch instead of awaiting one after another (avoids a serial
@@ -265,11 +269,23 @@ export default async function TodayPage({
   const openToday = blocks.filter((b) => !b.completed);
   const openStudyToday = openToday.filter((b) => b.kind !== "review");
   const openReviewToday = openToday.filter((b) => b.kind === "review");
+  // Exam-eve clamp awareness: the real actions never move a block onto/past its
+  // course's exam day, so the preview only counts blocks that can LEGALLY move
+  // (block date + 1 day strictly before the exam — both UTC midnights; today's
+  // blocks all sit on `start`). Anything pinned stays on today, and its minutes
+  // feed the honest after-pace for "Move today's work".
+  const isMovable = (b: (typeof blocks)[number]) =>
+    canMoveBlockToTomorrow(start.getTime(), b.course.examDate.getTime());
   const previews = recoveryActionPreviews({
     todayStudyMin: openStudyToday.reduce((s, b) => s + b.minutes, 0),
     todayReviewMin: openReviewToday.reduce((s, b) => s + b.minutes, 0),
     todayStudyCount: openStudyToday.length,
     todayReviewCount: openReviewToday.length,
+    movableStudyCount: openStudyToday.filter(isMovable).length,
+    movableReviewCount: openReviewToday.filter(isMovable).length,
+    immovableMin: openToday
+      .filter((b) => !isMovable(b))
+      .reduce((s, b) => s + b.minutes, 0),
     budgetMin: availableMin,
     exam: examFeasibility,
   });
@@ -347,6 +363,15 @@ export default async function TodayPage({
       {behindFailed && (
         <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           {t("behind.failed")}
+        </div>
+      )}
+      {/* Rate-limited: a calm nudge, not an error — nothing changed. */}
+      {rateLimited && (
+        <div
+          aria-live="polite"
+          className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+        >
+          {t("today.rateLimited")}
         </div>
       )}
       {blocks.length > 0 ? (

@@ -268,6 +268,21 @@ export type RecoveryActionPreview = {
 };
 
 /**
+ * Whether a block may legally move to tomorrow. Mirrors the real action's
+ * exam-eve clamp (today/actions.ts shiftBlocksToTomorrow): work never lands on
+ * or past its course's exam day, so a block moves only while tomorrow is still
+ * STRICTLY before the exam. Both timestamps are UTC midnights, so a plain
+ * millisecond compare is exact. A block with no exam context can always move.
+ */
+export function canMoveBlockToTomorrow(
+  blockDateMs: number,
+  examDateMs: number | null | undefined,
+): boolean {
+  if (examDateMs == null) return true;
+  return blockDateMs + 86400_000 < examDateMs;
+}
+
+/**
  * Inputs the preview needs, all derived from real planner reads (no wall clock,
  * no DB here — the server wrapper fetches these and calls this pure function).
  */
@@ -280,6 +295,17 @@ export type RecoveryPreviewInput = {
   todayStudyCount: number;
   /** Count of today's open review sessions. */
   todayReviewCount: number;
+  /**
+   * Count of today's open study sessions that can LEGALLY move to tomorrow
+   * (see {@link canMoveBlockToTomorrow} — the real action skips blocks whose
+   * next day would land on/past the exam). Defaults to todayStudyCount so
+   * callers without exam context keep the old optimistic behaviour.
+   */
+  movableStudyCount?: number;
+  /** Same as {@link RecoveryPreviewInput.movableStudyCount}, for reviews. */
+  movableReviewCount?: number;
+  /** Minutes of today's open sessions that CANNOT move (they stay on today). */
+  immovableMin?: number;
   /** The conservative daily study budget (studyBudget(window)). */
   budgetMin: number;
   /** Nearest exam feasibility (work due before it + days left), if any. */
@@ -308,23 +334,32 @@ export function recoveryActionPreviews(input: RecoveryPreviewInput): {
 } {
   const beforeCount = input.todayStudyCount + input.todayReviewCount;
   const baseReach = examReach(input.exam, input.budgetMin);
+  // Only blocks the real action can legally move count as "moved" — the action
+  // skips anything whose next day would land on/past its course's exam day, so
+  // the preview must never promise moves the commit won't deliver.
+  const movableStudy = input.movableStudyCount ?? input.todayStudyCount;
+  const movableReview = input.movableReviewCount ?? input.todayReviewCount;
+  const immovableMin = input.immovableMin ?? 0;
 
-  // Protect: keep essentials, move the reviews. Today's remaining work = study.
+  // Protect: keep essentials, move only the reviews that can legally move.
+  // (An exam-pinned review stays on today; the pace line keeps its honest
+  // study-minutes floor either way.)
   const protectPaceMin = Math.min(input.todayStudyMin, input.budgetMin);
   const protect: RecoveryActionPreview = {
     beforeCount,
     afterEssentials: input.todayStudyCount,
-    moved: input.todayReviewCount,
+    moved: movableReview,
     afterPaceMin: protectPaceMin,
     examReach: baseReach,
   };
 
-  // Move: today clears entirely (everything open goes to tomorrow).
+  // Move: everything MOVABLE goes to tomorrow; exam-pinned blocks stay on today
+  // (the action's clamp), so today only clears when nothing is pinned.
   const move: RecoveryActionPreview = {
     beforeCount,
-    afterEssentials: 0,
-    moved: beforeCount,
-    afterPaceMin: 0,
+    afterEssentials: input.todayStudyCount - movableStudy,
+    moved: movableStudy + movableReview,
+    afterPaceMin: Math.min(immovableMin, input.budgetMin),
     examReach: baseReach,
   };
 

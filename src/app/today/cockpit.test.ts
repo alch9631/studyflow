@@ -11,6 +11,7 @@
  */
 import {
   assignLanes,
+  canMoveBlockToTomorrow,
   cockpitStatus,
   computeCapacity,
   DAILY_STUDY_BUDGET_MIN,
@@ -194,6 +195,60 @@ const prevHard = recoveryActionPreviews({
   exam: { daysUntil: 1, remainingMin: 600 },
 });
 check("an unreachable exam is reported as notFully on every option", prevHard.protect.examReach === "notFully" && prevHard.move.examReach === "notFully" && prevHard.lighter.examReach === "notFully");
+
+// ── Exam-eve clamp awareness (preview must match the real action) ────────────
+// The real action (today/actions.ts shiftBlocksToTomorrow) skips any block whose
+// next day lands on/past its course's exam day. canMoveBlockToTomorrow mirrors
+// that exact UTC-midnight compare: movable iff blockDate + 1 day < examDate.
+const DAY = 86400_000;
+const d0 = Date.UTC(2026, 6, 2); // an arbitrary UTC midnight "today"
+check("block can move when the exam is 2+ days out", canMoveBlockToTomorrow(d0, d0 + 2 * DAY) === true);
+check("block CANNOT move when the exam is tomorrow", canMoveBlockToTomorrow(d0, d0 + DAY) === false);
+check("block CANNOT move when the exam is today", canMoveBlockToTomorrow(d0, d0) === false);
+check("block with no exam context can always move", canMoveBlockToTomorrow(d0, null) === true);
+
+// Exam tomorrow: NOTHING can legally move → previews must promise 0 moves (so
+// the sheet hides those options instead of offering a dead choice), and the
+// pinned minutes stay in today's honest after-pace.
+const prevExamEve = recoveryActionPreviews({
+  todayStudyMin: 150,
+  todayReviewMin: 90,
+  todayStudyCount: 5,
+  todayReviewCount: 6,
+  movableStudyCount: 0,
+  movableReviewCount: 0,
+  immovableMin: 240,
+  budgetMin: budget,
+  exam: { daysUntil: 1, remainingMin: 240 },
+});
+check("exam-eve: protect promises 0 moves (nothing can legally move)", prevExamEve.protect.moved === 0);
+check("exam-eve: move promises 0 moves and keeps all essentials on today", prevExamEve.move.moved === 0 && prevExamEve.move.afterEssentials === 5);
+check("exam-eve: move's after-pace reflects the pinned minutes (budget-capped)", prevExamEve.move.afterPaceMin === Math.min(240, budget));
+
+// Partial clamp: only some blocks can move → moved counts only the legal ones.
+const prevPartial = recoveryActionPreviews({
+  todayStudyMin: 150,
+  todayReviewMin: 90,
+  todayStudyCount: 5,
+  todayReviewCount: 6,
+  movableStudyCount: 3,
+  movableReviewCount: 4,
+  immovableMin: 100,
+  budgetMin: budget,
+  exam: { daysUntil: 3, remainingMin: 240 },
+});
+check("partial clamp: protect moves only the movable reviews", prevPartial.protect.moved === 4);
+check("partial clamp: move moves only the movable blocks, pinned study stays", prevPartial.move.moved === 7 && prevPartial.move.afterEssentials === 2);
+
+// Back-compat: omitting the movable inputs keeps the old optimistic counts.
+const prevDefault = recoveryActionPreviews({
+  todayStudyMin: 60,
+  todayReviewMin: 30,
+  todayStudyCount: 2,
+  todayReviewCount: 1,
+  budgetMin: budget,
+});
+check("defaults: without movable inputs, all open blocks count as movable", prevDefault.protect.moved === 1 && prevDefault.move.moved === 3 && prevDefault.move.afterPaceMin === 0);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

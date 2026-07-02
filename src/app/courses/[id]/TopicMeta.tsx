@@ -154,8 +154,15 @@ export default function TopicMeta({
     fd.set("confidence", next ?? "");
     startTransition(async () => {
       try {
-        await setTopicConfidence(fd);
-        if (next) toast(t("courseDetail.confidenceSaved"), "success");
+        // Success toast only when the server really saved it — the action
+        // no-ops (rate limit, stale topic id, invalid value) and says so.
+        const res = await setTopicConfidence(fd);
+        if (res.ok) {
+          if (next) toast(t("courseDetail.confidenceSaved"), "success");
+        } else {
+          setConfidence(prev); // roll back
+          toast(t("courseDetail.confidenceError"), "error");
+        }
       } catch {
         setConfidence(prev); // roll back
         toast(t("courseDetail.confidenceError"), "error");
@@ -219,10 +226,15 @@ export default function TopicMeta({
     const fd = new FormData();
     fd.set("topicId", topicId);
     try {
-      await deleteNote(fd);
-      savedRef.current = "";
-      setStatus("idle");
-      toast(t("courseDetail.noteCleared"), "success");
+      const res = await deleteNote(fd);
+      if (res.ok) {
+        savedRef.current = "";
+        setStatus("idle");
+        toast(t("courseDetail.noteCleared"), "success");
+      } else {
+        setStatus("error");
+        toast(t("courseDetail.noteClearError"), "error");
+      }
     } catch {
       setStatus("error");
       toast(t("courseDetail.noteClearError"), "error");

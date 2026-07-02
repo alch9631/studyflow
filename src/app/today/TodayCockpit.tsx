@@ -421,9 +421,17 @@ function SessionSheet({
     const fd = new FormData();
     fd.set("blockId", block.id);
     try {
-      await moveBlockToTomorrow(fd);
-      toast(t("today.sheetMoved"), "success");
-      onClose();
+      // Only claim "Moved" when the action really moved it — the server no-ops
+      // on the exam-eve clamp, rate limits, and stale ids, and says so honestly.
+      const res = await moveBlockToTomorrow(fd);
+      if (res.ok) {
+        toast(t("today.sheetMoved"), "success");
+        onClose();
+      } else if (res.reason === "exam-day") {
+        toast(t("today.sheetMoveExamEve"), "error");
+      } else {
+        toast(t("today.sheetMoveError"), "error");
+      }
     } catch {
       toast(t("today.sheetMoveError"), "error");
     } finally {
@@ -438,8 +446,9 @@ function SessionSheet({
     fd.set("blockId", block.id);
     fd.set("body", note);
     try {
-      await saveBlockNote(fd);
-      toast(t("today.sheetNoteSaved"), "success");
+      const res = await saveBlockNote(fd);
+      if (res.ok) toast(t("today.sheetNoteSaved"), "success");
+      else toast(t("today.sheetNoteError"), "error");
     } catch {
       toast(t("today.sheetNoteError"), "error");
     } finally {
