@@ -413,8 +413,23 @@ export async function importSyllabus(formData: FormData) {
   redirect(`/courses/${course.id}${msg ? `?msg=${msg}` : ""}`);
 }
 
-/** Re-run the AI optimizer (difficulty / order / spaced review) on demand. */
-export async function reoptimizeCourse(formData: FormData) {
+/**
+ * ONE plan action, replacing the old "Optimize with AI" / "I fell behind" pair.
+ *
+ * Those two buttons sat side by side and confused their own author: the AI path
+ * ENDS with `regeneratePlan`, and `healCoursePlan` IS `regeneratePlan` — so
+ * "optimize" already did everything "rebuild" did, plus re-judging difficulty
+ * and order and writing fresh self-test questions. One button strictly
+ * contained the other while looking like an alternative to it.
+ *
+ * Collapsing them also removes a trap. Making the single button the AI one
+ * would mean a student who just wants their week re-spread spends AI budget to
+ * get it, and gets nothing at all when that budget is gone. So the order is:
+ * re-spread FIRST — free, instant, always works — then tune with AI on top when
+ * it's available. The student always gets a better plan; the AI is an upgrade,
+ * never a prerequisite.
+ */
+export async function refreshPlan(formData: FormData) {
   const userId = await getCurrentUserId();
   let id: string;
   try {
@@ -422,34 +437,33 @@ export async function reoptimizeCourse(formData: FormData) {
   } catch {
     redirect("/courses");
   }
-  // Verify ownership BEFORE the rate-limit check so a non-owner probing this
-  // endpoint is bounced without touching the AI budget. The limiter is keyed by
-  // userId (NOT courseId — per-course keys would multiply one user's AI budget
-  // by their course count). aiOptimizeCourse makes 2 paid model calls
-  // (optimize + self-tests), so it charges 2 AI tokens.
+  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
   if (!(await ownsCourse(userId, id))) redirect("/courses");
-  if (!rateLimitOKTimes("AI", userId, 2)) redirect(`/courses/${id}?msg=rate-limited`);
 
-  // Distinguish "AI isn't set up" from "the AI call failed" so the banner is
-  // honest. redirect() must stay OUTSIDE the try (it throws NEXT_REDIRECT).
+  // Step 1 — the deterministic re-spread. This is the part that must not fail.
   let outcome: string;
-  if (!isSyllabusAIEnabled()) {
-    outcome = "ai-unconfigured";
-  } else {
+  try {
+    await healCoursePlan(id);
+    outcome = "plan-refreshed";
+  } catch (e) {
+    logActionError("refreshPlan.respread", e);
+    redirect(`/courses/${id}?msg=heal-failed`);
+  }
+
+  // Step 2 — optional AI tuning on top (2 model calls: optimize + self-tests).
+  // Every failure here is survivable: the plan from step 1 is already saved, so
+  // we keep the honest "refreshed" outcome rather than reporting a failure for
+  // work the student did receive.
+  if (isSyllabusAIEnabled() && rateLimitOKTimes("AI", userId, 2)) {
     try {
-      outcome = (await aiOptimizeCourse(id)) ? "optimized" : "optimize-failed";
+      if (await aiOptimizeCourse(id)) outcome = "plan-tuned";
     } catch (e) {
-      logActionError("reoptimizeCourse", e);
-      outcome = aiFailureBanner(e, "optimize-failed");
+      logActionError("refreshPlan.aiOptimize", e);
     }
   }
-  // The optimizer rebuilt the plan — refresh Today (and the course page) so the
-  // new schedule shows immediately without a manual reload. Skipped on no-op
-  // outcomes (nothing changed), but harmless either way.
-  if (outcome === "optimized") {
-    revalidatePath("/today");
-    revalidatePath(`/courses/${id}`);
-  }
+
+  revalidatePath("/today");
+  revalidatePath(`/courses/${id}`);
   redirect(`/courses/${id}?msg=${outcome}`);
 }
 
@@ -573,10 +587,15 @@ export async function analyzeModuleUpload(formData: FormData) {
             sizeBytes: file.size,
             extractedChars: text.length,
             category,
+            // examQuestions rides along in the same JSON blob (no migration):
+            // for a past/mock exam the analysis pass already drafts practice
+            // questions from the paper, and this is where they live until the
+            // student opens the mock exam. Empty for every other material.
             analysis: JSON.stringify({
               summary: analysis.summary,
               concepts: analysis.concepts,
               prerequisites: analysis.prerequisites,
+              examQuestions: analysis.examQuestions,
             }),
           },
         });
@@ -739,30 +758,6 @@ export async function updateCourse(formData: FormData) {
   redirect(`/courses/${id}?msg=saved`);
 }
 
-/** "I fell behind" — redistribute remaining work across the days left. */
-export async function healCourse(formData: FormData) {
-  const userId = await getCurrentUserId();
-  let id: string;
-  try {
-    id = requireId(formData.get("courseId"), "Course");
-  } catch {
-    redirect("/courses");
-  }
-  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
-  if (!(await ownsCourse(userId, id))) redirect("/courses");
-
-  // Rebuilding can fail (DB hiccup); surface it instead of a raw 500. redirect()
-  // stays OUTSIDE the try since it throws NEXT_REDIRECT.
-  let outcome: string;
-  try {
-    const { isOverloaded } = await healCoursePlan(id);
-    outcome = isOverloaded ? "healed-over" : "healed";
-  } catch (e) {
-    logActionError("healCourse", e);
-    outcome = "heal-failed";
-  }
-  redirect(`/courses/${id}?msg=${outcome}`);
-}
 
 /** Log a finished focus session (Pomodoro) against a block — feeds adaptive pacing. */
 export async function logFocus(formData: FormData) {

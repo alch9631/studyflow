@@ -345,7 +345,8 @@ export default async function TodayPage({
         </div>
       )}
       {recoverFailed && (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <div aria-live="polite"
+          className="mb-4 rounded-xl bg-surface-muted p-4 text-sm text-surface-foreground">
           {t("today.recoverFailed")}
         </div>
       )}
@@ -361,7 +362,8 @@ export default async function TodayPage({
         </div>
       )}
       {behindFailed && (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <div aria-live="polite"
+          className="mb-4 rounded-xl bg-surface-muted p-4 text-sm text-surface-foreground">
           {t("behind.failed")}
         </div>
       )}
@@ -462,7 +464,7 @@ export default async function TodayPage({
                         </span>
                         <span
                           className={`shrink-0 whitespace-nowrap text-xs font-medium ${
-                            urgent ? "text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400"
+                            urgent ? "text-amber-700 dark:text-amber-400" : "text-gray-500 dark:text-gray-400"
                           }`}
                         >
                           {dueLabel(t, days)}

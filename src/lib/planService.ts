@@ -2,7 +2,7 @@ import { prisma } from "./db";
 import {
   applyCompletedWork,
   buildReviewBlocks,
-  studyDatesBetween,
+  runwayDatesOrAllRemaining,
   difficultyMultiplier,
   MINUTES_PER_EFFORT,
   REVIEW_MINUTES,
@@ -53,7 +53,7 @@ export const MIN_DAILY_AFTER_LECTURES = 30;
  * still spread across their entire real runway.
  */
 const runwayDates = (start: string, exam: string, days: number[]) =>
-  studyDatesBetween(start, exam, days).slice(0, MAX_SCHEDULE_DAYS);
+  runwayDatesOrAllRemaining(start, exam, days).slice(0, MAX_SCHEDULE_DAYS);
 
 /**
  * Hard bound on a stored topic's effort before it becomes minutes. Efforts are

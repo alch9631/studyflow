@@ -111,6 +111,34 @@ export const INTENSE_MINUTES_PER_DAY = 360; // 6h/day
  */
 export const MAX_STUDY_DATES = 450;
 
+/**
+ * Study dates from `start` to `end`, but NEVER give back an empty runway while
+ * days still remain.
+ *
+ * `studyDatesBetween` honours the student's chosen weekdays exactly, which is
+ * right when there's room to be choosy. Close to an exam it isn't: a student who
+ * studies Sundays with a Tuesday exam, or anyone whose last few days simply miss
+ * their chosen weekdays, got a plan with ZERO sessions — the app's answer to
+ * "my exam is in two days" was a blank page, exactly when help matters most.
+ *
+ * So when the chosen weekdays yield nothing and there is still at least one day
+ * before the exam, we fall back to EVERY remaining day. The preference isn't
+ * discarded lightly — it only yields once respecting it would mean planning
+ * nothing at all.
+ */
+export function runwayDatesOrAllRemaining(
+  startISO: string,
+  endISO: string,
+  studyDays: number[] | null | undefined,
+): string[] {
+  const preferred = studyDatesBetween(startISO, endISO, studyDays);
+  if (preferred.length > 0) return preferred;
+  return studyDatesBetween(startISO, endISO, ALL_WEEKDAYS);
+}
+
+/** Every weekday — the fallback set when a student's chosen days leave no runway. */
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
 /** Inclusive list of ISO dates from `start` up to (not including) `end`. */
 export function studyDatesBetween(
   startISO: string,
@@ -265,7 +293,7 @@ export function planForDeadline(
   todayISO: string,
   opts?: { calibration?: number },
 ): { blocks: StudyBlock[]; minutesPerDay: number; intense: boolean } {
-  const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
+  const dates = runwayDatesOrAllRemaining(todayISO, course.examDate, course.studyDays);
   const pending = (course.topics ?? []).filter((t) => !t.done);
   const totalEffort = pending.reduce((s, t) => s + effortOf(t.effort), 0);
 
@@ -373,7 +401,7 @@ export function buildReviewBlocks(
 
 /** Build a fresh plan for a course, starting from `todayISO`. */
 export function generatePlan(course: Course, todayISO: string): StudyBlock[] {
-  const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
+  const dates = runwayDatesOrAllRemaining(todayISO, course.examDate, course.studyDays);
   const pending = (course.topics ?? []).filter((t) => !t.done);
   return distribute(pending, dates, course.minutesPerDay);
 }
@@ -394,7 +422,7 @@ export function healPlan(
    */
   completedByTopic: Record<string, number> = {},
 ): { blocks: StudyBlock[]; isOverloaded: boolean } {
-  const dates = studyDatesBetween(todayISO, course.examDate, course.studyDays);
+  const dates = runwayDatesOrAllRemaining(todayISO, course.examDate, course.studyDays);
 
   // A topic is "done" if flagged done on the course; partial progress is folded
   // in via completedByTopic (minutes already studied), subtracted below.

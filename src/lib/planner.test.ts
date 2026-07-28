@@ -13,6 +13,7 @@ import {
   planForDeadline,
   REVIEW_INTERVALS_BY_DIFFICULTY,
   studyDatesBetween,
+  runwayDatesOrAllRemaining,
   type Course,
   type StudyBlock,
 } from "./planner";
@@ -452,8 +453,10 @@ check(
 // ---- Zero available study days BEFORE an exam (window exists, weekdays don't)
 // The window [today, exam) is non-empty, but the course studies on weekdays the
 // window never contains (e.g. exam is the very next day, a Sunday, and the
-// student only studies Saturdays). studyDatesBetween must return [] and every
-// entry point must degrade exactly like the empty-window case.
+// student only studies Saturdays). studyDatesBetween itself still returns []
+// — it reports the preference faithfully — but the ENGINE must not plan
+// nothing: runwayDatesOrAllRemaining falls back to every remaining day, so the
+// student close to an exam gets sessions instead of a blank page.
 // 2026-06-08 is a Monday; 2026-06-13 is the following Saturday.
 const sundayOnlyDates = studyDatesBetween("2026-06-08", "2026-06-13", [0]); // only Sundays in Mon..Fri span
 check("window with no matching weekday yields zero study dates", sundayOnlyDates.length === 0);
@@ -475,16 +478,21 @@ try {
   noDayGenOk = false;
 }
 check("no-matching-study-day: nothing throws", noDayGenOk);
-check("no-matching-study-day: generatePlan yields empty plan", noDayGen.length === 0);
-check("no-matching-study-day: planForDeadline schedules nothing", noDayPfd.blocks.length === 0);
+// These four used to assert an EMPTY plan. That was the bug: the one student
+// who most needs a plan — exam imminent, chosen weekdays exhausted — was the
+// one student who got nothing at all.
+check("no-matching-study-day: generatePlan still plans sessions", noDayGen.length > 0);
+check("no-matching-study-day: planForDeadline still schedules", noDayPfd.blocks.length > 0);
 check(
   "no-matching-study-day: pace is finite and non-negative",
   Number.isFinite(noDayPfd.minutesPerDay) && noDayPfd.minutesPerDay >= 0,
 );
-check("no-matching-study-day: unschedulable work flagged intense", noDayPfd.intense === true);
-check("no-matching-study-day: healPlan empty + overloaded", noDayHeal.blocks.length === 0 && noDayHeal.isOverloaded === true);
+check("no-matching-study-day: every session lands before the exam", noDayGen.every((b) => b.date < "2026-06-13"));
+check("no-matching-study-day: healPlan produces a plan", noDayHeal.blocks.length > 0);
 
-// Empty studyDays list (student picked no study days at all) behaves the same.
+// Empty studyDays list (student picked no study days at all) behaves the same:
+// plan on every remaining day rather than not at all. The input layer already
+// defaults an empty pick to Mon-Fri, so this is the engine's own safety net.
 const noStudyDays: Course = { ...course, studyDays: [] };
 let emptyDaysOk = true;
 let emptyDaysPlan: StudyBlock[] = [];
@@ -494,7 +502,7 @@ try {
   emptyDaysOk = false;
 }
 check("empty studyDays list does not throw", emptyDaysOk);
-check("empty studyDays list yields empty plan", emptyDaysPlan.length === 0);
+check("empty studyDays list still yields a plan", emptyDaysPlan.length > 0);
 
 // ---- healPlan overload boundary -------------------------------------------
 // Overload is judged against the MIN-viable floor, not the (always-fitting)
@@ -649,7 +657,7 @@ try {
   genNullDaysOk = false;
 }
 check("generatePlan(null studyDays) does not throw", genNullDaysOk);
-check("generatePlan(null studyDays) yields empty plan", genNullDays.length === 0);
+check("generatePlan(null studyDays) still yields a plan", genNullDays.length > 0);
 
 let genNullMpdOk = true;
 let genNullMpd: StudyBlock[] = [bad(0)];
@@ -1099,6 +1107,44 @@ check(
   "cap never bites on a real horizon (1 year daily = 365 dates)",
   studyDatesBetween("2026-06-08", "2027-06-08", [0, 1, 2, 3, 4, 5, 6]).length === 365,
 );
+
+
+// ── A runway is never empty while days remain ────────────────────────────────
+// Regression: the chosen study weekdays were honoured absolutely, so a student
+// who studies only Sundays with a Tuesday exam — or anyone whose last days miss
+// their weekdays — got a plan with ZERO sessions. A blank page is the worst
+// possible answer to "my exam is in two days", so the preference now yields
+// rather than plan nothing.
+{
+  // Wed 2026-07-29 … exam Fri 2026-07-31: contains no Sunday at all.
+  const sundayOnly = runwayDatesOrAllRemaining("2026-07-29", "2026-07-31", [0]);
+  check("Sunday-only student still gets a runway before a Friday exam", sundayOnly.length === 2);
+  check("fallback uses the real remaining days", sundayOnly[0] === "2026-07-29" && sundayOnly[1] === "2026-07-30");
+
+  // One single day left, and it isn't a chosen day.
+  const oneDay = runwayDatesOrAllRemaining("2026-07-29", "2026-07-30", [0]);
+  check("one day left still yields one study date", oneDay.length === 1 && oneDay[0] === "2026-07-29");
+
+  // The preference still wins whenever honouring it plans SOMETHING.
+  const weekdays = runwayDatesOrAllRemaining("2026-07-27", "2026-08-03", [1, 2, 3, 4, 5]);
+  check("chosen weekdays are respected when they yield a runway", weekdays.length === 5);
+  check("respected runway excludes the weekend", !weekdays.includes("2026-08-01") && !weekdays.includes("2026-08-02"));
+
+  // Genuinely no days left (exam today) stays empty — there is nothing to plan.
+  check("exam today yields no runway", runwayDatesOrAllRemaining("2026-07-29", "2026-07-29", [0]).length === 0);
+  check("exam in the past yields no runway", runwayDatesOrAllRemaining("2026-07-29", "2026-07-20", [1]).length === 0);
+}
+{
+  // End-to-end through the engine: a plan must actually appear.
+  const course = {
+    id: "c", name: "Tight", examDate: "2026-07-31",
+    topics: [{ id: "t1", title: "A", effort: 1, done: false }, { id: "t2", title: "B", effort: 1, done: false }],
+    studyDays: [0], minutesPerDay: 120, difficulty: 3,
+  };
+  const plan = generatePlan(course, "2026-07-29");
+  check("generatePlan produces sessions when no chosen day remains", plan.length > 0);
+  check("those sessions land before the exam", plan.every((b) => b.date < "2026-07-31"));
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

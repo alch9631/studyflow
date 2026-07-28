@@ -27,6 +27,7 @@ import {
   SELFTEST_SYSTEM,
   buildAnalyzeSystem,
   capInput,
+  MAX_EXAM_QUESTIONS,
   overBudgetRatio,
 } from "./syllabus";
 
@@ -177,7 +178,7 @@ check(
 );
 
 // ── normalizeModuleAnalysis: fail-safe coercion ──────────────────────────────
-const EMPTY_MOD = { summary: "", category: null, concepts: [], prerequisites: [], topics: [] };
+const EMPTY_MOD = { summary: "", category: null, concepts: [], prerequisites: [], topics: [], examQuestions: [] };
 check("module: null → safe empty", noThrow(() => normalizeModuleAnalysis(null)) && eq(normalizeModuleAnalysis(null), EMPTY_MOD));
 check("module: undefined → safe empty", eq(normalizeModuleAnalysis(undefined), EMPTY_MOD));
 check("module: empty object → safe empty", eq(normalizeModuleAnalysis({}), EMPTY_MOD));
@@ -342,6 +343,32 @@ check(
 check("500 is not shrinkable", overBudgetRatio(Object.assign(new Error("boom"), { status: 500 })) === null);
 check("plain Error is not shrinkable", overBudgetRatio(new Error("nope")) === null);
 check("null/undefined are not shrinkable", overBudgetRatio(null) === null && overBudgetRatio(undefined) === null);
+
+// ── mock-exam questions (drafted from an uploaded past paper) ────────────────
+// Rendered straight to the student as a practice queue, so malformed model
+// output must degrade to "no questions" rather than blank or broken cards.
+check("exam questions: valid pair kept", eq(
+  normalizeModuleAnalysis({ examQuestions: [{ question: " Derive the transfer function. ", topic: " Laplace " }] }).examQuestions,
+  [{ question: "Derive the transfer function.", topic: "Laplace" }],
+));
+check("exam questions: missing field → []", eq(normalizeModuleAnalysis({}).examQuestions, []));
+check("exam questions: non-array → []", eq(normalizeModuleAnalysis({ examQuestions: "nope" as never }).examQuestions, []));
+check("exam questions: junk entries dropped", eq(
+  normalizeModuleAnalysis({ examQuestions: [null, 5, {}, { question: "" }, { question: "   " }, { question: "Real?", topic: "T" }] as never }).examQuestions,
+  [{ question: "Real?", topic: "T" }],
+));
+check("exam questions: missing topic tolerated", eq(
+  normalizeModuleAnalysis({ examQuestions: [{ question: "Q" }] as never }).examQuestions,
+  [{ question: "Q", topic: "" }],
+));
+check("exam questions: capped at MAX_EXAM_QUESTIONS", normalizeModuleAnalysis({
+  examQuestions: Array.from({ length: 50 }, (_, i) => ({ question: `Q${i}`, topic: "T" })),
+}).examQuestions.length === MAX_EXAM_QUESTIONS);
+check("exam questions: absurdly long question is capped", normalizeModuleAnalysis({
+  examQuestions: [{ question: "x".repeat(5000), topic: "T" }],
+}).examQuestions[0].question.length === 500);
+check("mock-exam instruction only asks on exam material",
+  /past exam or a mock exam/i.test(buildAnalyzeSystem("altklausur")) && /empty examQuestions array/i.test(buildAnalyzeSystem("skript")));
 
 // ── env-driven provider gating + unconfigured fail-safe (async, isolated env) ─
 const ORIG_OPENAI = process.env.OPENAI_API_KEY;

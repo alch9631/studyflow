@@ -11,10 +11,9 @@ import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, dueLabel, type MessageKey, type Translator } from "@/components/i18n/messages";
 import { FILE_CATEGORIES, isFileCategory, type FileCategory } from "@/lib/fileCategory";
 import {
-  healCourse,
   updateCourse,
   deleteCourse,
-  reoptimizeCourse,
+  refreshPlan,
   deleteModuleFile,
   toggleAssignment,
   deleteAssignment,
@@ -114,6 +113,8 @@ type FileAnalysis = {
   concepts?: string[];
   prerequisites?: string[];
   topics?: Array<string | { title?: string }>;
+  /** Mock-exam questions drafted from an uploaded past/mock exam. */
+  examQuestions?: Array<{ question?: string; topic?: string }>;
 };
 
 /** Parse the stored analysis JSON, guarding against null / malformed strings. */
@@ -169,14 +170,12 @@ const CATEGORY_BADGE: Record<FileCategory | "uncategorized", string> = {
 void (FILE_CATEGORIES satisfies readonly FileCategory[]);
 
 const BANNER_KEYS = new Set([
-  "healed",
-  "healed-over",
   "saved",
   "progress",
   "progress-none",
   "progress-error",
-  "optimized",
-  "optimize-failed",
+  "plan-refreshed",
+  "plan-tuned",
   "ai-unconfigured",
   "ai-offline",
   "heal-failed",
@@ -204,11 +203,9 @@ const BANNER_KEYS = new Set([
 const ERROR_BANNERS = new Set([
   "progress-none",
   "progress-error",
-  "optimize-failed",
   "ai-unconfigured",
   "ai-offline",
   "heal-failed",
-  "healed-over",
   "analyze-error",
   "analyze-notopics",
   "analyze-unsupported",
@@ -497,7 +494,7 @@ export default async function CoursePage({
                               a.done
                                 ? "text-gray-500 dark:text-gray-400"
                                 : urgent
-                                  ? "font-medium text-red-600 dark:text-red-400"
+                                  ? "font-medium text-amber-700 dark:text-amber-400"
                                   : "text-gray-500 dark:text-gray-400"
                             }`}
                           >
@@ -577,9 +574,13 @@ export default async function CoursePage({
                 examInDays < 0
                   ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                   : examInDays <= 7
-                    ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                    // Amber, not red. The app keeps exactly ONE red mark (the
+                    // nearest-exam chip on Today); a second one here would put a
+                    // student inside an exam period in front of red on every
+                    // screen, which reads as alarm rather than information.
+                    ? "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
                     : examInDays <= 21
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                      ? "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
                       : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
               }`}
             >
@@ -596,29 +597,18 @@ export default async function CoursePage({
             </span>
           </div>
         </div>
+        {/* ONE plan action. It always re-spreads the plan, and tunes it with AI
+            on top when that's available — see refreshPlan in courses/actions. */}
         <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
-          {isSyllabusAIEnabled() && (
-            <form action={reoptimizeCourse} className="min-w-0 flex-1 sm:flex-none">
-              <input type="hidden" name="courseId" value={course.id} />
-              <SubmitButton
-                variant="primary"
-                size="md"
-                className="w-full sm:w-auto"
-                pendingLabel={t("courseDetail.optimizing")}
-              >
-                {t("courseDetail.optimizeWithAI")}
-              </SubmitButton>
-            </form>
-          )}
-          <form action={healCourse} className="min-w-0 flex-1 sm:flex-none">
+          <form action={refreshPlan} className="min-w-0 flex-1 sm:flex-none">
             <input type="hidden" name="courseId" value={course.id} />
             <SubmitButton
-              variant="secondary"
+              variant="primary"
               size="md"
               className="w-full sm:w-auto"
-              pendingLabel={t("courseDetail.replanning")}
+              pendingLabel={t("courseDetail.refreshingPlan")}
             >
-              {t("courseDetail.fellBehind")}
+              {t("courseDetail.refreshPlan")}
             </SubmitButton>
           </form>
         </div>
@@ -698,6 +688,12 @@ export default async function CoursePage({
                     const concepts = analysis?.concepts?.filter(Boolean) ?? [];
                     const prerequisites = analysis?.prerequisites?.filter(Boolean) ?? [];
                     const topics = (analysis?.topics ?? []).map(topicLabel).filter(Boolean);
+                    // A past/mock exam whose analysis produced practice questions can be
+                    // SAT as a mock exam — the one place uploading an old paper pays
+                    // off as something to do rather than something to read.
+                    const mockQuestions = (analysis?.examQuestions ?? []).filter(
+                      (q) => typeof q?.question === "string" && q.question.trim().length > 0,
+                    ).length;
                     const hasAnalysis =
                       Boolean(analysis?.summary) ||
                       concepts.length > 0 ||
@@ -736,6 +732,14 @@ export default async function CoursePage({
                               )}
                             </div>
                           </div>
+                          {mockQuestions > 0 && (
+                            <Link
+                              href={`/practice?courseId=${course.id}&examFile=${file.id}`}
+                              className="shrink-0 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-brand-foreground transition-colors hover:bg-brand-dark"
+                            >
+                              {t("courseDetail.practiceExam", { count: mockQuestions })}
+                            </Link>
+                          )}
                           <ConfirmDialog
                             action={deleteModuleFile}
                             fields={{ moduleFileId: file.id }}

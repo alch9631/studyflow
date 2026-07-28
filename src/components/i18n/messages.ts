@@ -167,7 +167,7 @@ const en = {
       one: "{count} course is now very tight. Consider trimming low-priority topics.",
       other: "{count} courses are now very tight. Consider trimming low-priority topics.",
     },
-    recoverFailed: "Rebuild failed. Nothing changed. Try again.",
+    recoverFailed: "Couldn't refresh just now — your plan is exactly as it was. Try again in a moment.",
     rateLimited: "You're doing that a lot. Give it a minute and try again.",
     emptyNoPlanTitle: "Let's build your study plan",
     emptyNoPlanDesc:
@@ -271,7 +271,7 @@ const en = {
     rateSolidHint: "I knew it",
     ratePractice: "Needs practice",
     ratePracticeHint: "Shaky",
-    rateStruggling: "Struggling",
+    rateStruggling: "Still tricky",
     rateStrugglingHint: "Blanked",
     rateError: "Couldn't save that rating. Please try again.",
     skip: "Skip for now",
@@ -299,8 +299,8 @@ const en = {
     lighterPreview: "Today {from} → {essentials} essentials · new pace ~{pace}",
     // Honest nearest-exam line shown under each option (real planner verdict).
     examPossible: "Nearest exam: still possible",
-    examAtRisk: "Nearest exam: possible, but tight",
-    examNotFully: "Nearest exam: no longer fully possible",
+    examAtRisk: "Nearest exam: doable, and snug",
+    examNotFully: "Nearest exam: worth adjusting the plan",
     working: "One moment…",
     reassure: "Whatever you choose, finished work always stays done.",
     protectDone: {
@@ -360,8 +360,8 @@ const en = {
     emptyDescActionable: "Start with your TUHH module catalog or import a syllabus, and we turn it into a day-by-day plan.",
     openCard: "{name}, open to update progress",
     healthHealthy: "On track",
-    healthAttention: "Needs attention",
-    healthOverloaded: "Overloaded",
+    healthAttention: "Worth a look",
+    healthOverloaded: "Tight fit",
     healthNoPlan: "No plan yet",
     healthExamSoon: "Exam soon",
     // ── Plan confidence (one calm word, consistent with Today's truth states) ──
@@ -420,10 +420,9 @@ const en = {
   },
   courseDetail: {
     back: "My Courses",
-    optimizeWithAI: "Optimize",
-    optimizing: "Optimizing…",
-    fellBehind: "Replan",
-    replanning: "Replanning…",
+    refreshPlan: "Refresh my plan",
+    practiceExam: "Sit this exam ({count})",
+    refreshingPlan: "Refreshing…",
     optionsLabel: "Options",
     optionsAria: "Course options",
     optionsTitle: "Course options",
@@ -460,14 +459,14 @@ const en = {
         "over-ceiling": "Even using every study day, the workload won't fit before the exam.",
       },
       next: {
-        "no-runway": "Focus the time you have on the highest-yield topics, and use \"I fell behind\" to rebuild around what's left.",
+        "no-runway": "Put the time you have into the topics that pay off most — \"Refresh my plan\" will rebuild around what's left.",
         "few-days": "Add more study days in the course settings, then save to rebuild the plan.",
-        "over-ceiling": "Use \"I fell behind\" to rebuild the plan around what's still ahead, or add study days.",
+        "over-ceiling": "\"Refresh my plan\" rebuilds around what's still ahead — adding study days gives it more room to work with.",
       },
     },
-    missedHeading: "Missed sessions",
-    missedHint: "These study days have already passed and weren't completed. They're not part of your current plan — use \"I fell behind\" to fold them back in.",
-    missedOnly: "All scheduled sessions are in the past. Use \"I fell behind\" to rebuild a plan for the days ahead.",
+    missedHeading: "Earlier sessions",
+    missedHint: "These study days have gone by without being ticked off. They're not part of your current plan — \"Refresh my plan\" folds them back in.",
+    missedOnly: "Every scheduled session is now in the past. \"Refresh my plan\" builds a fresh one for the days ahead.",
     updateProgressHeading: "Update your progress",
     materials: "Materials",
     addFile: "Add file",
@@ -581,9 +580,9 @@ const en = {
       "progress-none":
         "No matching topics found in that update. Try naming them as they appear below.",
       "progress-error": "Couldn't reach the AI to read that. Check your API key, then try again.",
-      optimized: "AI re-optimized your plan. Difficulty, order, and review sessions updated.",
-      "optimize-failed":
-        "Couldn't optimize with AI. The call failed. Your plan is unchanged.",
+      "plan-refreshed": "Plan refreshed around what's still ahead.",
+      "plan-tuned":
+        "Plan refreshed and tuned — difficulty, order and review sessions updated to match where you are.",
       "ai-unconfigured":
         "AI features are off. Add an OpenAI or Anthropic API key to enable optimization and analysis.",
       "ai-offline":
@@ -1152,7 +1151,7 @@ const de: Messages = {
       one: "{count} Kurs ist jetzt sehr eng getaktet. Kürze dort ggf. Themen mit niedriger Priorität.",
       other: "{count} Kurse sind jetzt sehr eng getaktet. Kürze dort ggf. Themen mit niedriger Priorität.",
     },
-    recoverFailed: "Neuaufbau fehlgeschlagen. Nichts geändert. Versuch es erneut.",
+    recoverFailed: "Auffrischen hat gerade nicht geklappt — dein Plan ist unverändert. Versuch es gleich noch mal.",
     rateLimited: "Das machst du ziemlich oft. Warte eine Minute und versuch es erneut.",
     emptyNoPlanTitle: "Lass uns deinen Lernplan erstellen",
     emptyNoPlanDesc:
@@ -1254,7 +1253,7 @@ const de: Messages = {
     rateSolidHint: "Wusste ich",
     ratePractice: "Üben",
     ratePracticeHint: "Wackelig",
-    rateStruggling: "Schwer",
+    rateStruggling: "Noch knifflig",
     rateStrugglingHint: "Blackout",
     rateError: "Bewertung konnte nicht gespeichert werden. Bitte erneut versuchen.",
     skip: "Erstmal überspringen",
@@ -1281,8 +1280,8 @@ const de: Messages = {
     lighterPreview: "Heute {from} → {essentials} wichtig · neues Tempo ~{pace}",
     // Ehrliche Zeile zur nächsten Prüfung unter jeder Option (echtes Planurteil).
     examPossible: "Nächste Prüfung: weiterhin machbar",
-    examAtRisk: "Nächste Prüfung: machbar, aber knapp",
-    examNotFully: "Nächste Prüfung: nicht mehr vollständig machbar",
+    examAtRisk: "Nächste Prüfung: machbar, wird aber eng",
+    examNotFully: "Nächste Prüfung: Plan lohnt sich anzupassen",
     working: "Einen Moment…",
     reassure: "Was du auch wählst, Erledigtes bleibt immer erledigt.",
     protectDone: {
@@ -1342,8 +1341,8 @@ const de: Messages = {
     emptyDescActionable: "Starte mit dem TUHH-Modulkatalog oder importiere einen Lehrplan, und wir machen daraus einen Tagesplan.",
     openCard: "{name}, öffnen, um den Fortschritt zu aktualisieren",
     healthHealthy: "Im Plan",
-    healthAttention: "Aufmerksamkeit nötig",
-    healthOverloaded: "Überlastet",
+    healthAttention: "Einen Blick wert",
+    healthOverloaded: "Knapp",
     healthNoPlan: "Noch kein Plan",
     healthExamSoon: "Prüfung bald",
     // ── Plansicherheit (ein ruhiges Wort, passend zu Heutes Wahrheitszuständen) ──
@@ -1402,10 +1401,9 @@ const de: Messages = {
   },
   courseDetail: {
     back: "Meine Kurse",
-    optimizeWithAI: "Optimieren",
-    optimizing: "Optimieren…",
-    fellBehind: "Neu planen",
-    replanning: "Neu planen…",
+    refreshPlan: "Plan auffrischen",
+    practiceExam: "Klausur schreiben ({count})",
+    refreshingPlan: "Wird aufgefrischt…",
     optionsLabel: "Optionen",
     optionsAria: "Kursoptionen",
     optionsTitle: "Kursoptionen",
@@ -1440,14 +1438,14 @@ const de: Messages = {
         "over-ceiling": "Selbst mit allen Lerntagen passt das Pensum nicht mehr vor die Prüfung.",
       },
       next: {
-        "no-runway": "Konzentriere die verbleibende Zeit auf die wichtigsten Themen und nutze „Neu planen“, um den Rest neu aufzubauen.",
+        "no-runway": "Steck die verbleibende Zeit in die Themen, die am meisten bringen — „Plan auffrischen“ baut um den Rest herum neu auf.",
         "few-days": "Füge in den Kurseinstellungen mehr Lerntage hinzu und speichere, um den Plan neu zu erstellen.",
-        "over-ceiling": "Nutze „Neu planen“, um den Plan um das Verbleibende herum neu aufzubauen, oder ergänze Lerntage.",
+        "over-ceiling": "„Plan auffrischen“ baut den Plan um das Verbleibende herum neu auf — zusätzliche Lerntage geben ihm mehr Spielraum.",
       },
     },
-    missedHeading: "Verpasste Sessions",
-    missedHint: "Diese Lerntage liegen bereits in der Vergangenheit und wurden nicht abgeschlossen. Sie gehören nicht zu deinem aktuellen Plan — nutze „Neu planen“, um sie wieder einzubeziehen.",
-    missedOnly: "Alle geplanten Sessions liegen in der Vergangenheit. Nutze „Neu planen“, um einen Plan für die kommenden Tage zu erstellen.",
+    missedHeading: "Frühere Sessions",
+    missedHint: "Diese Lerntage sind vorbeigezogen, ohne abgehakt zu werden. Sie gehören nicht zu deinem aktuellen Plan — „Plan auffrischen“ bezieht sie wieder ein.",
+    missedOnly: "Alle geplanten Sessions liegen inzwischen in der Vergangenheit. „Plan auffrischen“ erstellt einen frischen für die kommenden Tage.",
     updateProgressHeading: "Aktualisiere deinen Fortschritt",
     materials: "Materialien",
     addFile: "Datei hochladen",
@@ -1560,9 +1558,9 @@ const de: Messages = {
       "progress-none":
         "Keine passenden Themen in diesem Update gefunden. Versuch, sie wie unten angezeigt zu benennen.",
       "progress-error": "Die KI war nicht erreichbar. Prüf deinen API-Schlüssel und versuch es erneut.",
-      optimized: "KI hat deinen Plan neu optimiert. Schwierigkeit, Reihenfolge und Wiederholungen aktualisiert.",
-      "optimize-failed":
-        "Optimierung mit KI fehlgeschlagen. Der Aufruf ist gescheitert. Plan unverändert.",
+      "plan-refreshed": "Plan neu auf das ausgerichtet, was noch vor dir liegt.",
+      "plan-tuned":
+        "Plan neu ausgerichtet und abgestimmt — Schwierigkeit, Reihenfolge und Wiederholungen passen jetzt zu deinem Stand.",
       "ai-unconfigured":
         "KI-Funktionen sind aus. Füge einen OpenAI- oder Anthropic-API-Schlüssel hinzu, um Optimierung und Analyse zu aktivieren.",
       "ai-offline":

@@ -12,6 +12,32 @@ export const metadata: Metadata = {
   description: "Active-recall practice: one self-test question at a time, self-rated to feed your reviews.",
 };
 
+/** A stored confidence value, or null when absent/unrecognised. */
+function asConfidence(raw: string | null): "solid" | "practice" | "struggling" | null {
+  return raw === "solid" || raw === "practice" || raw === "struggling" ? raw : null;
+}
+
+/**
+ * Pull the drafted mock-exam questions out of a ModuleFile's `analysis` blob.
+ * That column is free-form JSON written by the upload action, so every field is
+ * treated as untrusted: a hand-edited or older row simply yields no questions
+ * instead of throwing on the practice screen.
+ */
+function parseExamQuestions(raw: string | null): { question: string; topic: string }[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as { examQuestions?: unknown };
+    if (!Array.isArray(parsed?.examQuestions)) return [];
+    return parsed.examQuestions.flatMap((q) => {
+      const question = typeof (q as { question?: unknown })?.question === "string" ? (q as { question: string }).question.trim() : "";
+      const topic = typeof (q as { topic?: unknown })?.topic === "string" ? (q as { topic: string }).topic : "";
+      return question ? [{ question, topic }] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Parse a topic's stored `questions` JSON (string[]), guarding malformed rows. */
 function parseQuestions(raw: string | null): string[] {
   if (!raw) return [];
@@ -39,12 +65,14 @@ function parseQuestions(raw: string | null): string[] {
 export default async function PracticePage({
   searchParams,
 }: {
-  searchParams: Promise<{ courseId?: string }>;
+  searchParams: Promise<{ courseId?: string; examFile?: string }>;
 }) {
   const userId = await getCurrentUserId();
   const t = await getT();
   const sp = await searchParams;
   const courseId = typeof sp.courseId === "string" ? sp.courseId : "";
+  // Mock-exam mode: practise a past paper instead of the topic self-tests.
+  const examFileId = typeof sp.examFile === "string" ? sp.examFile : "";
 
   // Ownership-scoped: the course (with its topics + questions) loads only if the
   // current user owns it. A missing/foreign/blank id falls through to null.
@@ -83,12 +111,36 @@ export default async function PracticePage({
   // confidence. Initial confidence is carried through so re-practising a topic
   // shows where the student last left it.
   const cards: PracticeCard[] = [];
-  for (const topic of course.topics) {
+
+  // MOCK EXAM MODE — questions drafted from an uploaded past/mock exam, stored
+  // in that file's analysis blob when it was analyzed. Ownership is enforced
+  // through the course we already resolved, so a guessed file id reads nothing.
+  let mockExamName = "";
+  if (examFileId) {
+    const file = await prisma.moduleFile.findFirst({
+      where: { id: examFileId, courseId: course.id },
+      select: { filename: true, analysis: true },
+    });
+    const byTitle = new Map(course.topics.map((t) => [t.title.trim().toLowerCase(), t]));
+    for (const q of parseExamQuestions(file?.analysis ?? null)) {
+      // Attach each question to the topic it tests so the student's self-rating
+      // still feeds the spaced-review engine; anything unmatched falls back to
+      // the first topic rather than being dropped.
+      const topic = byTitle.get(q.topic.trim().toLowerCase()) ?? course.topics[0];
+      if (!topic) break;
+      cards.push({
+        topicId: topic.id,
+        topicTitle: q.topic.trim() || topic.title,
+        question: q.question,
+        confidence: asConfidence(topic.confidence),
+      });
+    }
+    mockExamName = file?.filename ?? "";
+  }
+
+  if (!examFileId) for (const topic of course.topics) {
     const questions = parseQuestions(topic.questions);
-    const confidence =
-      topic.confidence === "solid" || topic.confidence === "practice" || topic.confidence === "struggling"
-        ? topic.confidence
-        : null;
+    const confidence = asConfidence(topic.confidence);
     for (const question of questions) {
       cards.push({ topicId: topic.id, topicTitle: topic.title, question, confidence });
     }
@@ -110,5 +162,11 @@ export default async function PracticePage({
     );
   }
 
-  return <PracticeSession courseId={course.id} courseName={course.name} cards={cards} />;
+  return (
+    <PracticeSession
+      courseId={course.id}
+      courseName={mockExamName || course.name}
+      cards={cards}
+    />
+  );
 }

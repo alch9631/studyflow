@@ -462,9 +462,43 @@ const ANALYZE_SCHEMA = {
         required: ["title", "difficulty", "estMinutes"],
       },
     },
+    examQuestions: {
+      type: "array",
+      description:
+        "ONLY for a past exam / mock exam: practice questions in the style of the paper's own " +
+        "questions, for the student to work through. Empty array for any other material.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          question: { type: "string", description: "The question, self-contained and answerable" },
+          topic: { type: "string", description: "Which of the topics above this question tests" },
+        },
+        required: ["question", "topic"],
+      },
+    },
   },
-  required: ["summary", "category", "concepts", "prerequisites", "topics"],
+  required: ["summary", "category", "concepts", "prerequisites", "topics", "examQuestions"],
 };
+
+/** Upper bound on generated mock-exam questions — one sitting, not a question bank. */
+export const MAX_EXAM_QUESTIONS = 12;
+
+/**
+ * Mock-exam instruction. A past paper is the single most valuable thing a
+ * student uploads: it shows how the subject is actually ASKED, not just what it
+ * covers. The analysis pass already reads the whole paper, so it also drafts
+ * practice questions in the same style — no second model call, no extra tokens
+ * beyond the answer itself. Every other kind of material returns an empty list.
+ */
+const MOCK_EXAM_INSTRUCTION =
+  " If (and only if) this material is a past exam or a mock exam, also produce up to " +
+  String(MAX_EXAM_QUESTIONS) +
+  " practice questions in `examQuestions`, modelled on the paper's OWN questions — same style, " +
+  "same level of demand, same kinds of task — so working through them feels like sitting the real " +
+  "paper. Do not copy a question verbatim; write a fresh one that tests the same skill. Each " +
+  "question must be self-contained and answerable without seeing the original paper, and must name " +
+  "which of the topics above it tests. For any other material return an empty examQuestions array.";
 
 const ANALYZE_SYSTEM_BASE =
   "You analyze a university module's study material (lecture script/notes). Extract a short summary, " +
@@ -520,8 +554,11 @@ const DOC_TYPE_GUIDANCE: Record<FileCategory, string> = {
  */
 export function buildAnalyzeSystem(docType?: FileCategory | null): string {
   const guidance = docType && DOC_TYPE_GUIDANCE[docType] ? " " + DOC_TYPE_GUIDANCE[docType] : "";
-  return ANALYZE_SYSTEM_BASE + guidance + " " + LANGUAGE_MATCH_INSTRUCTION;
+  return ANALYZE_SYSTEM_BASE + guidance + MOCK_EXAM_INSTRUCTION + " " + LANGUAGE_MATCH_INSTRUCTION;
 }
+
+/** One drafted mock-exam question and the topic it exercises. */
+export type ExamQuestion = { question: string; topic: string };
 
 export type ModuleAnalysis = {
   summary: string;
@@ -529,6 +566,8 @@ export type ModuleAnalysis = {
   concepts: string[];
   prerequisites: string[];
   topics: { title: string; difficulty: number; estMinutes: number }[];
+  /** Practice questions drafted from a past/mock exam; empty for other material. */
+  examQuestions: ExamQuestion[];
 };
 
 /**
@@ -545,6 +584,7 @@ export function normalizeModuleAnalysis(
         concepts?: unknown;
         prerequisites?: unknown;
         topics?: unknown;
+        examQuestions?: unknown;
       }
     | null
     | undefined,
@@ -562,12 +602,29 @@ export function normalizeModuleAnalysis(
     const estMinutes = clampAINumber(t.estMinutes, 60, 1, MAX_TOPIC_EST_MINUTES);
     topics.push({ title, difficulty, estMinutes });
   }
+  // Mock-exam questions: drop anything without real text, cap the count, and
+  // never let a malformed entry through — this list is rendered straight to the
+  // student as a practice queue.
+  const rawQuestions = Array.isArray(p.examQuestions)
+    ? (p.examQuestions as { question?: unknown; topic?: unknown }[])
+    : [];
+  const examQuestions: ExamQuestion[] = [];
+  for (const q of rawQuestions) {
+    if (!q || typeof q.question !== "string") continue;
+    const question = q.question.trim().slice(0, 500);
+    if (!question) continue;
+    const topic = typeof q.topic === "string" ? q.topic.trim().slice(0, MAX_TOPIC_TITLE_LENGTH) : "";
+    examQuestions.push({ question, topic });
+    if (examQuestions.length >= MAX_EXAM_QUESTIONS) break;
+  }
+
   return {
     summary: typeof p.summary === "string" ? p.summary : "",
     category: isFileCategory(p.category) ? (p.category as FileCategory) : null,
     concepts: Array.isArray(p.concepts) ? (p.concepts as string[]) : [],
     prerequisites: Array.isArray(p.prerequisites) ? (p.prerequisites as string[]) : [],
     topics,
+    examQuestions,
   };
 }
 
