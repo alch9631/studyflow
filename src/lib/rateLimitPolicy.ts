@@ -39,8 +39,19 @@ export interface RateLimitRule {
  * costly paths.
  */
 export const RATE_LIMITS = {
-  /** Anthropic-backed work (syllabus extract, optimize, progress, analyze). Pricey. */
+  /** Model-backed work (syllabus extract, optimize, progress, analyze). Pricey. */
   AI: { max: 8, windowMs: 60_000 },
+  /**
+   * Whole-DOCUMENT analysis (upload a lecture script / import a syllabus). Far
+   * tighter than plain AI because the binding limit isn't ours — it's the
+   * provider's tokens-per-minute allowance. One document fills most of a free
+   * tier's per-minute budget (Groq: 12k TPM), so a user permitted 8 of these a
+   * minute would sail past our guard and get an opaque "AI unreachable" from
+   * upstream instead. Two keeps an honest "give it a minute" on OUR side, where
+   * the message is accurate and no provider budget is burned finding out.
+   * Raise it in step with AI_TOKEN_BUDGET when moving to a paid tier.
+   */
+  AI_DOCUMENT: { max: 2, windowMs: 60_000 },
   /** Create/import a course — heavier writes + (often) an AI follow-up. */
   COURSE_WRITE: { max: 20, windowMs: 60_000 },
   /** Everyday mutations: toggles, edits, assignments, lectures, grade, heal. */

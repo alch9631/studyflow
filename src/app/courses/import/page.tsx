@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 // Server-reject banners `importSyllabus` can bounce back with (allowlist so a
 // tampered ?msg can never reach t() with an arbitrary key).
-const BANNER_KEYS = new Set(["import-empty", "rate-limited"]);
+const BANNER_KEYS = new Set(["import-empty", "import-unsupported", "rate-limited"]);
 
 export default async function ImportPage({
   searchParams,

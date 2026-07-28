@@ -12,6 +12,7 @@ import {
   type FileCategory,
 } from "@/lib/fileCategory";
 import { analyzeModuleUpload } from "@/app/courses/actions";
+import { UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, isWithinUploadLimit } from "@/lib/fileText";
 
 /**
  * Upload box + explicit document-type picker for the course page (Feature 2).
@@ -45,8 +46,21 @@ export default function ModuleUploadForm({
   const [userPicked, setUserPicked] = useState(false);
   // When collapsible, the form stays hidden behind a small trigger until opened.
   const [open, setOpen] = useState(false);
+  // Set when the picked file is over the upload limit (see onFile).
+  const [error, setError] = useState("");
 
-  function onFile(file: File | undefined) {
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reject oversized files here, not server-side: a body past
+    // `serverActions.bodySizeLimit` never reaches our action, so there is no
+    // redirect and no banner — just a raw framework error after a long upload.
+    if (file && !isWithinUploadLimit(file.size)) {
+      setError(t("courseDetail.fileTooLarge", { size: MAX_UPLOAD_LABEL }));
+      setName("");
+      e.target.value = "";
+      return;
+    }
+    setError("");
     setName(file?.name ?? "");
     if (!userPicked) {
       // Pre-select the auto-detected category (falls back to "sonstiges" so the
@@ -73,14 +87,16 @@ export default function ModuleUploadForm({
       <input type="hidden" name="courseId" value={courseId} />
 
       <label
-        className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 p-6 text-center transition-colors hover:border-brand dark:border-gray-700"
+        className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 text-center transition-colors hover:border-brand ${
+          error ? "border-red-400 dark:border-red-500" : "border-gray-300 dark:border-gray-700"
+        }`}
       >
         <input
           type="file"
           name="file"
-          accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+          accept={UPLOAD_ACCEPT}
           className="sr-only"
-          onChange={(e) => onFile(e.target.files?.[0])}
+          onChange={onFile}
         />
         <span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
           {name ? (
@@ -97,6 +113,11 @@ export default function ModuleUploadForm({
           {name ? t("courseDetail.fileChooseDifferent") : t("courseDetail.fileChoose")}
         </span>
       </label>
+      {error && (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
 
       <div className="space-y-1">
         <label

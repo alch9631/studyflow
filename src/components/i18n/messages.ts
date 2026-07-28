@@ -696,9 +696,11 @@ const en = {
     clearNote: "Clear note",
     noteCleared: "Note cleared.",
     noteClearError: "Couldn't clear that note. Please try again.",
-    filePrompt: "Choose a file: PDF, TXT, or MD",
+    filePrompt: "Choose a file: PDF, DOCX, TXT, or MD",
     fileChooseDifferent: "Choose a different file",
     fileChoose: "Choose file",
+    // {size} is the server-side upload limit, so the copy can never drift from it.
+    fileTooLarge: "That file is over the {size} limit. Try a smaller file, or split it.",
     banners: {
       healed: "Plan rebuilt around the days you have left.",
       "healed-over":
@@ -718,8 +720,13 @@ const en = {
       "heal-failed": "Couldn't rebuild the plan just now. Please try again.",
       analyzed: "Analyzed your file and rebuilt the topics + plan from its actual content.",
       "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
-      "analyze-unsupported": "PPTX isn't supported yet. Export the slides to PDF and upload that.",
+      "analyze-notopics":
+        "That file was read fine, but no study topics could be pulled out of it. If it's a scan, it may have no text layer — try a text-based PDF.",
+      "analyze-unsupported":
+        "Only PDF, DOCX, TXT and MD files can be analyzed. Export slides to PDF and upload that.",
       "analyze-nofile": "Choose a file first.",
+      "imported-basic":
+        "Course imported and planned. AI optimization didn't run (the AI was busy or out of budget) — hit Re-optimize in a minute for difficulty, order and review sessions.",
       graded: "Grade saved.",
       "grade-invalid": "That grade isn't valid, so it wasn't saved. Use 1.0 to 5.0.",
       "past-exam": "Exam date can't be in the past, so it wasn't saved.",
@@ -1134,6 +1141,8 @@ const en = {
     submit: "Extract & build my plan",
     banners: {
       "import-empty": "Nothing to import. Paste text or upload a study material first.",
+      "import-unsupported":
+        "That file type can't be read. Upload a PDF, DOCX, TXT or MD file (export slides to PDF).",
       "rate-limited": "You're importing a lot quickly. Give it a minute and try again.",
     },
   },
@@ -1857,9 +1866,10 @@ const de: Messages = {
     clearNote: "Notiz löschen",
     noteCleared: "Notiz gelöscht.",
     noteClearError: "Diese Notiz konnte nicht gelöscht werden. Bitte erneut versuchen.",
-    filePrompt: "Datei wählen: PDF, TXT oder MD",
+    filePrompt: "Datei wählen: PDF, DOCX, TXT oder MD",
     fileChooseDifferent: "Andere Datei wählen",
     fileChoose: "Datei wählen",
+    fileTooLarge: "Diese Datei überschreitet das Limit von {size}. Nimm eine kleinere Datei oder teile sie auf.",
     banners: {
       healed: "Plan rund um deine verbleibenden Tage neu erstellt.",
       "healed-over":
@@ -1879,8 +1889,13 @@ const de: Messages = {
       "heal-failed": "Plan konnte gerade nicht neu erstellt werden. Bitte versuch es erneut.",
       analyzed: "Deine Datei analysiert und Themen + Plan aus ihrem tatsächlichen Inhalt neu erstellt.",
       "analyze-error": "Diese Datei konnte nicht analysiert werden (unlesbar oder KI-Fehler). Versuch eine andere Datei.",
-      "analyze-unsupported": "PPTX wird noch nicht unterstützt. Exportiere die Folien als PDF und lade das hoch.",
+      "analyze-notopics":
+        "Die Datei wurde gelesen, aber es ließen sich keine Lernthemen daraus ziehen. Bei einem Scan fehlt oft die Textebene — versuch ein PDF mit echtem Text.",
+      "analyze-unsupported":
+        "Nur PDF-, DOCX-, TXT- und MD-Dateien können analysiert werden. Exportiere Folien als PDF und lade das hoch.",
       "analyze-nofile": "Wähle zuerst eine Datei.",
+      "imported-basic":
+        "Kurs importiert und verplant. Die KI-Optimierung lief nicht (KI ausgelastet oder Budget aufgebraucht) — klick in einer Minute auf Neu optimieren für Schwierigkeit, Reihenfolge und Wiederholungen.",
       graded: "Note gespeichert.",
       "grade-invalid": "Diese Note ist ungültig und wurde nicht gespeichert. Nutze 1,0 bis 5,0.",
       "past-exam": "Der Prüfungstermin darf nicht in der Vergangenheit liegen, also wurde er nicht gespeichert.",
@@ -2293,6 +2308,8 @@ const de: Messages = {
     submit: "Extrahieren & Plan erstellen",
     banners: {
       "import-empty": "Nichts zu importieren. Füge zuerst Text ein oder lade Material hoch.",
+      "import-unsupported":
+        "Dieser Dateityp kann nicht gelesen werden. Lade eine PDF-, DOCX-, TXT- oder MD-Datei hoch (Folien als PDF exportieren).",
       "rate-limited": "Du importierst gerade sehr viel. Warte eine Minute und versuch es erneut.",
     },
   },

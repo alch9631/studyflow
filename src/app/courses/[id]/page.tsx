@@ -182,10 +182,38 @@ const BANNER_KEYS = new Set([
   "heal-failed",
   "analyzed",
   "analyze-error",
+  "analyze-notopics",
   "analyze-unsupported",
   "analyze-nofile",
+  "imported-basic",
   "graded",
   "grade-invalid",
+  "past-exam",
+  "exam-too-far",
+  "limit-assignments",
+  "rate-limited",
+]);
+
+/**
+ * Which banners get the "error" toast treatment. That variant isn't only for
+ * failures — it's the one that lingers long enough to actually be read, so
+ * caveats that need acting on (a plan that barely fits, an import that couldn't
+ * be optimized, a file that yielded no topics) belong here too. Everything else
+ * is a quick success flash.
+ */
+const ERROR_BANNERS = new Set([
+  "progress-none",
+  "progress-error",
+  "optimize-failed",
+  "ai-unconfigured",
+  "ai-offline",
+  "heal-failed",
+  "healed-over",
+  "analyze-error",
+  "analyze-notopics",
+  "analyze-unsupported",
+  "analyze-nofile",
+  "imported-basic",
   "past-exam",
   "exam-too-far",
   "limit-assignments",
@@ -536,11 +564,7 @@ export default async function CoursePage({
       {banner && (
         <PageToast
           message={banner}
-          variant={
-            ["progress-none", "progress-error", "optimize-failed", "ai-unconfigured", "ai-offline", "heal-failed", "healed-over", "analyze-error", "analyze-unsupported", "analyze-nofile", "past-exam", "exam-too-far", "limit-assignments", "rate-limited"].includes(msg ?? "")
-              ? "error"
-              : "success"
-          }
+          variant={ERROR_BANNERS.has(msg ?? "") ? "error" : "success"}
         />
       )}
 

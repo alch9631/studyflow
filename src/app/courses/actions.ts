@@ -14,6 +14,12 @@ import {
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
 import { classifyFile, isFileCategory, type FileCategory } from "@/lib/fileCategory";
 import {
+  classifyTextSource,
+  UnsupportedFileError,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
+} from "@/lib/fileText";
+import {
   enforceRateLimit,
   RateLimitError,
   type RateLimitCategory,
@@ -284,11 +290,21 @@ export async function addFromCatalog(formData: FormData) {
   redirect("/courses");
 }
 
-/** Extract plain text from an uploaded study material (PDF, DOCX, txt, md). */
+/**
+ * Extract plain text from an uploaded study material (PDF, DOCX, txt, md).
+ *
+ * The file type is decided FIRST, by the pure policy in fileText.ts, and an
+ * unreadable type throws before we touch the bytes — a photo or an archive must
+ * never be silently UTF-8 decoded into mojibake and then spent on a model call.
+ */
 async function extractTextFromFile(file: File): Promise<string> {
+  const kind = classifyTextSource(file.name, file.type);
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new UnsupportedFileError(`That file is over the ${MAX_UPLOAD_LABEL} upload limit.`);
+  }
   const buf = Buffer.from(await file.arrayBuffer());
-  const name = file.name.toLowerCase();
-  if (file.type === "application/pdf" || name.endsWith(".pdf")) {
+
+  if (kind === "pdf") {
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: buf });
     try {
@@ -297,12 +313,9 @@ async function extractTextFromFile(file: File): Promise<string> {
       await parser.destroy();
     }
   }
-  if (name.endsWith(".docx")) {
+  if (kind === "docx") {
     const mammoth = await import("mammoth");
     return (await mammoth.extractRawText({ buffer: buf })).value;
-  }
-  if (name.endsWith(".pptx")) {
-    throw new Error("PPTX isn't supported yet. Export the slides to PDF and upload that.");
   }
   return buf.toString("utf-8"); // txt / md
 }
@@ -315,16 +328,30 @@ export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
   // Redirect-with-banner instead of throwing — a thrown error here lands on the
   // full-page error boundary and loses the typed form.
-  if (!rateLimitOK("AI", userId)) redirect("/courses/import?msg=rate-limited");
+  // Tightest budget first — an imported document costs the same provider tokens
+  // as an uploaded one (see AI_DOCUMENT in rateLimitPolicy.ts).
+  if (!rateLimitOK("AI_DOCUMENT", userId) || !rateLimitOK("AI", userId)) {
+    redirect("/courses/import?msg=rate-limited");
+  }
   let text = longText(formData.get("syllabus"));
   const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
 
   const file = formData.get("file");
   if (file instanceof File && file.size > 0) {
-    const fromFile = await extractTextFromFile(file);
+    // A rejected file type must come back as a banner on the import form. Left
+    // to throw it hits the full-page error boundary and the user loses every
+    // field they typed — the same reason the rate-limit check redirects above.
+    let fromFile: string;
+    try {
+      fromFile = await extractTextFromFile(file);
+    } catch (e) {
+      if (!(e instanceof UnsupportedFileError)) throw e;
+      logActionError("importSyllabus.extract", e);
+      redirect("/courses/import?msg=import-unsupported");
+    }
     text = text ? `${text}\n\n${fromFile}` : fromFile;
   }
-  if (!text) redirect("/courses/import?msg=import-empty");
+  if (!text.trim()) redirect("/courses/import?msg=import-empty");
 
   // Defensive cap before the AI call + write: don't exceed the course limit.
   guardCount(await prisma.course.count({ where: { userId } }), LIMITS.MAX_COURSES_PER_USER, "courses");
@@ -362,18 +389,28 @@ export async function importSyllabus(formData: FormData) {
   });
 
   await regeneratePlan(course.id);
-  // Bonus optimization — 2 more paid model calls, so it spends 2 more AI tokens
-  // (the token charged up top only covered the extraction). Out of budget →
-  // skip; the deterministic plan is already saved, so we still land on the
-  // course. Log a failure so the swallowed error is diagnosable.
+  // Bonus optimization — 2 more model calls (optimize + self-tests), so it
+  // spends 2 more AI tokens; the token charged up top only covered extraction.
+  //
+  // On a free provider tier this is the call that usually can't run: the
+  // extraction above just spent most of the per-minute token allowance, and
+  // these follow immediately. That is survivable — the deterministic plan is
+  // already saved and the course is complete — but it is NOT nothing, so it
+  // must not be swallowed. The course page gets `imported-basic`, which says
+  // the plan is built but unoptimized and points at the Re-optimize button,
+  // instead of silently presenting a lesser plan as the finished article.
+  let msg = "";
   if (rateLimitOKTimes("AI", userId, 2)) {
     try {
-      await aiOptimizeCourse(course.id);
+      msg = (await aiOptimizeCourse(course.id)) ? "" : "imported-basic";
     } catch (e) {
       logActionError("importSyllabus.aiOptimize", e);
+      msg = "imported-basic";
     }
+  } else {
+    msg = "imported-basic";
   }
-  redirect(`/courses/${course.id}`);
+  redirect(`/courses/${course.id}${msg ? `?msg=${msg}` : ""}`);
 }
 
 /** Re-run the AI optimizer (difficulty / order / spaced review) on demand. */
@@ -434,7 +471,14 @@ export async function analyzeModuleUpload(formData: FormData) {
   // keyed by userId (per-course keys would multiply the budget by course count).
   const course = await findOwnedCourse(userId, courseId);
   if (!course) redirect("/courses");
-  if (!rateLimitOK("AI", userId)) redirect(`/courses/${courseId}?msg=rate-limited`);
+  // Two budgets, tightest first. AI_DOCUMENT reflects the PROVIDER's per-minute
+  // token allowance — one whole document nearly fills a free tier's — so it is
+  // checked before an AI token is spent; without it a user stays inside our
+  // limit while the provider rejects the call, and the banner blames the AI for
+  // a limit we could have named ourselves.
+  if (!rateLimitOK("AI_DOCUMENT", userId) || !rateLimitOK("AI", userId)) {
+    redirect(`/courses/${courseId}?msg=rate-limited`);
+  }
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/courses/${courseId}?msg=analyze-nofile`);
@@ -539,10 +583,18 @@ export async function analyzeModuleUpload(formData: FormData) {
         await tx.course.update({ where: { id: courseId }, data: { aiOptimized: true } });
       });
       result = "analyzed";
+    } else {
+      // The model answered, it just found nothing plannable (a cover sheet, a
+      // scanned page with no text layer, a formula-only handout). That is NOT
+      // "analyze-error" — nothing failed, and telling the student the file was
+      // unreadable when it was read fine sends them hunting the wrong problem.
+      result = "analyze-notopics";
     }
   } catch (e) {
     logActionError("analyzeModuleUpload", e);
-    if (e instanceof Error && e.message.includes("PPTX")) {
+    if (e instanceof UnsupportedFileError) {
+      // Rejected by our own accept policy — no model call was ever made, so
+      // this must never be reported as an AI failure.
       result = "analyze-unsupported";
     } else {
       // Tell apart "AI isn't set up" / "AI was unreachable" from a real failure

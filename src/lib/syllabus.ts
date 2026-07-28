@@ -33,14 +33,30 @@ export function isSyllabusAIEnabled(): boolean {
   return provider() !== null;
 }
 
+/**
+ * Per-call options. `maxTokens` sizes the reserved output (it counts against the
+ * provider's per-request token budget, so it is deliberately small for the
+ * material-bearing calls). `shrinkable` marks a call whose user message is bulk
+ * study material and may therefore be truncated and retried if the provider
+ * rejects the request as over-budget — see {@link overBudgetRatio}. Calls whose
+ * user message is a LIST (topic titles, a progress note) are never shrinkable:
+ * cutting those silently drops topics from the answer.
+ */
+type CompleteOpts = { maxTokens?: number; shrinkable?: boolean };
+
+/** How many times an over-budget request is retried with less material. */
+const MAX_SHRINK_RETRIES = 2;
+
 /** Run a structured-JSON completion against whichever provider is configured. */
 async function jsonComplete<T>(
   system: string,
   user: string,
   schema: Record<string, unknown>,
   name: string,
+  opts: CompleteOpts = {},
 ): Promise<T> {
   const p = provider();
+  const maxTokens = opts.maxTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
 
   if (p === "openai") {
     const baseURL = process.env.OPENAI_BASE_URL?.trim() || undefined;
@@ -51,34 +67,54 @@ async function jsonComplete<T>(
     // portable json_object mode + the schema pinned into the system prompt.
     const nativeSchema = !baseURL;
     const client = new OpenAI({ baseURL });
-    const completion = await client.chat.completions.create({
-      model,
-      max_tokens: 4000,
-      messages: [
-        {
-          role: "system",
-          content: nativeSchema
-            ? system
-            : system +
-              "\nRespond with ONLY a single valid JSON object matching this schema, no prose, no code fences:\n" +
-              JSON.stringify(schema),
-        },
-        { role: "user", content: user },
-      ],
-      response_format: nativeSchema
-        ? { type: "json_schema", json_schema: { name, strict: true, schema } }
-        : { type: "json_object" },
-    });
-    const raw = completion.choices[0]?.message?.content;
-    if (!raw) throw new Error("No content returned from OpenAI-compatible provider");
-    return JSON.parse(stripToJson(raw)) as T;
+    const systemContent = nativeSchema
+      ? system
+      : system +
+        "\nRespond with ONLY a single valid JSON object matching this schema, no prose, no code fences:\n" +
+        JSON.stringify(schema);
+
+    // Adaptive retry. capInput() sizes the material from an ESTIMATE of the
+    // provider's budget; when the estimate is wrong (a denser document, a
+    // smaller model limit, a provider we've never measured) the request comes
+    // back rejected — and the provider's own error states the real limit and
+    // what we actually asked for. Re-cut the material to that measured ratio
+    // and retry, so one bad guess degrades to a shorter analysis instead of
+    // failing the whole upload.
+    let body = user;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const completion = await client.chat.completions.create({
+          model,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: systemContent },
+            { role: "user", content: body },
+          ],
+          response_format: nativeSchema
+            ? { type: "json_schema", json_schema: { name, strict: true, schema } }
+            : { type: "json_object" },
+        });
+        const raw = completion.choices[0]?.message?.content;
+        if (!raw) throw new Error("No content returned from OpenAI-compatible provider");
+        return JSON.parse(stripToJson(raw)) as T;
+      } catch (e) {
+        const ratio = overBudgetRatio(e);
+        if (!opts.shrinkable || ratio === null || attempt >= MAX_SHRINK_RETRIES) throw e;
+        const next = Math.floor(body.length * ratio);
+        if (next < 500 || next >= body.length) throw e;
+        console.warn(
+          `[ai:${name}] request over the provider's token budget — retrying with ${next} of ${body.length} chars`,
+        );
+        body = body.slice(0, next);
+      }
+    }
   }
 
   if (p === "anthropic") {
     const client = new Anthropic();
     const msg = await client.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 4000,
+      max_tokens: maxTokens,
       system:
         system +
         "\nRespond with ONLY a single valid JSON object matching this schema, no prose, no code fences:\n" +
@@ -105,20 +141,97 @@ export function stripToJson(text: string): string {
 }
 
 /**
- * Cap material sent to the model so a big upload doesn't blow the provider's
- * token budget. Free tiers are the tight constraint: Groq's on-demand
- * llama-3.3-70b allows only ~12k tokens/minute, and it counts input + the
- * reserved max_tokens toward one request — so a large PDF (120k chars ≈ 40k
- * tokens) is rejected with HTTP 413 and the whole analysis fails. The default
- * keeps input + output comfortably under that. Raise `AI_MAX_INPUT_CHARS` on a
- * paid tier or a bigger-context provider. The head of a document carries the
- * most signal, so truncating the tail degrades gracefully instead of erroring.
+ * Token budget for ONE request (prompt + the reserved output). Free provider
+ * tiers are the tight constraint: Groq's on-demand llama-3.3-70b allows 12k
+ * tokens/minute and charges input + `max_tokens` against a single request, so
+ * anything above the line is rejected outright (HTTP 413) and the whole upload
+ * fails. Override with `AI_TOKEN_BUDGET` on a paid tier or a roomier provider.
  */
-const DEFAULT_MAX_INPUT_CHARS = 20_000;
+const DEFAULT_TOKEN_BUDGET = 12_000;
+
+/** Fraction of the budget we actually spend — headroom for estimation error. */
+const BUDGET_SAFETY = 0.85;
+
+/**
+ * Reserved output tokens. Sized to the JSON these prompts actually produce (a
+ * summary plus ~20 topics is well under 1k) rather than left generously large:
+ * every reserved token is one the input can't use, and on a 12k budget an
+ * oversized reservation is what pushes a normal upload over the line.
+ */
+const DEFAULT_MAX_OUTPUT_TOKENS = 2_000;
+
+/**
+ * Reserved output for the calls that must echo back an ENTIRE list (every topic
+ * reordered, three questions per topic). Truncating that output would silently
+ * drop topics from a course, so these get the larger reservation — they can
+ * afford it, since their input is a list of titles, not bulk material.
+ */
+const LIST_OUTPUT_TOKENS = 4_000;
+
+/** Rough size of the fixed framing — system prompt + inlined JSON schema. */
+const PROMPT_OVERHEAD_TOKENS = 800;
+
+/**
+ * Chars per token, measured rather than assumed. English prose runs ~4
+ * chars/token, but the material students actually upload — German technical
+ * PDFs, dense with compounds, formulae and layout artefacts — measured 1.97
+ * against this model's tokenizer. The previous flat 20k-char cap assumed ~4,
+ * so it sent ~10k tokens under a 12k budget and still 413'd. Estimating LOW is
+ * the safe direction: it trims a little more material than strictly necessary
+ * instead of failing the upload outright.
+ */
+const CHARS_PER_TOKEN = 2;
+
+/**
+ * Cap material sent to the model so a big upload doesn't blow the provider's
+ * token budget. The head of a document carries the most signal, so truncating
+ * the tail degrades gracefully instead of erroring. `AI_MAX_INPUT_CHARS` still
+ * overrides the computed cap outright, for pinning a known-good size.
+ */
 export function capInput(text: string): string {
   const envCap = Number(process.env.AI_MAX_INPUT_CHARS);
-  const cap = Number.isFinite(envCap) && envCap > 0 ? Math.floor(envCap) : DEFAULT_MAX_INPUT_CHARS;
+  if (Number.isFinite(envCap) && envCap > 0) return text.slice(0, Math.floor(envCap));
+
+  const envBudget = Number(process.env.AI_TOKEN_BUDGET);
+  const budget =
+    Number.isFinite(envBudget) && envBudget > 0 ? envBudget : DEFAULT_TOKEN_BUDGET;
+  const forInput =
+    Math.floor(budget * BUDGET_SAFETY) - DEFAULT_MAX_OUTPUT_TOKENS - PROMPT_OVERHEAD_TOKENS;
+  // A budget too small to hold the framing would compute a negative cap and cut
+  // everything; send a minimal slice instead and let the retry path settle it.
+  const cap = Math.max(1_000, forInput * CHARS_PER_TOKEN);
   return text.slice(0, cap);
+}
+
+/**
+ * Read a provider's "your request is bigger than the budget" rejection and
+ * return the fraction of the current material that WOULD have fit, or null if
+ * this isn't that kind of error. OpenAI-compatible providers state both numbers
+ * in the message ("Limit 12000, Requested 14028"), which is far more reliable
+ * than our chars-per-token estimate — it's the tokenizer's own count.
+ *
+ * Only a single-request-too-large rejection (413) is shrinkable. A 429 means
+ * the per-MINUTE allowance is spent: the request size is fine and retrying
+ * smaller wouldn't help, so it stays classified as transient ("try again").
+ */
+export function overBudgetRatio(err: unknown): number | null {
+  const status =
+    err && typeof err === "object"
+      ? (err as { status?: unknown }).status
+      : undefined;
+  if (status !== 413) return null;
+  const msg =
+    err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string"
+      ? ((err as { message: string }).message)
+      : "";
+  const limit = Number(msg.match(/Limit\s+(\d+)/i)?.[1]);
+  const requested = Number(msg.match(/Requested\s+(\d+)/i)?.[1]);
+  if (!Number.isFinite(limit) || !Number.isFinite(requested) || requested <= 0) {
+    // Over-budget but unparseable — halve and let the loop converge.
+    return 0.5;
+  }
+  // 0.9 keeps the retry clear of the line rather than landing exactly on it.
+  return Math.min(0.9, (limit / requested) * 0.9);
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +352,7 @@ export async function extractSyllabus(text: string): Promise<ExtractedSyllabus> 
     capInput(text),
     SYLLABUS_SCHEMA,
     "syllabus",
+    { shrinkable: true },
   );
   return normalizeSyllabus(parsed);
 }
@@ -315,6 +429,7 @@ export async function optimizeStudyPlan(
     user,
     OPTIMIZE_SCHEMA,
     "studyplan",
+    { maxTokens: LIST_OUTPUT_TOKENS },
   );
   return Array.isArray(parsed?.items) ? parsed.items : [];
 }
@@ -475,6 +590,7 @@ export async function analyzeModuleContent(
     `Module: ${courseName}\n\nMaterial:\n${capInput(text)}`,
     ANALYZE_SCHEMA,
     "moduleanalysis",
+    { shrinkable: true },
   );
   return normalizeModuleAnalysis(parsed);
 }
@@ -518,6 +634,7 @@ export async function generateSelfTests(
     user,
     SELFTEST_SCHEMA,
     "selftests",
+    { maxTokens: LIST_OUTPUT_TOKENS },
   );
   return Array.isArray(parsed?.items) ? parsed.items : [];
 }

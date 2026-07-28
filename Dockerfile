@@ -31,6 +31,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # this ARG is declared.) Leaving it unset keeps push cleanly disabled.
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
+# `npm run build` (NOT `next build`) — npm fires the `postbuild` script, which
+# completes the standalone bundle with files Next's static trace can't see. The
+# critical one is pdfjs-dist's worker: without it this image starts fine, serves
+# every page, and then fails on the first PDF upload. Swapping this for a bare
+# `next build` reintroduces that silently.
 RUN npx prisma generate && npm run build
 
 # ---- runner: minimal image, non-root, just the standalone output ----
