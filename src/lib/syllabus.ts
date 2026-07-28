@@ -104,6 +104,23 @@ export function stripToJson(text: string): string {
   return start >= 0 && end > start ? body.slice(start, end + 1) : body;
 }
 
+/**
+ * Cap material sent to the model so a big upload doesn't blow the provider's
+ * token budget. Free tiers are the tight constraint: Groq's on-demand
+ * llama-3.3-70b allows only ~12k tokens/minute, and it counts input + the
+ * reserved max_tokens toward one request — so a large PDF (120k chars ≈ 40k
+ * tokens) is rejected with HTTP 413 and the whole analysis fails. The default
+ * keeps input + output comfortably under that. Raise `AI_MAX_INPUT_CHARS` on a
+ * paid tier or a bigger-context provider. The head of a document carries the
+ * most signal, so truncating the tail degrades gracefully instead of erroring.
+ */
+const DEFAULT_MAX_INPUT_CHARS = 20_000;
+export function capInput(text: string): string {
+  const envCap = Number(process.env.AI_MAX_INPUT_CHARS);
+  const cap = Number.isFinite(envCap) && envCap > 0 ? Math.floor(envCap) : DEFAULT_MAX_INPUT_CHARS;
+  return text.slice(0, cap);
+}
+
 // ---------------------------------------------------------------------------
 
 /**
@@ -219,7 +236,7 @@ export function normalizeSyllabus(
 export async function extractSyllabus(text: string): Promise<ExtractedSyllabus> {
   const parsed = await jsonComplete<ExtractedSyllabus>(
     SYLLABUS_SYSTEM,
-    text.slice(0, 120_000),
+    capInput(text),
     SYLLABUS_SCHEMA,
     "syllabus",
   );
@@ -455,7 +472,7 @@ export async function analyzeModuleContent(
 ): Promise<ModuleAnalysis> {
   const parsed = await jsonComplete<ModuleAnalysis>(
     buildAnalyzeSystem(docType),
-    `Module: ${courseName}\n\nMaterial:\n${text.slice(0, 120_000)}`,
+    `Module: ${courseName}\n\nMaterial:\n${capInput(text)}`,
     ANALYZE_SCHEMA,
     "moduleanalysis",
   );
