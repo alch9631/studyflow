@@ -16,7 +16,6 @@ import { cn } from "@/components/lib/utils";
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
-const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 function DropdownMenuContent({
@@ -119,7 +118,6 @@ function DropdownMenuSeparator({
 export {
   DropdownMenu,
   DropdownMenuTrigger,
-  DropdownMenuGroup,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,

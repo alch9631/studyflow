@@ -704,44 +704,6 @@ export async function applyProgress(formData: FormData) {
   redirect(`/courses/${id}?msg=${result}`);
 }
 
-export type EditState = { ok: boolean; error?: string } | null;
-
-/**
- * Inline edit from the Courses page (used with useActionState). Validates, saves,
- * reschedules, and returns a status the UI shows without navigating away.
- */
-export async function editCourse(_prev: EditState, formData: FormData): Promise<EditState> {
-  const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) {
-    return { ok: false, error: "Too many changes too fast. Give it a minute and try again." };
-  }
-  let id: string;
-  let name: string;
-  let examDate: string;
-  try {
-    id = requireId(formData.get("courseId"), "Course");
-    name = requireText(formData.get("name"), "Course name");
-    examDate = requireDate(formData.get("examDate"), "Exam date", todayISO());
-  } catch (e) {
-    return { ok: false, error: e instanceof ValidationError ? e.message : "Invalid input." };
-  }
-  const studyDays = sanitizeStudyDays(formData.getAll("studyDays").map(String));
-
-  try {
-    const owned = await updateOwnedCourse(userId, id, {
-      name,
-      examDate: toUTCDate(examDate),
-      studyDays,
-    });
-    if (!owned) return { ok: false, error: "Course not found." };
-    await regeneratePlan(id);
-    revalidatePath("/courses");
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "Couldn't save. Please try again." };
-  }
-}
-
 /** Edit a course's exam date / capacity, then rebuild the plan around it. */
 export async function updateCourse(formData: FormData) {
   const userId = await getCurrentUserId();

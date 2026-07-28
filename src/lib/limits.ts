@@ -40,8 +40,6 @@ export const LIMITS = {
   MAX_FIELD_LENGTH: 2_000,
 } as const;
 
-export type LimitKey = keyof typeof LIMITS;
-
 /**
  * Throw if creating one more record would exceed `max`.
  *
