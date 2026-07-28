@@ -73,17 +73,24 @@ check("hhmmToMinutes rejects 12:60", hhmmToMinutes("12:60") === null);
 }
 
 // ── DST: the SKIPPED hour itself (02:00–02:59 doesn't exist on 2026-03-29) ────
-// A skipped wall time has no instant; it must be pushed FORWARD past the gap by
-// its width (02:30 → 03:30), never mapped to an earlier instant — date-fns-tz's
-// raw resolution lands one hour BEFORE the jump (02:30 read back as 01:30),
-// which could put a block's end before its start.
+// A skipped wall time has no instant, so it snaps to the first one that DOES
+// exist — the moment the clocks jump to, 03:00. Every minute in the gap lands
+// there.
+//
+// These two assertions used to expect 02:30 → 03:30 (shift the request by the
+// gap's width). That looked reasonable in isolation but was the bug: a
+// directly-requested 03:30 maps to that same instant, so two different times
+// collided, and the day's minute→instant mapping ran BACKWARDS at 03:00
+// (02:55 → 01:55Z, then 03:00 → 01:00Z). Snapping to the gap's far edge keeps
+// the mapping non-decreasing, which the calendar's overlap and end-after-start
+// checks rely on. See the monotonicity block at the end of this file.
 {
   const gapStart = dayMinutesToInstant("2026-03-29", 120, DEFAULT_TZ); // 02:00 → 03:00
   check("skipped 02:00 snaps to 03:00 (01:00Z)", gapStart.toISOString() === "2026-03-29T01:00:00.000Z");
   check("skipped 02:00 reads back as 03:00", instantToDayMinutes(gapStart, DEFAULT_TZ) === 180);
-  const gapMid = dayMinutesToInstant("2026-03-29", 150, DEFAULT_TZ); // 02:30 → 03:30
-  check("skipped 02:30 pushed to 03:30 (01:30Z)", gapMid.toISOString() === "2026-03-29T01:30:00.000Z");
-  check("skipped 02:30 reads back at/after input", instantToDayMinutes(gapMid, DEFAULT_TZ) === 210);
+  const gapMid = dayMinutesToInstant("2026-03-29", 150, DEFAULT_TZ); // 02:30 → 03:00
+  check("skipped 02:30 snaps to 03:00 (01:00Z)", gapMid.toISOString() === "2026-03-29T01:00:00.000Z");
+  check("skipped 02:30 reads back as 03:00", instantToDayMinutes(gapMid, DEFAULT_TZ) === 180);
   check("skipped 02:30 day stable", instantToDayISO(gapMid, DEFAULT_TZ) === "2026-03-29");
   // Ordering survives the gap: an 01:59 start stays strictly before a 02:30 end.
   const preGap = dayMinutesToInstant("2026-03-29", 119, DEFAULT_TZ);
@@ -160,6 +167,44 @@ check("check: exactly-midnight end ok", checkBlockTimes(1380, MINUTES_PER_DAY).o
   check("clamp: same-day untouched", c !== null && c.startMin === 600 && c.endMin === 660);
 }
 check("clamp: start past midnight unschedulable", clampToDay(MINUTES_PER_DAY, MINUTES_PER_DAY + 60) === null);
+
+// ── DST gap: the mapping must stay NON-DECREASING across the whole day ───────
+// Regression. On the spring-forward day the old code let date-fns-tz resolve a
+// nonexistent wall time by shifting it by the gap width, so 02:30 produced the
+// SAME instant as a directly-requested 03:30, and the sequence ran backwards at
+// 03:00 (02:55 → 01:55Z, then 03:00 → 01:00Z). The calendar assumes a later
+// minute means a later instant — overlap checks, drag placement and
+// end-after-start all break when it doesn't.
+for (const day of ["2026-03-29", "2026-10-25", "2026-06-15", "2026-01-15"]) {
+  let monotonic = true;
+  let roundTripsOrLater = true;
+  let prev = -Infinity;
+  for (let m = 0; m < MINUTES_PER_DAY; m++) {
+    const inst = dayMinutesToInstant(day, m, DEFAULT_TZ);
+    const t = inst.getTime();
+    if (t < prev) monotonic = false;
+    prev = t;
+    // Every result must be a REAL wall time on the requested day, at or after
+    // what was asked for (a gap time lands on the gap's far edge).
+    if (instantToDayISO(inst, DEFAULT_TZ) !== day) roundTripsOrLater = false;
+    if (instantToDayMinutes(inst, DEFAULT_TZ) < m) roundTripsOrLater = false;
+  }
+  check(`${day}: minute→instant is non-decreasing all day`, monotonic);
+  check(`${day}: every minute maps to a real wall time at/after it`, roundTripsOrLater);
+}
+{
+  // The gap itself: Berlin 02:00–02:59 don't exist on 2026-03-29; they must all
+  // collapse onto 03:00 (=01:00Z) rather than overtaking the real 03:00+ times.
+  const gapStart = dayMinutesToInstant("2026-03-29", 120, DEFAULT_TZ);
+  const gapMid = dayMinutesToInstant("2026-03-29", 150, DEFAULT_TZ);
+  const real3 = dayMinutesToInstant("2026-03-29", 180, DEFAULT_TZ);
+  const real330 = dayMinutesToInstant("2026-03-29", 210, DEFAULT_TZ);
+  check("gap 02:00 → 03:00 local", instantToDayMinutes(gapStart, DEFAULT_TZ) === 180);
+  check("gap 02:30 → 03:00 local", instantToDayMinutes(gapMid, DEFAULT_TZ) === 180);
+  check("gap times equal the real 03:00 instant", gapMid.getTime() === real3.getTime());
+  check("a gap time never overtakes 03:30", gapMid.getTime() < real330.getTime());
+  check("real 03:00 Berlin = 01:00Z", real3.toISOString() === "2026-03-29T01:00:00.000Z");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

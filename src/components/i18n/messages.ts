@@ -760,6 +760,11 @@ const en = {
     daysLeft: "{days} days left",
     weeksLeft: "{weeks} weeks left",
   },
+  login: {
+    title: "Welcome to StudyFlow",
+    subtitle: "The study plan that builds itself. Sign in to get started.",
+    google: "Sign in with Google",
+  },
   landing: {
     brand: "TUHH",
     uni: "Technische Universität Hamburg",
@@ -917,7 +922,7 @@ const en = {
     studyDays: "Study days",
     difficulty: "Difficulty",
     difficultyHint: "1 = easy · 5 = hard. Harder courses get more study time.",
-    hint: "We work out the daily hours, so you don't set them.",
+    hint: "We work out the daily hours, so you don't set them. Pick at least one study day — with none selected we keep Mon–Fri, since a plan needs somewhere to put the work.",
     creating: "Creating…",
     submit: "Create & build my plan",
     banners: {
@@ -937,7 +942,7 @@ const en = {
     aiOffPost: " to enable it. You can still add courses manually.",
     formError: "Couldn't import that. Check the file or text and try again.",
     uploadLabel: "Upload material",
-    uploadFormats: "(PDF, txt, md)",
+    uploadFormats: "(PDF, DOCX, TXT, MD)",
     pasteLabel: "…or paste syllabus text",
     pastePlaceholder: "Paste the syllabus: weeks, chapters, exam dates.",
     emptyError: "Paste text or upload a study material first.",
@@ -1732,6 +1737,11 @@ const de: Messages = {
     daysLeft: "noch {days} Tage",
     weeksLeft: "noch {weeks} Wochen",
   },
+  login: {
+    title: "Willkommen bei StudyFlow",
+    subtitle: "Der Lernplan, der sich selbst erstellt. Melde dich an, um loszulegen.",
+    google: "Mit Google anmelden",
+  },
   landing: {
     brand: "TUHH",
     uni: "Technische Universität Hamburg",
@@ -1889,7 +1899,7 @@ const de: Messages = {
     studyDays: "Lerntage",
     difficulty: "Schwierigkeit",
     difficultyHint: "1 = leicht · 5 = schwer. Schwerere Kurse bekommen mehr Lernzeit.",
-    hint: "Wir berechnen die täglichen Stunden, du legst sie nicht fest.",
+    hint: "Wir berechnen die täglichen Stunden, du legst sie nicht fest. Wähle mindestens einen Lerntag — ohne Auswahl bleibt Mo–Fr, denn ein Plan braucht Tage, auf die er die Arbeit legen kann.",
     creating: "Erstellen…",
     submit: "Anlegen & Plan erstellen",
     banners: {
@@ -1909,7 +1919,7 @@ const de: Messages = {
     aiOffPost: ", um ihn zu aktivieren. Du kannst Kurse weiterhin manuell hinzufügen.",
     formError: "Das konnte nicht importiert werden. Prüf die Datei oder den Text und versuch es erneut.",
     uploadLabel: "Material hochladen",
-    uploadFormats: "(PDF, txt, md)",
+    uploadFormats: "(PDF, DOCX, TXT, MD)",
     pasteLabel: "…oder Lehrplantext einfügen",
     pastePlaceholder: "Lehrplan einfügen: Wochen, Kapitel, Prüfungstermine.",
     emptyError: "Füge zuerst Text ein oder lade Material hoch.",
