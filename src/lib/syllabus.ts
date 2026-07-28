@@ -4,9 +4,21 @@ import { isFileCategory, type FileCategory } from "./fileCategory";
 import { MAX_TOPIC_TITLE_LENGTH } from "./validate";
 
 /**
- * AI extraction layer — provider-flexible. Uses OpenAI if OPENAI_API_KEY is set,
- * otherwise Anthropic if ANTHROPIC_API_KEY is set. Either key turns on the AI
- * features (syllabus/material import, handbook topics, progress parsing).
+ * AI extraction layer — provider-flexible. Uses an OpenAI-compatible endpoint if
+ * OPENAI_API_KEY is set, otherwise Anthropic if ANTHROPIC_API_KEY is set. Either
+ * key turns on the AI features (syllabus/material import, handbook topics,
+ * progress parsing).
+ *
+ * The "openai" branch talks plain OpenAI Chat Completions, so it works against
+ * ANY OpenAI-compatible provider — real OpenAI, Groq, Cerebras, OpenRouter,
+ * Gemini's compat endpoint — purely from env, no code change to switch:
+ *   - OPENAI_API_KEY   the provider's key (sent as the Bearer token)
+ *   - OPENAI_BASE_URL  the provider's base URL (e.g. https://api.groq.com/openai/v1);
+ *                      unset = real OpenAI
+ *   - AI_MODEL         the model id (e.g. llama-3.3-70b-versatile); default gpt-4o-mini
+ * Only real OpenAI is asked for strict json_schema output; every other provider
+ * uses the portable json_object mode + schema-in-prompt (same as the Anthropic
+ * path), which every compatible endpoint honours.
  */
 
 type Provider = "openai" | "anthropic" | null;
@@ -31,21 +43,35 @@ async function jsonComplete<T>(
   const p = provider();
 
   if (p === "openai") {
-    const client = new OpenAI();
+    const baseURL = process.env.OPENAI_BASE_URL?.trim() || undefined;
+    const model = process.env.AI_MODEL?.trim() || "gpt-4o-mini";
+    // Strict json_schema is an OpenAI-native feature; other compatible providers
+    // (Groq/Cerebras/OpenRouter/Gemini) may reject it, so only use it when we're
+    // actually talking to real OpenAI (no custom base URL). Everyone else gets
+    // portable json_object mode + the schema pinned into the system prompt.
+    const nativeSchema = !baseURL;
+    const client = new OpenAI({ baseURL });
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model,
+      max_tokens: 4000,
       messages: [
-        { role: "system", content: system },
+        {
+          role: "system",
+          content: nativeSchema
+            ? system
+            : system +
+              "\nRespond with ONLY a single valid JSON object matching this schema, no prose, no code fences:\n" +
+              JSON.stringify(schema),
+        },
         { role: "user", content: user },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: { name, strict: true, schema },
-      },
+      response_format: nativeSchema
+        ? { type: "json_schema", json_schema: { name, strict: true, schema } }
+        : { type: "json_object" },
     });
     const raw = completion.choices[0]?.message?.content;
-    if (!raw) throw new Error("No content returned from OpenAI");
-    return JSON.parse(raw) as T;
+    if (!raw) throw new Error("No content returned from OpenAI-compatible provider");
+    return JSON.parse(stripToJson(raw)) as T;
   }
 
   if (p === "anthropic") {
