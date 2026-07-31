@@ -39,9 +39,14 @@ else
 fi
 
 sleep 4
+# A healthy production instance answers /courses with a 307 to /login (real
+# Google auth is on), so 200 alone is the WRONG success test — it reported
+# "DEPLOY WARN" and exited 4 on every good deploy, training us to ignore it.
+# Any 2xx/3xx means the app booted and is routing; only 000 (dead), 4xx or 5xx
+# are real failures.
 code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/courses 2>/dev/null)
-if [ "$code" = "200" ]; then
-  log "verify /courses -> HTTP 200 — DEPLOY OK"
-else
-  log "verify /courses -> HTTP ${code:-none} — DEPLOY WARN (service up but route not 200)"; exit 4
-fi
+health=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health 2>/dev/null)
+case "$code" in
+  2??|3??) log "verify /courses -> HTTP $code, /api/health -> $health — DEPLOY OK" ;;
+  *) log "verify /courses -> HTTP ${code:-none}, /api/health -> ${health:-none} — DEPLOY FAILED"; exit 4 ;;
+esac

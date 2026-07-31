@@ -202,7 +202,7 @@ export default async function CoursesPage({
                 });
             return (
               <li key={c.id}>
-                <SwipeCourseCard courseId={c.id} courseName={c.name}>
+                <SwipeCourseCard courseId={c.id} courseName={c.name} passed={passed}>
                   <CourseCard
                     t={t}
                     course={{

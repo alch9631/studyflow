@@ -1113,22 +1113,21 @@ export async function setGrade(formData: FormData) {
  * sessions disappear immediately (bestanden) or come back (undo). The numeric
  * grade is left untouched either way.
  */
-export async function setCoursePassed(formData: FormData) {
-  const userId = await getCurrentUserId();
-  let id: string;
-  try {
-    id = requireId(formData.get("courseId"), "Course");
-  } catch {
-    redirect("/courses");
-  }
-  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
-  const passed = str(formData.get("passed")) === "1";
+async function applyCoursePassed(
+  userId: string,
+  id: string,
+  passed: boolean,
+): Promise<boolean> {
+  // Ownership-scoped read, so a guessed courseId is a no-op, never another
+  // user's module. The grade is read only to decide whether passed-ness
+  // actually FLIPS — it is never written here (grade and bestanden are
+  // independent saves; see setGrade).
   const prior = await prisma.course.findFirst({
     where: { id, userId },
     select: { grade: true, passed: true },
   });
-  if (!prior) redirect("/courses");
-  if (!(await updateOwnedCourse(userId, id, { passed }))) redirect("/courses");
+  if (!prior) return false;
+  if (!(await updateOwnedCourse(userId, id, { passed }))) return false;
   if (coursePassed(prior) !== coursePassed({ grade: prior.grade, passed })) {
     try {
       await rebuildSchedule(userId);
@@ -1140,7 +1139,46 @@ export async function setCoursePassed(formData: FormData) {
     revalidatePath("/calendar");
     revalidatePath("/courses");
   }
+  return true;
+}
+
+export async function setCoursePassed(formData: FormData) {
+  const userId = await getCurrentUserId();
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
+  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
+  const passed = str(formData.get("passed")) === "1";
+  if (!(await applyCoursePassed(userId, id, passed))) redirect("/courses");
   redirect(`/courses/${id}?msg=${passed ? "passed" : "passed-cleared"}`);
+}
+
+/**
+ * Swipe-right on a course card → mark the module complete (swipe again to undo).
+ *
+ * Same effect as {@link setCoursePassed}, but it REVALIDATES instead of
+ * redirecting: a swipe on the My Courses list must leave you on the list, not
+ * navigate into the course. Returns an {@link ActionOutcome} so the row can
+ * show an honest toast rather than silently doing nothing.
+ */
+export async function toggleCoursePassed(formData: FormData): Promise<ActionOutcome> {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+  const passed = str(formData.get("passed")) === "1";
+  if (!(await applyCoursePassed(userId, id, passed))) return { ok: false, reason: "not-found" };
+  // applyCoursePassed only revalidates when passed-ness flipped; the list must
+  // refresh either way so the card's badge/state is never stale after a swipe.
+  revalidatePath("/courses");
+  return { ok: true };
 }
 
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
