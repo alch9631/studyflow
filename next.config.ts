@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Pin the file-tracing root to THIS project. Next otherwise infers it by
+  // walking up for lockfiles, so any extra one above or inside the repo (a
+  // stray ~/package-lock.json, or a git worktree under .claude/worktrees) moves
+  // the root up — which nests the standalone output at
+  // `.next/standalone/<rel>/<path>/server.js` instead of
+  // `.next/standalone/server.js`. The systemd unit and the Dockerfile both exec
+  // the latter, so an unpinned root silently ships a bundle whose entrypoint
+  // isn't where the runtime looks and the service restart-loops on
+  // MODULE_NOT_FOUND (this took the Pi down once). Pinning makes the output
+  // path deterministic regardless of what else is on disk at build time.
+  outputFileTracingRoot: __dirname,
   // Self-contained server bundle (.next/standalone) — lets us ship a small
   // Docker image and run `node server.js` on any host (Fly/Render/VPS), not just
   // the Pi. Additive: `next start` still works locally/on the Pi.

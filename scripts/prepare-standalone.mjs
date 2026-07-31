@@ -42,6 +42,14 @@ const FULL_COPY_PACKAGES = ["pdfjs-dist"];
 
 /** Files that MUST exist afterwards, with why, so a regression names itself. */
 const REQUIRED = [
+  [
+    "server.js",
+    "the bundle's ENTRYPOINT — systemd and the Dockerfile both exec " +
+      ".next/standalone/server.js. An unpinned outputFileTracingRoot nests it " +
+      "under the traced root instead, and the service restart-loops on " +
+      "MODULE_NOT_FOUND. If this is missing, check outputFileTracingRoot in " +
+      "next.config.ts against stray lockfiles above/inside the repo.",
+  ],
   [".next/static", "client JS/CSS chunks — without these every page loads unstyled and dead"],
   ["public", "icons, manifest and offline assets"],
   [

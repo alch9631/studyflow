@@ -1055,12 +1055,14 @@ export async function deleteAssignment(formData: FormData) {
 }
 
 /**
- * Record a course's exam result: the final grade (German scale 1.0–5.0), the
- * "Modul bestanden (ohne Note)" flag for unbenotete pass/fail modules, or both
- * cleared. When the saved result flips the course between passed and not-passed
- * (see {@link coursePassed}), the plan is rebuilt so a passed module's pending
- * sessions disappear immediately — and come back if the result is cleared or a
- * 5.0 records a failed attempt (a retake is coming).
+ * Record a course's final grade (German scale 1.0–5.0), or clear it.
+ *
+ * Grade and "Modul bestanden" are INDEPENDENT: this action never reads or
+ * writes the `passed` flag — completing a module is its own one-tap action
+ * ({@link setCoursePassed}) that works whether or not an exam grade exists, and
+ * saving a grade never silently un-completes a module. The only coupling left
+ * is the shared meaning in {@link coursePassed} (a passing grade also counts as
+ * passed), so a grade edit that crosses the 4.0 line still replans.
  */
 export async function setGrade(formData: FormData) {
   const userId = await getCurrentUserId();
@@ -1079,18 +1081,17 @@ export async function setGrade(formData: FormData) {
   } catch {
     redirect(`/courses/${id}?msg=grade-invalid`);
   }
-  // Unchecked checkboxes are simply absent from FormData, so absence = false.
-  const passed = str(formData.get("passed")) === "1";
   // Read the prior state (ownership-scoped) so we only pay for a global rebuild
   // when the passed-ness actually flips — editing a 2.0 to a 1.7 shouldn't
-  // delete-and-recreate every course's plan.
+  // delete-and-recreate every course's plan. `passed` is carried over untouched:
+  // a module completed by hand stays completed no matter what happens here.
   const prior = await prisma.course.findFirst({
     where: { id, userId },
     select: { grade: true, passed: true },
   });
   if (!prior) redirect("/courses");
-  if (!(await updateOwnedCourse(userId, id, { grade, passed }))) redirect("/courses");
-  if (coursePassed(prior) !== coursePassed({ grade, passed })) {
+  if (!(await updateOwnedCourse(userId, id, { grade }))) redirect("/courses");
+  if (coursePassed(prior) !== coursePassed({ grade, passed: prior.passed })) {
     try {
       await rebuildSchedule(userId);
     } catch (e) {

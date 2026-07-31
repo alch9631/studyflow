@@ -142,6 +142,52 @@ async function main() {
   check("LP earned counts the graded pass AND the ungraded bestanden", g.lpEarned === 9, `lpEarned=${g.lpEarned}`);
   check("bestanden does not enter the Notenschnitt", g.gradedCount === 2 && g.gpa !== null && Math.abs(g.gpa - (1.7 * 6 + 5.0 * 6) / 12) < 1e-9);
 
+  // ── "bestanden" and the exam grade are INDEPENDENT ────────────────────────
+  // Completing a module is its own action: saving/clearing an exam grade must
+  // never touch the flag, and marking a module complete must never touch the
+  // grade. (They only share meaning via coursePassed: a passing grade counts.)
+  {
+    const u = await prisma.user.create({
+      data: { email: `indep+${Date.now()}@studyflow.local`, name: "Indep" },
+    });
+    const c = await prisma.course.create({
+      data: {
+        name: "Unbenotet+Note",
+        userId: u.id,
+        examDate: dayFromToday(14),
+        studyDays: "0,1,2,3,4,5,6",
+        topics: { create: [{ title: "T", effort: 2, order: 0 }] },
+      },
+    });
+
+    // Complete the module by hand (no grade anywhere).
+    await prisma.course.update({ where: { id: c.id }, data: { passed: true } });
+    let row = await prisma.course.findUniqueOrThrow({
+      where: { id: c.id },
+      select: { grade: true, passed: true },
+    });
+    check("marking complete leaves the grade untouched (null)", row.grade === null && row.passed === true);
+
+    // Now record an exam grade — the completion flag must survive it.
+    await prisma.course.update({ where: { id: c.id }, data: { grade: 2.3 } });
+    row = await prisma.course.findUniqueOrThrow({
+      where: { id: c.id },
+      select: { grade: true, passed: true },
+    });
+    check("saving a grade does not clear the bestanden flag", row.passed === true && row.grade === 2.3);
+
+    // And clearing the grade must NOT un-complete a hand-completed module.
+    await prisma.course.update({ where: { id: c.id }, data: { grade: null } });
+    row = await prisma.course.findUniqueOrThrow({
+      where: { id: c.id },
+      select: { grade: true, passed: true },
+    });
+    check("clearing the grade leaves the module complete", row.passed === true);
+    check("a hand-completed module with no grade still counts as passed", coursePassed(row));
+
+    await prisma.user.deleteMany({ where: { id: u.id } });
+  }
+
   console.log("\n=== stats: needs-attention ===\n");
   // A passed module with unfinished-looking topics and a near exam must never be
   // nagged about — the student is done with it.
