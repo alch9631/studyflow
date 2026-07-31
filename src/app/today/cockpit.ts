@@ -15,6 +15,10 @@ export type CockpitBlock = {
   kind: string;
   actualMinutes: number | null;
   course: { name: string; id: string };
+  /** The owning topic's existing note body, if any. The quick-note editor MUST
+   *  open pre-filled with it — saving from an empty box overwrites Note.body,
+   *  which used to silently destroy the student's course-page note. */
+  note?: string | null;
 };
 
 /** The four study-queue lanes, answering "what now / what can wait". */

@@ -108,15 +108,28 @@ export default async function TodayPage({
       orderBy: [{ kind: "desc" }, { minutes: "desc" }],
     }),
     // Nearest upcoming exam, for a motivating header line / focus banner.
+    // Passed courses (bestanden, or a passing grade ≤ 4.0) are excluded: there
+    // is no exam to prepare for, so counting down to it is just noise.
     prisma.course.findFirst({
-      where: { userId, examDate: { gte: start } },
+      where: {
+        userId,
+        examDate: { gte: start },
+        passed: false,
+        OR: [{ grade: null }, { grade: { gt: 4 } }],
+      },
       orderBy: { examDate: "asc" },
       select: { id: true, name: true, examDate: true },
     }),
     // All upcoming exams (soonest first) → the exam-countdown chip strip. Capped
-    // so the strip can't grow unbounded for a user with many courses.
+    // so the strip can't grow unbounded for a user with many courses. Same
+    // passed-course exclusion as the header exam above.
     prisma.course.findMany({
-      where: { userId, examDate: { gte: start } },
+      where: {
+        userId,
+        examDate: { gte: start },
+        passed: false,
+        OR: [{ grade: null }, { grade: { gt: 4 } }],
+      },
       orderBy: { examDate: "asc" },
       take: 12,
       select: { id: true, name: true, examDate: true },
@@ -214,8 +227,25 @@ export default async function TodayPage({
   // manufacturing a wall of "must-do" out of an optimistic 14h window.
   const availableMin = studyBudget(windowAvailableMin);
 
+  // Each block's topic note, so the session sheet's quick-note editor opens
+  // PRE-FILLED. It shares Note.body with the course-page editor — seeding it
+  // empty made every sheet save an overwrite that destroyed the existing note.
+  const noteRows = blocks.length
+    ? await prisma.note.findMany({
+        where: {
+          topic: { course: { userId } },
+          topicId: { in: [...new Set(blocks.map((b) => b.topicId))] },
+        },
+        select: { topicId: true, body: true },
+      })
+    : [];
+  const noteByTopic = new Map(noteRows.map((n) => [n.topicId, n.body]));
+
   // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
-  const cockpitBlocks: CockpitBlock[] = blocks;
+  const cockpitBlocks: CockpitBlock[] = blocks.map((b) => ({
+    ...b,
+    note: noteByTopic.get(b.topicId) ?? null,
+  }));
   const cap = computeCapacity(remainingMin, availableMin);
   const risk = riskVerdict(cap);
   const laneMap = assignLanes(cockpitBlocks, cap);

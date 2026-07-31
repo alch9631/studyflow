@@ -19,6 +19,8 @@
     "test:planloss": "tsx src/lib/planLoss.test.ts",
     "test:serviceworker": "tsx src/lib/serviceWorker.test.ts",
     "test:moduleupload": "tsx src/lib/moduleUpload.test.ts",
+    "test:passed": "tsx src/lib/passedCourse.test.ts",
+    "test:calendar-overrides": "tsx src/lib/calendarOverrides.test.ts",
     "test:dates": "tsx src/lib/dates.test.ts",
     "test:calendar-time": "tsx src/lib/calendarTime.test.ts",
     "test:calendar-layout": "tsx src/lib/calendarLayout.test.ts",

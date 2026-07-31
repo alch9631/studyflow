@@ -12,6 +12,7 @@ import {
   type Difficulty,
 } from "./planner";
 import { isSyllabusAIEnabled, optimizeStudyPlan, generateSelfTests } from "./syllabus";
+import { coursePassed } from "./coursePassed";
 
 /**
  * Realistic MAX total study time per day across ALL of a student's courses. This
@@ -449,6 +450,10 @@ async function rebuildScheduleInner(
       studyDays: true,
       minutesPerDay: true,
       difficulty: true,
+      // grade + passed decide whether the course is DONE for good (bestanden /
+      // passing grade) and must drop out of scheduling entirely.
+      grade: true,
+      passed: true,
       topics: {
         orderBy: { order: "asc" },
         select: { id: true, title: true, effort: true, done: true, confidence: true },
@@ -511,6 +516,14 @@ async function rebuildScheduleInner(
       if (minutes > 0) {
         work.push({ courseId: c.id, topicId: t.id, title: t.title, rem: minutes, order: o, exam, studyDays: days });
       }
+    }
+    // INV0: a PASSED course (bestanden, or a passing grade) is finished for
+    // good. It gets no new work, its still-pending plan is wiped below (the
+    // per-course persist runs with an empty set), and — unlike the exam-passed
+    // case — it is never flagged intense: there is nothing left to fit.
+    if (coursePassed(c)) {
+      paces.push({ courseId: c.id, exam, studyDays: days, work: [], targetPerDay: 0 });
+      continue;
     }
     // INV1: never schedule on/after the exam. A course whose exam is today or
     // already past has NO runway — mirror the pure engine (empty plan, flagged
@@ -705,7 +718,9 @@ async function rebuildScheduleInner(
     const studiedTopicIds = new Set(study.map((b) => b.topicId));
     const preserved: EngineBlock[] = [];
     const preservedSeen = new Set<string>();
-    for (const b of c.blocks) {
+    // A passed course keeps NOTHING pending — not even carried-over reviews;
+    // wiping to just its completed history is the whole point of "bestanden".
+    for (const b of coursePassed(c) ? [] : c.blocks) {
       if ((b.kind ?? "study") !== "review" || b.completed) continue;
       if (!liveTopicIds.has(b.topicId) || studiedTopicIds.has(b.topicId)) continue;
       const day = b.date.toISOString().slice(0, 10);
@@ -922,6 +937,8 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
       minutesPerDay: true,
       difficulty: true,
       intense: true,
+      grade: true,
+      passed: true,
       topics: {
         orderBy: { order: "asc" },
         select: { id: true, title: true, effort: true, done: true, confidence: true },
@@ -939,6 +956,9 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
     cause: null,
   };
   if (!course) return empty;
+  // A passed course has nothing left to fit — mirror the scheduler's INV0, so
+  // this read-only view can never claim overload for a module that's done.
+  if (coursePassed(course)) return empty;
 
   const overloaded = course.intense;
 

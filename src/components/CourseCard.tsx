@@ -86,6 +86,8 @@ export type CardCourse = {
   /** Topics + completed blocks — used only by the settings menu's delete confirm. */
   progressCount: number;
   health: CourseHealth;
+  /** Bestanden / passing grade — replaces the exam countdown with a passed badge. */
+  passed?: boolean;
 };
 
 /**
@@ -133,18 +135,28 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
               {course.name}
             </span>
             <span className="shrink-0 text-right">
-              <span
-                className={`block text-xs font-medium ${
-                  actionNeeded
-                    ? "text-warning-foreground"
-                    : "text-gray-500 dark:text-gray-400"
-                }`}
-              >
-                {examCountdownLabel(t, course.examInDays)}
-              </span>
-              <span className="block text-xs text-gray-400 dark:text-gray-500">
-                {formatFriendlyDate(course.examDate, t.locale)}
-              </span>
+              {course.passed ? (
+                // Passed (bestanden / passing grade): no countdown to a exam the
+                // student is done with — one quiet, positive badge instead.
+                <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  {t("courses.passedBadge")}
+                </span>
+              ) : (
+                <>
+                  <span
+                    className={`block text-xs font-medium ${
+                      actionNeeded
+                        ? "text-warning-foreground"
+                        : "text-gray-500 dark:text-gray-400"
+                    }`}
+                  >
+                    {examCountdownLabel(t, course.examInDays)}
+                  </span>
+                  <span className="block text-xs text-gray-400 dark:text-gray-500">
+                    {formatFriendlyDate(course.examDate, t.locale)}
+                  </span>
+                </>
+              )}
             </span>
           </div>
 

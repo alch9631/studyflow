@@ -398,11 +398,14 @@ function SessionSheet({
 
   // The draft note belongs to ONE block: when the sheet switches to a different
   // block, reset it during render (the "adjust state when a prop changes"
-  // pattern) so block A's draft can never be saved onto block B.
+  // pattern) so block A's draft can never be saved onto block B. Seed it with
+  // the topic's EXISTING note — this editor writes the same Note.body as the
+  // course page's, so starting empty made every save an overwrite that
+  // destroyed whatever the student had written there.
   const [noteBlockId, setNoteBlockId] = useState<string | null>(null);
   if (block && block.id !== noteBlockId) {
     setNoteBlockId(block.id);
-    setNote("");
+    setNote(block.note ?? "");
   }
 
   const { optimisticDone, fire } = useOptimisticToggle({
@@ -440,7 +443,9 @@ function SessionSheet({
   }
 
   async function saveNote() {
-    if (!block || pendingNote) return;
+    // Unchanged text = nothing to save. An emptied box IS a change (clearing
+    // the note) — the action's blank path deletes it server-side.
+    if (!block || pendingNote || note === (block.note ?? "")) return;
     setPendingNote(true);
     const fd = new FormData();
     fd.set("blockId", block.id);
@@ -510,7 +515,7 @@ function SessionSheet({
                   type="button"
                   size="sm"
                   variant="secondary"
-                  disabled={pendingNote || note.trim().length === 0}
+                  disabled={pendingNote || note === (block?.note ?? "")}
                   onClick={saveNote}
                 >
                   {pendingNote ? t("today.sheetNoteSaving") : t("today.sheetNoteSave")}
