@@ -13,6 +13,7 @@ import {
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
 import { classifyFile, isFileCategory, type FileCategory } from "@/lib/fileCategory";
+import { resolveUploadMode, topicIdsSafeToDelete } from "@/lib/moduleUpload";
 import {
   classifyTextSource,
   UnsupportedFileError,
@@ -504,10 +505,9 @@ export async function analyzeModuleUpload(formData: FormData) {
   const docTypeRaw = formData.get("docType");
   const chosenType: FileCategory | null = isFileCategory(docTypeRaw) ? docTypeRaw : null;
 
-  // Append vs replace. Default "replace" preserves existing callers that don't
-  // send a mode field (the course-detail ModuleUploadForm). "append" keeps the
-  // current topics and adds the file's topics after them.
-  const mode = str(formData.get("mode")) === "append" ? "append" : "replace";
+  // Append vs replace — replace is destructive and must be opted into; see
+  // lib/moduleUpload for why the default is additive.
+  const mode = resolveUploadMode(str(formData.get("mode")));
 
   let result = "analyze-error";
   let n = 0;
@@ -528,7 +528,9 @@ export async function analyzeModuleUpload(formData: FormData) {
       // completion fold, so finished work would get rescheduled).
       const existing = await prisma.topic.findMany({
         where: { courseId },
-        select: { id: true, title: true, order: true },
+        // done/confidence come along so the replace path can tell a topic the
+        // student has actually worked on from a purely AI-derived one.
+        select: { id: true, title: true, order: true, done: true, confidence: true },
       });
       const byTitle = new Map(existing.map((t) => [t.title.trim().toLowerCase(), t]));
       // Stored category: the user's explicit choice wins; if they left it on a
@@ -545,7 +547,12 @@ export async function analyzeModuleUpload(formData: FormData) {
           // Append after the current max order, but bound the TOTAL to the per-course
           // cap (not just the new set — else append could exceed the limit).
           const room = Math.max(0, LIMITS.MAX_TOPICS_PER_COURSE - existing.length);
-          const newTopics = analysis.topics.slice(0, room);
+          // Skip topics the course already has: re-uploading the same file, or two
+          // materials covering the same chapter, would otherwise grow a duplicate
+          // set and double-count that work in the plan.
+          const newTopics = analysis.topics
+            .filter((t) => !byTitle.has(t.title.trim().toLowerCase()))
+            .slice(0, room);
           const base = existing.reduce((mx, t) => Math.max(mx, t.order), -1) + 1;
           await tx.topic.createMany({
             data: newTopics.map((t, i) => ({
@@ -573,9 +580,41 @@ export async function analyzeModuleUpload(formData: FormData) {
               await tx.topic.create({ data: { courseId, title: t.title, ...data } });
             }
           }
-          const removedIds = existing.filter((tp) => !keep.has(tp.id)).map((tp) => tp.id);
+          // Even an explicit replace must not destroy the student's own work. A
+          // topic they marked done, rated, wrote a note on, or already studied
+          // carries history the analysis of one file knows nothing about — and
+          // deleting it cascades the note away and orphans completed StudyBlocks.
+          // Those survive (re-ordered after the freshly analysed set); only
+          // untouched, purely AI-derived topics are actually removed.
+          const dropped = existing.filter((tp) => !keep.has(tp.id));
+          const droppedIds = dropped.map((tp) => tp.id);
+          let noted: { topicId: string }[] = [];
+          let studied: { topicId: string }[] = [];
+          if (droppedIds.length) {
+            noted = await tx.note.findMany({
+              where: { topicId: { in: droppedIds } },
+              select: { topicId: true },
+            });
+            studied = await tx.studyBlock.findMany({
+              where: { topicId: { in: droppedIds }, completed: true },
+              select: { topicId: true },
+            });
+          }
+          const removedIds = topicIdsSafeToDelete(
+            dropped,
+            noted.map((nt) => nt.topicId),
+            studied.map((sb) => sb.topicId),
+          );
           if (removedIds.length) {
             await tx.topic.deleteMany({ where: { id: { in: removedIds } } });
+          }
+          // Survivors keep their data and sit after the freshly analysed set.
+          const removedSet = new Set(removedIds);
+          let tail = newTopics.length;
+          for (const tp of dropped) {
+            if (!removedSet.has(tp.id)) {
+              await tx.topic.update({ where: { id: tp.id }, data: { order: tail++ } });
+            }
           }
           n = newTopics.length;
         }

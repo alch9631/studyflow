@@ -137,6 +137,7 @@ export const blockKey = (topicId: string, date: Date, kind: string) =>
  */
 export function foldCompletedSessions(
   course: DbCourseWithTopics & { blocks: DbBlock[] },
+  sizeScale?: number,
 ): EngineCourse {
   const planned: Record<string, number> = {};
   const done: Record<string, number> = {};
@@ -149,6 +150,22 @@ export function foldCompletedSessions(
     const minutes = Number.isFinite(b.minutes) ? b.minutes : 0;
     planned[b.topicId] = (planned[b.topicId] ?? 0) + minutes;
     if (b.completed) done[b.topicId] = (done[b.topicId] ?? 0) + minutes;
+  }
+  // `planned` above is only as complete as the rows that SURVIVE. Every path
+  // that deletes a topic's unfinished blocks while keeping its completed ones
+  // (INV1 wiping a course whose exam has arrived; a pile-on that collided with a
+  // durable completed block) leaves planned == done — which reads as "topic
+  // finished" and drops it from every future plan, stranding minutes the student
+  // never studied. When the caller knows the scale the planner sizes topics with
+  // (calibration × difficulty), we can reconstruct each topic's FULL planned size
+  // from its effort — the one record of topic size that a plan wipe can't erase —
+  // and use it as a floor. Without a scale the fold keeps trusting the rows,
+  // so the pure/unit-tested behaviour is unchanged.
+  if (Number.isFinite(sizeScale as number) && (sizeScale as number) > 0) {
+    for (const t of course.topics ?? []) {
+      const full = clampEffort(t.effort) * MINUTES_PER_EFFORT * (sizeScale as number);
+      if (full > (planned[t.id] ?? 0)) planned[t.id] = full;
+    }
   }
   return applyCompletedWork(toEngineCourse(course), done, planned);
 }
@@ -203,8 +220,9 @@ export function toEngineCourse(c: DbCourseWithTopics): EngineCourse {
 
 async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
   // Completed sessions are durable history — never wipe them. We rebuild only
-  // the unfinished plan, and skip any freshly-planned block that lands on a
-  // topic+date a completed session already covers (matching on topic+date).
+  // the unfinished plan, and skip a freshly-planned REVIEW that lands on a
+  // topic+date a completed review already covers (see the guard below; study
+  // blocks are never dropped, because they only ever carry work still owed).
   // Atomic swap: a crash between the delete and the create must never leave a
   // course with no plan, so everything runs in ONE interactive transaction —
   // including the snapshot read: read outside it, a block completed in between
@@ -221,8 +239,23 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
         endTime: true,
       },
     });
-    const completedKeys = new Set(
-      existing.filter((b) => b.completed).map((b) => blockKey(b.topicId, b.date, b.kind)),
+    // Only REVIEWS are de-duplicated against completed history. A review is a
+    // fixed-size recall touch, so one already done on a topic+day makes a second
+    // one that day redundant — dropping it costs nothing.
+    //
+    // STUDY is different: the caller folds completed minutes out of each topic's
+    // effort before planning (foldCompletedSessions), so a fresh study block is
+    // by construction work that is still OWED, never a re-run of a finished
+    // session. Dropping it therefore doesn't de-duplicate anything — it destroys
+    // minutes. The scheduler already steers a topic away from days it has a
+    // completed session on (both the day loop and the pile-on), so a study
+    // collision only happens when there is nowhere else to put the work: a short
+    // runway where every remaining day is blocked. That is exactly the case where
+    // the minutes must survive — an exam-eve remainder used to vanish here.
+    const completedReviewKeys = new Set(
+      existing
+        .filter((b) => b.completed && (b.kind ?? "study") !== "study")
+        .map((b) => blockKey(b.topicId, b.date, b.kind)),
     );
     // Hand-set clock times on unfinished blocks survive the wipe-and-recreate:
     // a re-created block matching an existing timed uncompleted block (same
@@ -235,7 +268,9 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
       if (!timesByKey.has(key)) timesByKey.set(key, { startTime: b.startTime, endTime: b.endTime });
     }
     const fresh = blocks.filter(
-      (b) => !completedKeys.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
+      (b) =>
+        (b.kind ?? "study") === "study" ||
+        !completedReviewKeys.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
     );
     await tx.studyBlock.deleteMany({ where: { courseId, completed: false } });
     if (fresh.length > 0) {
@@ -451,12 +486,16 @@ async function rebuildScheduleInner(
   // target/day needed to finish exactly on its exam over its remaining study days.
   const paces: CoursePace[] = [];
   for (const c of courses) {
-    const folded = foldCompletedSessions(c); // effort reduced by completed work
     const calibration = calibrationFromHistory(c.blocks);
     // Per-course difficulty scales every topic's study time (harder → more,
     // easier → less). Default difficulty (3) → 1.0, so an unrated course schedules
     // exactly as it did before this dial existed (no regression).
     const difficulty = difficultyMultiplier(c.difficulty);
+    // effort reduced by completed work. Pass the exact scale the pace maths below
+    // uses (`effort × MINUTES_PER_EFFORT × calibration × difficulty`) so the fold
+    // can tell "this topic is finished" apart from "this topic's unfinished rows
+    // were deleted" — see foldCompletedSessions.
+    const folded = foldCompletedSessions(c, calibration * difficulty);
     const exam = c.examDate.toISOString().slice(0, 10);
     const days = c.studyDays
       .split(",")
@@ -906,9 +945,12 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
   // Remaining study minutes for this course, computed exactly as the scheduler
   // does: completed sessions reduce a topic's effort (fold), then calibration and
   // per-course difficulty scale what's left into real minutes.
-  const folded = foldCompletedSessions(course);
   const calibration = calibrationFromHistory(course.blocks);
   const difficulty = difficultyMultiplier(course.difficulty);
+  // Same size floor as the scheduler, so this read-only view can't disagree with
+  // the plan it describes (e.g. report "0 minutes left" for a topic the rebuild
+  // still owes work on because its unfinished rows were wiped).
+  const folded = foldCompletedSessions(course, calibration * difficulty);
   let remainingMinutes = 0;
   for (const t of folded.topics) {
     if (t.done) continue;

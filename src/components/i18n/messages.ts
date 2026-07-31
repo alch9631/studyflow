@@ -588,7 +588,7 @@ const en = {
       "ai-offline":
         "Couldn't reach the AI service just now (network, or it's busy). Your plan is unchanged. Try again in a moment.",
       "heal-failed": "Couldn't rebuild the plan just now. Please try again.",
-      analyzed: "Analyzed your file and rebuilt the topics + plan from its actual content.",
+      analyzed: "Analyzed your file and added its topics to the course, then rebuilt your plan.",
       "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
       "analyze-notopics":
         "That file was read fine, but no study topics could be pulled out of it. If it's a scan, it may have no text layer — try a text-based PDF.",
@@ -1566,7 +1566,7 @@ const de: Messages = {
       "ai-offline":
         "KI-Dienst gerade nicht erreichbar (Netzwerk oder ausgelastet). Dein Plan ist unverändert. Versuch es gleich nochmal.",
       "heal-failed": "Plan konnte gerade nicht neu erstellt werden. Bitte versuch es erneut.",
-      analyzed: "Deine Datei analysiert und Themen + Plan aus ihrem tatsächlichen Inhalt neu erstellt.",
+      analyzed: "Deine Datei analysiert, ihre Themen zum Kurs hinzugefügt und deinen Plan neu erstellt.",
       "analyze-error": "Diese Datei konnte nicht analysiert werden (unlesbar oder KI-Fehler). Versuch eine andere Datei.",
       "analyze-notopics":
         "Die Datei wurde gelesen, aber es ließen sich keine Lernthemen daraus ziehen. Bei einem Scan fehlt oft die Textebene — versuch ein PDF mit echtem Text.",

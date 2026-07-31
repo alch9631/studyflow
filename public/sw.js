@@ -32,6 +32,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Authenticated API responses must NEVER reach a cache. They are per-user and
+// often the rawest data we hold (`/api/export` is a full data dump; `/api/blocks`,
+// `/api/stats`, `/api/push/status` are all session-scoped), the Cache API ignores
+// `Cache-Control: no-store` and `Vary: Cookie`, and our cache keys carry no user
+// discriminator — so a stored entry would be replayed to whoever uses this browser
+// next. We let these requests pass straight through to the network instead.
+function isApiRequest(req) {
+  try {
+    const url = new URL(req.url);
+    return url.origin === self.location.origin && url.pathname.startsWith("/api/");
+  } catch {
+    return false;
+  }
+}
+
 // A page-content request is either a full-document navigation or a Next.js RSC
 // fetch (client-side navigation / prefetch). Both are the "data" we keep offline.
 function isNavigation(req) {
@@ -103,6 +118,11 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
+  // Session-scoped API data: straight to the network, never cached (see above).
+  // This also covers a full-page navigation to something like /api/export, which
+  // would otherwise be stored as "page content" below.
+  if (isApiRequest(req)) return;
+
   // Page content (navigations + RSC) → dedicated last-synced data cache.
   if (isNavigation(req) || isRSC(req)) {
     event.respondWith(networkFirstContent(req));
@@ -127,6 +147,23 @@ self.addEventListener("fetch", (event) => {
         })
       )
   );
+});
+
+// --- Session teardown -------------------------------------------------------
+// DATA_CACHE holds fully rendered, signed-in pages (course names, exam dates,
+// notes, the whole study plan) keyed only by URL. Those entries must not outlive
+// the session that produced them: on a shared browser profile the next person to
+// sign in would, the moment they lose connectivity, be served the PREVIOUS user's
+// /today or /courses from cache. Nothing else evicts them — signing out clears the
+// session cookie, not the Cache Storage — so the client asks us to purge when a
+// session ends (see components/PurgeOfflineCache, mounted on the sign-in screen).
+self.addEventListener("message", (event) => {
+  if (!event.data || event.data.type !== "purge-caches") return;
+  const done = caches
+    .keys()
+    .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+    .catch(() => {});
+  if (typeof event.waitUntil === "function") event.waitUntil(done);
 });
 
 // --- Web push (study reminders) ---

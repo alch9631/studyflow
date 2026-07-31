@@ -4,6 +4,7 @@ import { BookOpen, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { signIn } from "@/auth";
+import PurgeOfflineCache from "@/components/PurgeOfflineCache";
 import { getT } from "@/components/i18n/server";
 
 export const metadata: Metadata = {
@@ -32,6 +33,9 @@ export default async function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-8 px-5 py-12 text-center">
+      {/* Reaching the sign-in screen ends a session — drop any offline copies of
+          the previous user's pages before another account signs in here. */}
+      <PurgeOfflineCache />
       <div className="flex flex-col items-center gap-2">
         <BookOpen className="h-10 w-10 text-brand" aria-hidden="true" />
         <h1 className="text-2xl font-bold tracking-tight">{t("login.title")}</h1>
