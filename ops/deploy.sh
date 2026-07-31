@@ -20,6 +20,18 @@ else
   exit 2
 fi
 
+# Sync the live SQLite schema BEFORE the new code starts: a build that adds a
+# column (e.g. Course.passed) would otherwise restart into P2022 "column does
+# not exist" 500s. Additive changes are safe for the still-running old build;
+# ordered after build-green so a broken build never touches the DB, and a
+# failed push aborts with the old service (old schema assumptions) untouched.
+if npx prisma db push --skip-generate 2>&1 | tail -3; then
+  log "db schema in sync"
+else
+  log "DB PUSH FAILED — aborting, leaving the old build running"
+  exit 5
+fi
+
 if systemctl --user restart studyflow.service; then
   log "service restarted"
 else
