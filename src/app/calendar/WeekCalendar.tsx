@@ -780,6 +780,14 @@ export default function WeekCalendar({
     })();
   }
 
+  // Latest server truth on a ref, so the resize pointermove handler (a window
+  // listener that outlives renders) can tag overlays against CURRENT server
+  // state even when a refresh lands mid-gesture.
+  const blocksRef = useRef(blocks);
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
+
   // Drag-to-resize: track the active resize on a ref so the global pointer
   // handlers (added on grip pointerdown) stay stable across renders.
   const resizeRef = useRef<{
@@ -832,13 +840,16 @@ export default function WeekCalendar({
       const clamped = clampToDay(cur.block.startMin!, endMin);
       if (!clamped) return;
       cur.latestEnd = clamped.endMin;
-      // Base-tagged with the server end the gesture started from, so the
-      // overlay expires as soon as the server accepts the resize (or anything
-      // else changes the block) — it used to survive forever and corrupt
-      // later moves.
+      // Base-tagged with what the server reports NOW (via blocksRef, so a
+      // refresh landing mid-gesture re-bases the next override instead of
+      // freezing the drag), falling back to the gesture-start snapshot. The
+      // overlay thus expires as soon as the server accepts the resize — it
+      // used to survive forever and corrupt later moves.
+      const serverEnd =
+        blocksRef.current.find((sb) => sb.id === cur.block.id)?.endMin ?? cur.baseEnd;
       setEndOverride((m) => ({
         ...m,
-        [cur.block.id]: { endMin: clamped.endMin, base: cur.baseEnd },
+        [cur.block.id]: { endMin: clamped.endMin, base: serverEnd },
       }));
     };
 
