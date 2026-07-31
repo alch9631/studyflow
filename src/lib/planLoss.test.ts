@@ -191,8 +191,93 @@ async function main() {
     `topic B open=${bMinutes.open}`,
   );
 
+  // ── 3. Ticking a topic done and then un-ticking it must give the work back ─
+  //
+  // The everyday version of the same trap, and the one students actually hit:
+  // marking a topic done wipes its unfinished blocks, so if the size of the
+  // topic is read back off the surviving rows it looks finished forever. The
+  // student un-ticks it because it wasn't really done — and it never returns to
+  // the plan, while the course page keeps listing it.
+  const u3 = await prisma.user.create({
+    data: { email: `loss-c+${Date.now()}@studyflow.local`, name: "Loss C" },
+  });
+  const c3 = await prisma.course.create({
+    data: {
+      name: "Toggle",
+      userId: u3.id,
+      examDate: dayFromToday(21),
+      studyDays: "0,1,2,3,4,5,6",
+      topics: { create: [{ title: "A", effort: 4, order: 0 }] },
+    },
+    include: { topics: true },
+  });
+  const tT = c3.topics[0];
+
+  await rebuildSchedule(u3.id);
+  const oneT = await prisma.studyBlock.findFirst({
+    where: { topicId: tT.id, kind: "study", completed: false },
+    orderBy: { date: "asc" },
+  });
+  if (oneT) {
+    await prisma.studyBlock.update({ where: { id: oneT.id }, data: { completed: true } });
+  }
+  const studiedT = oneT?.minutes ?? 0;
+
+  // Tick it done (this is what toggleTopicDone persists), then rebuild.
+  await prisma.topic.update({ where: { id: tT.id }, data: { done: true } });
+  await rebuildSchedule(u3.id);
+  // Change of heart: it wasn't finished after all.
+  await prisma.topic.update({ where: { id: tT.id }, data: { done: false } });
+  await rebuildSchedule(u3.id);
+
+  const restored = await studyMinutes(tT.id);
+  check(
+    "un-ticking a topic brings its unstudied minutes back",
+    restored.open > 0,
+    `open=${restored.open} done=${restored.done} (expected ≈ ${4 * PER_EFFORT - studiedT} open)`,
+  );
+  check(
+    "the work already done is still credited, not re-planned",
+    restored.open <= 4 * PER_EFFORT - studiedT,
+    `open=${restored.open}, cap ${4 * PER_EFFORT - studiedT}`,
+  );
+
+  // ── 4. A finished EASY course stays finished ──────────────────────────────
+  //
+  // The size floor is scaled by the course's difficulty multiplier, not raw
+  // effort. Using raw effort would leave an easy course (×0.7) holding ~30% of
+  // its effort forever, re-scheduling work the student genuinely completed.
+  const u4 = await prisma.user.create({
+    data: { email: `loss-d+${Date.now()}@studyflow.local`, name: "Loss D" },
+  });
+  const c4 = await prisma.course.create({
+    data: {
+      name: "Easy",
+      userId: u4.id,
+      examDate: dayFromToday(21),
+      studyDays: "0,1,2,3,4,5,6",
+      difficulty: 1, // easiest → study minutes scaled below the nominal effort
+      topics: { create: [{ title: "Solo", effort: 2, order: 0 }] },
+    },
+    include: { topics: true },
+  });
+  const tE = c4.topics[0];
+  await rebuildSchedule(u4.id);
+  // The student completes every minute the plan asked of them.
+  await prisma.studyBlock.updateMany({
+    where: { topicId: tE.id, kind: "study" },
+    data: { completed: true },
+  });
+  await rebuildSchedule(u4.id);
+  const easy = await studyMinutes(tE.id);
+  check(
+    "a fully-studied easy course is not re-scheduled by the size floor",
+    easy.open === 0,
+    `open=${easy.open} done=${easy.done}`,
+  );
+
   // Cleanup (cascades remove courses/topics/blocks).
-  await prisma.user.deleteMany({ where: { id: { in: [u1.id, u2.id] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [u1.id, u2.id, u3.id, u4.id] } } });
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
