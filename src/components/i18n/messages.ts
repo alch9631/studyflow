@@ -364,6 +364,9 @@ const en = {
     healthOverloaded: "Tight fit",
     healthNoPlan: "No plan yet",
     healthExamSoon: "Exam soon",
+    healthPassed: "Passed — this module is done.",
+    nextPassed: "Done ✓",
+    passedBadge: "Passed ✓",
     // ── Plan confidence (one calm word, consistent with Today's truth states) ──
     confComfortable: "Comfortable",
     confTight: "Tight",
@@ -435,8 +438,9 @@ const en = {
     saveRebuild: "Save & rebuild plan",
     finalGrade: "Final grade (1.0–5.0)",
     gradePlaceholder: "e.g. 1.7",
-    saveGrade: "Save grade",
+    saveGrade: "Save result",
     gradeHint: "Empty to clear. Counts toward your Notenschnitt.",
+    passedNoGrade: "Modul bestanden (pass/fail, no grade)",
     deleteCourse: "Delete this course",
     deleteTitle: "Delete this course?",
     deleteConfirm: "Delete course",
@@ -588,7 +592,7 @@ const en = {
       "ai-offline":
         "Couldn't reach the AI service just now (network, or it's busy). Your plan is unchanged. Try again in a moment.",
       "heal-failed": "Couldn't rebuild the plan just now. Please try again.",
-      analyzed: "Analyzed your file and rebuilt the topics + plan from its actual content.",
+      analyzed: "Analyzed your file and added its topics to the course, then rebuilt your plan.",
       "analyze-error": "Couldn't analyze that file (unreadable, or AI error). Try another file.",
       "analyze-notopics":
         "That file was read fine, but no study topics could be pulled out of it. If it's a scan, it may have no text layer — try a text-based PDF.",
@@ -597,7 +601,7 @@ const en = {
       "analyze-nofile": "Choose a file first.",
       "imported-basic":
         "Course imported and planned. AI optimization didn't run (the AI was busy or out of budget) — hit Re-optimize in a minute for difficulty, order and review sessions.",
-      graded: "Grade saved.",
+      graded: "Result saved.",
       "grade-invalid": "That grade isn't valid, so it wasn't saved. Use 1.0 to 5.0.",
       "past-exam": "Exam date can't be in the past, so it wasn't saved.",
       "exam-too-far": "Exam date is too far in the future, so it wasn't saved.",
@@ -1345,6 +1349,9 @@ const de: Messages = {
     healthOverloaded: "Knapp",
     healthNoPlan: "Noch kein Plan",
     healthExamSoon: "Prüfung bald",
+    healthPassed: "Bestanden — dieses Modul ist geschafft.",
+    nextPassed: "Geschafft ✓",
+    passedBadge: "Bestanden ✓",
     // ── Plansicherheit (ein ruhiges Wort, passend zu Heutes Wahrheitszuständen) ──
     confComfortable: "Entspannt",
     confTight: "Knapp",
@@ -1416,8 +1423,9 @@ const de: Messages = {
     saveRebuild: "Speichern & Plan neu erstellen",
     finalGrade: "Endnote (1,0–5,0)",
     gradePlaceholder: "z. B. 1,7",
-    saveGrade: "Note speichern",
+    saveGrade: "Ergebnis speichern",
     gradeHint: "Leer = entfernen. Zählt zu deinem Notenschnitt.",
+    passedNoGrade: "Modul bestanden (unbenotet)",
     deleteCourse: "Diesen Kurs löschen",
     deleteTitle: "Diesen Kurs löschen?",
     deleteConfirm: "Kurs löschen",
@@ -1566,7 +1574,7 @@ const de: Messages = {
       "ai-offline":
         "KI-Dienst gerade nicht erreichbar (Netzwerk oder ausgelastet). Dein Plan ist unverändert. Versuch es gleich nochmal.",
       "heal-failed": "Plan konnte gerade nicht neu erstellt werden. Bitte versuch es erneut.",
-      analyzed: "Deine Datei analysiert und Themen + Plan aus ihrem tatsächlichen Inhalt neu erstellt.",
+      analyzed: "Deine Datei analysiert, ihre Themen zum Kurs hinzugefügt und deinen Plan neu erstellt.",
       "analyze-error": "Diese Datei konnte nicht analysiert werden (unlesbar oder KI-Fehler). Versuch eine andere Datei.",
       "analyze-notopics":
         "Die Datei wurde gelesen, aber es ließen sich keine Lernthemen daraus ziehen. Bei einem Scan fehlt oft die Textebene — versuch ein PDF mit echtem Text.",
@@ -1575,7 +1583,7 @@ const de: Messages = {
       "analyze-nofile": "Wähle zuerst eine Datei.",
       "imported-basic":
         "Kurs importiert und verplant. Die KI-Optimierung lief nicht (KI ausgelastet oder Budget aufgebraucht) — klick in einer Minute auf Neu optimieren für Schwierigkeit, Reihenfolge und Wiederholungen.",
-      graded: "Note gespeichert.",
+      graded: "Ergebnis gespeichert.",
       "grade-invalid": "Diese Note ist ungültig und wurde nicht gespeichert. Nutze 1,0 bis 5,0.",
       "past-exam": "Der Prüfungstermin darf nicht in der Vergangenheit liegen, also wurde er nicht gespeichert.",
       "exam-too-far": "Der Prüfungstermin liegt zu weit in der Zukunft, also wurde er nicht gespeichert.",

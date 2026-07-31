@@ -23,6 +23,10 @@ export type FocusBlock = {
   completed: boolean;
   kind: string;
   course: { name: string };
+  /** The topic's existing note body — the quick-note editor MUST open with it,
+   *  because saving writes the same Note.body the course page uses (an empty
+   *  seed made every save destroy the existing note). */
+  note?: string | null;
 };
 
 /**
@@ -108,7 +112,9 @@ export default function FocusSession({
   const t = useT();
   const router = useRouter();
   const { toast } = useToast();
-  const [note, setNote] = useState("");
+  // Seeded with the topic's existing note (see FocusBlock.note) — this editor
+  // overwrites Note.body, so it must start from what's there, not from "".
+  const [note, setNote] = useState(block.note ?? "");
   const [savingNote, setSavingNote] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
@@ -250,7 +256,9 @@ export default function FocusSession({
   }
 
   async function saveNote() {
-    if (savingNote || note.trim().length === 0) return;
+    // Unchanged text = nothing to save. An emptied box IS a change (the student
+    // clearing their note) — the action's blank path deletes it server-side.
+    if (savingNote || note === (block.note ?? "")) return;
     setSavingNote(true);
     const fd = new FormData();
     fd.set("blockId", block.id);
@@ -351,7 +359,7 @@ export default function FocusSession({
                   type="button"
                   size="sm"
                   variant="secondary"
-                  disabled={savingNote || note.trim().length === 0}
+                  disabled={savingNote || note === (block.note ?? "")}
                   onClick={saveNote}
                 >
                   {savingNote ? t("focus.notesSaving") : t("focus.notesSave")}

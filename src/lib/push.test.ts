@@ -380,6 +380,48 @@ async function main() {
     );
   }
 
+  // --- a hung endpoint can never stall the fan-out -------------------------
+  // Regression: `sendNotification` was called with no options, so web-push armed
+  // no socket timeout and the promise for an endpoint host that accepts the
+  // connection then never answers stayed pending forever. runDailyReminders
+  // awaits each user's sends sequentially, so ONE such subscription wedged the
+  // whole daily reminder run — for every user — until the process restarted.
+  // The endpoint is attacker-chosen data, so this was remotely triggerable.
+  {
+    enablePush();
+    const hangUser = await makeUser("hang@studyflow.local");
+    const hangEp = "https://push.example/hang";
+    const liveEp = "https://push.example/live";
+    await addSub(hangUser, hangEp, process.env.VAPID_PUBLIC_KEY);
+    await addSub(hangUser, liveEp, process.env.VAPID_PUBLIC_KEY);
+
+    let settledHang = false;
+    const hangingSender: PushSender = {
+      async send(target) {
+        if (target.endpoint === hangEp) {
+          // Never settles — exactly what an unresponsive push host produces.
+          await new Promise(() => {});
+          settledHang = true;
+        }
+      },
+    };
+
+    const startedAt = Date.now();
+    const res = await sendPush(hangUser, { title: "Reminder" }, hangingSender, 60);
+    const elapsed = Date.now() - startedAt;
+
+    check("a hung endpoint does not stall sendPush", elapsed < 5_000);
+    check("the hung send is abandoned, not awaited", settledHang === false);
+    check("the hung endpoint is counted as failed", res.failed === 1);
+    check("a healthy endpoint still gets delivered alongside it", res.sent === 1);
+    check("a timeout is not mistaken for a dead subscription", res.pruned === 0);
+    check(
+      "the hung subscription is kept (a slow host is not a gone host)",
+      (await prisma.pushSubscription.count({ where: { userId: hangUser } })) === 2,
+    );
+    disablePush();
+  }
+
   disablePush();
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

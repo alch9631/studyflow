@@ -190,9 +190,49 @@ const defaultSender: PushSender = {
     await webpush.sendNotification(
       { endpoint: target.endpoint, keys: target.keys },
       payload,
+      // web-push only arms a socket timeout when one is passed; without this the
+      // underlying https.request has NO timeout, so an endpoint host that accepts
+      // the connection and then never answers leaves the promise pending forever.
+      { timeout: SEND_TIMEOUT_MS },
     );
   },
 };
+
+/**
+ * Hard ceiling on a single push delivery.
+ *
+ * The endpoint URL is attacker-chosen data (a subscription stores whatever host
+ * the client sent), and `runDailyReminders` awaits each user's sends strictly
+ * sequentially. So one unresponsive host must not be able to stall the run: an
+ * unbounded send would pin the cron request and every user queued behind it,
+ * silently killing reminders for the whole instance until it restarts.
+ */
+const SEND_TIMEOUT_MS = 10_000;
+
+/**
+ * Resolve `p`, or reject once `ms` have passed — whichever happens first.
+ *
+ * Applied around the injected sender rather than inside the default one, so the
+ * bound holds for ANY sender implementation. Note this bounds how long we WAIT,
+ * not the underlying socket; the default sender also passes web-push its own
+ * `timeout` so the request itself is torn down instead of leaking.
+ */
+async function withSendTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Push send timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /**
  * Send `payload` to every push subscription owned by `userId`, pruning any that
@@ -207,6 +247,7 @@ export async function sendPush(
   userId: string,
   payload: PushPayload,
   sender: PushSender = defaultSender,
+  timeoutMs: number = SEND_TIMEOUT_MS,
 ): Promise<SendPushResult> {
   const config = getPushConfig();
   if (!config) return { configured: false, sent: 0, failed: 0, pruned: 0, stale: 0 };
@@ -234,10 +275,13 @@ export async function sendPush(
         return;
       }
       try {
-        await sender.send(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          json,
-          config,
+        await withSendTimeout(
+          sender.send(
+            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+            json,
+            config,
+          ),
+          timeoutMs,
         );
         sent++;
       } catch (err) {

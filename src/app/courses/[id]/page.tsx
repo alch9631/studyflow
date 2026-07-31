@@ -243,6 +243,7 @@ export default async function CoursePage({
       difficulty: true,
       aiOptimized: true,
       grade: true,
+      passed: true,
       topics: {
         orderBy: { order: "asc" },
         select: {
@@ -440,6 +441,18 @@ export default async function CoursePage({
                   className="mt-1 w-28"
                 />
               </div>
+              {/* Unbenotete Module are pass/fail — no 1.0–5.0 mark exists. The
+                  checkbox records "bestanden" on its own; with a passing grade
+                  it's redundant (grade ≤ 4.0 already counts as passed). */}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="passed"
+                  value="1"
+                  defaultChecked={course.passed}
+                />
+                {t("courseDetail.passedNoGrade")}
+              </label>
               <SubmitButton variant="secondary" size="md" pendingLabel={t("common.saving")}>
                 {t("courseDetail.saveGrade")}
               </SubmitButton>

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { regeneratePlan, healCoursePlan, aiOptimizeCourse, todayISO } from "@/lib/planService";
+import { regeneratePlan, healCoursePlan, aiOptimizeCourse, rebuildSchedule, todayISO } from "@/lib/planService";
+import { coursePassed } from "@/lib/coursePassed";
 import {
   extractSyllabus,
   isSyllabusAIEnabled,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/syllabus";
 import { MINUTES_PER_EFFORT } from "@/lib/planner";
 import { classifyFile, isFileCategory, type FileCategory } from "@/lib/fileCategory";
+import { resolveUploadMode, topicIdsSafeToDelete } from "@/lib/moduleUpload";
 import {
   classifyTextSource,
   UnsupportedFileError,
@@ -504,10 +506,9 @@ export async function analyzeModuleUpload(formData: FormData) {
   const docTypeRaw = formData.get("docType");
   const chosenType: FileCategory | null = isFileCategory(docTypeRaw) ? docTypeRaw : null;
 
-  // Append vs replace. Default "replace" preserves existing callers that don't
-  // send a mode field (the course-detail ModuleUploadForm). "append" keeps the
-  // current topics and adds the file's topics after them.
-  const mode = str(formData.get("mode")) === "append" ? "append" : "replace";
+  // Append vs replace — replace is destructive and must be opted into; see
+  // lib/moduleUpload for why the default is additive.
+  const mode = resolveUploadMode(str(formData.get("mode")));
 
   let result = "analyze-error";
   let n = 0;
@@ -528,7 +529,9 @@ export async function analyzeModuleUpload(formData: FormData) {
       // completion fold, so finished work would get rescheduled).
       const existing = await prisma.topic.findMany({
         where: { courseId },
-        select: { id: true, title: true, order: true },
+        // done/confidence come along so the replace path can tell a topic the
+        // student has actually worked on from a purely AI-derived one.
+        select: { id: true, title: true, order: true, done: true, confidence: true },
       });
       const byTitle = new Map(existing.map((t) => [t.title.trim().toLowerCase(), t]));
       // Stored category: the user's explicit choice wins; if they left it on a
@@ -545,7 +548,12 @@ export async function analyzeModuleUpload(formData: FormData) {
           // Append after the current max order, but bound the TOTAL to the per-course
           // cap (not just the new set — else append could exceed the limit).
           const room = Math.max(0, LIMITS.MAX_TOPICS_PER_COURSE - existing.length);
-          const newTopics = analysis.topics.slice(0, room);
+          // Skip topics the course already has: re-uploading the same file, or two
+          // materials covering the same chapter, would otherwise grow a duplicate
+          // set and double-count that work in the plan.
+          const newTopics = analysis.topics
+            .filter((t) => !byTitle.has(t.title.trim().toLowerCase()))
+            .slice(0, room);
           const base = existing.reduce((mx, t) => Math.max(mx, t.order), -1) + 1;
           await tx.topic.createMany({
             data: newTopics.map((t, i) => ({
@@ -573,9 +581,41 @@ export async function analyzeModuleUpload(formData: FormData) {
               await tx.topic.create({ data: { courseId, title: t.title, ...data } });
             }
           }
-          const removedIds = existing.filter((tp) => !keep.has(tp.id)).map((tp) => tp.id);
+          // Even an explicit replace must not destroy the student's own work. A
+          // topic they marked done, rated, wrote a note on, or already studied
+          // carries history the analysis of one file knows nothing about — and
+          // deleting it cascades the note away and orphans completed StudyBlocks.
+          // Those survive (re-ordered after the freshly analysed set); only
+          // untouched, purely AI-derived topics are actually removed.
+          const dropped = existing.filter((tp) => !keep.has(tp.id));
+          const droppedIds = dropped.map((tp) => tp.id);
+          let noted: { topicId: string }[] = [];
+          let studied: { topicId: string }[] = [];
+          if (droppedIds.length) {
+            noted = await tx.note.findMany({
+              where: { topicId: { in: droppedIds } },
+              select: { topicId: true },
+            });
+            studied = await tx.studyBlock.findMany({
+              where: { topicId: { in: droppedIds }, completed: true },
+              select: { topicId: true },
+            });
+          }
+          const removedIds = topicIdsSafeToDelete(
+            dropped,
+            noted.map((nt) => nt.topicId),
+            studied.map((sb) => sb.topicId),
+          );
           if (removedIds.length) {
             await tx.topic.deleteMany({ where: { id: { in: removedIds } } });
+          }
+          // Survivors keep their data and sit after the freshly analysed set.
+          const removedSet = new Set(removedIds);
+          let tail = newTopics.length;
+          for (const tp of dropped) {
+            if (!removedSet.has(tp.id)) {
+              await tx.topic.update({ where: { id: tp.id }, data: { order: tail++ } });
+            }
           }
           n = newTopics.length;
         }
@@ -700,7 +740,13 @@ export async function applyProgress(formData: FormData) {
   // Note: redirect() must live OUTSIDE the try (it throws NEXT_REDIRECT).
   let result = "progress-none";
   try {
-    const updates = await interpretProgress(course.topics.map((t) => t.title), status);
+    // The model gets each topic's CURRENT done state and returns only CHANGES —
+    // so an update that doesn't mention a finished topic can never un-mark it
+    // (that used to revert every completed topic and reschedule finished work).
+    const updates = await interpretProgress(
+      course.topics.map((t) => ({ title: t.title, done: t.done })),
+      status,
+    );
     const wanted = new Map(updates.map((u) => [u.title.toLowerCase(), u.done]));
     let changed = 0;
     for (const t of course.topics) {
@@ -1008,7 +1054,14 @@ export async function deleteAssignment(formData: FormData) {
   revalidatePath(`/courses/${courseId}`);
 }
 
-/** Record (or clear) a course's final grade (German scale 1.0–5.0). */
+/**
+ * Record a course's exam result: the final grade (German scale 1.0–5.0), the
+ * "Modul bestanden (ohne Note)" flag for unbenotete pass/fail modules, or both
+ * cleared. When the saved result flips the course between passed and not-passed
+ * (see {@link coursePassed}), the plan is rebuilt so a passed module's pending
+ * sessions disappear immediately — and come back if the result is cleared or a
+ * 5.0 records a failed attempt (a retake is coming).
+ */
 export async function setGrade(formData: FormData) {
   const userId = await getCurrentUserId();
   let id: string;
@@ -1026,7 +1079,28 @@ export async function setGrade(formData: FormData) {
   } catch {
     redirect(`/courses/${id}?msg=grade-invalid`);
   }
-  if (!(await updateOwnedCourse(userId, id, { grade }))) redirect("/courses");
+  // Unchecked checkboxes are simply absent from FormData, so absence = false.
+  const passed = str(formData.get("passed")) === "1";
+  // Read the prior state (ownership-scoped) so we only pay for a global rebuild
+  // when the passed-ness actually flips — editing a 2.0 to a 1.7 shouldn't
+  // delete-and-recreate every course's plan.
+  const prior = await prisma.course.findFirst({
+    where: { id, userId },
+    select: { grade: true, passed: true },
+  });
+  if (!prior) redirect("/courses");
+  if (!(await updateOwnedCourse(userId, id, { grade, passed }))) redirect("/courses");
+  if (coursePassed(prior) !== coursePassed({ grade, passed })) {
+    try {
+      await rebuildSchedule(userId);
+    } catch (e) {
+      // The result itself saved; a replan hiccup must not claim it didn't.
+      logActionError("setGrade.rebuildSchedule", e);
+    }
+    revalidatePath("/today");
+    revalidatePath("/calendar");
+    revalidatePath("/courses");
+  }
   redirect(`/courses/${id}?msg=graded`);
 }
 

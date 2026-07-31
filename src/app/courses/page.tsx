@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
+import { coursePassed } from "@/lib/coursePassed";
 import CourseCard, {
   confidenceFromHealth,
   type CourseHealth,
@@ -125,6 +126,9 @@ export default async function CoursesPage({
       id: true,
       name: true,
       examDate: true,
+      // Passed-ness (bestanden / passing grade) turns off all health nagging.
+      grade: true,
+      passed: true,
       // Card only needs each topic's done flag (count + total) and each block's
       // completed/kind/minutes (remaining-study estimate) — not full records.
       topics: { select: { done: true } },
@@ -179,12 +183,23 @@ export default async function CoursesPage({
               .filter((b) => !b.completed && b.kind === "study")
               .reduce((s, b) => s + b.minutes, 0);
             const examInDays = daysUntil(c.examDate, today);
-            const health = deriveHealth(t, {
-              examInDays,
-              remainingMinutes,
-              untouched: c.topics.length - done,
-              hasPlan: c.blocks.length > 0,
-            });
+            // A passed module (bestanden, or a passing grade) is finished for
+            // good: no health nagging ("build a plan", "exam soon"), just a calm
+            // done state — the card shows a passed badge instead of a countdown.
+            const passed = coursePassed(c);
+            const health = passed
+              ? {
+                  status: "healthy" as const,
+                  confidence: "comfortable" as const,
+                  line: t("courses.healthPassed"),
+                  next: t("courses.nextPassed"),
+                }
+              : deriveHealth(t, {
+                  examInDays,
+                  remainingMinutes,
+                  untouched: c.topics.length - done,
+                  hasPlan: c.blocks.length > 0,
+                });
             return (
               <li key={c.id}>
                 <SwipeCourseCard courseId={c.id} courseName={c.name}>
@@ -197,6 +212,7 @@ export default async function CoursesPage({
                       examInDays,
                       progressCount: done + completedBlocks,
                       health,
+                      passed,
                     }}
                   />
                 </SwipeCourseCard>

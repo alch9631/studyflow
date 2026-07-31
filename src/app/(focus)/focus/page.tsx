@@ -42,6 +42,7 @@ export default async function FocusPage({
     minutes: true,
     completed: true,
     kind: true,
+    topicId: true,
     course: { select: { name: true } },
   } as const;
 
@@ -54,6 +55,7 @@ export default async function FocusPage({
         minutes: number;
         completed: boolean;
         kind: string;
+        topicId: string;
         course: { name: string };
       }
     | null = null;
@@ -109,6 +111,14 @@ export default async function FocusPage({
     );
   }
 
+  // The topic's existing note, so the Focus quick-note editor opens pre-filled.
+  // It writes the same Note.body as the course-page editor — seeding it empty
+  // made every save an overwrite that destroyed the student's existing note.
+  const existingNote = await prisma.note.findFirst({
+    where: { topicId: block.topicId, topic: { course: { userId } } },
+    select: { body: true },
+  });
+
   const focusBlock: FocusBlock = {
     id: block.id,
     topicTitle: block.topicTitle,
@@ -116,7 +126,12 @@ export default async function FocusPage({
     completed: block.completed,
     kind: block.kind,
     course: { name: block.course.name },
+    note: existingNote?.body ?? null,
   };
 
-  return <FocusSession block={focusBlock} upNextTopic={upNext?.topicTitle ?? null} />;
+  // Keyed by block id: if the mounted /focus route ever receives a different
+  // block (searchParams change without unmount), the whole session — timer AND
+  // seeded note draft — resets for the new block, so one topic's note text can
+  // never be saved onto another topic.
+  return <FocusSession key={focusBlock.id} block={focusBlock} upNextTopic={upNext?.topicTitle ?? null} />;
 }

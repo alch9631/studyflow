@@ -5,6 +5,7 @@ import GlobalSearch, { type SearchItem, type SearchStartData } from "@/component
 import { getT } from "@/components/i18n/server";
 import { daysUntil } from "@/lib/dates";
 import { todayISO } from "@/lib/planService";
+import { coursePassed } from "@/lib/coursePassed";
 import { examCountdownLabel } from "@/components/i18n/messages";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,9 @@ export default async function SearchPage({
       id: true,
       name: true,
       examDate: true,
+      // Passed-ness keeps a finished module out of the "next exams" chips.
+      grade: true,
+      passed: true,
       topics: { select: { id: true, title: true }, orderBy: { order: "asc" } },
       assignments: {
         select: { id: true, title: true, dueDate: true },
@@ -84,7 +88,9 @@ export default async function SearchPage({
     })),
     exams: courses
       .map((c) => ({ c, days: daysUntil(c.examDate, today) }))
-      .filter(({ days }) => days >= 0)
+      // No countdown for an exam the student already passed (bestanden or a
+      // passing grade) — same exclusion Today's exam strip applies.
+      .filter(({ c, days }) => days >= 0 && !coursePassed(c))
       .slice(0, 4)
       .map(({ c, days }) => ({
         id: c.id,

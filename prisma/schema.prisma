@@ -143,6 +143,12 @@ model Course {
   intense       Boolean      @default(false) // global scheduler couldn't fit all work before the exam
   // German final grade once the exam is taken (1.0 best … 5.0 fail). null = not graded yet.
   grade         Float?
+  // "Modul bestanden (ohne Note)" — an UNGRADED pass. German unbenotete Module
+  // are pass/fail with no 1.0–5.0 mark, so a grade can't express them. A course
+  // counts as passed when this is true OR its grade is a passing one (≤ 4.0) —
+  // see lib/coursePassed. Passed courses stop being scheduled and stop showing
+  // in exam countdowns; their LP count as earned.
+  passed        Boolean      @default(false)
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId      String

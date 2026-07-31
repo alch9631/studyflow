@@ -34,6 +34,13 @@ import {
   MINUTES_PER_DAY,
 } from "@/lib/calendarTime";
 import { layoutDayBlocks } from "@/lib/calendarLayout";
+import {
+  applyBlockOverrides,
+  pruneEndOverrides,
+  pruneUnscheduledOverrides,
+  type EndOverride,
+  type UnscheduledOverride,
+} from "@/lib/calendarOverrides";
 import MobileDayView from "./MobileDayView";
 import PlacementSheet, { type PlacementTarget } from "./PlacementSheet";
 
@@ -429,12 +436,30 @@ export default function WeekCalendar({
 
   // Optimistic completed-state overlay so the ✓ toggle feels instant.
   const [doneOverride, setDoneOverride] = useState<Record<string, boolean>>({});
-  // Optimistic duration overlay (block id → end minutes) while/after a resize.
-  const [endOverride, setEndOverride] = useState<Record<string, number>>({});
-  // Optimistic unschedule overlay (block id → the day whose unscheduled lane it
-  // was dropped on) — the card jumps into the lane immediately and snaps back
-  // with a toast if the server rejects the clear.
-  const [unscheduledOverride, setUnscheduledOverride] = useState<Record<string, string>>({});
+  // Optimistic duration overlay while a resize is in flight. Base-tagged (the
+  // server end it was computed against) so it EXPIRES the moment server truth
+  // moves — a stale entry used to survive forever and corrupt later moves.
+  const [endOverride, setEndOverride] = useState<Record<string, EndOverride>>({});
+  // Optimistic unschedule overlay — the card jumps into the lane immediately
+  // and snaps back with a toast if the server rejects the clear. Base-tagged
+  // like endOverride, so a block re-placed via the placement sheet or
+  // auto-arrange stops rendering as unscheduled as soon as the refresh lands.
+  const [unscheduledOverride, setUnscheduledOverride] = useState<
+    Record<string, UnscheduledOverride>
+  >({});
+
+  // Expire overlays whose base no longer matches server truth (accepted writes,
+  // later moves, other tabs) — otherwise a coincidental return to the old value
+  // could resurrect them. Pruned during render when fresh server data arrives
+  // (the "adjust state when a prop changes" pattern — same as the cockpit's
+  // note reset); pruneOverrides returns the same object when nothing changed,
+  // so this settles instead of looping.
+  const [prunedForBlocks, setPrunedForBlocks] = useState<CalBlock[] | null>(null);
+  if (prunedForBlocks !== blocks) {
+    setPrunedForBlocks(blocks);
+    setEndOverride((m) => pruneEndOverrides(m, blocks));
+    setUnscheduledOverride((m) => pruneUnscheduledOverrides(m, blocks));
+  }
 
   /** Honest toast copy for a failed updateBlockTime outcome. */
   function failureMessage(reason: Extract<ActionOutcome, { ok: false }>["reason"]): string {
@@ -626,19 +651,13 @@ export default function WeekCalendar({
   const hourStarts = useMemo(() => slotStarts.filter((m) => m % 60 === 0), [slotStarts]);
 
   // Apply the optimistic overlays so render reflects in-flight toggles/resizes
-  // and unschedules.
+  // and unschedules. Expired overlays (server truth moved off their base) are
+  // ignored — see lib/calendarOverrides.
   const viewBlocks = useMemo(
     () =>
-      blocks.map((b) => {
-        const laneDay = unscheduledOverride[b.id];
-        return {
-          ...b,
-          completed: doneOverride[b.id] ?? b.completed,
-          dayISO: laneDay ?? b.dayISO,
-          startMin: laneDay != null ? null : b.startMin,
-          endMin: laneDay != null ? null : endOverride[b.id] ?? b.endMin,
-        };
-      }),
+      blocks.map((b) =>
+        applyBlockOverrides(b, doneOverride, endOverride, unscheduledOverride),
+      ),
     [blocks, doneOverride, endOverride, unscheduledOverride],
   );
 
@@ -656,7 +675,18 @@ export default function WeekCalendar({
     // if the server says no.
     if (startMin == null) {
       fd.set("clear", "1");
-      setUnscheduledOverride((m) => ({ ...m, [block.id]: block.dayISO }));
+      // Base-tagged with what the SERVER currently reports (not the possibly
+      // already-overlaid viewBlocks values): the overlay applies until the
+      // server acknowledges the clear, then expires and is pruned.
+      const server = blocks.find((sb) => sb.id === block.id);
+      setUnscheduledOverride((m) => ({
+        ...m,
+        [block.id]: {
+          dayISO: block.dayISO,
+          baseStart: server ? server.startMin : block.startMin,
+          baseEnd: server ? server.endMin : block.endMin,
+        },
+      }));
       const revert = () =>
         setUnscheduledOverride((m) => {
           const rest = { ...m };
@@ -750,6 +780,14 @@ export default function WeekCalendar({
     })();
   }
 
+  // Latest server truth on a ref, so the resize pointermove handler (a window
+  // listener that outlives renders) can tag overlays against CURRENT server
+  // state even when a refresh lands mid-gesture.
+  const blocksRef = useRef(blocks);
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
+
   // Drag-to-resize: track the active resize on a ref so the global pointer
   // handlers (added on grip pointerdown) stay stable across renders.
   const resizeRef = useRef<{
@@ -757,6 +795,11 @@ export default function WeekCalendar({
     startClientY: number;
     origEnd: number;
     latestEnd: number;
+    /** SERVER end at gesture start — the overlay's expiry base. `origEnd` is the
+     *  VISUAL end the user grabbed (possibly already overlaid by a just-accepted
+     *  resize); tagging with the server value keeps a rapid second resize
+     *  rendering while the first one's refresh is still in flight. */
+    baseEnd: number;
   } | null>(null);
   // Teardown for the window pointer listeners of the *current* resize gesture.
   // Held on a ref so an unmount mid-drag can detach them (they're normally
@@ -780,6 +823,10 @@ export default function WeekCalendar({
       startClientY: clientY,
       origEnd: block.endMin,
       latestEnd: block.endMin,
+      // `block` comes from viewBlocks (already overlaid); the expiry base must
+      // be what the SERVER currently reports, else a second resize started
+      // before the first one's refresh lands would never render.
+      baseEnd: blocks.find((sb) => sb.id === block.id)?.endMin ?? block.endMin,
     };
 
     const onMove = (e: PointerEvent) => {
@@ -793,7 +840,17 @@ export default function WeekCalendar({
       const clamped = clampToDay(cur.block.startMin!, endMin);
       if (!clamped) return;
       cur.latestEnd = clamped.endMin;
-      setEndOverride((m) => ({ ...m, [cur.block.id]: clamped.endMin }));
+      // Base-tagged with what the server reports NOW (via blocksRef, so a
+      // refresh landing mid-gesture re-bases the next override instead of
+      // freezing the drag), falling back to the gesture-start snapshot. The
+      // overlay thus expires as soon as the server accepts the resize — it
+      // used to survive forever and corrupt later moves.
+      const serverEnd =
+        blocksRef.current.find((sb) => sb.id === cur.block.id)?.endMin ?? cur.baseEnd;
+      setEndOverride((m) => ({
+        ...m,
+        [cur.block.id]: { endMin: clamped.endMin, base: serverEnd },
+      }));
     };
 
     const detach = () => {

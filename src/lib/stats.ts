@@ -5,6 +5,7 @@
 
 import { daysUntil } from "./dates";
 import { appleFor, type Apple } from "./apple";
+import { coursePassed } from "./coursePassed";
 
 const DAY_MS = 86_400_000;
 
@@ -23,6 +24,10 @@ export type StatsCourse = {
   id: string;
   name: string;
   grade: number | null;
+  /** "Modul bestanden (ohne Note)" — an ungraded pass. Counts toward LP earned
+   *  but not the Notenschnitt (there is no mark to average). Optional so older
+   *  fixtures/tests without the field keep working (absent = false). */
+  passed?: boolean;
   ects: number | null;
   examDate: Date;
   intense: boolean;
@@ -144,7 +149,9 @@ export type GradeSummary = {
   gradedCount: number;
   /** LP-weighted German Notenschnitt (1.0 best … 5.0), or null if none graded. */
   gpa: number | null;
-  /** LP earned = LP of graded courses with a passing grade (≤ 4.0). */
+  /** LP earned = LP of PASSED courses: a passing grade (≤ 4.0) or an ungraded
+   *  "bestanden". Unbenotete Module carry LP without a mark, so they count here
+   *  while staying out of the Notenschnitt. */
   lpEarned: number;
 };
 
@@ -154,8 +161,8 @@ export function gradeSummary(courses: StatsCourse[]): GradeSummary {
   const gpa = gradedLp
     ? graded.reduce((s, c) => s + (c.grade as number) * lpOf(c), 0) / gradedLp
     : null;
-  const lpEarned = graded
-    .filter((c) => (c.grade as number) <= 4.0)
+  const lpEarned = courses
+    .filter((c) => coursePassed({ grade: c.grade, passed: c.passed ?? false }))
     .reduce((s, c) => s + lpOf(c), 0);
   return { gradedCount: graded.length, gpa, lpEarned };
 }
@@ -166,6 +173,8 @@ export type CourseStats = {
   id: string;
   name: string;
   grade: number | null;
+  /** Ungraded "bestanden" — with a passing grade, decides {@link coursePassed}. */
+  passed?: boolean;
   ects: number | null;
   examDate: Date;
   intense: boolean;
@@ -227,6 +236,7 @@ export function perCourseStats(
       id: c.id,
       name: c.name,
       grade: c.grade,
+      passed: c.passed ?? false,
       ects: c.ects,
       examDate: c.examDate,
       intense: c.intense,
@@ -266,6 +276,9 @@ export function attentionList(
   limit = 3,
 ): AttentionItem[] {
   return perCourse
+    // A passed module (bestanden / passing grade) never needs attention — its
+    // unfinished-looking topics are moot, the student is done with it.
+    .filter((c) => !coursePassed({ grade: c.grade, passed: c.passed ?? false }))
     .map((c) => ({
       id: c.id,
       name: c.name,
@@ -433,6 +446,7 @@ export async function gatherStats(userId: string, todayISO: string): Promise<Sta
         id: true,
         name: true,
         grade: true,
+        passed: true,
         ects: true,
         examDate: true,
         intense: true,

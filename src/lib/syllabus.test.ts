@@ -22,6 +22,7 @@ import {
   optimizeStudyPlan,
   generateSelfTests,
   interpretProgress,
+  buildProgressUser,
   LANGUAGE_MATCH_INSTRUCTION,
   SYLLABUS_SYSTEM,
   SELFTEST_SYSTEM,
@@ -398,9 +399,31 @@ const setKeys = (openai?: string, anthropic?: string) => {
     check("analyzeModuleContent rejects when unconfigured", await rejectsWith(analyzeModuleContent("C", "text"), /No AI key/));
     check("optimizeStudyPlan rejects when unconfigured", await rejectsWith(optimizeStudyPlan("C", ["t"], 10), /No AI key/));
     check("generateSelfTests rejects when unconfigured", await rejectsWith(generateSelfTests("C", ["t"]), /No AI key/));
-    check("interpretProgress rejects when unconfigured", await rejectsWith(interpretProgress(["t"], "done"), /No AI key/));
+    check("interpretProgress rejects when unconfigured", await rejectsWith(interpretProgress([{ title: "t", done: false }], "done"), /No AI key/));
   } finally {
     setKeys(ORIG_OPENAI, ORIG_ANTHROPIC);
+  }
+
+  // ---- buildProgressUser: the model must SEE each topic's current state -----
+  // Regression: the prompt used to list bare titles (and the system prompt
+  // demanded an answer for every topic), so the model — blind to what was
+  // already done — returned done:false for every unmentioned topic and one
+  // "finished paging today" un-marked every previously completed topic.
+  {
+    const prompt = buildProgressUser(
+      [
+        { title: "Paging", done: false },
+        { title: "Scheduling", done: true },
+      ],
+      "finished paging today",
+    );
+    check("progress prompt marks an unfinished topic [not done]", prompt.includes("- Paging [not done]"));
+    check("progress prompt marks a finished topic [done]", prompt.includes("- Scheduling [done]"));
+    check("progress prompt carries the student's update", prompt.includes("finished paging today"));
+    check(
+      "progress prompt lists state for every topic (none blind)",
+      (prompt.match(/\[(?:done|not done)\]/g) ?? []).length === 2,
+    );
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -380,9 +380,33 @@ const PROGRESS_SCHEMA = {
 };
 
 const PROGRESS_SYSTEM =
-  "Given a list of study topics and a student's free-text progress update, decide which topics are " +
-  "now done. Use only the exact topic titles provided. done=true for completed topics, done=false " +
-  "otherwise. Include every topic in your answer.";
+  "Given a list of study topics (each marked with its CURRENT state, [done] or [not done]) and a " +
+  "student's free-text progress update, decide which topics CHANGE state because of this update. " +
+  "Use only the exact topic titles provided. Return ONLY the topics whose state changes: done=true " +
+  "for a topic the update says is now finished, done=false for a topic the update says is not " +
+  "actually finished after all. NEVER include a topic the update doesn't mention — a topic already " +
+  "marked [done] stays done unless the student explicitly says otherwise. An empty updates array is " +
+  "a valid answer.";
+
+/**
+ * The user prompt for {@link interpretProgress} — exported (pure) so tests can
+ * pin that each topic's CURRENT done state is rendered into the prompt.
+ *
+ * Regression: the prompt used to list bare titles and the system prompt demanded
+ * "include every topic". The model — never told what was already done — answered
+ * done:false for every topic the student's sentence didn't mention, and the
+ * caller wrote those in: one "finished paging today" un-marked every previously
+ * completed topic in the course and re-scheduled weeks of finished work.
+ */
+export function buildProgressUser(
+  topics: { title: string; done: boolean }[],
+  status: string,
+): string {
+  const list = topics
+    .map((t) => `- ${t.title} [${t.done ? "done" : "not done"}]`)
+    .join("\n");
+  return `Topics (with current state):\n${list}\n\nProgress update:\n${status}`;
+}
 
 // ---------------------------------------------------------------------------
 
@@ -697,13 +721,12 @@ export async function generateSelfTests(
 }
 
 export async function interpretProgress(
-  topics: string[],
+  topics: { title: string; done: boolean }[],
   status: string,
 ): Promise<{ title: string; done: boolean }[]> {
-  const user = `Topics:\n${topics.map((t) => "- " + t).join("\n")}\n\nProgress update:\n${status}`;
   const parsed = await jsonComplete<{ updates: { title: string; done: boolean }[] }>(
     PROGRESS_SYSTEM,
-    user,
+    buildProgressUser(topics, status),
     PROGRESS_SCHEMA,
     "progress",
   );
