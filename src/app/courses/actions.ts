@@ -1104,6 +1104,44 @@ export async function setGrade(formData: FormData) {
   redirect(`/courses/${id}?msg=graded`);
 }
 
+/**
+ * One-tap "Modul bestanden" — mark a course as passed/complete (or undo it).
+ * The visible action behind the course-page header button and the course-card
+ * menu item; the result form's checkbox (setGrade) stores the same flag. When
+ * the passed-ness actually flips, the plan is rebuilt so the module's pending
+ * sessions disappear immediately (bestanden) or come back (undo). The numeric
+ * grade is left untouched either way.
+ */
+export async function setCoursePassed(formData: FormData) {
+  const userId = await getCurrentUserId();
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    redirect("/courses");
+  }
+  if (!rateLimitOK("MUTATION", userId)) redirect(`/courses/${id}?msg=rate-limited`);
+  const passed = str(formData.get("passed")) === "1";
+  const prior = await prisma.course.findFirst({
+    where: { id, userId },
+    select: { grade: true, passed: true },
+  });
+  if (!prior) redirect("/courses");
+  if (!(await updateOwnedCourse(userId, id, { passed }))) redirect("/courses");
+  if (coursePassed(prior) !== coursePassed({ grade: prior.grade, passed })) {
+    try {
+      await rebuildSchedule(userId);
+    } catch (e) {
+      // The flag itself saved; a replan hiccup must not claim it didn't.
+      logActionError("setCoursePassed.rebuildSchedule", e);
+    }
+    revalidatePath("/today");
+    revalidatePath("/calendar");
+    revalidatePath("/courses");
+  }
+  redirect(`/courses/${id}?msg=${passed ? "passed" : "passed-cleared"}`);
+}
+
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
 export async function toggleTopic(formData: FormData) {
   const userId = await getCurrentUserId();

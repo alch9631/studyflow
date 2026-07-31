@@ -213,6 +213,7 @@ export default async function CoursesPage({
                       progressCount: done + completedBlocks,
                       health,
                       passed,
+                      passedFlag: c.passed,
                     }}
                   />
                 </SwipeCourseCard>

@@ -5,6 +5,7 @@ import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkl
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
+import { coursePassed } from "@/lib/coursePassed";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import { daysUntil, formatFriendlyDate } from "@/lib/dates";
 import { getT } from "@/components/i18n/server";
@@ -18,6 +19,7 @@ import {
   toggleAssignment,
   deleteAssignment,
   setGrade,
+  setCoursePassed,
 } from "../actions";
 import ModuleUploadForm from "@/components/ModuleUploadForm";
 import ToastForm from "@/components/ToastForm";
@@ -187,6 +189,8 @@ const BANNER_KEYS = new Set([
   "imported-basic",
   "graded",
   "grade-invalid",
+  "passed",
+  "passed-cleared",
   "past-exam",
   "exam-too-far",
   "limit-assignments",
@@ -284,6 +288,9 @@ export default async function CoursePage({
   const doneCount = course.topics.filter((t) => t.done).length;
   const today = todayISO();
   const examInDays = daysUntil(course.examDate, today);
+  // Passed (bestanden / passing grade): the header swaps countdown-and-plan
+  // actions for a calm done state with an undo.
+  const passed = coursePassed(course);
 
   // Delete guardrail: real progress (completed study sessions + done topics) that
   // would be lost. Surfaced as a stronger warning line in the delete confirm so a
@@ -582,6 +589,13 @@ export default async function CoursePage({
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">{course.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2">
+            {passed ? (
+              // Passed: no countdown to an exam the student is done with — one
+              // quiet, positive badge instead (same treatment as the card).
+              <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                {t("courses.passedBadge")}
+              </span>
+            ) : (
             <span
               className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                 examInDays < 0
@@ -600,6 +614,7 @@ export default async function CoursePage({
               <Hourglass className="mr-1 inline-block h-3 w-3 align-[-1px]" aria-hidden="true" />
               {examCountdownLabel(t, examInDays)}
             </span>
+            )}
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t("courseDetail.examOn", {
                 date: formatFriendlyDate(course.examDate.toISOString(), t.locale),
@@ -610,20 +625,56 @@ export default async function CoursePage({
             </span>
           </div>
         </div>
-        {/* ONE plan action. It always re-spreads the plan, and tunes it with AI
-            on top when that's available — see refreshPlan in courses/actions. */}
+        {/* ONE plan action (refresh) plus the completion action. A passed
+            course has no plan to refresh — it shows only the undo. */}
         <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
-          <form action={refreshPlan} className="min-w-0 flex-1 sm:flex-none">
-            <input type="hidden" name="courseId" value={course.id} />
-            <SubmitButton
-              variant="primary"
-              size="md"
-              className="w-full sm:w-auto"
-              pendingLabel={t("courseDetail.refreshingPlan")}
-            >
-              {t("courseDetail.refreshPlan")}
-            </SubmitButton>
-          </form>
+          {passed ? (
+            // Undo is only offered when the pass came from the FLAG — a pass
+            // recorded as a grade (≤ 4.0) is undone by editing the grade in the
+            // course options, not by this toggle.
+            course.passed && (
+              <form action={setCoursePassed} className="min-w-0 flex-1 sm:flex-none">
+                <input type="hidden" name="courseId" value={course.id} />
+                <input type="hidden" name="passed" value="0" />
+                <SubmitButton
+                  variant="secondary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  pendingLabel={t("common.saving")}
+                >
+                  {t("courseDetail.unmarkPassed")}
+                </SubmitButton>
+              </form>
+            )
+          ) : (
+            <>
+              {/* The one-tap "I'm done with this module" — wipes its pending
+                  sessions from the plan and stops all countdowns/nagging. */}
+              <form action={setCoursePassed} className="min-w-0 flex-1 sm:flex-none">
+                <input type="hidden" name="courseId" value={course.id} />
+                <input type="hidden" name="passed" value="1" />
+                <SubmitButton
+                  variant="secondary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  pendingLabel={t("common.saving")}
+                >
+                  {t("courseDetail.markPassed")}
+                </SubmitButton>
+              </form>
+              <form action={refreshPlan} className="min-w-0 flex-1 sm:flex-none">
+                <input type="hidden" name="courseId" value={course.id} />
+                <SubmitButton
+                  variant="primary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  pendingLabel={t("courseDetail.refreshingPlan")}
+                >
+                  {t("courseDetail.refreshPlan")}
+                </SubmitButton>
+              </form>
+            </>
+          )}
         </div>
       </div>
 
