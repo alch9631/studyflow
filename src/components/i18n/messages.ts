@@ -367,6 +367,8 @@ const en = {
     healthPassed: "Passed — this module is done.",
     nextPassed: "Done ✓",
     passedBadge: "Passed ✓",
+    menuMarkPassed: "Modul bestanden — mark complete",
+    menuUnmarkPassed: "Not passed after all",
     // ── Plan confidence (one calm word, consistent with Today's truth states) ──
     confComfortable: "Comfortable",
     confTight: "Tight",
@@ -441,6 +443,8 @@ const en = {
     saveGrade: "Save result",
     gradeHint: "Empty to clear. Counts toward your Notenschnitt.",
     passedNoGrade: "Modul bestanden (pass/fail, no grade)",
+    markPassed: "Modul bestanden ✓",
+    unmarkPassed: "Not passed after all?",
     deleteCourse: "Delete this course",
     deleteTitle: "Delete this course?",
     deleteConfirm: "Delete course",
@@ -602,6 +606,8 @@ const en = {
       "imported-basic":
         "Course imported and planned. AI optimization didn't run (the AI was busy or out of budget) — hit Re-optimize in a minute for difficulty, order and review sessions.",
       graded: "Result saved.",
+      passed: "Modul bestanden — congratulations! Its sessions are cleared from your plan.",
+      "passed-cleared": "Marked as not passed — its study plan is back.",
       "grade-invalid": "That grade isn't valid, so it wasn't saved. Use 1.0 to 5.0.",
       "past-exam": "Exam date can't be in the past, so it wasn't saved.",
       "exam-too-far": "Exam date is too far in the future, so it wasn't saved.",
@@ -1352,6 +1358,8 @@ const de: Messages = {
     healthPassed: "Bestanden — dieses Modul ist geschafft.",
     nextPassed: "Geschafft ✓",
     passedBadge: "Bestanden ✓",
+    menuMarkPassed: "Modul bestanden — abschließen",
+    menuUnmarkPassed: "Doch nicht bestanden",
     // ── Plansicherheit (ein ruhiges Wort, passend zu Heutes Wahrheitszuständen) ──
     confComfortable: "Entspannt",
     confTight: "Knapp",
@@ -1426,6 +1434,8 @@ const de: Messages = {
     saveGrade: "Ergebnis speichern",
     gradeHint: "Leer = entfernen. Zählt zu deinem Notenschnitt.",
     passedNoGrade: "Modul bestanden (unbenotet)",
+    markPassed: "Modul bestanden ✓",
+    unmarkPassed: "Doch nicht bestanden?",
     deleteCourse: "Diesen Kurs löschen",
     deleteTitle: "Diesen Kurs löschen?",
     deleteConfirm: "Kurs löschen",
@@ -1584,6 +1594,8 @@ const de: Messages = {
       "imported-basic":
         "Kurs importiert und verplant. Die KI-Optimierung lief nicht (KI ausgelastet oder Budget aufgebraucht) — klick in einer Minute auf Neu optimieren für Schwierigkeit, Reihenfolge und Wiederholungen.",
       graded: "Ergebnis gespeichert.",
+      passed: "Modul bestanden — Glückwunsch! Seine Sessions sind aus deinem Plan entfernt.",
+      "passed-cleared": "Als nicht bestanden markiert — der Lernplan ist zurück.",
       "grade-invalid": "Diese Note ist ungültig und wurde nicht gespeichert. Nutze 1,0 bis 5,0.",
       "past-exam": "Der Prüfungstermin darf nicht in der Vergangenheit liegen, also wurde er nicht gespeichert.",
       "exam-too-far": "Der Prüfungstermin liegt zu weit in der Zukunft, also wurde er nicht gespeichert.",

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
-import { MoreHorizontal, Download, Trash2 } from "lucide-react";
-import { deleteCourse } from "@/app/courses/actions";
+import { MoreHorizontal, Download, Trash2, CheckCircle2 } from "lucide-react";
+import { deleteCourse, setCoursePassed } from "@/app/courses/actions";
 import { iconButtonClass } from "./ui";
 import { Button } from "./ui/button";
 import SubmitButton from "./SubmitButton";
@@ -38,6 +38,8 @@ export default function CourseCardMenu({
   courseId,
   courseName,
   progressCount = 0,
+  passed = false,
+  passedFlag = false,
 }: {
   courseId: string;
   courseName: string;
@@ -49,6 +51,11 @@ export default function CourseCardMenu({
    * and threaded down through the card.
    */
   progressCount?: number;
+  /** Course counts as passed (bestanden flag OR passing grade). */
+  passed?: boolean;
+  /** The raw bestanden FLAG. Undo is only offered for flag-passes — a pass
+   *  recorded as a grade is undone by editing the grade, not by this toggle. */
+  passedFlag?: boolean;
 }) {
   const t = useT();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -82,6 +89,20 @@ export default function CourseCardMenu({
         <DropdownMenuContent align="end">
           <DropdownMenuLabel className="truncate">{courseName}</DropdownMenuLabel>
 
+          {/* "Modul bestanden" — the one-tap complete action a finished course
+              deserves. Submits the hidden form below (the menu content is
+              portaled, so the button links to it via the `form` attribute).
+              Grade-based passes get no toggle here: undoing those means editing
+              the grade, which lives in the course options. */}
+          {(!passed || passedFlag) && (
+            <DropdownMenuItem asChild>
+              <button type="submit" form={`course-passed-${courseId}`} className="w-full">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                {passed ? t("courses.menuUnmarkPassed") : t("courses.menuMarkPassed")}
+              </button>
+            </DropdownMenuItem>
+          )}
+
           <DropdownMenuItem asChild>
             <a href={`/api/export?format=json&courseId=${encodeURIComponent(courseId)}`}>
               <Download className="h-4 w-4" aria-hidden="true" />
@@ -104,6 +125,14 @@ export default function CourseCardMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Hidden action form for the "Modul bestanden" menu item (the item's
+          button targets it via the form attribute — the dropdown content is
+          portaled, so the button can't be nested inside this form). */}
+      <form id={`course-passed-${courseId}`} action={setCoursePassed} className="hidden">
+        <input type="hidden" name="courseId" value={courseId} />
+        <input type="hidden" name="passed" value={passed ? "0" : "1"} />
+      </form>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>

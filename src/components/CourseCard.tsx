@@ -88,6 +88,8 @@ export type CardCourse = {
   health: CourseHealth;
   /** Bestanden / passing grade — replaces the exam countdown with a passed badge. */
   passed?: boolean;
+  /** The raw bestanden flag (drives the menu's undo; grade-passes have none). */
+  passedFlag?: boolean;
 };
 
 /**
@@ -188,7 +190,13 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
 
       {/* Overlay menu — sibling of the Link, never nested inside the anchor. */}
       <div className="absolute right-2 top-2">
-        <CourseCardMenu courseId={course.id} courseName={course.name} progressCount={course.progressCount} />
+        <CourseCardMenu
+          courseId={course.id}
+          courseName={course.name}
+          progressCount={course.progressCount}
+          passed={course.passed}
+          passedFlag={course.passedFlag}
+        />
       </div>
     </div>
   );
