@@ -704,16 +704,20 @@ export async function deleteModuleFile(formData: FormData) {
 /** Delete a course (cascades to its topics + study blocks). */
 export async function deleteCourse(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) redirect("/courses?msg=rate-limited");
+  // Return path: a delete confirmed on the Passed page lands back on the
+  // Passed page, not the active list. The field is an enum, not a raw path —
+  // form input must never steer a redirect anywhere else.
+  const dest = str(formData.get("from")) === "passed" ? "/courses/passed" : "/courses";
+  if (!rateLimitOK("MUTATION", userId)) redirect(`${dest}?msg=rate-limited`);
   let id: string;
   try {
     id = requireId(formData.get("courseId"), "Course");
   } catch {
-    redirect("/courses");
+    redirect(dest);
   }
   // Scoped delete: a non-owner's id is a no-op, never another user's course.
   await deleteOwnedCourse(userId, id);
-  redirect("/courses");
+  redirect(dest);
 }
 
 /** AI progress: read a plain-language status, mark matching topics done, replan. */
@@ -1101,8 +1105,71 @@ export async function setGrade(formData: FormData) {
     revalidatePath("/today");
     revalidatePath("/calendar");
     revalidatePath("/courses");
+    revalidatePath("/courses/passed");
   }
   redirect(`/courses/${id}?msg=graded`);
+}
+
+/**
+ * Outcome of {@link saveGradeInline}: on success, `reopened` says whether the
+ * save flipped the module back to NOT-passed (a failing grade, or a cleared
+ * grade on a flag-less pass) — the card is about to vanish from the Passed
+ * list, and the toast must say so instead of a bare "saved".
+ */
+export type GradeSaveOutcome =
+  | { ok: true; reopened: boolean }
+  | { ok: false; reason: "rate-limited" | "invalid" | "not-found" };
+
+/**
+ * Quick final-grade entry on the Passed page. Same semantics as
+ * {@link setGrade}, but it REVALIDATES instead of redirecting — saving a grade
+ * from the passed list must leave you on the list, not navigate into the
+ * course. Returns a {@link GradeSaveOutcome} so the form can toast honestly
+ * ("invalid" for a grade outside 1.0–5.0 instead of a silent no-op).
+ */
+export async function saveGradeInline(formData: FormData): Promise<GradeSaveOutcome> {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
+  let id: string;
+  try {
+    id = requireId(formData.get("courseId"), "Course");
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+  // Blank = intentional clear (null); an invalid value (e.g. "6") is rejected —
+  // it must neither wipe the stored grade nor claim success.
+  let grade: number | null;
+  try {
+    grade = parseGrade(formData.get("grade"));
+  } catch {
+    return { ok: false, reason: "invalid" };
+  }
+  // Same flip logic as setGrade: only pay for a global rebuild when the
+  // passed-ness actually changes (e.g. a failing 5.0 re-opens a flag-less
+  // module — its plan and countdown come back).
+  const prior = await prisma.course.findFirst({
+    where: { id, userId },
+    select: { grade: true, passed: true },
+  });
+  if (!prior) return { ok: false, reason: "not-found" };
+  if (!(await updateOwnedCourse(userId, id, { grade }))) {
+    return { ok: false, reason: "not-found" };
+  }
+  const wasPassed = coursePassed(prior);
+  const isPassed = coursePassed({ grade, passed: prior.passed });
+  if (wasPassed !== isPassed) {
+    try {
+      await rebuildSchedule(userId);
+    } catch (e) {
+      // The grade itself saved; a replan hiccup must not claim it didn't.
+      logActionError("saveGradeInline.rebuildSchedule", e);
+    }
+    revalidatePath("/today");
+    revalidatePath("/calendar");
+  }
+  revalidatePath("/courses");
+  revalidatePath("/courses/passed");
+  return { ok: true, reopened: wasPassed && !isPassed };
 }
 
 /**
@@ -1138,6 +1205,7 @@ async function applyCoursePassed(
     revalidatePath("/today");
     revalidatePath("/calendar");
     revalidatePath("/courses");
+    revalidatePath("/courses/passed");
   }
   return true;
 }
@@ -1175,9 +1243,10 @@ export async function toggleCoursePassed(formData: FormData): Promise<ActionOutc
   }
   const passed = str(formData.get("passed")) === "1";
   if (!(await applyCoursePassed(userId, id, passed))) return { ok: false, reason: "not-found" };
-  // applyCoursePassed only revalidates when passed-ness flipped; the list must
+  // applyCoursePassed only revalidates when passed-ness flipped; both lists must
   // refresh either way so the card's badge/state is never stale after a swipe.
   revalidatePath("/courses");
+  revalidatePath("/courses/passed");
   return { ok: true };
 }
 

@@ -12,7 +12,7 @@ import CourseCard, {
 } from "@/components/CourseCard";
 import SwipeCourseCard from "@/components/SwipeCourseCard";
 import type { Translator } from "@/components/i18n/messages";
-import { BookOpen } from "lucide-react";
+import { BookOpen, GraduationCap } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { getT } from "@/components/i18n/server";
@@ -92,23 +92,12 @@ function deriveHealth(
 
   const line = t("courses.healthLine", { lead, facts: facts.join(t("courses.whySep")) });
 
-  const next =
-    status === "noPlan"
-      ? t("courses.nextBuildPlan")
-      : status === "examSoon"
-        ? t("courses.nextStartNow")
-        : status === "overloaded"
-          ? t("courses.nextEaseLoad")
-          : status === "attention"
-            ? t("courses.nextKeepGoing")
-            : t("courses.nextStayOnTrack");
-
   // Refine the 5-state health into one calm confidence word (kept consistent with
   // Today's truth states). The same signals already drove `status`, so this is a
   // single deterministic mapping, not a parallel computation.
   const confidence = confidenceFromHealth(status);
 
-  return { status, confidence, line, next };
+  return { status, confidence, line };
 }
 
 export default async function CoursesPage({
@@ -126,7 +115,8 @@ export default async function CoursesPage({
       id: true,
       name: true,
       examDate: true,
-      // Passed-ness (bestanden / passing grade) turns off all health nagging.
+      // Passed-ness (bestanden / passing grade) moves a module off this list
+      // onto /courses/passed.
       grade: true,
       passed: true,
       // Card only needs each topic's done flag (count + total) and each block's
@@ -138,6 +128,12 @@ export default async function CoursesPage({
 
   const today = todayISO();
 
+  // Passed modules (bestanden / passing grade) live on their own page — this
+  // list stays the active shelf, so finished modules never crowd out the work
+  // that still has an exam coming.
+  const active = courses.filter((c) => !coursePassed(c));
+  const passedCount = courses.length - active.length;
+
   // The AI syllabus import is a development affordance when no provider is set:
   // outside dev with AI off we hide the entry point rather than send the user to
   // a disabled screen (manual add still covers the same need).
@@ -148,6 +144,17 @@ export default async function CoursesPage({
     ...(showImport ? [{ label: t("courses.importSyllabus"), href: "/courses/import" }] : []),
     { label: t("courses.addManually"), href: "/courses/new" },
   ];
+
+  const passedLink = passedCount > 0 && (
+    <Link
+      href="/courses/passed"
+      className="inline-flex items-center gap-2 rounded-xl bg-surface-muted px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-accent dark:text-gray-200"
+    >
+      <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+      {t("courses.passedLink", { count: passedCount })}
+      <span aria-hidden="true">›</span>
+    </Link>
+  );
 
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-6xl">
@@ -174,55 +181,57 @@ export default async function CoursesPage({
           description={t("courses.emptyDescActionable")}
           actions={emptyActions}
         />
+      ) : active.length === 0 ? (
+        // Every module is passed: a quiet congratulation, not the "add your
+        // first course" empty state — the courses exist, they're just done.
+        <div className="rounded-2xl bg-surface-muted p-6 text-center">
+          <p className="text-base font-medium text-gray-700 dark:text-gray-200">
+            {t("courses.allPassed")}
+          </p>
+          <div className="mt-4 flex justify-center">{passedLink}</div>
+        </div>
       ) : (
-        <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 xl:grid-cols-3">
-          {courses.map((c) => {
-            const done = c.topics.filter((t) => t.done).length;
-            const completedBlocks = c.blocks.filter((b) => b.completed).length;
-            const remainingMinutes = c.blocks
-              .filter((b) => !b.completed && b.kind === "study")
-              .reduce((s, b) => s + b.minutes, 0);
-            const examInDays = daysUntil(c.examDate, today);
-            // A passed module (bestanden, or a passing grade) is finished for
-            // good: no health nagging ("build a plan", "exam soon"), just a calm
-            // done state — the card shows a passed badge instead of a countdown.
-            const passed = coursePassed(c);
-            const health = passed
-              ? {
-                  status: "healthy" as const,
-                  confidence: "comfortable" as const,
-                  line: t("courses.healthPassed"),
-                  next: t("courses.nextPassed"),
-                }
-              : deriveHealth(t, {
-                  examInDays,
-                  remainingMinutes,
-                  untouched: c.topics.length - done,
-                  hasPlan: c.blocks.length > 0,
-                });
-            return (
-              <li key={c.id}>
-                <SwipeCourseCard courseId={c.id} courseName={c.name} passed={passed}>
-                  <CourseCard
-                    t={t}
-                    course={{
-                      id: c.id,
-                      name: c.name,
-                      examDate: c.examDate.toISOString().slice(0, 10),
-                      examInDays,
-                      progressCount: done + completedBlocks,
-                      health,
-                      passed,
-                      passedFlag: c.passed,
-                    }}
-                  />
-                </SwipeCourseCard>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+        <>
+          <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0 xl:grid-cols-3">
+            {active.map((c) => {
+              const done = c.topics.filter((t) => t.done).length;
+              const completedBlocks = c.blocks.filter((b) => b.completed).length;
+              const remainingMinutes = c.blocks
+                .filter((b) => !b.completed && b.kind === "study")
+                .reduce((s, b) => s + b.minutes, 0);
+              const examInDays = daysUntil(c.examDate, today);
+              const health = deriveHealth(t, {
+                examInDays,
+                remainingMinutes,
+                untouched: c.topics.length - done,
+                hasPlan: c.blocks.length > 0,
+              });
+              return (
+                <li key={c.id}>
+                  <SwipeCourseCard
+                    courseId={c.id}
+                    courseName={c.name}
+                    progressCount={done + completedBlocks}
+                  >
+                    <CourseCard
+                      t={t}
+                      course={{
+                        id: c.id,
+                        name: c.name,
+                        examDate: c.examDate.toISOString().slice(0, 10),
+                        examInDays,
+                        health,
+                      }}
+                    />
+                  </SwipeCourseCard>
+                </li>
+              );
+            })}
+          </ul>
 
+          {passedLink && <div className="mt-6">{passedLink}</div>}
+        </>
+      )}
     </main>
   );
 }

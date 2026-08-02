@@ -83,6 +83,13 @@ export default function SwipeRow({
     if (!enabled) return;
     // Touch / pen only — desktop keeps its buttons; a mouse drag never toggles.
     if (e.pointerType === "mouse") return;
+    // Never hijack a drag that starts in a text-entry control — a horizontal
+    // drag there is the user selecting/scrubbing text (e.g. the grade field on
+    // the Passed page), not a swipe. Buttons and links stay swipeable: the
+    // whole card being a link is the normal case, and plain taps never engage
+    // the gesture anyway (the SLOP guard below).
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
     suppressClick.current = false;
     start.current = { x: e.clientX, y: e.clientY };
     engaged.current = false;

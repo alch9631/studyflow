@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles } from "lucide-react";
+import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
@@ -537,6 +537,19 @@ export default async function CoursePage({
                   })}
                 </AnimatedList>
               )}
+            </section>
+
+            {/* Export — moved here from the old course-card ⋯ menu: the sheet is
+                the one home for per-course housekeeping. A plain download link,
+                no form needed. */}
+            <section className="mt-6 border-t border-gray-100 pt-6 dark:border-gray-800">
+              <a
+                href={`/api/export?format=json&courseId=${encodeURIComponent(course.id)}`}
+                className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:underline dark:text-gray-200"
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                {t("courseDetail.exportCourse")}
+              </a>
             </section>
 
             <ConfirmDialog

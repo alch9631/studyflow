@@ -166,72 +166,102 @@ export default async function InsightsPage() {
               rather than a verdict. */}
           <p className="mb-5 text-base text-gray-700 dark:text-gray-200">{leadLine}</p>
 
-          {/* Rhythm — a quiet reflection on recent study, never a flame or a
-              milestone to live up to. We surface "you studied recently" plus a
-              gentle days-active fact; the all-time best is a soft aside, not a
-              record to beat. Rested days read as calm, not as failure. */}
-          <section
-            aria-label={t("insights.rhythm")}
-            className={`${panelClass} bg-surface-muted p-4 sm:p-5`}
-          >
-            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              {t("insights.rhythm")}
-            </h2>
-            <p className="mt-1 text-base text-gray-700 dark:text-gray-200">
-              {streak > 0 ? t("insights.rhythmRecent") : t("insights.rhythmRested")}
-            </p>
-            {(activeDays > 0 || longestStreak > 1) && (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {activeDays > 0 && t("insights.rhythmActiveDays", { days: activeDays })}
-                {activeDays > 0 && longestStreak > 1 && " "}
-                {longestStreak > 1 && t("insights.rhythmBest", { days: longestStreak })}
+          {/* Rhythm · Recovery · Consistency stay in the open — the three calm
+              reflections the page leads with. Nothing logged recently: hide the
+              would-be-empty activity chart and consistency gauge behind ONE
+              gentle note instead of a wall of empty grids; the 12-week heatmap
+              keeps its own data-driven gate (hasHeatmapData). */}
+          <div className="space-y-6">
+            {/* Rhythm — a quiet reflection on recent study (never a flame or a
+                milestone to live up to) plus the day-by-day shape of the last
+                week. Rested days read as calm, not as failure. */}
+            <section aria-label={t("insights.rhythm")} className={`${panelClass} p-4 sm:p-5`}>
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-semibold">{t("insights.rhythm")}</h2>
+                {!noLoggedData && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {t("insights.last7days")}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-base text-gray-700 dark:text-gray-200">
+                {streak > 0 ? t("insights.rhythmRecent") : t("insights.rhythmRested")}
               </p>
+              {(activeDays > 0 || longestStreak > 1) && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {activeDays > 0 && t("insights.rhythmActiveDays", { days: activeDays })}
+                  {activeDays > 0 && longestStreak > 1 && " "}
+                  {longestStreak > 1 && t("insights.rhythmBest", { days: longestStreak })}
+                </p>
+              )}
+              {!noLoggedData && (
+                <div className="mt-3">
+                  <WeeklyActivityChart data={activity} />
+                </div>
+              )}
+            </section>
+
+            {noLoggedData && (
+              <section className={`${panelClass} bg-surface-muted p-5`}>
+                <h2 className="font-semibold">{t("insights.notEnoughData")}</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {t("insights.notEnoughDataDesc")}
+                </p>
+              </section>
             )}
-          </section>
+
+            {/* Recovery — the 12-week shape of when you studied and rested, exam
+                weeks gently marked. Rest reads as part of the rhythm, not a gap.
+                Gated on the heatmap's own window having completed minutes — not
+                on the 14-day proxy above, which would hide older history. */}
+            {hasHeatmapData && (
+              <section className={`${panelClass} p-5`}>
+                <div className="flex items-baseline justify-between">
+                  <h2 className="font-semibold">{t("insights.recovery")}</h2>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {t("insights.heatmapSub")}
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <StudyHeatmap days={heatmapDays} />
+                </div>
+              </section>
+            )}
+
+            {/* Consistency — the gentle 14-day habit gauge, encouraging at any
+                level. Hidden until there's at least one logged day: a 0% gauge
+                reads as a verdict, not an invitation. */}
+            {!noLoggedData && (
+              <section className={`${panelClass} p-5`}>
+                <h2 className="font-semibold">{t("insights.consistency")}</h2>
+                <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
+                  <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
+                  <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
+                    {consistency >= 80
+                      ? t("insights.rockSolid", { days: activeDays })
+                      : consistency >= 40
+                        ? t("insights.steadyHabit", { days: activeDays })
+                        : t("insights.smallSessions", { days: activeDays })}
+                  </p>
+                </div>
+              </section>
+            )}
+          </div>
 
           {/* Everything number-heavy lives behind one quiet disclosure, so the
               page reads as reflection first and analysis only on request. Inside,
-              the sections are calm nouns — Rhythm · Load · Recovery · Consistency —
-              rather than a competitive scoreboard. */}
+              the sections are calm nouns — Load · Grades · By course — rather
+              than a competitive scoreboard. */}
           <details className="group mt-6">
             <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
               {t("insights.details")}
               <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
             </summary>
 
-            <div className="mt-4 space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
-          {/* Nothing logged recently: hide the would-be-empty activity chart and
-              consistency gauge behind ONE gentle note, so the disclosure never
-              opens onto a wall of empty grids. The Load section below still
-              shows — what's planned next is genuinely useful — and the 12-week
-              heatmap keeps its own data-driven gate (hasHeatmapData). */}
-          {noLoggedData && (
-            <section className={`${panelClass} bg-surface-muted p-5 lg:col-span-2`}>
-              <h2 className="font-semibold">{t("insights.notEnoughData")}</h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {t("insights.notEnoughDataDesc")}
-              </p>
-            </section>
-          )}
-
-          {/* Rhythm — recent study load, the day-by-day shape of the last week. */}
-          {!noLoggedData && (
-          <section className={`${panelClass} p-5`}>
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">{t("insights.rhythm")}</h2>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {t("insights.last7days")}
-              </span>
-            </div>
-            <div className="mt-3">
-              <WeeklyActivityChart data={activity} />
-            </div>
-          </section>
-          )}
-
+            <div className="mt-4 space-y-6">
           {/* Load — what's planned and what's due, framed as workload not a race.
               Headline figures + the closest courses to look at next. */}
-          <section className="space-y-3 lg:col-span-2">
+          <section className="space-y-3">
             <h2 className="font-semibold">{t("insights.load")}</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
@@ -290,43 +320,6 @@ export default async function InsightsPage() {
             )}
           </section>
 
-          {/* Recovery — the 12-week shape of when you studied and rested, exam
-              weeks gently marked. Rest reads as part of the rhythm, not a gap.
-              Gated on the heatmap's own window having completed minutes — not on
-              the 14-day proxy above, which would hide older history. */}
-          {hasHeatmapData && (
-            <section className={`${panelClass} p-5 lg:col-span-2`}>
-              <div className="flex items-baseline justify-between">
-                <h2 className="font-semibold">{t("insights.recovery")}</h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {t("insights.heatmapSub")}
-                </span>
-              </div>
-              <div className="mt-4">
-                <StudyHeatmap days={heatmapDays} />
-              </div>
-            </section>
-          )}
-
-          {/* Consistency — the gentle 14-day habit gauge, encouraging at any level.
-              Hidden until there's at least one logged day: a 0% gauge reads as a
-              verdict, not an invitation. */}
-          {!noLoggedData && (
-          <section className={`${panelClass} p-5`}>
-            <h2 className="font-semibold">{t("insights.consistency")}</h2>
-            <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
-              <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
-              <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
-                {consistency >= 80
-                  ? t("insights.rockSolid", { days: activeDays })
-                  : consistency >= 40
-                    ? t("insights.steadyHabit", { days: activeDays })
-                    : t("insights.smallSessions", { days: activeDays })}
-              </p>
-            </div>
-          </section>
-          )}
-
           {/* Grades — Notenschnitt over graded courses */}
           {graded.length > 0 && (
             <section className={`${panelClass} p-5`}>
@@ -370,7 +363,7 @@ export default async function InsightsPage() {
           )}
 
           {/* Per-course progress */}
-          <section className="lg:col-span-2">
+          <section>
             <h2 className="mb-3 font-semibold">{t("insights.byCourse")}</h2>
             <ul className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-2 sm:space-y-0 lg:grid-cols-3">
               {courses.map((c) => {
