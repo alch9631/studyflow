@@ -11,6 +11,7 @@ import CourseCard, {
   type HealthStatus,
 } from "@/components/CourseCard";
 import SwipeCourseCard from "@/components/SwipeCourseCard";
+import MarkPassedButton from "@/components/MarkPassedButton";
 import type { Translator } from "@/components/i18n/messages";
 import { BookOpen, GraduationCap } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
@@ -213,16 +214,25 @@ export default async function CoursesPage({
                     courseName={c.name}
                     progressCount={done + completedBlocks}
                   >
-                    <CourseCard
-                      t={t}
-                      course={{
-                        id: c.id,
-                        name: c.name,
-                        examDate: c.examDate.toISOString().slice(0, 10),
-                        examInDays,
-                        health,
-                      }}
-                    />
+                    {/* The mark-passed overlay is a SIBLING of the card's link
+                        (never nested in the anchor): desktop's one-click
+                        "Modul bestanden", revealed on hover — touch has the
+                        swipe instead. Bottom-right, where the old pill sat. */}
+                    <div className="group/card relative">
+                      <CourseCard
+                        t={t}
+                        course={{
+                          id: c.id,
+                          name: c.name,
+                          examDate: c.examDate.toISOString().slice(0, 10),
+                          examInDays,
+                          health,
+                        }}
+                      />
+                      <div className="absolute bottom-3 right-3">
+                        <MarkPassedButton courseId={c.id} courseName={c.name} />
+                      </div>
+                    </div>
                   </SwipeCourseCard>
                 </li>
               );

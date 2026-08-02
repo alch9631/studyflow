@@ -436,13 +436,15 @@ export default async function CoursePage({
                 <label htmlFor="settings-grade" className="block font-medium">
                   {t("courseDetail.finalGrade")}
                 </label>
+                {/* Text + decimal keypad, not type="number": German users type
+                    "1,7" and number inputs swallow the comma; parseGrade
+                    normalizes it. */}
                 <Input
                   id="settings-grade"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   name="grade"
-                  step="0.1"
-                  min="1"
-                  max="5"
+                  maxLength={4}
                   defaultValue={course.grade ?? ""}
                   placeholder={t("courseDetail.gradePlaceholder")}
                   className="mt-1 w-28"

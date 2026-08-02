@@ -63,13 +63,14 @@ export default function GradeQuickForm({
         <label htmlFor={`grade-${courseId}`} className="block font-medium">
           {t("courseDetail.finalGrade")}
         </label>
+        {/* Text + decimal keypad, not type="number": German users type "1,7"
+            and number inputs swallow the comma; parseGrade normalizes it. */}
         <Input
           id={`grade-${courseId}`}
-          type="number"
+          type="text"
+          inputMode="decimal"
           name="grade"
-          step="0.1"
-          min="1"
-          max="5"
+          maxLength={4}
           defaultValue={initialGrade ?? ""}
           placeholder={t("courseDetail.gradePlaceholder")}
           className="mt-1 w-28"

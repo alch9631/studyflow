@@ -267,7 +267,12 @@ export default async function InsightsPage() {
               <Stat label={t("insights.doneWhenDue")} value={`${duePct}%`} sub={`${fmtMin(dueDone)} / ${fmtMin(dueTotal)}`} />
               <Stat label={t("insights.focusLogged")} value={fmtMin(loggedMinutes)} />
               <Stat label={t("insights.next7days")} value={fmtMin(upcomingWorkload)} sub={t("insights.studyPlanned")} />
-              <Stat label={t("insights.modulesDone")} value={`${completedModules}`} sub={t("insights.ofN", { count: courses.length })} />
+              <Stat
+                label={t("insights.modulesDone")}
+                value={`${completedModules}`}
+                sub={t("insights.ofN", { count: courses.length })}
+                href="/courses/passed"
+              />
             </div>
 
             {/* This week */}
@@ -405,12 +410,30 @@ export default async function InsightsPage() {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className={`${panelClass} p-4`}>
+function Stat({
+  label,
+  value,
+  sub,
+  href,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  /** Makes the whole tile a link (e.g. "Modules done" → the Passed page). */
+  href?: string;
+}) {
+  const body = (
+    <>
       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</div>
       <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{sub}</div>}
-    </div>
+    </>
+  );
+  return href ? (
+    <Link href={href} className={`${panelClass} block p-4 transition-colors hover:bg-accent`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={`${panelClass} p-4`}>{body}</div>
   );
 }
