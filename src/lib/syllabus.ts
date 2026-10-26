@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { isFileCategory, type FileCategory } from "./fileCategory";
 import { MAX_TOPIC_TITLE_LENGTH } from "./validate";
 import type { StudySection } from "./studyDraft";
+import { detectDocumentOutline, documentPages, outlineUnits, structureAwareInput } from "./documentOutline";
 
 /**
  * AI extraction layer — provider-flexible. Uses an OpenAI-compatible endpoint if
@@ -43,7 +44,7 @@ export function isSyllabusAIEnabled(): boolean {
  * user message is a LIST (topic titles, a progress note) are never shrinkable:
  * cutting those silently drops topics from the answer.
  */
-type CompleteOpts = { maxTokens?: number; shrinkable?: boolean };
+type CompleteOpts = { maxTokens?: number; shrinkable?: boolean; shrinkSource?: string };
 
 /** How many times an over-budget request is retried with less material. */
 const MAX_SHRINK_RETRIES = 2;
@@ -106,7 +107,7 @@ async function jsonComplete<T>(
         console.warn(
           `[ai:${name}] request over the provider's token budget — retrying with ${next} of ${body.length} chars`,
         );
-        body = body.slice(0, next);
+        body = structureAwareInput(opts.shrinkSource ?? user, next);
       }
     }
   }
@@ -184,14 +185,13 @@ const PROMPT_OVERHEAD_TOKENS = 800;
 const CHARS_PER_TOKEN = 2;
 
 /**
- * Cap material sent to the model so a big upload doesn't blow the provider's
- * token budget. The head of a document carries the most signal, so truncating
- * the tail degrades gracefully instead of erroring. `AI_MAX_INPUT_CHARS` still
+ * Fit material into a request while retaining structure from the whole document.
+ * `AI_MAX_INPUT_CHARS` still
  * overrides the computed cap outright, for pinning a known-good size.
  */
 export function capInput(text: string): string {
   const envCap = Number(process.env.AI_MAX_INPUT_CHARS);
-  if (Number.isFinite(envCap) && envCap > 0) return text.slice(0, Math.floor(envCap));
+  if (Number.isFinite(envCap) && envCap > 0) return structureAwareInput(text, Math.floor(envCap));
 
   const envBudget = Number(process.env.AI_TOKEN_BUDGET);
   const budget =
@@ -201,7 +201,7 @@ export function capInput(text: string): string {
   // A budget too small to hold the framing would compute a negative cap and cut
   // everything; send a minimal slice instead and let the retry path settle it.
   const cap = Math.max(1_000, forInput * CHARS_PER_TOKEN);
-  return text.slice(0, cap);
+  return structureAwareInput(text, cap);
 }
 
 /**
@@ -348,14 +348,21 @@ export function normalizeSyllabus(
 }
 
 export async function extractSyllabus(text: string): Promise<ExtractedSyllabus> {
+  const outline = detectDocumentOutline(documentPages(text), false);
   const parsed = await jsonComplete<ExtractedSyllabus>(
     SYLLABUS_SYSTEM,
     capInput(text),
     SYLLABUS_SCHEMA,
     "syllabus",
-    { shrinkable: true },
+    { shrinkable: true, shrinkSource: text },
   );
-  return normalizeSyllabus(parsed);
+  const result = normalizeSyllabus(parsed);
+  // Structural coverage comes from the document, not from what a small model
+  // happened to echo. Do not silently drop later chapters or reorder the script.
+  if (outline) result.topics = outlineUnits(outline, null, text.split("\n").length).map((unit) => ({
+    title: `${unit.id.startsWith("h-") ? "" : unit.id + " "}${unit.title}`, effort: unit.estimatedMinutes / 90,
+  }));
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -667,14 +674,20 @@ export async function analyzeModuleContent(
   text: string,
   docType?: FileCategory | null,
 ): Promise<ModuleAnalysis> {
+  const outline = !["uebung", "altklausur", "mockexam"].includes(docType ?? "")
+    ? detectDocumentOutline(documentPages(text), false) : null;
   const parsed = await jsonComplete<ModuleAnalysis>(
     buildAnalyzeSystem(docType),
     `Module: ${courseName}\n\nMaterial:\n${capInput(text)}`,
     ANALYZE_SCHEMA,
     "moduleanalysis",
-    { shrinkable: true },
+    { shrinkable: true, shrinkSource: `Module: ${courseName}\n\n${text}` },
   );
-  return normalizeModuleAnalysis(parsed);
+  const result = normalizeModuleAnalysis(parsed);
+  if (outline) result.topics = outlineUnits(outline, null, text.split("\n").length).map((unit) => ({
+    title: `${unit.id.startsWith("h-") ? "" : unit.id + " "}${unit.title}`, difficulty: 1, estMinutes: unit.estimatedMinutes,
+  }));
+  return result;
 }
 
 /** Draft actionable work from bounded, labelled excerpts instead of topic names. */

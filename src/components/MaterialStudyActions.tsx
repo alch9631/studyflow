@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { prepareMaterialTasks, addMaterialTasks } from "@/app/courses/studyActions";
+import { prepareMaterialTasks, prepareMaterialPlan, addMaterialTasks } from "@/app/courses/studyActions";
+import type { MaterialOutline } from "@/lib/documentOutline";
 import { readStudyDrafts, type StudyDraftSet } from "@/lib/studyDraft";
 import { useLocale, useT } from "./i18n/I18nProvider";
 import { useToast } from "./Toast";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import QuickStudySetup from "./QuickStudySetup";
+import MaterialOutlineReview from "./MaterialOutlineReview";
 
 export default function MaterialStudyActions({ fileId, courseId, filename, stored, autoOpen = false }: {
   fileId: string; courseId: string; filename: string; stored: string | null; autoOpen?: boolean;
@@ -19,15 +21,29 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
   const [selected, setSelected] = useState<string[]>(() => readStudyDrafts(stored)?.items.map((item) => item.id) ?? []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [outline, setOutline] = useState<MaterialOutline | null>(null);
+  const [prepared, setPrepared] = useState(false);
+  const [smallTasks, setSmallTasks] = useState(false);
   const preparing = useRef(false);
   useEffect(() => {
-    if (!open || drafts || preparing.current) return;
+    if (!open || prepared || preparing.current) return;
     preparing.current = true;
-    void prepareMaterialTasks(fileId, language).then((result) => {
+    void prepareMaterialPlan(fileId, language).then((result) => {
       if (!result.ok) { setError(result.error); return; }
-      setDrafts(result.drafts); setSelected(result.drafts.items.map((item) => item.id));
+      if ("outline" in result) setOutline(result.outline);
+      else { setDrafts(result.drafts); setSelected(result.drafts.items.map((item) => item.id)); }
+      setPrepared(true);
     }).catch(() => setError("PREPARE_FAILED")).finally(() => { preparing.current = false; });
-  }, [open, drafts, fileId, language]);
+  }, [open, prepared, fileId, language]);
+
+  async function showSmallTasks() {
+    setPending(true);
+    try {
+      const result = await prepareMaterialTasks(fileId, language);
+      if (!result.ok) { toast(t("flow.prepareError"), "error"); return; }
+      setDrafts(result.drafts); setSelected(result.drafts.items.map((item) => item.id)); setSmallTasks(true);
+    } catch { toast(t("flow.prepareError"), "error"); } finally { setPending(false); }
+  }
 
   async function accept(start: boolean) {
     if (!drafts || pending || !selected.length) return;
@@ -51,15 +67,20 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
     } catch { toast(t("flow.prepareError"), "error"); } finally { setPending(false); }
   }
   return <div className="mt-3 space-y-2">
-    <Button type="button" variant="secondary" className="w-full whitespace-normal" onClick={() => { setError(""); setOpen(true); }}>{t("flow.prepare")}</Button>
+    <Button type="button" variant="secondary" className="w-full whitespace-normal" onClick={() => { setError(""); setOpen(true); }}>{t("flow.preparePlan")}</Button>
     <QuickStudySetup courseId={courseId} fileId={fileId} title={filename} />
-    <Dialog open={open} onOpenChange={(value) => !pending && setOpen(value)}><DialogContent mobileSheet>
-      <DialogTitle>{t("flow.reviewDrafts")}</DialogTitle><DialogDescription>{filename}</DialogDescription>
-      {!drafts && !error && <p role="status" className="py-6 text-sm">{t("flow.preparing")}</p>}
+    <Dialog open={open} onOpenChange={(value) => !pending && setOpen(value)}><DialogContent mobileSheet className={outline && !smallTasks ? "sm:max-w-xl" : ""}>
+      <DialogTitle>{t(outline && !smallTasks ? "flow.reviewOutline" : "flow.reviewDrafts")}</DialogTitle><DialogDescription>{filename}</DialogDescription>
+      {!prepared && !error && <p role="status" className="py-6 text-sm">{t("flow.readingStructure")}</p>}
       {error && <div className="mt-4 space-y-3"><p role="alert" className="text-sm">{t(error === "NO_READABLE_TEXT" ? "flow.noText" : error === "RATE_LIMITED" ? "flow.rateLimited" : "flow.prepareError")}</p>
         <QuickStudySetup courseId={courseId} fileId={fileId} title={filename} />
       </div>}
-      {drafts && <>
+      {prepared && outline && !smallTasks && <MaterialOutlineReview outline={outline} fileId={fileId} loadingTasks={pending} onTasks={() => void showSmallTasks()} onSaved={() => {
+        toast(t("flow.outlineSaved"), "success"); setOpen(false); router.replace(`/courses/${courseId}`); router.refresh();
+      }} />}
+      {prepared && (!outline || smallTasks) && drafts && <>
+        {outline && <Button type="button" variant="secondary" disabled={pending} onClick={() => setSmallTasks(false)}>{t("flow.reviewOutline")}</Button>}
+        {!outline && <p className="mt-3 text-sm text-muted-foreground">{t("flow.noOutline")}</p>}
         <p className="mt-3 text-sm text-muted-foreground">{t(drafts.method === "ai" ? "flow.aiDrafts" : "flow.excerptDrafts")}</p>
         <p className="mt-2 text-xs text-muted-foreground">{t("flow.draftScope")}</p>
         {drafts.nextCursor && <div className="mt-2"><Button type="button" variant="secondary" disabled={pending} onClick={() => void nextBatch()}>{pending ? t("flow.preparing") : t("flow.nextExcerpts")}</Button><p className="mt-1 text-xs text-muted-foreground">{t("flow.nextHint")}</p></div>}

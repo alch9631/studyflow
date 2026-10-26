@@ -23,7 +23,17 @@ open the original. The schema additions are nullable and preserve existing plans
 topics, and completed sessions. Run the isolated study-loop checks with
 `npm run test:study-tasks`.
 
-On mobile, **Upload and prepare tasks** splits material into source-backed tasks
+**Upload and prepare plan** reads the whole script before presenting its chapter
+structure. Multi-page contents lists and numbered/Markdown headings retain their
+original titles, hierarchy and source pages. Chapters group the preview; their
+sections become ordered planning units without counting both a chapter and all
+its sections as separate full workloads. The student reviews the outline before
+adding it. Existing uploads also use this flow through **Prepare a study plan**,
+even if they already have an old six-page task batch. Optional replacement keeps
+completed work, notes, confidence ratings and existing study tasks. Scanned PDFs
+still need a readable text layer; uncertain outlines are explicitly reported.
+
+**Prepare small tasks instead** splits material into source-backed tasks
 you review before adding. AI can suggest specific instructions and recall checks;
 without AI the app prepares reading/exercise tasks directly from the excerpts.
 Generated answer keys must be exact text from the supplied source. **Next excerpts** prepares

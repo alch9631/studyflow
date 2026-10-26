@@ -8,11 +8,12 @@ import { rebuildSchedule } from "./planService";
 import { saveStudyTaskForUser } from "./studyTaskService";
 import { MINUTES_PER_EFFORT, difficultyMultiplier } from "./planner";
 import { ValidationError } from "./validate";
+import { readMaterialOutline } from "./documentOutline";
 
 /** Resolve an exact, previewable section; never silently attach page one to a topic. */
 export async function quickStudySources(userId: string, courseId: string, fileId: string, topicId?: string, cursor?: number) {
   const file = await prisma.moduleFile.findFirst({ where: { id: fileId, courseId, course: { userId }, content: { not: null } },
-    select: { filename: true, mimeType: true, content: true } });
+    select: { filename: true, mimeType: true, content: true, analysis: true } });
   if (!file?.content) return null;
   if (cursor !== undefined && (!Number.isInteger(cursor) || cursor < 1 || cursor > 100000)) throw new ValidationError("Invalid source position.");
   const topic = topicId ? await prisma.topic.findFirst({ where: { id: topicId, courseId, course: { userId } }, select: { title: true } }) : null;
@@ -21,19 +22,22 @@ export async function quickStudySources(userId: string, courseId: string, fileId
     select: { studyTask: true, done: true } });
   const previous = history.map((item) => ({ task: readStudyTask(item.studyTask), done: item.done })).filter((item) => item.task?.sourceFileId === fileId);
   const latest = previous[0];
-  let position = cursor ?? Number(/^(?:PDF p\. |Lines )(\d+)/.exec(latest?.task?.sourceRef ?? "")?.[1] ?? 1);
+  const outlined = topicId ? readMaterialOutline(file.analysis)?.units.find((unit) => unit.topicId === topicId) : undefined;
+  // An outlined topic opens at its own section, not at a previous task's page.
+  let position = cursor ?? (outlined?.page ?? outlined?.line) ?? Number(/^(?:PDF p\. |Lines )(\d+)/.exec(latest?.task?.sourceRef ?? "")?.[1] ?? 1);
   let batch;
   try { batch = await materialStudyBatch({ ...file, content: file.content }, position); }
   catch { return { sections: [], nextCursor: null, cursor: position, suggested: null, reason: "choose" as const }; }
   // Continue after the last completed section, retaining actual page/line numbers.
-  if (cursor === undefined && latest?.done && batch.sections[0]?.reference === latest.task?.sourceRef) {
+  if (cursor === undefined && !outlined && latest?.done && batch.sections[0]?.reference === latest.task?.sourceRef) {
     if (batch.sections.length > 1) batch = { ...batch, sections: batch.sections.slice(1) };
     else if (batch.nextCursor) { position = batch.nextCursor; batch = await materialStudyBatch({ ...file, content: file.content }, position); }
   }
   const tokens = topic?.title.toLocaleLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? [];
   const ranked = batch.sections.map((section) => ({ section, score: tokens.filter((token) => section.text.toLocaleLowerCase().includes(token)).length })).sort((a, b) => b.score - a.score);
-  const matched = ranked[0]?.score > 0 && ranked[0].score > (ranked[1]?.score ?? 0);
-  const suggested = topic ? (matched ? ranked[0].section.reference : null)
+  const groundedSection = outlined && cursor === undefined ? batch.sections[0] : null;
+  const matched = !!groundedSection || ranked[0]?.score > 0 && ranked[0].score > (ranked[1]?.score ?? 0);
+  const suggested = topic ? (groundedSection?.reference ?? (matched ? ranked[0].section.reference : null))
     : batch.sections.find((section) => !previous.some((item) => item.done && item.task?.sourceRef === section.reference))?.reference ?? null;
   return { sections: batch.sections, nextCursor: batch.nextCursor, cursor: position, suggested,
     reason: topic ? (matched ? "matched" as const : "choose" as const) : "continue" as const };

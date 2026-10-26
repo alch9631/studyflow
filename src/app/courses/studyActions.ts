@@ -11,6 +11,8 @@ import { prepareStudyDrafts, acceptStudyDrafts, startQuickStudy, saveStudyCheckp
 import type { StudyMode } from "@/lib/studyTask";
 import { readStudyDrafts } from "@/lib/studyDraft";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
+import { prepareMaterialOutline, acceptMaterialOutline } from "@/lib/materialOutline";
+import { readMaterialOutline } from "@/lib/documentOutline";
 
 function refreshStudy(courseId: string) {
   for (const path of [`/courses/${courseId}`, "/today", "/calendar", "/insights", "/focus", "/practice"]) revalidatePath(path);
@@ -70,10 +72,12 @@ export async function finishStudyTask(data: FormData) {
   }
 }
 
-export async function studyMaterials(courseId: string) {
+export async function studyMaterials(courseId: string, topicId?: string) {
   const userId = await getCurrentUserId();
-  return prisma.moduleFile.findMany({ where: { courseId, course: { userId }, content: { not: null } },
-    orderBy: { createdAt: "desc" }, take: 100, select: { id: true, filename: true } });
+  const files = await prisma.moduleFile.findMany({ where: { courseId, course: { userId }, content: { not: null } },
+    orderBy: { createdAt: "desc" }, take: 100, select: { id: true, filename: true, analysis: true } });
+  return files.map((file) => ({ id: file.id, filename: file.filename,
+    preferred: !!topicId && !!readMaterialOutline(file.analysis)?.units.some((unit) => unit.topicId === topicId) }));
 }
 
 export async function prepareMaterialTasks(fileId: string, language: "en" | "de", next = false) {
@@ -90,6 +94,27 @@ export async function prepareMaterialTasks(fileId: string, language: "en" | "de"
     const drafts = await prepareStudyDrafts(userId, fileId, language === "de" ? "de" : "en", undefined, next);
     return drafts ? { ok: true as const, drafts } : { ok: false as const, error: "NOT_FOUND" };
   } catch (error) { return { ok: false as const, error: error instanceof ValidationError ? error.message : "PREPARE_FAILED" }; }
+}
+
+export async function prepareMaterialPlan(fileId: string, language: "en" | "de") {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return { ok: false as const, error: "RATE_LIMITED" };
+  try {
+    const outline = await prepareMaterialOutline(userId, fileId);
+    if (outline) return { ok: true as const, outline };
+    return await prepareMaterialTasks(fileId, language);
+  } catch (error) {
+    return { ok: false as const, error: error instanceof ValidationError ? error.message : "PREPARE_FAILED" };
+  }
+}
+
+export async function applyMaterialOutline(fileId: string, outlineId: string, ids: string[], replace: boolean) {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return { ok: false as const };
+  const result = await acceptMaterialOutline(userId, fileId, outlineId, ids, replace);
+  if (!result) return { ok: false as const };
+  refreshStudy(result.courseId);
+  return { ok: true as const, count: result.count };
 }
 
 export async function addMaterialTasks(fileId: string, draftId: string, ids: string[], start = false) {

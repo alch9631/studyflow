@@ -39,9 +39,13 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
   useEffect(() => {
     if (!open) return;
     let active = true;
-    void studyMaterials(courseId).then((files) => { if (active) setMaterials(files); }).catch(() => toast(t("flow.startError"), "error"));
+    void studyMaterials(courseId, topicId).then((files) => { if (active) {
+      setMaterials(files);
+      const preferred = files.find((file) => file.preferred);
+      if (preferred && !fileId) setSource((source) => source || preferred.id);
+    } }).catch(() => toast(t("flow.startError"), "error"));
     return () => { active = false; };
-  }, [open, courseId, toast, t]);
+  }, [open, courseId, topicId, fileId, toast, t]);
 
   useEffect(() => {
     if (!open || !source) return;
