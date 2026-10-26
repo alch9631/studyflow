@@ -47,7 +47,7 @@ export default function BehindSheet({
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Bottom-sheet on mobile, centred card on larger screens — matching the
             other Today sheets. Generous padding makes it read as a calm room. */}
-        <DialogContent className="inset-x-0 bottom-0 top-auto m-0 max-w-none rounded-b-none rounded-t-2xl sm:inset-0 sm:m-auto sm:max-w-sm sm:rounded-2xl">
+        <DialogContent mobileSheet>
           <DialogTitle>{t("behind.title")}</DialogTitle>
           <DialogDescription>{t("behind.subtitle")}</DialogDescription>
 

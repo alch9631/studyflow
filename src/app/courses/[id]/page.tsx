@@ -406,9 +406,9 @@ export default async function CoursePage({
               </p>
               <fieldset>
                 <legend className="block text-sm font-medium">{t("courseDetail.studyDays")}</legend>
-                <div className="mt-2 flex flex-wrap gap-3">
+                <div className="mt-2 grid grid-cols-4 gap-1 sm:flex sm:flex-wrap sm:gap-3">
                   {DAY_OPTS.map((d) => (
-                    <label key={d.v} className="flex items-center gap-1.5 text-sm">
+                    <label key={d.v} className="flex min-h-11 items-center gap-1.5 text-sm">
                       <input
                         type="checkbox"
                         name="studyDays"

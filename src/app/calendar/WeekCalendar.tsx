@@ -95,7 +95,7 @@ type DropData = { dayISO: string; startMin: number | null };
 
 /**
  * True only on the client, after mount, when the viewport is actually desktop
- * (≥768px — Tailwind's `md`). Starts `false` so SSR and the first client render
+ * (≥1024px — Tailwind's `lg`). Starts `false` so SSR and the first client render
  * agree (no hydration mismatch) and the heavy desktop @dnd-kit tree — droppables,
  * day columns, drag overlay — is never instantiated on phones, where the `Issues`
  * badge otherwise flags a mismatch and the work is wasted (mobile has its own
@@ -104,7 +104,7 @@ type DropData = { dayISO: string; startMin: number | null };
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    const mql = window.matchMedia("(min-width: 768px)");
+    const mql = window.matchMedia("(min-width: 1024px)");
     const sync = () => setIsDesktop(mql.matches);
     sync();
     mql.addEventListener("change", sync);
@@ -490,6 +490,7 @@ export default function WeekCalendar({
   if (seenWeek !== weekStartISO) {
     setSeenWeek(weekStartISO);
     setSelectedDay(defaultDay);
+    setPlaceTarget(null);
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -925,7 +926,6 @@ export default function WeekCalendar({
     void move(block, data.dayISO, data.startMin);
   }
 
-  const dayIndex = dayISOs.indexOf(selectedDay);
   const examsByDay = useMemo(() => {
     const m = new Map<string, CalExam[]>();
     for (const e of exams) {
@@ -978,20 +978,20 @@ export default function WeekCalendar({
           <Link
             href={`/calendar?week=${prevWeekISO}`}
             aria-label={t("calendar.prevWeek")}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 lg:min-h-0 lg:min-w-0 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
           <Link
             href="/calendar"
-            className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium hover:bg-gray-100 lg:min-h-0 lg:px-2 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             {t("calendar.thisWeek")}
           </Link>
           <Link
             href={`/calendar?week=${nextWeekISO}`}
             aria-label={t("calendar.nextWeek")}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 lg:min-h-0 lg:min-w-0 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -1002,7 +1002,7 @@ export default function WeekCalendar({
               type="button"
               aria-pressed={planningMode}
               onClick={() => setPlanningMode((v) => !v)}
-              className={`hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors md:inline-flex ${
+              className={`hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors lg:inline-flex ${
                 planningMode
                   ? "border-brand bg-brand/10 text-brand-ink"
                   : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -1015,50 +1015,36 @@ export default function WeekCalendar({
         </div>
       </div>
 
-      {/* Mobile day switcher (below md): prev/next + a tappable Mon–Sun strip. */}
-      <div className="mb-2 md:hidden">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            aria-label={t("calendar.prevDay")}
-            disabled={dayIndex <= 0}
-            onClick={() => dayIndex > 0 && setSelectedDay(dayISOs[dayIndex - 1])}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <div className="flex flex-1 justify-between gap-1">
-            {dayISOs.map((dayISO, i) => {
-              const isSel = dayISO === selectedDay;
-              const isToday = dayISO === todayISO;
-              return (
-                <button
-                  key={dayISO}
-                  type="button"
-                  onClick={() => setSelectedDay(dayISO)}
-                  className={`flex flex-1 flex-col items-center rounded-md py-1 text-[11px] font-semibold ${
-                    isSel
-                      ? "bg-brand text-brand-foreground"
-                      : isToday
-                        ? "bg-brand/10 text-brand"
-                        : "text-gray-500 dark:text-gray-400"
-                  }`}
-                >
-                  <span>{weekdayLabels[i]}</span>
-                  <span className="tabular-nums">{Number(dayISO.slice(8, 10))}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            aria-label={t("calendar.nextDay")}
-            disabled={dayIndex >= dayISOs.length - 1}
-            onClick={() => dayIndex < dayISOs.length - 1 && setSelectedDay(dayISOs[dayIndex + 1])}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+      {/* All seven days fit on a phone without squeezing in duplicate arrows. */}
+      <div className="mb-4 lg:hidden">
+        <p className="mb-3 text-sm text-muted-foreground">
+          {new Intl.DateTimeFormat(t.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(selectedDay + "T00:00:00Z"))}
+        </p>
+        <div className="grid grid-cols-7 gap-1" role="group" aria-label={t("calendar.placeDayLabel")}>
+          {dayISOs.map((dayISO, i) => {
+            const isSel = dayISO === selectedDay;
+            const isToday = dayISO === todayISO;
+            return (
+              <button
+                key={dayISO}
+                type="button"
+                onClick={() => setSelectedDay(dayISO)}
+                aria-pressed={isSel}
+                aria-current={isToday ? "date" : undefined}
+                aria-label={new Intl.DateTimeFormat(t.locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(dayISO + "T00:00:00Z"))}
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold ${
+                  isSel
+                    ? "bg-brand text-brand-foreground"
+                    : isToday
+                      ? "bg-brand/10 text-brand-ink"
+                      : "text-gray-500 dark:text-gray-400"
+                }`}
+              >
+                <span>{weekdayLabels[i]}</span>
+                <span className="tabular-nums">{Number(dayISO.slice(8, 10))}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1069,11 +1055,9 @@ export default function WeekCalendar({
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        {/* ── Mobile: calm read-only agenda for the selected day ───────────
-            Precise drag/resize is desktop-only (#9). Mobile shows the grouped
-            Overview plus a read-only agenda; manual placement stays via the
-            placement sheet, and "Auto-arrange my week" is the primary path. */}
-        <div className="md:hidden">
+        {/* Phone agenda: tap to edit a session or mark it done. Unplaced work
+            stays grouped by course, with automatic and manual placement. */}
+        <div className="lg:hidden">
           {/* Exam marker for the selected day. */}
           {examsByDay.get(selectedDay)?.map((e) => (
             <div
@@ -1087,17 +1071,19 @@ export default function WeekCalendar({
           <MobileDayView
             weekUnplaced={weekUnplaced}
             dayTimed={timedFor(selectedDay)}
+            dayLectures={lecturesFor(selectedDay)}
             isArranging={isArranging}
             onAutoArrange={() => autoArrange()}
             onPlace={setPlaceTarget}
+            onToggle={toggle}
           />
         </div>
 
-        {/* ── Desktop (md+): full 7-column week ───────────────────────────── */}
+        {/* ── Desktop (lg+): full 7-column week ───────────────────────────── */}
         {/* Rendered only once we're on a real desktop viewport (client, post-mount)
             so the @dnd-kit droppables/columns never instantiate on mobile or SSR. */}
         {isDesktop && (
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           <div className="overflow-x-auto">
             <div className="min-w-[900px]">
               {/* Header row: time gutter + weekday labels. */}
@@ -1324,6 +1310,7 @@ export default function WeekCalendar({
         target={placeTarget}
         dayISOs={dayISOs}
         todayISO={todayISO}
+        selectedDayISO={selectedDay}
         onClose={() => setPlaceTarget(null)}
         onPlaced={() => router.refresh()}
       />

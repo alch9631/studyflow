@@ -211,6 +211,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Phone form fields need readable text and room for native date/time controls.
+   Keeping fields at 16px also avoids Safari zooming the page on focus. */
+@media (max-width: 767px) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]), select, textarea) {
+    min-height: 44px;
+    max-width: 100%;
+    min-width: 0;
+    font-size: 16px;
+  }
+}
+
 /* Dark mode: text inputs default to a white field — make them readable.
    Checkboxes/radios keep their native look so the checkmark stays visible. */
 .dark input:not([type="checkbox"]):not([type="radio"]),

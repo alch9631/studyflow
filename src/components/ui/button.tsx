@@ -12,8 +12,7 @@ import { cn } from "@/components/lib/utils";
  * keyboard focus ring is defined globally in globals.css; don't suppress it here.
  *
  * `transition` + `active:scale` give every button a subtle, consistent press
- * feel. `md`/`lg` carry a 44px min height so primary tap targets clear the
- * mobile touch-target floor; `sm` stays compact for dense, inline actions.
+ * feel. All sizes carry a 44px phone tap target; `sm` is compact on desktop.
  *
  * For an element that should *look* like a button but be a link, use `asChild`:
  *   <Button asChild variant="primary"><Link href="/today">Go</Link></Button>
@@ -42,7 +41,7 @@ const buttonVariants = cva(
           "text-muted-foreground hover:bg-accent hover:text-foreground",
       },
       size: {
-        sm: "px-3 py-1.5 text-xs",
+        sm: "min-h-11 px-3 py-1.5 text-xs md:min-h-0",
         md: "min-h-11 px-4 py-2 text-sm",
         lg: "min-h-11 px-5 py-2.5 text-sm sm:text-base",
       },

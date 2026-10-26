@@ -5,6 +5,7 @@ import { useT } from "@/components/i18n/I18nProvider";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -26,33 +27,26 @@ import type { CalBlock } from "./WeekCalendar";
  *  - a whole course's worth of unplaced sessions (`target.kind === "course"`),
  *    which are laid back-to-back from the chosen start on the chosen day.
  *
- * Duration comes from each block's planned `minutes`. A block that would spill
- * past local midnight is trimmed to end at midnight (never crossing the day), and
- * bulk placement stops once the day is full, leaving the rest unplaced for another
- * day. There is no nested form here — the controls are plain selects and a button
- * that calls the action directly — to stay clear of the Radix-menu nesting gotcha.
+ * Existing sessions keep their duration; new placements use planned `minutes`.
+ * Bulk placement stops at midnight, leaving any remaining sessions unplaced.
  */
 
 export type PlacementTarget =
   | { kind: "block"; block: CalBlock }
   | { kind: "course"; courseId: string; courseName: string; blocks: CalBlock[] };
 
-// Start-time options, every 30 min across the visible day window (06:00–22:00),
-// which keeps the picker short and the choices realistic for study sessions.
-const PICK_START_MIN = 6 * 60; // 06:00
-const PICK_END_MIN = 22 * 60; // 22:00
-const PICK_STEP = 30;
-
 export default function PlacementSheet({
   target,
   dayISOs,
   todayISO,
+  selectedDayISO,
   onClose,
   onPlaced,
 }: {
   target: PlacementTarget | null;
   dayISOs: string[];
   todayISO: string;
+  selectedDayISO: string;
   onClose: () => void;
   onPlaced: () => void;
 }) {
@@ -60,30 +54,22 @@ export default function PlacementSheet({
   const { toast } = useToast();
   const [isPlacing, startPlacing] = useTransition();
 
-  // Default the day to today (if in this week) else Monday, and the start time to
-  // a sensible mid-morning slot — both editable before placing.
-  const defaultDay = dayISOs.includes(todayISO) ? todayISO : dayISOs[0];
+  // New placements follow the day the student is viewing. Existing sessions
+  // retain their own day and exact time, including auto-arranged minute offsets.
+  const defaultDay = selectedDayISO;
   const [day, setDay] = useState<string>(defaultDay);
-  const [startMin, setStartMin] = useState<number>(9 * 60);
+  const [startTime, setStartTime] = useState("09:00");
 
   // Reset the pickers whenever a new target opens, using the prop-change pattern.
   const [seenTarget, setSeenTarget] = useState<PlacementTarget | null>(target);
   if (seenTarget !== target) {
     setSeenTarget(target);
     if (target) {
-      setDay(defaultDay);
-      setStartMin(9 * 60);
+      const block = target.kind === "block" ? target.block : null;
+      setDay(block?.dayISO ?? defaultDay);
+      setStartTime(minutesToHHMM(block?.startMin ?? 9 * 60));
     }
   }
-
-  const startOptions = useMemo(
-    () =>
-      Array.from(
-        { length: (PICK_END_MIN - PICK_START_MIN) / PICK_STEP + 1 },
-        (_, i) => PICK_START_MIN + i * PICK_STEP,
-      ),
-    [],
-  );
 
   const WEEKDAYS = [
     t("calendar.mon"),
@@ -100,8 +86,10 @@ export default function PlacementSheet({
     return target.kind === "block" ? [target.block] : target.blocks;
   }, [target]);
 
-  const title =
-    target?.kind === "course"
+  const editing = target?.kind === "block" && target.block.startMin != null;
+  const title = editing
+    ? t("calendar.editSessionTitle")
+    : target?.kind === "course"
       ? t("calendar.placeCourseTitle", { course: target.courseName })
       : target?.kind === "block"
         ? t("calendar.placeSessionTitle", { topic: target.block.topicTitle })
@@ -112,20 +100,27 @@ export default function PlacementSheet({
       ? t("calendar.placeCourseDesc", { count: String(target.blocks.length) })
       : t("calendar.placeSessionDesc");
 
+  const latestStart = editing && target?.kind === "block" && target.block.endMin != null
+    ? minutesToHHMM(MINUTES_PER_DAY - (target.block.endMin - target.block.startMin!))
+    : undefined;
+
   async function place() {
-    if (sessions.length === 0) return;
+    if (sessions.length === 0 || isPlacing) return;
     startPlacing(async () => {
+      let placed = 0;
       try {
         // Lay sessions back-to-back from the chosen start; stop when the day is
         // full. Count only writes the server actually ACCEPTED as placed — the
         // action reports per-block outcomes (rate limit, exam day, invalid
         // times) and pretending those landed would quietly lose sessions.
-        let cursor = startMin;
-        let placed = 0;
+        const [hours, minutes] = startTime.split(":").map(Number);
+        let cursor = hours * 60 + minutes;
         let failed = 0;
         let limited = false;
         for (const block of sessions) {
-          const duration = block.minutes;
+          const duration = block.startMin != null && block.endMin != null
+            ? block.endMin - block.startMin
+            : block.minutes;
           if (cursor >= MINUTES_PER_DAY) break;
           const end = Math.min(cursor + duration, MINUTES_PER_DAY);
           if (end <= cursor) break;
@@ -164,70 +159,69 @@ export default function PlacementSheet({
         } else if (failed > 0) {
           toast(t("calendar.placeNextError"), "error");
         }
+        // Keep failed edits open so the student can choose another slot.
+        if (placed === 0) return;
         onPlaced();
         onClose();
       } catch {
-        // A mid-loop write failure must not silently strand the sheet open with no
-        // feedback (some blocks may already be placed) — surface it and close.
         toast(t("calendar.placeNextError"), "error");
-        onPlaced();
-        onClose();
+        // Refresh partial batches, but preserve an unsaved edit for retry.
+        if (placed > 0) {
+          onPlaced();
+          onClose();
+        }
       }
     });
   }
 
   return (
-    <Dialog open={target != null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm">
+    <Dialog open={target != null} onOpenChange={(o) => !o && !isPlacing && onClose()}>
+      <DialogContent mobileSheet>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
+        {editing && target?.kind === "block" && (
+          <p className="mt-3 break-words text-sm font-medium">{target.block.topicTitle} · {target.block.courseName}</p>
+        )}
 
-        <div className="mt-4 flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("calendar.placeDayLabel")}
-            </span>
-            <Select value={day} onChange={(e) => setDay(e.target.value)}>
-              {dayISOs.map((iso, i) => (
-                <option key={iso} value={iso}>
-                  {WEEKDAYS[i]} {Number(iso.slice(8, 10))}
-                  {iso === todayISO ? ` · ${t("calendar.today")}` : ""}
-                </option>
-              ))}
-            </Select>
-          </label>
+        <form onSubmit={(event) => { event.preventDefault(); void place(); }}>
+          <div className="mt-4 flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("calendar.placeDayLabel")}
+              </span>
+              <Select value={day} onChange={(e) => setDay(e.target.value)}>
+                {dayISOs.map((iso, i) => (
+                  <option key={iso} value={iso}>
+                    {WEEKDAYS[i]} {Number(iso.slice(8, 10))}
+                    {iso === todayISO ? ` · ${t("calendar.today")}` : ""}
+                  </option>
+                ))}
+              </Select>
+            </label>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              {t("calendar.placeStartLabel")}
-            </span>
-            <Select
-              value={String(startMin)}
-              onChange={(e) => setStartMin(Number(e.target.value))}
-            >
-              {startOptions.map((m) => (
-                <option key={m} value={m}>
-                  {minutesToHHMM(m)}
-                </option>
-              ))}
-            </Select>
-          </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                {t("calendar.placeStartLabel")}
+              </span>
+              <Input type="time" required step={60} max={latestStart} value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full" />
+            </label>
 
-          {sessions.length > 1 && (
-            <p className="text-[12px] text-gray-500 dark:text-gray-400">
-              {t("calendar.placeBackToBack", { count: String(sessions.length) })}
-            </p>
-          )}
-        </div>
+            {sessions.length > 1 && (
+              <p className="text-[12px] text-gray-500 dark:text-gray-400">
+                {t("calendar.placeBackToBack", { count: String(sessions.length) })}
+              </p>
+            )}
+          </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="md" onClick={onClose}>
-            {t("calendar.placeCancel")}
-          </Button>
-          <Button type="button" variant="primary" size="md" onClick={place} disabled={isPlacing}>
-            {isPlacing ? t("calendar.placing") : t("calendar.placeConfirm")}
-          </Button>
-        </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="md" onClick={onClose} disabled={isPlacing}>
+              {t("calendar.placeCancel")}
+            </Button>
+            <Button type="submit" variant="primary" size="md" disabled={isPlacing}>
+              {isPlacing ? t("calendar.placing") : t(editing ? "calendar.saveTime" : "calendar.placeConfirm")}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

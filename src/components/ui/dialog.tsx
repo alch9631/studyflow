@@ -75,11 +75,14 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  mobileSheet = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   /** Show the top-right "✕" close affordance. Omit it for flows that must
    *  commit through an explicit choice (e.g. a confirmation's Cancel button). */
   showCloseButton?: boolean;
+  /** Full-width, safe-area-aware bottom sheet on phones; centred on desktop. */
+  mobileSheet?: boolean;
 }) {
   const open = React.useContext(DialogOpenContext);
   const reduce = useReducedMotion();
@@ -103,6 +106,7 @@ function DialogContent({
             <motion.div
               className={cn(
                 "fixed inset-0 z-50 m-auto h-fit max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-xl bg-surface p-5 shadow-xl",
+                mobileSheet && "inset-x-0 bottom-0 top-auto m-0 w-full max-w-none overscroll-contain rounded-b-none rounded-t-2xl pb-[calc(1.25rem+env(safe-area-inset-bottom))] pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] sm:inset-0 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-sm sm:rounded-2xl sm:p-5",
                 className,
               )}
               initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
@@ -114,7 +118,7 @@ function DialogContent({
               {showCloseButton && (
                 <DialogPrimitive.Close
                   aria-label={t("common.close")}
-                  className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </DialogPrimitive.Close>
@@ -134,7 +138,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg font-semibold tracking-tight", className)}
+      className={cn("break-words pr-10 text-lg font-semibold tracking-tight", className)}
       {...props}
     />
   );

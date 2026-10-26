@@ -110,7 +110,7 @@ export default function CourseOptionsSheet({ children }: { children: React.React
                   className={cn(
                     // Mobile: a bottom sheet that nearly fills the viewport.
                     // Desktop (sm+): a right-anchored side sheet.
-                    "fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-5 shadow-xl",
+                    "fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-gray-200 bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] shadow-xl sm:p-5",
                     "sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:h-dvh sm:w-full sm:max-w-md sm:rounded-none sm:rounded-l-2xl",
                     "dark:border-gray-800 dark:bg-gray-900",
                     chromeHidden && "pointer-events-none invisible",
@@ -120,13 +120,13 @@ export default function CourseOptionsSheet({ children }: { children: React.React
                   exit={reduce ? { opacity: 0 } : { opacity: 0, y: "8%" }}
                   transition={{ duration: reduce ? 0 : 0.2, ease: "easeOut" }}
                 >
-                  <div className="mb-4 flex items-center justify-between gap-2">
+                  <div className="sticky -top-5 z-10 -mx-5 mb-4 flex items-center justify-between gap-2 bg-white px-5 py-2 dark:bg-gray-900">
                     <DialogPrimitive.Title className="text-lg font-semibold tracking-tight">
                       {t("courseDetail.optionsTitle")}
                     </DialogPrimitive.Title>
                     <DialogPrimitive.Close
                       aria-label={t("common.close")}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                     >
                       <X className="h-4 w-4" aria-hidden="true" />
                     </DialogPrimitive.Close>

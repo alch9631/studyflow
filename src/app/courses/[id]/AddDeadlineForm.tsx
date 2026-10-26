@@ -24,14 +24,14 @@ export default function AddDeadlineForm({ courseId }: { courseId: string }) {
       action={addAssignment}
       successMessage={t("courseDetail.deadlineAdded")}
       errorMessage={t("courseDetail.deadlineAddError")}
-      className="mb-3 flex flex-wrap items-start gap-2"
+      className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:flex sm:flex-wrap"
     >
       <input type="hidden" name="courseId" value={courseId} />
       <Field
         name="title"
         label={t("courseDetail.titleLabel")}
         required
-        className="min-w-0 flex-1 text-sm"
+        className="col-span-2 min-w-0 flex-1 text-sm"
         labelClassName={LABEL}
       >
         {(p) => (
@@ -44,8 +44,8 @@ export default function AddDeadlineForm({ courseId }: { courseId: string }) {
           />
         )}
       </Field>
-      <Field name="dueDate" label={t("courseDetail.dueLabelField")} required className="text-sm" labelClassName={LABEL}>
-        {(p) => <Input {...p} type="date" required min="2000-01-01" max={maxIso} className="mt-1" />}
+      <Field name="dueDate" label={t("courseDetail.dueLabelField")} required className="min-w-0 text-sm" labelClassName={LABEL}>
+        {(p) => <Input {...p} type="date" required min="2000-01-01" max={maxIso} className="mt-1 w-full" />}
       </Field>
       <SubmitButton variant="primary" size="md" className="mt-5" pendingLabel={t("courseDetail.adding")}>
         {t("courseDetail.add")}
