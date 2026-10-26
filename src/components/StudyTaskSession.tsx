@@ -40,7 +40,6 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
       onCompleted?.();
       toast(t("study.resultSaved"), "success");
       router.push("/today");
-      router.refresh();
     } catch { toast(t("study.resultError"), "error"); }
     finally { setPending(false); }
   }
@@ -51,17 +50,15 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
   </div>;
 
   return <>
-    <section className="mt-6 rounded-xl bg-surface-muted p-4 text-left">
-      <p className="whitespace-pre-wrap break-words text-base font-medium">{task.instruction}</p>
-      {task.sourceRef && <p className="mt-2 break-words text-sm text-muted-foreground">{task.sourceRef}</p>}
-      {source && <a href={source} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
+    <section className="mt-6 text-left">
+      <p className="whitespace-pre-wrap break-words text-lg leading-relaxed">{task.instruction}</p>
+      {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block min-h-11 max-w-full break-words py-3 text-sm font-semibold text-brand-ink underline underline-offset-4 [overflow-wrap:anywhere]">{t("study.openMaterial")}{task.sourceRef && <> · {task.sourceRef}</>}</a>
+        : task.sourceRef && <p className="mt-3 break-words text-sm text-muted-foreground">{task.sourceRef}</p>}
       {task.sourceFileId && !fileAvailable && !source && <p className="mt-2 text-sm text-muted-foreground">{t("study.originalUnavailable")}</p>}
-      {task.sourceExcerpt && <details open className="mt-3 border-t border-border pt-2">
-        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">{t("flow.sourceExcerpt")}</summary>
-        <p className="mb-2 text-xs text-muted-foreground">{t("flow.sourceHint")}</p>
-        <div className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-surface p-3 text-base leading-relaxed">{task.sourceExcerpt}</div>
+      {task.sourceExcerpt && <details className="mt-2">
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">{t("flow.sourceExcerpt")}</summary>
+        <div className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words py-2 text-base leading-relaxed">{task.sourceExcerpt}</div>
       </details>}
-      <p className="mt-3 whitespace-pre-wrap break-words text-sm text-muted-foreground"><strong>{t("study.criteria")}</strong> {task.successCriteria}</p>
       {!hideCheckButton && <Button type="button" variant="secondary" className="mt-4 w-full" onClick={() => onOpenChange(true)}>{t("study.checkResult")}</Button>}
     </section>
     <Dialog open={open} onOpenChange={(value) => !pending && onOpenChange(value)}>
@@ -78,8 +75,6 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
         {task.answerKey && (!revealed ? <Button type="button" variant="secondary" className="mt-3 w-full" onClick={() => setRevealed(true)} disabled={!response.trim()}>{t("study.showAnswer")}</Button>
           : <div className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-surface-muted p-3 text-sm"><strong>{t("study.answerKey")}</strong><p className="mt-2">{task.answerKey}</p></div>)}
         {source && <a href={source} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-11 items-center text-sm text-brand-ink underline">{t("study.openMaterial")}</a>}
-        <p className="mt-3 text-sm text-muted-foreground">{t("flow.finishHint")}</p>
-        <p className="mt-2 text-sm text-muted-foreground">{t("study.readinessHint")}</p>
         <div className="mt-4 flex flex-col gap-2">
           <Button type="button" onClick={() => void finish("complete")} disabled={pending || (!!task.answerKey && !revealed) || (!!task.checkQuestion && !response.trim())}>{pending ? t("study.saving") : t("study.finish")}</Button>
           <Button type="button" variant="secondary" disabled={pending} onClick={() => void finish("practice")}>{t("study.needsPractice")}</Button>

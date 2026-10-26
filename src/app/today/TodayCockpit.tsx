@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import NavigationPending from "@/components/NavigationPending";
 import QuickStudySetup from "@/components/QuickStudySetup";
 import { Check, MoreHorizontal, Undo2 } from "lucide-react";
 import {
@@ -76,16 +77,10 @@ export default function TodayCockpit({
   } | null;
 }) {
   const t = useT();
-  const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [taskMenuOpen, setTaskMenuOpen] = useState(false);
 
   const openBlock = openId ? blocks.find((b) => b.id === openId) ?? null : null;
-
-  // Start the protected Focus room for a chosen block (or today's next).
-  function openFocus(blockId?: string) {
-    router.push(blockId ? `/focus?blockId=${encodeURIComponent(blockId)}` : "/focus");
-  }
 
   // Must-do = open work the day actually needs (everything except the slide lane).
   // The hero is the first of these; the list shows the rest.
@@ -130,14 +125,17 @@ export default function TodayCockpit({
                 <div className="min-w-0 flex-1">
                   {hero.task ? (
                     <Button
+                      asChild
                       size="lg"
-                      className="w-full whitespace-normal break-words"
-                      onClick={() => openFocus(hero.id)}
+                      className="relative w-full whitespace-normal break-words"
                     >
+                      <Link href={`/focus?blockId=${encodeURIComponent(hero.id)}`} prefetch={true}>
                       {hero.progress ? t("flow.resumeTopic", { topic: hero.topicTitle }) : t("today.heroNextAction", {
                         minutes: hero.minutes,
                         topic: hero.topicTitle,
                       })}
+                      <NavigationPending />
+                      </Link>
                     </Button>
                   ) : (
                     <QuickStudySetup courseId={hero.course.id} topicId={hero.topicId} title={hero.topicTitle} label={t("flow.startTopic", { topic: hero.topicTitle })} />
@@ -234,11 +232,6 @@ export default function TodayCockpit({
         onClose={() => {
           setOpenId(null);
           setTaskMenuOpen(false);
-        }}
-        onStartFocus={() => {
-          const id = openBlock?.id;
-          setOpenId(null);
-          openFocus(id);
         }}
       />
     </>
@@ -392,12 +385,10 @@ function SessionSheet({
   block,
   showStartFocus = true,
   onClose,
-  onStartFocus,
 }: {
   block: CockpitBlock | null;
   showStartFocus?: boolean;
   onClose: () => void;
-  onStartFocus: () => void;
 }) {
   const t = useT();
   const { toast } = useToast();
@@ -498,8 +489,11 @@ function SessionSheet({
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {showStartFocus && (
-                <Button type="button" onClick={onStartFocus} className="sm:col-span-2">
-                  {t("today.heroStartFocus")}
+                <Button asChild className="relative sm:col-span-2">
+                  <Link href={`/focus?blockId=${encodeURIComponent(block.id)}`} prefetch={true} onNavigate={onClose}>
+                    {t("today.heroStartFocus")}
+                    <NavigationPending />
+                  </Link>
                 </Button>
               )}
               <Button type="button" variant="secondary" onClick={markDone}>

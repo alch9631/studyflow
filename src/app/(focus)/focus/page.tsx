@@ -32,9 +32,7 @@ export default async function FocusPage({
 }: {
   searchParams: Promise<{ blockId?: string }>;
 }) {
-  const userId = await getCurrentUserId();
-  const t = await getT();
-  const sp = await searchParams;
+  const [userId, t, sp] = await Promise.all([getCurrentUserId(), getT(), searchParams]);
 
   const today = todayISO();
   const start = new Date(today + "T00:00:00Z");
@@ -71,22 +69,25 @@ export default async function FocusPage({
     });
   }
 
-  // Today and Focus use the same explainable ordering, including due reviews.
-  const candidates = await prisma.studyBlock.findMany({
-    where: { date: { gte: start, lt: end }, course: { userId }, completed: false }, select,
-  });
-  const topics = candidates.length ? await prisma.topic.findMany({ where: { id: { in: candidates.map((candidate) => candidate.topicId) }, course: { userId } },
-    select: { id: true, order: true, confidence: true, studyProgress: true } }) : [];
-  const queue = prioritizeBlocks(candidates.map((candidate) => {
-    const topic = topics.find((item) => item.id === candidate.topicId);
-    return { ...candidate, actualMinutes: null, examDays: daysUntil(candidate.course.examDate, today), confidence: topic?.confidence,
-      topicOrder: topic?.order, progress: readStudyProgress(topic?.studyProgress) };
-  }));
+  // Resolve the daily queue only when no usable block was requested. A direct
+  // task start does not need to load and rank the rest of the day's work.
+  let upNext: { topicTitle: string } | null = null;
   if (!block || block.completed) {
+    // Today and Focus use the same explainable ordering, including due reviews.
+    const candidates = await prisma.studyBlock.findMany({
+      where: { date: { gte: start, lt: end }, course: { userId }, completed: false }, select,
+    });
+    const topics = candidates.length ? await prisma.topic.findMany({ where: { id: { in: candidates.map((candidate) => candidate.topicId) }, course: { userId } },
+      select: { id: true, order: true, confidence: true, studyProgress: true } }) : [];
+    const queue = prioritizeBlocks(candidates.map((candidate) => {
+      const topic = topics.find((item) => item.id === candidate.topicId);
+      return { ...candidate, actualMinutes: null, examDays: daysUntil(candidate.course.examDate, today), confidence: topic?.confidence,
+        topicOrder: topic?.order, progress: readStudyProgress(topic?.studyProgress) };
+    }));
     const next = queue.find((candidate) => candidate.progress) ?? queue[0];
     block = next ? candidates.find((candidate) => candidate.id === next.id)! : null;
+    upNext = queue.find((candidate) => candidate.id !== block?.id) ?? null;
   }
-  const upNext = queue.find((candidate) => candidate.id !== block?.id) ?? null;
 
   if (!block) {
     return (
@@ -114,13 +115,16 @@ export default async function FocusPage({
     select: { studyTask: true, studyProgress: true, note: { select: { body: true } } },
   });
   const task = readStudyTask(topic?.studyTask);
-  const attempts = task ? await prisma.studyBlock.findMany({ where: { topicId: block.topicId, course: { userId }, completed: true, studyResult: { not: null } },
-    orderBy: { date: "desc" }, take: 20, select: { studyResult: true } }) : [];
+  const [attempts, fileCount] = await Promise.all([
+    task ? prisma.studyBlock.findMany({ where: { topicId: block.topicId, course: { userId }, completed: true, studyResult: { not: null } },
+      orderBy: { date: "desc" }, take: 20, select: { studyResult: true } }) : [],
+    task?.sourceFileId ? prisma.moduleFile.count({
+      where: { id: task.sourceFileId, courseId: block.course.id, content: { not: null } },
+    }) : 0,
+  ]);
   const lastAttempt = attempts.map((attempt) => readStudyResult(attempt.studyResult)).filter((result) => result?.recordedAt)
     .sort((a, b) => b!.recordedAt!.localeCompare(a!.recordedAt!))[0];
-  const fileAvailable = !!task?.sourceFileId && !!await prisma.moduleFile.count({
-    where: { id: task.sourceFileId, courseId: block.course.id, content: { not: null } },
-  });
+  const fileAvailable = fileCount > 0;
 
   const focusBlock: FocusBlock = {
     id: block.id,

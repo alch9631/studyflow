@@ -58,8 +58,7 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
       if (!result.ok) { toast(t("study.taskError"), "error"); return; }
       toast(t(result.allDone ? "flow.allDone" : "study.taskSaved"), "success"); setOpen(false);
       if (start && result.blockId) router.push(`/focus?blockId=${result.blockId}`);
-      else router.replace(`/courses/${courseId}`);
-      router.refresh();
+      else { router.replace(`/courses/${courseId}`); router.refresh(); }
     } catch { toast(t("study.taskError"), "error"); } finally { setPending(false); }
   }
   async function nextBatch() {

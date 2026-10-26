@@ -160,6 +160,7 @@ const en = {
     error: "Could not set up your task. Check the exam date, study days, time window and material, then try again.",
   },
   flow: {
+    sessionTools: "Notes & timer", starting: "Starting…",
     recognizingUpload: "Saving file and recognizing chapters…", recognizingAutomatic: "Recognizing chapters automatically…",
     recognizedAutomatic: "Recognized chapters: {chapters} · Study sections: {sections}", reviewRecognizedPlan: "Review chapter plan",
     recognitionFailed: "Your file is saved, but chapter recognition failed. Retry recognition or open the original.", retryRecognition: "Retry chapter recognition",
@@ -1317,6 +1318,7 @@ const de: Messages = {
     error: "Die Aufgabe konnte nicht eingerichtet werden. Prüfe Prüfungsdatum, Lerntage, Zeitfenster und Material und versuche es erneut.",
   },
   flow: {
+    sessionTools: "Notizen & Timer", starting: "Wird gestartet…",
     recognizingUpload: "Datei speichern und Kapitel erkennen…", recognizingAutomatic: "Kapitel werden automatisch erkannt…",
     recognizedAutomatic: "Erkannte Kapitel: {chapters} · Lernabschnitte: {sections}", reviewRecognizedPlan: "Kapitelplan prüfen",
     recognitionFailed: "Deine Datei ist gespeichert, aber die Kapitelerkennung ist fehlgeschlagen. Versuche es erneut oder öffne das Original.", retryRecognition: "Kapitelerkennung erneut versuchen",

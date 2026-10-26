@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { quickStartStudy, studyMaterials, uploadMaterial, previewQuickStudySource } from "@/app/courses/studyActions";
+import { quickStartStudy, prepareQuickStudySetup, uploadMaterial, previewQuickStudySource } from "@/app/courses/studyActions";
 import { UPLOAD_ACCEPT, isWithinUploadLimit } from "@/lib/fileText";
 import type { StudyMode } from "@/lib/studyTask";
 import { useLocale, useT } from "./i18n/I18nProvider";
@@ -33,22 +33,28 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
   const [previous, setPrevious] = useState<(number | undefined)[]>([]);
   const [preview, setPreview] = useState<SourcePreview | null>(null);
   const [reference, setReference] = useState("");
+  const [opening, setOpening] = useState(0);
+  const [loadedSetup, setLoadedSetup] = useState("");
+  const setupKey = `${courseId}:${topicId ?? ""}:${fileId}:${opening}`;
+  const loadingMaterials = loadedSetup !== setupKey;
   const loadingSource = !!source && (!preview || preview.fileId !== source || preview.requestedCursor !== cursor);
   const section = preview?.sections.find((item) => item.reference === reference);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !loadingMaterials) return;
     let active = true;
-    void studyMaterials(courseId, topicId).then((files) => { if (active) {
-      setMaterials(files);
-      const preferred = files.find((file) => file.preferred);
-      if (preferred && !fileId) setSource((source) => source || preferred.id);
-    } }).catch(() => toast(t("flow.startError"), "error"));
+    void prepareQuickStudySetup(courseId, topicId, fileId).then((result) => { if (active) {
+      setMaterials(result.files); setSource(result.sourceId); setCursor(undefined); setPrevious([]);
+      setPreview(result.sourceId ? result.preview?.ok ? { ...result.preview, fileId: result.sourceId }
+        : { fileId: result.sourceId, cursor: 1, nextCursor: null, sections: [], reason: "choose", failed: true } : null);
+      setReference(result.preview?.ok ? result.preview.suggested ?? "" : "");
+      setLoadedSetup(setupKey);
+    } }).catch(() => { if (active) { setLoadedSetup(setupKey); toast(t("flow.startError"), "error"); } });
     return () => { active = false; };
-  }, [open, courseId, topicId, fileId, toast, t]);
+  }, [open, loadingMaterials, setupKey, courseId, topicId, fileId, toast, t]);
 
   useEffect(() => {
-    if (!open || !source) return;
+    if (!open || !source || loadingMaterials || preview?.fileId === source && preview.requestedCursor === cursor) return;
     let active = true;
     void previewQuickStudySource(courseId, source, topicId, cursor).then((result) => {
       if (!active) return;
@@ -59,7 +65,7 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
       if (active) setPreview({ fileId: source, requestedCursor: cursor, cursor: cursor ?? 1, nextCursor: null, sections: [], reason: "choose", failed: true });
     });
     return () => { active = false; };
-  }, [open, source, courseId, topicId, cursor]);
+  }, [open, source, courseId, topicId, cursor, loadingMaterials, preview]);
 
   function chooseSource(value: string) {
     setSource(value); setCursor(undefined); setPrevious([]); setReference(""); setPreview(null);
@@ -76,7 +82,7 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
     } catch { toast(t("study.materialError"), "error"); } finally { setUploading(false); }
   }
   async function start(data: FormData) {
-    if (pending || loadingSource) return;
+    if (pending || loadingMaterials || loadingSource) return;
     setPending(true);
     data.set("courseId", courseId);
     if (topicId) data.set("topicId", topicId);
@@ -86,34 +92,33 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
     try {
       const result = await quickStartStudy(data);
       if (!result.ok) { toast(t("flow.startError"), "error"); return; }
-      router.push(`/focus?blockId=${result.blockId}`); router.refresh();
+      router.push(`/focus?blockId=${result.blockId}`);
     } catch { toast(t("flow.startError"), "error"); } finally { setPending(false); }
   }
   return <>
-    <Button type="button" className="w-full whitespace-normal" onClick={() => setOpen(true)}>{label ?? t("flow.quickStart")}</Button>
+    <Button type="button" className="w-full whitespace-normal" onClick={() => { setOpening((value) => value + 1); setOpen(true); }}>{label ?? t("flow.quickStart")}</Button>
     <Dialog open={open} onOpenChange={(value) => !pending && !uploading && setOpen(value)}>
       <DialogContent mobileSheet>
         <DialogTitle>{t("flow.quickStart")}</DialogTitle>
-        <DialogDescription>{title ?? t("flow.quickHint")}</DialogDescription>
+        <DialogDescription className={title ? undefined : "sr-only"}>{title ?? t("flow.quickHint")}</DialogDescription>
         <form action={start} className="mt-4 space-y-4">
           <label className="block text-sm font-medium">{t("study.sourceFile")}
-            <Select value={source} onChange={(event) => chooseSource(event.target.value)} className="mt-1 w-full" disabled={pending || uploading}>
+            <Select value={source} onChange={(event) => chooseSource(event.target.value)} className="mt-1 w-full" disabled={pending || uploading || loadingMaterials}>
               <option value="">{t("flow.ownNotes")}</option>{materials.map((file) => <option key={file.id} value={file.id}>{file.filename}</option>)}
             </Select>
           </label>
           <label className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-brand-ink underline">
             {uploading ? t("flow.recognizingUpload") : t("courseDetail.addFile")}
-            <input type="file" className="sr-only" accept={UPLOAD_ACCEPT} disabled={pending || uploading} onChange={(event) => void addFile(event.target.files?.[0])} />
+            <input type="file" className="sr-only" accept={UPLOAD_ACCEPT} disabled={pending || uploading || loadingMaterials} onChange={(event) => void addFile(event.target.files?.[0])} />
           </label>
-          {source && <a href={`/api/materials/${encodeURIComponent(source)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-ink underline">{t("study.openMaterial")}</a>}
-          {loadingSource ? <p role="status" className="text-sm">{t("flow.loadingSource")}</p> : source && preview && preview.sections.length > 0 ? <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t(`flow.sourceReason.${preview.reason}`)}</p>
+          {loadingMaterials || loadingSource ? <p role="status" className="text-sm">{t("flow.loadingSource")}</p> : source && preview && preview.sections.length > 0 ? <div className="space-y-3">
             <label className="block text-sm font-medium">{t("flow.exactSection")}
               <Select value={reference} required onChange={(event) => setReference(event.target.value)} className="mt-1 w-full" disabled={pending}>
                 <option value="">{t("flow.chooseSection")}</option>{preview.sections.map((item) => <option key={item.reference} value={item.reference}>{item.reference} · {item.text.split("\n")[0].slice(0, 90)}</option>)}
               </Select>
             </label>
-            {section && <div className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-xl bg-surface-muted p-3 text-sm leading-relaxed">{section.text}</div>}
+            {section && <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-muted-foreground">{t("flow.sourceExcerpt")}</summary><div className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words py-2 text-sm leading-relaxed">{section.text}</div>
+              <a href={`/api/materials/${encodeURIComponent(source)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-ink underline">{t("study.openMaterial")}</a></details>}
             <div className="flex flex-wrap gap-2">
               {previous.length > 0 && <Button type="button" variant="secondary" disabled={pending} onClick={() => { setCursor(previous.at(-1)); setPrevious((items) => items.slice(0, -1)); }}>{t("flow.previousSections")}</Button>}
               {preview.nextCursor && <Button type="button" variant="secondary" disabled={pending} onClick={() => { setPrevious((items) => [...items, cursor]); setCursor(preview.nextCursor!); }}>{t("flow.nextExcerpts")}</Button>}
@@ -122,12 +127,14 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
             {source && <p className="my-2 text-sm text-muted-foreground">{t(preview?.failed ? "flow.sourcePreviewFailed" : "flow.noText")}</p>}
             <Input required value={reference} onChange={(event) => setReference(event.target.value)} maxLength={300} placeholder={t("study.sourceRefPlaceholder")} className="mt-1 w-full" />
           </label>}
-          <fieldset><legend className="mb-2 text-sm font-medium">{t("flow.time")}</legend><div className="grid grid-cols-3 gap-2">{[15, 30, 45].map((value) => <Button type="button" key={value} aria-pressed={minutes === value} variant={minutes === value ? "primary" : "secondary"} onClick={() => setMinutes(value)}>{value} min</Button>)}</div></fieldset>
+          {!loadingMaterials && !loadingSource && source && !preview?.sections.length && <a href={`/api/materials/${encodeURIComponent(source)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-ink underline">{t("study.openMaterial")}</a>}
+          <details><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">{minutes} min · {t(`flow.${mode}`)}</summary>
+          <fieldset className="mt-2"><legend className="mb-2 text-sm font-medium">{t("flow.time")}</legend><div className="grid grid-cols-3 gap-2">{[15, 30, 45].map((value) => <Button type="button" key={value} aria-pressed={minutes === value} variant={minutes === value ? "primary" : "secondary"} onClick={() => setMinutes(value)}>{value} min</Button>)}</div></fieldset>
           <fieldset><legend className="mb-2 text-sm font-medium">{t("flow.activity")}</legend>
             <div className="grid grid-cols-3 gap-2">{(["read", "solve", "recall"] as const).map((value) => <Button key={value} type="button" variant={mode === value ? "primary" : "secondary"} aria-pressed={mode === value} onClick={() => setMode(value)}>{t(`flow.${value}`)}</Button>)}</div>
           </fieldset>
-          <p className="text-sm text-muted-foreground">{t("study.taskScopeHint")}</p>
-          <Button type="submit" className="w-full" disabled={pending || uploading || loadingSource || !reference.trim()}>{pending ? t("study.saving") : t("flow.start")}</Button>
+          </details>
+          <Button type="submit" className="w-full" disabled={pending || uploading || loadingMaterials || loadingSource || !reference.trim()}>{pending ? t("flow.starting") : t("flow.start")}</Button>
         </form>
       </DialogContent>
     </Dialog>

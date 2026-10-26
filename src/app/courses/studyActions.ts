@@ -80,6 +80,14 @@ export async function studyMaterials(courseId: string, topicId?: string) {
     preferred: !!topicId && !!readMaterialOutline(file.analysis)?.units.some((unit) => unit.topicId === topicId) }));
 }
 
+/** Load the preferred source and its preview in one client round trip. */
+export async function prepareQuickStudySetup(courseId: string, topicId?: string, fileId?: string) {
+  const files = await studyMaterials(courseId, topicId);
+  const sourceId = files.find((file) => file.id === fileId)?.id ?? files.find((file) => file.preferred)?.id ?? "";
+  const preview = sourceId ? await previewQuickStudySource(courseId, sourceId, topicId) : null;
+  return { files, sourceId, preview };
+}
+
 export async function prepareMaterialTasks(fileId: string, language: "en" | "de", next = false) {
   const userId = await getCurrentUserId();
   const file = await prisma.moduleFile.findFirst({ where: { id: fileId, course: { userId } }, select: { studyDrafts: true } });

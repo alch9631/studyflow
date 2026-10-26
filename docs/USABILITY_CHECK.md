@@ -47,6 +47,14 @@ Check Safari and the installed home-screen app in portrait and landscape:
   Complete a task or edit a calendar session, switch tabs, and confirm the change
   appears immediately. Leave the app idle for more than 30 seconds and check
   that the next visit fetches fresh content.
+- Start a prepared task from Today after its link has prefetched. The study
+  screen should show the task, material link and result action; open the source
+  excerpt or notes and timer only when needed. Write an answer, leave, resume,
+  and check that it is kept. Reveal an answer key and record a result.
+- For an unprepared topic, check that Quick start loads its preferred material
+  and preview together. Choose another section, expand the duration/activity
+  control, and start. A failed source preview must still allow opening the
+  original and entering an exact page or exercise reference.
 
 The automated experience suite (`npm run test:experience`) checks task/parent
 separation, conservation of planned work, source matching and ownership,

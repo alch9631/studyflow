@@ -440,7 +440,7 @@ export default async function TodayPage({
       {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
       {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
       {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
-      {resumeElsewhere && latest && <Link href={`/focus?blockId=${resumeElsewhere.id}`} className="mb-4 flex min-h-11 items-center justify-center rounded-xl bg-brand px-4 py-3 text-center font-semibold text-brand-foreground">{t("flow.resumeTopic", { topic: latest.title })}</Link>}
+      {resumeElsewhere && latest && <Link href={`/focus?blockId=${resumeElsewhere.id}`} prefetch={true} className="mb-4 flex min-h-11 items-center justify-center rounded-xl bg-brand px-4 py-3 text-center font-semibold text-brand-foreground">{t("flow.resumeTopic", { topic: latest.title })}</Link>}
       <div className={todaysLectures.length > 0 || upcomingDeadlines.length > 0 ? "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-12 xl:gap-16" : ""}>
       {blocks.length > 0 ? (
           <div className="min-w-0">
