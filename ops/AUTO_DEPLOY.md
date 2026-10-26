@@ -44,7 +44,7 @@ replacement. Authentication and application service configuration are reused.
 
 ```bash
 systemctl --user status studyflow-autodeploy.timer
-journalctl --user -u studyflow-autodeploy.service -n 80 --no-pager
+journalctl _SYSTEMD_USER_UNIT=studyflow-autodeploy.service -n 80 --no-pager
 python3 ~/.local/share/studyflow-deploy/autodeploy.py --config ~/.config/studyflow-deploy/config.json --status
 cat .next/release.json
 
