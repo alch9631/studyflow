@@ -76,6 +76,7 @@ function DialogContent({
   children,
   showCloseButton = true,
   mobileSheet = false,
+  style,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   /** Show the top-right "✕" close affordance. Omit it for flows that must
@@ -87,6 +88,29 @@ function DialogContent({
   const open = React.useContext(DialogOpenContext);
   const reduce = useReducedMotion();
   const t = useT();
+  const [viewport, setViewport] = React.useState<{ height: number; top: number; bottom: number } | null>(null);
+
+  React.useEffect(() => {
+    if (!open || !window.visualViewport) return;
+    const visible = window.visualViewport;
+    // iOS's keyboard reduces the visual viewport without changing 100dvh.
+    // Fit the sheet to the visible area so fields and actions remain reachable.
+    const sync = () => {
+      if (visible.scale !== 1) return; // preserve the user's pinch zoom
+      setViewport({
+        height: visible.height,
+        top: visible.offsetTop,
+        bottom: Math.max(0, window.innerHeight - visible.height - visible.offsetTop),
+      });
+    };
+    sync();
+    visible.addEventListener("resize", sync);
+    visible.addEventListener("scroll", sync);
+    return () => {
+      visible.removeEventListener("resize", sync);
+      visible.removeEventListener("scroll", sync);
+    };
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -105,10 +129,18 @@ function DialogContent({
           <DialogPrimitive.Content asChild forceMount data-slot="dialog-content" {...props}>
             <motion.div
               className={cn(
-                "fixed inset-0 z-50 m-auto h-fit max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-xl bg-surface p-5 shadow-xl",
-                mobileSheet && "inset-x-0 bottom-0 top-auto m-0 w-full max-w-none overscroll-contain rounded-b-none rounded-t-2xl pb-[calc(1.25rem+env(safe-area-inset-bottom))] pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] sm:inset-0 sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-sm sm:rounded-2xl sm:p-5",
+                "fixed inset-x-0 bottom-[var(--dialog-viewport-bottom,0px)] top-[var(--dialog-viewport-top,0px)] z-50 m-auto h-fit max-h-[calc(var(--dialog-viewport-height,100dvh)-2rem-env(safe-area-inset-top))] w-[calc(100%-2rem)] max-w-sm overflow-y-auto overscroll-contain rounded-xl bg-surface p-5 shadow-xl [overflow-wrap:anywhere]",
+                mobileSheet && "top-auto m-0 w-full max-w-none rounded-b-none rounded-t-2xl pb-[calc(1.25rem+env(safe-area-inset-bottom))] pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] sm:top-[var(--dialog-viewport-top,0px)] sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-sm sm:rounded-2xl sm:p-5",
                 className,
               )}
+              style={{
+                ...(viewport && {
+                  "--dialog-viewport-height": `${viewport.height}px`,
+                  "--dialog-viewport-top": `${viewport.top}px`,
+                  "--dialog-viewport-bottom": `${viewport.bottom}px`,
+                }),
+                ...style,
+              } as React.CSSProperties}
               initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}

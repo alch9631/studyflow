@@ -108,11 +108,11 @@ export default function ModuleUploadForm({
           className="sr-only"
           onChange={onFile}
         />
-        <span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+        <span className="flex min-w-0 max-w-full items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
           {name ? (
             <>
               <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {name}
+              <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
             </>
           ) : (
             t("courseDetail.filePrompt")

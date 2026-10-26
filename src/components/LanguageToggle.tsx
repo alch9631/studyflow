@@ -27,7 +27,7 @@ export default function LanguageToggle() {
             type="button"
             aria-pressed={active}
             onClick={() => setLocale(l as Locale)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium uppercase transition-colors ${
+            className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium uppercase transition-colors ${
               active
                 ? "bg-brand text-brand-foreground"
                 : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"

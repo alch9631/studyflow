@@ -185,7 +185,7 @@ export default function SwipeRow({
         style={{
           transform: `translateX(${dx}px)`,
           transition: dragging || reduce ? "none" : "transform 200ms ease-out",
-          touchAction: "pan-y",
+          touchAction: "pan-y pinch-zoom",
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

@@ -75,8 +75,9 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
     if (await save()) { router.push("/today"); router.refresh(); }
     else setLeaving(false);
   }
-  return <div className="fixed inset-0 z-50 overflow-y-auto bg-background text-foreground">
-    <main className="mx-auto max-w-lg px-4 pb-44 pt-[calc(1rem+env(safe-area-inset-top))] sm:px-6">
+  return <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background text-foreground">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+    <main className="mx-auto max-w-lg pb-6 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-[calc(1rem+env(safe-area-inset-top))]">
       <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-wide text-brand-ink">{t("focus.title")}</span>
         <Button type="button" variant="ghost" disabled={leaving} onClick={() => void leave()}>{t("flow.saveLeave")}</Button></div>
       <h1 className="mt-4 break-words text-2xl font-semibold">{block.topicTitle}</h1>
@@ -93,7 +94,8 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
       <p role="status" className="mt-3 text-sm text-muted-foreground">{status === "saving" ? t("flow.savingProgress") : status === "error" ? t("flow.saveError") : status === "saved" ? t("flow.saved") : t("flow.answerSaved")}</p>
       {status === "error" && <Button variant="secondary" className="mt-2" onClick={() => void save()}>{t("common.save")}</Button>}
     </main>
-    <div className="fixed inset-x-0 bottom-0 border-t border-border bg-surface px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+    </div>
+    <div className="shrink-0 border-t border-border bg-surface pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-3">
       <div className="mx-auto max-w-lg"><Button type="button" className="w-full" onClick={() => { setRunning(false); setCheckOpen(true); }}>{t("study.checkResult")}</Button></div>
     </div>
   </div>;

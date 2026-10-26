@@ -9,7 +9,7 @@ export default function ThemeSetting() {
   const t = useT();
 
   return (
-    <div className="inline-flex rounded-xl border border-gray-200 p-1 dark:border-gray-800">
+    <div role="group" aria-label={t("nav.appearance")} className="grid w-full max-w-sm grid-cols-3 rounded-xl border border-gray-200 p-1 dark:border-gray-800">
       {THEME_OPTIONS.map((o) => {
         const active = mode === o.v;
         const Icon = o.Icon;
@@ -19,13 +19,13 @@ export default function ThemeSetting() {
             type="button"
             aria-pressed={active}
             onClick={() => applyMode(o.v)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`flex min-h-11 min-w-0 flex-wrap items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors ${
               active
                 ? "bg-brand text-brand-foreground"
                 : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             }`}
           >
-            <Icon className="h-4 w-4" aria-hidden="true" />
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
             {t(`theme.${o.v}`)}
           </button>
         );

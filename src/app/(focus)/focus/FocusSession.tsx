@@ -299,8 +299,8 @@ export default function FocusSession({
   return (
     // The sealed quiet room: the calm near-white / deep-slate page colour fills
     // the whole viewport (via the design tokens), generously spaced and centred.
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto flex min-h-full max-w-md flex-col px-6 py-8 [padding-top:calc(env(safe-area-inset-top)+2rem)] [padding-bottom:calc(env(safe-area-inset-bottom)+2rem)]">
+    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-background text-foreground">
+      <div className="mx-auto flex min-h-full max-w-md flex-col py-8 pl-[calc(1.5rem+env(safe-area-inset-left))] pr-[calc(1.5rem+env(safe-area-inset-right))] [padding-top:calc(env(safe-area-inset-top)+2rem)] [padding-bottom:calc(env(safe-area-inset-bottom)+2rem)]">
         {/* Minimal top row: just an exit affordance, no nav. */}
         <div className="mb-10 flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-ink">
@@ -309,7 +309,7 @@ export default function FocusSession({
           <button
             type="button"
             onClick={leave}
-            className="rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="min-h-11 min-w-11 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {t("focus.exit")}
           </button>
@@ -318,7 +318,7 @@ export default function FocusSession({
         {/* The one task — large, centred, with plenty of air around it. */}
         <div className="text-center">
           <h1
-            className={`text-balance text-3xl font-semibold leading-tight sm:text-4xl ${
+            className={`text-balance text-3xl font-semibold leading-tight [overflow-wrap:anywhere] sm:text-4xl ${
               optimisticDone ? "text-muted-foreground line-through" : ""
             }`}
           >

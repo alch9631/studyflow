@@ -25,6 +25,22 @@ Insights distinguishes self-checked task goals, tasks needing practice, and
 self-checks repeated after at least 24 hours. It does not infer a grade or mastery
 from time spent or task completion.
 
+## iPhone checks
+
+Check Safari and the installed home-screen app in portrait and landscape:
+
+- Open the menu on a small screen. Reach language and appearance by scrolling,
+  change a preference, then close the menu and scroll the page again.
+- Scroll to the last course. Its controls must clear the add button and tabs.
+- Upload a file with a long filename. Open its study setup and chapter preview;
+  the filename, controls, and actions must stay inside the screen.
+- In a study sheet, focus a text field with the keyboard open. Scroll to the
+  final action, dismiss the keyboard, and rotate the phone. Keep pinch zoom usable.
+- Swipe a course sideways to reveal its action, then scroll vertically across
+  a course. Scroll a source excerpt and focus session without refreshing the page.
+- Check date and time fields, German and English labels, both themes, and a
+  larger system text size. Verify the notch and home indicator leave controls clear.
+
 The automated experience suite (`npm run test:experience`) checks task/parent
 separation, conservation of planned work, source matching and ownership,
 explainable review priority, honest status, guarded undo, first-run capacity,

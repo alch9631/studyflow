@@ -780,10 +780,10 @@ export default async function CoursePage({
                         key={file.id}
                         className="rounded-xl border border-gray-200 p-3 dark:border-gray-800"
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2">
                           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
                           <div className="min-w-0 flex-1">
-                            <div className="break-words font-medium">{file.filename}</div>
+                            <div className="font-medium [overflow-wrap:anywhere]">{file.filename}</div>
                             {originalIds.has(file.id) ? (
                               <a href={`/api/materials/${file.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>
                             ) : <p className="mt-1 text-xs text-muted-foreground">{t("study.originalUnavailable")}</p>}
@@ -815,7 +815,7 @@ export default async function CoursePage({
                           {mockQuestions > 0 && (
                             <Link
                               href={`/practice?courseId=${course.id}&examFile=${file.id}`}
-                              className="shrink-0 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-brand-foreground transition-colors hover:bg-brand-dark"
+                              className="col-start-2 row-start-2 inline-flex min-h-11 items-center justify-center rounded-full bg-brand px-3 py-2 text-center text-xs font-semibold text-brand-foreground transition-colors hover:bg-brand-dark"
                             >
                               {t("courseDetail.practiceExam", { count: mockQuestions })}
                             </Link>
@@ -825,7 +825,7 @@ export default async function CoursePage({
                             fields={{ moduleFileId: file.id }}
                             successMessage={t("courseDetail.fileRemoved")}
                             errorMessage={t("courseDetail.fileRemoveError")}
-                            className="shrink-0"
+                            className="col-start-3 row-start-1 shrink-0"
                             triggerLabel={<Trash2 className="h-4 w-4" aria-hidden="true" />}
                             triggerAriaLabel={t("courseDetail.deleteFileAria", { filename: file.filename })}
                             triggerClassName={iconButtonClass(

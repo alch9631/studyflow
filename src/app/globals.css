@@ -25,6 +25,8 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
+  --mobile-tab-height: 4rem;
+  --app-header-height: calc(3.75rem + 1px + env(safe-area-inset-top));
   /* Near-white page — a hair of cool tint so it isn't a clinical pure white. */
   --background: #f8fafb;
   --foreground: #1a2127; /* soft near-black slate, easier than #171717 */
@@ -201,7 +203,20 @@
   --color-ring: var(--ring);
 }
 
+html {
+  /* Keep Safari's landscape text sizing stable while allowing pinch zoom. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-header-height: calc(4.25rem + 1px + env(safe-area-inset-top));
+  }
+}
+
 body {
+  min-height: 100svh;
   background: var(--background);
   color: var(--foreground);
   /* One universal font everywhere (the Geist sans set up in layout.tsx). */
@@ -213,13 +228,27 @@ body {
 
 /* Phone form fields need readable text and room for native date/time controls.
    Keeping fields at 16px also avoids Safari zooming the page on focus. */
-@media (max-width: 767px) {
-  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]), select, textarea) {
+@media (max-width: 767px), (pointer: coarse) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]), select, textarea) {
     min-height: 44px;
     max-width: 100%;
     min-width: 0;
     font-size: 16px;
   }
+
+  /* Safari gives date/time controls an intrinsic width that can stretch grids. */
+  input:is([type="date"], [type="time"], [type="datetime-local"]) {
+    width: 100%;
+  }
+
+  input::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
+}
+
+:where(button, a, input, select, textarea, summary, label) {
+  touch-action: manipulation;
 }
 
 /* Dark mode: text inputs default to a white field — make them readable.

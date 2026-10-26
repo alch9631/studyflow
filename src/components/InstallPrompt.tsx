@@ -137,7 +137,7 @@ export default function InstallPrompt() {
     <div
       role="dialog"
       aria-labelledby="install-prompt-title"
-      className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 px-[calc(1rem+env(safe-area-inset-left))] motion-safe:animate-[toast-in_220ms_ease-out] lg:bottom-6"
+      className="fixed inset-x-0 bottom-[calc(var(--mobile-tab-height)+1rem+env(safe-area-inset-bottom))] z-40 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] motion-safe:animate-[toast-in_220ms_ease-out] lg:bottom-6"
     >
       <div className="mx-auto flex max-w-md items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-800 dark:bg-gray-900">
         <div
@@ -206,7 +206,7 @@ export default function InstallPrompt() {
           type="button"
           onClick={dismiss}
           aria-label={t("installPrompt.dismissAria")}
-          className="-mr-1 -mt-1 shrink-0 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          className="-mr-1 -mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>

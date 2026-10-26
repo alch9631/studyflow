@@ -107,7 +107,7 @@ export default function CatalogBrowser({
   return (
     <>
       {/* Search + section filter — sticky so they stay reachable while scrolling. */}
-      <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 dark:border-gray-800 dark:bg-gray-950/95">
+      <div className="sticky top-[var(--app-header-height)] z-10 -mx-4 mb-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 dark:border-gray-800 dark:bg-gray-950/95">
         <input
           type="search"
           inputMode="search"
@@ -207,12 +207,12 @@ export default function CatalogBrowser({
 
       {/* Sticky bottom tray — only while something is selected. */}
       {selectedCount > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur lg:bottom-0 dark:border-gray-800 dark:bg-gray-950/95">
+        <div className="fixed inset-x-0 bottom-[calc(var(--mobile-tab-height)+env(safe-area-inset-bottom))] z-40 border-t border-gray-200 bg-white/95 py-3 pl-[calc(0.75rem+env(safe-area-inset-left))] pr-[calc(0.75rem+env(safe-area-inset-right))] backdrop-blur lg:bottom-0 dark:border-gray-800 dark:bg-gray-950/95">
           <div className="mx-auto flex max-w-2xl items-center gap-3">
             <button
               type="button"
               onClick={() => setSelected(new Set())}
-              className="shrink-0 text-sm font-medium text-gray-500 underline-offset-4 hover:underline dark:text-gray-400"
+              className="min-h-11 max-w-[40%] shrink-0 text-sm font-medium text-gray-500 underline-offset-4 hover:underline dark:text-gray-400"
             >
               {t("catalog.clearSelection")}
             </button>

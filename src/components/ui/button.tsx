@@ -18,7 +18,7 @@ import { cn } from "@/components/lib/utils";
  *   <Button asChild variant="primary"><Link href="/today">Go</Link></Button>
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex min-w-0 items-center justify-center gap-1.5 whitespace-normal rounded-full text-center font-medium [overflow-wrap:anywhere] transition active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {
@@ -41,7 +41,7 @@ const buttonVariants = cva(
           "text-muted-foreground hover:bg-accent hover:text-foreground",
       },
       size: {
-        sm: "min-h-11 px-3 py-1.5 text-xs md:min-h-0",
+        sm: "min-h-11 px-3 py-1.5 text-xs md:pointer-fine:min-h-0",
         md: "min-h-11 px-4 py-2 text-sm",
         lg: "min-h-11 px-5 py-2.5 text-sm sm:text-base",
       },

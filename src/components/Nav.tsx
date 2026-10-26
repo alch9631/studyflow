@@ -158,9 +158,9 @@ export default function Nav() {
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-border dark:bg-surface/90">
         <nav
           aria-label={t("nav.primary")}
-          className="mx-auto flex max-w-3xl items-center gap-1 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm"
+          className="mx-auto flex max-w-3xl items-center gap-1 py-2 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] text-sm lg:py-3"
         >
-          <Link href="/" className="mr-auto flex items-center gap-2 font-bold tracking-tight">
+          <Link href="/" className="mr-auto flex min-h-11 min-w-0 items-center gap-2 font-bold tracking-tight">
             <span className="rounded bg-brand px-1.5 py-0.5 text-xs font-extrabold text-brand-foreground">
               TUHH
             </span>
@@ -251,11 +251,11 @@ export default function Nav() {
           aria-modal="true"
           aria-label={t("nav.mainMenu")}
           inert={!open}
-          className={`absolute inset-y-0 right-0 flex w-72 max-w-[80%] flex-col border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-border dark:bg-surface ${
+          className={`absolute inset-y-0 right-0 flex w-80 max-w-[90%] flex-col overflow-y-auto overscroll-contain border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-border dark:bg-surface ${
             open ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
             <span className="text-sm font-semibold tracking-tight">{t("nav.menu")}</span>
             <button
               type="button"
@@ -269,10 +269,10 @@ export default function Nav() {
             </button>
           </div>
 
-          <nav aria-label={t("nav.menu")} className="flex flex-col gap-1 overflow-y-auto p-3">
+          <nav aria-label={t("nav.menu")} className="flex shrink-0 flex-col gap-1 p-3">
             {DRAWER_TABS.map((tab) => {
               const active = isActive(pathname, tab);
-              const cls = `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              const cls = `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
                   ? "bg-brand text-brand-foreground"
                   : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
@@ -303,7 +303,7 @@ export default function Nav() {
           </nav>
 
           {/* Preferences pinned to the drawer bottom: language + theme. */}
-          <div className="mt-auto space-y-3 border-t border-gray-200 p-3 dark:border-gray-800">
+          <div className="mt-auto shrink-0 space-y-3 border-t border-gray-200 p-3 dark:border-gray-800">
             <div>
               <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {t("nav.language")}

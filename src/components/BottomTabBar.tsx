@@ -98,15 +98,15 @@ export default function BottomTabBar() {
       aria-label={t("nav.primaryMobile")}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden dark:border-gray-800 dark:bg-gray-950/95"
     >
-      <ul className="mx-auto flex max-w-3xl items-stretch">
+      <ul className="mx-auto grid max-w-3xl grid-cols-4 items-stretch">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
           return (
-            <li key={tab.href} className="flex-1">
+            <li key={tab.href} className="min-w-0">
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-2 py-2 text-[11px] font-medium transition-colors ${
+                className={`flex min-h-[var(--mobile-tab-height)] flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs font-medium leading-4 transition-colors active:bg-accent ${
                   active
                     ? "text-brand-ink dark:text-white"
                     : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"

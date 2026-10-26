@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useReducedMotion } from "framer-motion";
 import { haptics } from "./haptics";
 import { useT } from "./i18n/I18nProvider";
@@ -24,12 +24,15 @@ const SPINNER_MS = 650; // minimum spinner dwell so the refresh reads as deliber
 
 export default function PullToRefresh({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const onFocus = pathname === "/focus" || pathname.startsWith("/focus/");
   const reduce = useReducedMotion();
   const t = useT();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const startY = useRef<number | null>(null);
+  const startX = useRef(0);
   const active = useRef(false);
   const pullRef = useRef(0);
   const refreshingRef = useRef(false);
@@ -37,7 +40,7 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Coarse-pointer (touch) only — a mouse user has no use for pull-to-refresh
     // and we don't want to fight trackpad overscroll.
-    if (typeof window === "undefined") return;
+    if (onFocus || typeof window === "undefined") return;
     const coarse = window.matchMedia?.("(pointer: coarse)").matches;
     if (!coarse) return;
 
@@ -49,18 +52,32 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
     }
 
     function onTouchStart(e: TouchEvent) {
+      resetGesture();
       if (refreshingRef.current) return;
       // A sheet/dialog is open — leave its own scrolling alone and never refresh
       // the page behind it.
       if (isOverlayOpen()) return;
       if (window.scrollY > 0) return; // only from the very top
       if (e.touches.length !== 1) return;
+      // A nested scroller owns its gesture, including when it is at the top.
+      // This lets source excerpts scroll and prevents refresh from stealing it.
+      let target = e.target instanceof Element ? e.target : null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      while (target && target !== document.body) {
+        if (target.scrollHeight > target.clientHeight && /auto|scroll/.test(getComputedStyle(target).overflowY)) return;
+        target = target.parentElement;
+      }
+      startX.current = e.touches[0].clientX;
       startY.current = e.touches[0].clientY;
       active.current = false;
     }
 
     function onTouchMove(e: TouchEvent) {
       if (startY.current === null || refreshingRef.current) return;
+      if (e.touches.length !== 1) {
+        resetGesture();
+        return;
+      }
       // If a dialog opened mid-gesture (or one was already open), bail out and
       // drop any pull state so we never preventDefault() a sheet's own scroll.
       if (isOverlayOpen()) {
@@ -68,6 +85,11 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
         return;
       }
       const dy = e.touches[0].clientY - startY.current;
+      const dx = Math.abs(e.touches[0].clientX - startX.current);
+      if (!active.current && dx > 8 && dx >= Math.abs(dy)) {
+        resetGesture();
+        return;
+      }
       if (dy <= 0) {
         // Pulling up / scrolling — not our gesture.
         if (!active.current) startY.current = null;
@@ -113,14 +135,14 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("touchend", onTouchEnd, { passive: true });
-    window.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", resetGesture, { passive: true });
     return () => {
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
-      window.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("touchcancel", resetGesture);
     };
-  }, [router, reduce]);
+  }, [router, reduce, onFocus]);
 
   const indicatorShown = pull > 0 || refreshing;
   const progress = Math.min(pull / THRESHOLD, 1);

@@ -89,7 +89,7 @@ export default async function RootLayout({
           {/* Sits below the sticky header; appears only when the browser is
               offline to flag that pages are rendering last-synced content. */}
           <OfflineIndicator />
-          {/* Bottom padding clears the mobile tab bar (its 3.5rem height + the
+          {/* Bottom padding clears the mobile tab bar (its shared height + the
               safe-area inset); desktop has no bottom bar, so reset to 0. The
               left/right insets keep content off a landscape notch (0 in
               portrait, where viewport-fit=cover only adds top/bottom insets).

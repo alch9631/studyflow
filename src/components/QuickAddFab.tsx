@@ -8,7 +8,7 @@ import { useT } from "./i18n/I18nProvider";
 /**
  * Mobile quick-add: a thumb-reachable floating action button that jumps straight
  * into adding a course. It sits bottom-right, clear of the {@link BottomTabBar}
- * (3.5rem) plus a 1rem gap and the device safe-area inset, and is mobile-only
+ * plus a 1rem gap and the device safe-area inset, and is mobile-only
  * (`lg:hidden`) — desktop surfaces a "+ New course" button in the page headers.
  *
  * It's a real `<Link>`, not a JS-driven sheet, so it works without client JS,
@@ -35,7 +35,7 @@ export default function QuickAddFab() {
     <Link
       href="/catalog"
       aria-label={t("fab.addCourse")}
-      className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-lg transition hover:bg-brand-dark active:scale-[.95] lg:hidden"
+      className="fixed bottom-[calc(var(--mobile-tab-height)+1rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-lg transition hover:bg-brand-dark active:scale-[.95] lg:hidden"
     >
       <Plus className="h-6 w-6" aria-hidden="true" />
     </Link>
