@@ -106,22 +106,6 @@ export default function TodayCockpit({
         : t("today.statusProtected");
   const needsAdjust = !allDone && status !== "protected";
 
-  // Richer before→after preview for the one "Adjust today" sheet, computed
-  // server-side from real planner data (page.tsx → recoveryActionPreviews) and
-  // passed down. It carries, per option, the resulting essentials/moved counts,
-  // the new pace, and an HONEST exam-reachability verdict — so each option's line
-  // matches its true effect and never promises an exam it can't make.
-  const behindPreview = previews
-    ? {
-        todayCount: previews.protect.beforeCount,
-        protectMoves: previews.protect.moved,
-        essentialsAfterProtect: previews.protect.afterEssentials,
-        moveMoves: previews.move.moved,
-        protectPaceMin: previews.protect.afterPaceMin,
-        lighterPaceMin: previews.lighter.afterPaceMin,
-        examReach: previews.protect.examReach,
-      }
-    : undefined;
 
   return (
     <>
@@ -136,7 +120,7 @@ export default function TodayCockpit({
             <>
               <Button
                 size="lg"
-                className="w-full"
+                className="w-full whitespace-normal break-words"
                 onClick={() => openFocus(hero.id)}
               >
                 {t("today.heroNextAction", {
@@ -156,7 +140,7 @@ export default function TodayCockpit({
         }
         escape={
           <BehindSheet
-            preview={behindPreview}
+            preview={previews ?? undefined}
             trigger={(open) =>
               needsAdjust ? (
                 // Heavier states surface the ONE recovery entry as a clear button.
@@ -188,7 +172,7 @@ export default function TodayCockpit({
           real core block to anchor it. One core session + (if any) one retrieval
           + one optional — all from the student's real plan, never invented. */}
       {needsAdjust && mvd && mvd.core && (
-        <MinimumViableDayCard mvd={mvd} onStart={openFocus} onOpen={(id) => setOpenId(id)} />
+        <MinimumViableDayCard mvd={mvd} onOpen={(id) => setOpenId(id)} />
       )}
 
       {/* ── SHORT must-do list (left-aligned, quiet rows) ── */}
@@ -240,16 +224,14 @@ export default function TodayCockpit({
  * still moves the student forward, drawn entirely from their real plan: one core
  * study session (the highest-priority work for the nearest exam), one retrieval
  * (a review) when the plan has one, and one optional session. It replaces the
- * dread of a full list with a decisive, doable choice. The primary button starts
- * the core session; the other slots open their session sheet on tap.
+ * dread of a full list with a doable choice. Slots open their session sheet;
+ * the page keeps a single primary Start action above this card.
  */
 function MinimumViableDayCard({
   mvd,
-  onStart,
   onOpen,
 }: {
   mvd: MinimumViableDay;
-  onStart: (blockId: string) => void;
   onOpen: (blockId: string) => void;
 }) {
   const t = useT();
@@ -287,11 +269,6 @@ function MinimumViableDayCard({
         ))}
       </ul>
 
-      {mvd.core && (
-        <Button size="lg" className="mt-4 w-full" onClick={() => onStart(mvd.core!.id)}>
-          {t("today.mvdStart", { minutes: mvd.core.minutes, topic: mvd.core.topicTitle })}
-        </Button>
-      )}
     </section>
   );
 }

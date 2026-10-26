@@ -436,11 +436,10 @@ export function rebuildSchedule(
  * cannot fit before its exam is piled onto the last study day (never dropped) and
  * the course is flagged `intense`.
  */
-async function rebuildScheduleInner(
-  userId: string,
-): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
+async function loadScheduleInputs(userId: string) {
   const courses = await prisma.course.findMany({
     where: { userId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     // Only the fields the scheduler reads: course identity/pace + each topic's
     // effort/done + each block's completion (folding) and logged time (calibration).
     select: {
@@ -478,12 +477,25 @@ async function rebuildScheduleInner(
     where: { userId },
     select: { weekday: true, startMin: true, endMin: true },
   });
+  return { courses, lectures };
+}
+
+export type CourseSchedule = {
+  blocks: EngineBlock[];
+  isOverloaded: boolean;
+  minutesPerDay: number;
+};
+
+/** Calculate once for both recovery previews and commits; this never writes. */
+function calculateSchedule(
+  { courses, lectures }: Awaited<ReturnType<typeof loadScheduleInputs>>,
+  today: string,
+): Map<string, CourseSchedule> {
   const lectureMinByDow = [0, 0, 0, 0, 0, 0, 0];
   for (const l of lectures) {
     lectureMinByDow[l.weekday] += Math.max(0, l.endMin - l.startMin);
   }
 
-  const today = todayISO();
   // Courses the scheduler could not fully fit before their exam (→ `intense`).
   const overloaded = new Set<string>();
 
@@ -697,8 +709,7 @@ async function rebuildScheduleInner(
     }
   }
 
-  // Persist per course: study blocks + spaced reviews; record pace + intensity.
-  const result = new Map<string, { isOverloaded: boolean; minutesPerDay: number }>();
+  const result = new Map<string, CourseSchedule>();
   for (const c of courses) {
     const study = studyByCourse.get(c.id) ?? [];
     const exam = c.examDate.toISOString().slice(0, 10);
@@ -753,11 +764,39 @@ async function rebuildScheduleInner(
       dayLoad,
       ceilingFor,
     );
-    await persistBlocks(c.id, [...study, ...reviews, ...preserved]);
-
+    // Match persistBlocks: a completed recall already covers that topic/day.
+    // Filtering here keeps the preview's counts and minutes equal to the rows
+    // the commit will actually create, including partially completed courses.
+    const completedReviews = new Set(
+      c.blocks.filter((b) => b.completed && b.kind !== "study")
+        .map((b) => blockKey(b.topicId, b.date, b.kind)),
+    );
+    const blocks = [...study, ...reviews, ...preserved].filter(
+      (b) => b.kind === "study" ||
+        !completedReviews.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
+    );
     const daysUsed = new Set(study.map((b) => b.date)).size || 1;
     const minutesPerDay = Math.round(study.reduce((s, b) => s + b.minutes, 0) / daysUsed);
     const isOverloaded = overloaded.has(c.id);
+    result.set(c.id, { blocks, isOverloaded, minutesPerDay });
+  }
+  return result;
+}
+
+/** Read-only recovery proposal, calculated by the same scheduler as apply. */
+export async function previewSchedule(userId: string): Promise<Map<string, CourseSchedule>> {
+  return calculateSchedule(await loadScheduleInputs(userId), todayISO());
+}
+
+async function rebuildScheduleInner(
+  userId: string,
+): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
+  const input = await loadScheduleInputs(userId);
+  const schedule = calculateSchedule(input, todayISO());
+  const result = new Map<string, { isOverloaded: boolean; minutesPerDay: number }>();
+  for (const c of input.courses) {
+    const { blocks, minutesPerDay, isOverloaded } = schedule.get(c.id)!;
+    await persistBlocks(c.id, blocks);
     await prisma.course.update({
       where: { id: c.id },
       data: { minutesPerDay: minutesPerDay || c.minutesPerDay, intense: isOverloaded },

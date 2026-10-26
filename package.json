@@ -14,6 +14,7 @@
     "pretest": "node scripts/prisma-bootstrap.mjs",
     "test": "node scripts/test-all.mjs",
     "test:engine": "tsx src/lib/planner.test.ts",
+    "test:cockpit": "tsx src/app/today/cockpit.test.ts",
     "test:service": "tsx src/lib/planService.test.ts",
     "test:spread": "tsx src/lib/planSpread.test.ts",
     "test:planloss": "tsx src/lib/planLoss.test.ts",

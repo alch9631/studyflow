@@ -148,6 +148,11 @@ function BlockCard({
   });
   const isReview = block.kind === "review";
   const timed = block.startMin != null && block.endMin != null;
+  // Fit the visible content to the real slot height. A 15-minute block has
+  // room for one title line; forcing three shrinking lines into it hid the title.
+  const cardHeight = positioned?.height ?? Infinity;
+  const compact = cardHeight < 30;
+  const showCourse = cardHeight >= 54;
   const label = timed
     ? `${minutesToHHMM(block.startMin!)}–${minutesToHHMM(block.endMin!)}`
     : `${block.minutes}m`;
@@ -166,7 +171,7 @@ function BlockCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/card flex flex-col overflow-hidden rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition-opacity ${
+      className={`group/card relative flex flex-col overflow-hidden rounded-md border px-1.5 text-left text-[11px] leading-tight shadow-sm transition-opacity ${compact ? "py-0" : "py-0.5"} ${
         isReview
           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/30 dark:text-emerald-100"
           : "border-gray-200 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -198,19 +203,23 @@ function BlockCard({
         type="button"
         aria-label={`${block.topicTitle}, ${block.courseName}, ${label}. ${t("calendar.dragHint")}`}
         title={`${block.topicTitle} · ${block.courseName} · ${label}`}
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden pr-4 text-left focus:outline-none focus:ring-2 focus:ring-brand ${
+        className={`flex min-h-0 flex-1 flex-col justify-center overflow-hidden pr-4 text-left focus:outline-none focus:ring-2 focus:ring-brand ${
           block.completed ? "line-through" : ""
         }`}
         {...listeners}
         {...attributes}
       >
-        <span className="truncate font-medium">{block.topicTitle}</span>
-        <span className="truncate text-[10px] text-gray-500 dark:text-gray-400">
-          {block.courseName}
-        </span>
-        <span className="mt-auto text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
-          {label}
-        </span>
+        <span className="w-full shrink-0 truncate font-medium leading-[14px]">{block.topicTitle}</span>
+        {showCourse && (
+          <span className="w-full shrink-0 truncate text-[10px] leading-3 text-gray-500 dark:text-gray-400">
+            {block.courseName}
+          </span>
+        )}
+        {!compact && (
+          <span className="w-full shrink-0 truncate text-[10px] leading-3 tabular-nums text-gray-500 dark:text-gray-400">
+            {label}
+          </span>
+        )}
       </button>
 
       {/* Resize grip: drag the bottom edge to change the block's duration. */}
@@ -223,7 +232,7 @@ function BlockCard({
             e.preventDefault();
             onResize(block, e.clientY);
           }}
-          className="absolute inset-x-0 bottom-0 z-10 flex h-2 cursor-ns-resize items-end justify-center"
+          className={`absolute inset-x-0 bottom-0 z-10 flex cursor-ns-resize items-end justify-center ${compact ? "h-1" : "h-2"}`}
         >
           <span className="mb-0.5 h-0.5 w-5 rounded-full bg-gray-300 opacity-0 transition-opacity group-hover/card:opacity-100 dark:bg-gray-500" />
         </div>

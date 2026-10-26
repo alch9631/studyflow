@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { todayISO } from "@/lib/planService";
+import { previewSchedule, todayISO } from "@/lib/planService";
 import { daysUntil } from "@/lib/dates";
 import { Rocket, Coffee, MapPin } from "lucide-react";
 import { getT } from "@/components/i18n/server";
@@ -82,10 +82,8 @@ export default async function TodayPage({
   // calm banner instead of silently rendering nothing.
   const rateLimited = sp.msg === "rate-limited";
 
-  // These four reads are independent, so fire them concurrently in a single
-  // round-trip batch instead of awaiting one after another (avoids a serial
-  // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, prefUser] =
+  // Load the proposal alongside the current plan. Previewing never writes rows.
+  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, prefUser, proposal] =
     await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
@@ -159,6 +157,7 @@ export default async function TodayPage({
     // Study-window preferences (for today's capacity / risk line). Only the
     // preferences blob is read; parsePrefs tolerates null/legacy values.
     prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
+    previewSchedule(userId),
   ]);
 
   let nextDate = "";
@@ -201,10 +200,6 @@ export default async function TodayPage({
   // before a wind-down cutoff (Europe/Berlin). This is "how much can today really
   // hold" — the denominator for "am I over capacity / on track".
   const prefs = parsePrefs(prefUser?.preferences);
-  const todaysLectureMin = todaysLectures.reduce(
-    (s, l) => s + Math.max(0, l.endMin - l.startMin),
-    0,
-  );
   const nowParts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     hour: "2-digit",
@@ -216,11 +211,15 @@ export default async function TodayPage({
   const FOCUS_RATIO = 0.6; // ~60% of window hours is realistically focused study
   // The window still open today: from now (or the window start) to the window end.
   const windowLeft = Math.max(0, prefs.dayEndMin - Math.max(minutesNow, prefs.dayStartMin));
-  // Subtract lectures that fall in the remaining window before discounting; clamp
-  // at 0 so a heavy class day never yields negative capacity.
+  // Only lectures overlapping the remaining window consume time still available.
+  const remainingLectureMin = todaysLectures.reduce(
+    (sum, l) => sum + Math.max(0, Math.min(l.endMin, prefs.dayEndMin) -
+      Math.max(l.startMin, minutesNow, prefs.dayStartMin)),
+    0,
+  );
   const windowAvailableMin = Math.max(
     0,
-    Math.round((windowLeft - todaysLectureMin) * FOCUS_RATIO),
+    Math.round((windowLeft - remainingLectureMin) * FOCUS_RATIO),
   );
   // Conservative ceiling: the smaller of the window math and the fixed daily study
   // budget. This is the realistic load today can hold — it stops the planner from
@@ -254,33 +253,14 @@ export default async function TodayPage({
 
   // Honest Today status. The day's genuine must-do load = today's incomplete
   // first-pass STUDY (reviews are deferrable, overdue is handled by recovery, not
-  // counted here). If that exceeds the budget → "Needs a choice". If even a
-  // budget-paced run-up to the nearest exam can't clear its remaining work →
-  // "Doesn't fit". Otherwise → "Protected".
+  // counted here). Today uses its comfort budget; exam overload comes from the
+  // full scheduler, which has the complete runway and all courses.
   const mustDoMin = blocks
     .filter((b) => !b.completed && b.kind !== "review")
     .reduce((s, b) => s + b.minutes, 0);
-  // Remaining (incomplete) study minutes due on/before the nearest exam date —
-  // the work that must land before it. Only when there's an exam ahead.
-  let examFeasibility: { daysUntil: number; remainingMin: number } | undefined;
-  if (nextExam) {
-    const examEnd = new Date(
-      nextExam.examDate.toISOString().slice(0, 10) + "T00:00:00Z",
-    );
-    examEnd.setUTCDate(examEnd.getUTCDate() + 1); // include the exam day itself
-    const examRemaining = await prisma.studyBlock.aggregate({
-      where: {
-        completed: false,
-        date: { gte: start, lt: examEnd },
-        course: { userId },
-      },
-      _sum: { minutes: true },
-    });
-    examFeasibility = {
-      daysUntil: Math.max(0, daysUntil(nextExam.examDate, today)),
-      remainingMin: examRemaining._sum.minutes ?? 0,
-    };
-  }
+  // The scheduler includes allowed study days, lectures, overlapping courses,
+  // overdue work and completed sessions. Today's time left cannot replace it.
+  const examFeasibility = nextExam ? proposal.get(nextExam.id) : undefined;
   const status: CockpitStatus = cockpitStatus(mustDoMin, availableMin, examFeasibility);
 
   // Minimum Viable Day — the calm, decisive alternative to an anxiety list, shown
@@ -306,6 +286,8 @@ export default async function TodayPage({
   // feed the honest after-pace for "Move today's work".
   const isMovable = (b: (typeof blocks)[number]) =>
     canMoveBlockToTomorrow(start.getTime(), b.course.examDate.getTime());
+  const rebuiltToday = [...proposal.values()].flatMap((p) => p.blocks)
+    .filter((b) => b.date === today);
   const previews = recoveryActionPreviews({
     todayStudyMin: openStudyToday.reduce((s, b) => s + b.minutes, 0),
     todayReviewMin: openReviewToday.reduce((s, b) => s + b.minutes, 0),
@@ -313,10 +295,14 @@ export default async function TodayPage({
     todayReviewCount: openReviewToday.length,
     movableStudyCount: openStudyToday.filter(isMovable).length,
     movableReviewCount: openReviewToday.filter(isMovable).length,
+    movableReviewMin: openReviewToday.filter(isMovable).reduce((s, b) => s + b.minutes, 0),
     immovableMin: openToday
       .filter((b) => !isMovable(b))
       .reduce((s, b) => s + b.minutes, 0),
-    budgetMin: availableMin,
+    rebuilt: {
+      count: rebuiltToday.length,
+      minutes: rebuiltToday.reduce((s, b) => s + b.minutes, 0),
+    },
     exam: examFeasibility,
   });
 
