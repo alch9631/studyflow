@@ -15,7 +15,7 @@ import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import { toggleBlock, saveBlockNote, logFocus } from "@/app/courses/actions";
 import { fmtDuration } from "@/app/today/cockpit";
 import StudyTaskSession from "@/components/StudyTaskSession";
-import type { StudyTask } from "@/lib/studyTask";
+import type { StudyTask, StudyProgress } from "@/lib/studyTask";
 
 /** The single block Focus mode works on (serializable across the boundary). */
 export type FocusBlock = {
@@ -27,6 +27,8 @@ export type FocusBlock = {
   course: { id: string; name: string };
   topicId: string;
   task: StudyTask | null;
+  progress?: StudyProgress | null;
+  lastAttempt?: string | null;
   fileAvailable: boolean;
   /** The topic's existing note body — the quick-note editor MUST open with it,
    *  because saving writes the same Note.body the course page uses (an empty

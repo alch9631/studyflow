@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import QuickStudySetup from "@/components/QuickStudySetup";
 import { Check, Undo2 } from "lucide-react";
 import {
   Dialog,
@@ -127,16 +127,14 @@ export default function TodayCockpit({
                 className="w-full whitespace-normal break-words"
                 onClick={() => openFocus(hero.id)}
               >
-                {t("today.heroNextAction", {
+                {hero.progress ? t("flow.resumeTopic", { topic: hero.topicTitle }) : t("today.heroNextAction", {
                   minutes: hero.minutes,
                   topic: hero.topicTitle,
                 })}
               </Button>
               </> : <>
-                <p className="text-sm text-muted-foreground">{t("study.unconfigured")}</p>
-                <Button asChild size="lg" className="w-full whitespace-normal">
-                  <Link href={`/courses/${hero.course.id}#topic-${hero.topicId ?? ""}`}>{t("study.defineTask")} · {hero.topicTitle}</Link>
-                </Button>
+                <p className="text-sm text-muted-foreground">{t("flow.quickHint")}</p>
+                <QuickStudySetup courseId={hero.course.id} topicId={hero.topicId} title={hero.topicTitle} label={t("flow.startTopic", { topic: hero.topicTitle })} />
               </>}
               <button
                 type="button"

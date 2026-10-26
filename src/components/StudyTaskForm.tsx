@@ -19,7 +19,7 @@ export default function StudyTaskForm({ courseId, topicId, title = "", task, mat
   return (
     <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="mt-3 rounded-xl border border-border bg-surface">
       <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-medium text-brand-ink">
-        {topicId ? t(task ? "study.editTask" : "study.defineTask") : t("study.addTask")}
+        {topicId ? t(task ? "study.editTask" : "flow.customTask") : t("flow.customTask")}
       </summary>
       <ValidatedForm action={saveStudyTask} successMessage={t("study.taskSaved")} errorMessage={t("study.taskError")}
         onDone={() => setOpen(false)} className="space-y-4 border-t border-border p-3">

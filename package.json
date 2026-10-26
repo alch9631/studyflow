@@ -16,6 +16,7 @@
     "test:engine": "tsx src/lib/planner.test.ts",
     "test:cockpit": "tsx src/app/today/cockpit.test.ts",
     "test:study-tasks": "tsx src/lib/studyTask.test.ts",
+    "test:practical": "tsx src/lib/practicalStudy.test.ts",
     "test:service": "tsx src/lib/planService.test.ts",
     "test:spread": "tsx src/lib/planSpread.test.ts",
     "test:planloss": "tsx src/lib/planLoss.test.ts",

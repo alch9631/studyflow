@@ -6,7 +6,8 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { getT } from "@/components/i18n/server";
 import FocusSession, { type FocusBlock } from "./FocusSession";
-import { readStudyTask } from "@/lib/studyTask";
+import { readStudyTask, readStudyProgress, readStudyResult } from "@/lib/studyTask";
+import PracticalStudySession from "@/components/PracticalStudySession";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -117,9 +118,13 @@ export default async function FocusPage({
   // made every save an overwrite that destroyed the student's existing note.
   const topic = await prisma.topic.findFirst({
     where: { id: block.topicId, courseId: block.course.id, course: { userId } },
-    select: { studyTask: true, note: { select: { body: true } } },
+    select: { studyTask: true, studyProgress: true, note: { select: { body: true } } },
   });
   const task = readStudyTask(topic?.studyTask);
+  const attempts = task ? await prisma.studyBlock.findMany({ where: { topicId: block.topicId, course: { userId }, completed: true, studyResult: { not: null } },
+    orderBy: { date: "desc" }, take: 20, select: { studyResult: true } }) : [];
+  const lastAttempt = attempts.map((attempt) => readStudyResult(attempt.studyResult)).filter((result) => result?.recordedAt)
+    .sort((a, b) => b!.recordedAt!.localeCompare(a!.recordedAt!))[0];
   const fileAvailable = !!task?.sourceFileId && !!await prisma.moduleFile.count({
     where: { id: task.sourceFileId, courseId: block.course.id, content: { not: null } },
   });
@@ -133,12 +138,12 @@ export default async function FocusPage({
     topicId: block.topicId,
     course: block.course,
     note: topic?.note?.body ?? null,
-    task, fileAvailable,
+    task, fileAvailable, progress: readStudyProgress(topic?.studyProgress), lastAttempt: lastAttempt?.outcome === "practice" ? lastAttempt.response : null,
   };
 
   // Keyed by block id: if the mounted /focus route ever receives a different
   // block (searchParams change without unmount), the whole session — timer AND
   // seeded note draft — resets for the new block, so one topic's note text can
   // never be saved onto another topic.
-  return <FocusSession key={focusBlock.id} block={focusBlock} upNextTopic={upNext?.topicTitle ?? null} />;
+  return task ? <PracticalStudySession key={focusBlock.id} block={focusBlock} /> : <FocusSession key={focusBlock.id} block={focusBlock} upNextTopic={upNext?.topicTitle ?? null} />;
 }

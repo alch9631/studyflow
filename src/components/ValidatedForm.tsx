@@ -94,7 +94,7 @@ export default function ValidatedForm({
    * Return a `{ fieldName: message }` map of errors, or null/empty when valid.
    */
   validate?: (formData: FormData) => Errors | null | undefined;
-  onDone?: () => void;
+  onDone?: (result: unknown) => void;
   children: ReactNode;
 }) {
   const { toast } = useToast();
@@ -167,7 +167,7 @@ export default function ValidatedForm({
           return;
         }
         if (successMessage) toast(successMessage, "success");
-        onDone?.();
+        onDone?.(result);
       } catch (err) {
         if (isNextControlFlow(err)) throw err; // redirect / notFound — not a failure
         toast(errorMessage, "error");

@@ -14,7 +14,7 @@ import TodayCockpit from "./TodayCockpit";
 import ExamStrip, { type ExamChip } from "./ExamStrip";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 import { parsePrefs, availableStudyMinutes } from "@/lib/timePlacer";
-import { readStudyTask, readStudyResult } from "@/lib/studyTask";
+import { readStudyTask, readStudyResult, readStudyProgress } from "@/lib/studyTask";
 import {
   assignLanes,
   canMoveBlockToTomorrow,
@@ -235,7 +235,7 @@ export default async function TodayPage({
           course: { userId },
           id: { in: [...new Set(blocks.map((b) => b.topicId))] },
         },
-        select: { id: true, studyTask: true, note: { select: { body: true } } },
+        select: { id: true, studyTask: true, studyProgress: true, note: { select: { body: true } } },
       })
     : [];
   const noteByTopic = new Map(noteRows.map((n) => [n.id, n.note?.body ?? null]));
@@ -246,12 +246,19 @@ export default async function TodayPage({
     ...b,
     note: noteByTopic.get(b.topicId) ?? null,
     task: taskByTopic.get(b.topicId) ?? null,
+    progress: readStudyProgress(noteRows.find((topic) => topic.id === b.topicId)?.studyProgress),
   }));
   const cap = computeCapacity(remainingMin, availableMin);
   const risk = riskVerdict(cap);
   const laneMap = assignLanes(cockpitBlocks, cap);
   const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
   const hero = pickHero(cockpitBlocks, laneMap);
+  const unfinished = await prisma.topic.findMany({ where: { course: { userId }, done: false, studyProgress: { not: null } },
+    take: 100, select: { id: true, title: true, studyProgress: true } });
+  const latest = unfinished.map((topic) => ({ ...topic, progress: readStudyProgress(topic.studyProgress) }))
+    .filter((topic) => topic.progress).sort((a, b) => b.progress!.updatedAt.localeCompare(a.progress!.updatedAt))[0];
+  const resumeElsewhere = latest && !cockpitBlocks.some((block) => !block.completed && block.topicId === latest.id)
+    ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" }, select: { id: true } }) : null;
 
   // Honest Today status. The day's genuine must-do load = today's incomplete
   // first-pass STUDY (reviews are deferrable, overdue is handled by recovery, not
@@ -394,6 +401,7 @@ export default async function TodayPage({
           {t("today.rateLimited")}
         </div>
       )}
+      {resumeElsewhere && latest && <Link href={`/focus?blockId=${resumeElsewhere.id}`} className="mb-4 flex min-h-11 items-center justify-center rounded-xl bg-brand px-4 py-3 text-center font-semibold text-brand-foreground">{t("flow.resumeTopic", { topic: latest.title })}</Link>}
       {blocks.length > 0 ? (
         // Two-pane on lg+: LEFT = the cockpit spine (status, hero Start,
         // essentials list, "Protected for later", Adjust today — all inside

@@ -25,6 +25,8 @@ import ModuleUploadForm from "@/components/ModuleUploadForm";
 import StudyTaskForm from "@/components/StudyTaskForm";
 import { readStudyTask, taskSourceHref } from "@/lib/studyTask";
 import { availableMaterialIds } from "@/lib/materials";
+import MaterialStudyActions from "@/components/MaterialStudyActions";
+import QuickStudySetup from "@/components/QuickStudySetup";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
 import TopicMeta from "./TopicMeta";
@@ -229,10 +231,10 @@ export default async function CoursePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ msg?: string }>;
+  searchParams: Promise<{ msg?: string; prepare?: string }>;
 }) {
   const { id } = await params;
-  const { msg } = await searchParams;
+  const { msg, prepare } = await searchParams;
   const t = await getT();
   const userId = await getCurrentUserId();
   const banner = msg && BANNER_KEYS.has(msg) ? t(`courseDetail.banners.${msg}` as MessageKey) : undefined;
@@ -276,6 +278,7 @@ export default async function CoursePage({
           sizeBytes: true,
           extractedChars: true,
           analysis: true,
+          studyDrafts: true,
           category: true,
           createdAt: true,
         },
@@ -715,8 +718,8 @@ export default async function CoursePage({
         </div>
       )}
 
-      <section className="mb-8">
-        <details className="group rounded-xl border border-gray-200 dark:border-gray-800">
+      <section className="mb-8" id="materials">
+        <details open={!!prepare || undefined} className="group rounded-xl border border-gray-200 dark:border-gray-800">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-lg font-semibold transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
             <span className="flex items-center gap-2">
               <span
@@ -782,6 +785,7 @@ export default async function CoursePage({
                             {originalIds.has(file.id) ? (
                               <a href={`/api/materials/${file.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>
                             ) : <p className="mt-1 text-xs text-muted-foreground">{t("study.originalUnavailable")}</p>}
+                            {originalIds.has(file.id) && <MaterialStudyActions fileId={file.id} courseId={course.id} filename={file.filename} stored={file.studyDrafts} autoOpen={prepare === file.id} />}
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                               <span
                                 className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${CATEGORY_BADGE[category]}`}
@@ -901,7 +905,7 @@ export default async function CoursePage({
             </Link>
           )}
         </div>
-        <div className="mb-4"><StudyTaskForm courseId={course.id} materials={taskMaterials} /></div>
+        <div className="mb-4 space-y-2"><QuickStudySetup courseId={course.id} title={course.name} /><StudyTaskForm courseId={course.id} materials={taskMaterials} /></div>
         <AnimatedList className="space-y-2">
           {course.topics.map((topic) => {
             const task = readStudyTask(topic.studyTask);
@@ -928,6 +932,7 @@ export default async function CoursePage({
                   {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
                   <p className="whitespace-pre-wrap break-words text-muted-foreground">{t("study.criteria")} {task.successCriteria}</p>
                 </div>}
+                {!task && <div className="mt-3"><QuickStudySetup courseId={course.id} topicId={topic.id} title={topic.title} /></div>}
                 <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />
                 <TopicMeta
                   topicId={topic.id}
