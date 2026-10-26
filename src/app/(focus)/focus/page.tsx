@@ -3,6 +3,8 @@ import Link from "next/link";
 import { PartyPopper } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
+import { daysUntil } from "@/lib/dates";
+import { prioritizeBlocks } from "@/app/today/cockpit";
 import { todayISO } from "@/lib/planService";
 import { getT } from "@/components/i18n/server";
 import FocusSession, { type FocusBlock } from "./FocusSession";
@@ -45,7 +47,7 @@ export default async function FocusPage({
     completed: true,
     kind: true,
     topicId: true,
-    course: { select: { id: true, name: true } },
+    course: { select: { id: true, name: true, examDate: true } },
   } as const;
 
   // The requested block, if any — ownership-scoped via course.userId so a guessed
@@ -69,31 +71,22 @@ export default async function FocusPage({
     });
   }
 
-  // Fall back to today's next still-open block in plan order (study before
-  // review, longest first) — the same order Today uses for its hero/queue.
+  // Today and Focus use the same explainable ordering, including due reviews.
+  const candidates = await prisma.studyBlock.findMany({
+    where: { date: { gte: start, lt: end }, course: { userId }, completed: false }, select,
+  });
+  const topics = candidates.length ? await prisma.topic.findMany({ where: { id: { in: candidates.map((candidate) => candidate.topicId) }, course: { userId } },
+    select: { id: true, order: true, confidence: true, studyProgress: true } }) : [];
+  const queue = prioritizeBlocks(candidates.map((candidate) => {
+    const topic = topics.find((item) => item.id === candidate.topicId);
+    return { ...candidate, actualMinutes: null, examDays: daysUntil(candidate.course.examDate, today), confidence: topic?.confidence,
+      topicOrder: topic?.order, progress: readStudyProgress(topic?.studyProgress) };
+  }));
   if (!block || block.completed) {
-    const next = await prisma.studyBlock.findFirst({
-      where: { date: { gte: start, lt: end }, course: { userId }, completed: false },
-      orderBy: [{ kind: "desc" }, { minutes: "desc" }],
-      select,
-    });
-    block = next;
+    const next = queue.find((candidate) => candidate.progress) ?? queue[0];
+    block = next ? candidates.find((candidate) => candidate.id === next.id)! : null;
   }
-
-  // The block AFTER the current one, to show a calm "up next" line (today only).
-  let upNext: { topicTitle: string } | null = null;
-  if (block) {
-    upNext = await prisma.studyBlock.findFirst({
-      where: {
-        date: { gte: start, lt: end },
-        course: { userId },
-        completed: false,
-        id: { not: block.id },
-      },
-      orderBy: [{ kind: "desc" }, { minutes: "desc" }],
-      select: { topicTitle: true },
-    });
-  }
+  const upNext = queue.find((candidate) => candidate.id !== block?.id) ?? null;
 
   if (!block) {
     return (

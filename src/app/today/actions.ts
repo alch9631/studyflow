@@ -9,6 +9,9 @@ import { instantToDayISO, instantToDayMinutes, dayMinutesToInstant } from "@/lib
 import { assessRecovery } from "@/lib/recovery";
 import { checkRateLimit } from "@/lib/rateLimitPolicy";
 import { logActionError } from "@/lib/actionErrors";
+import { withRecoveryUndo, undoPlanAdjustment } from "@/lib/planAdjustment";
+import { canDeferReview } from "./cockpit";
+import { daysUntil } from "@/lib/dates";
 
 /**
  * One-tap recovery: respread all unfinished work (including overdue sessions
@@ -29,7 +32,7 @@ export async function recoverPlan() {
     const before = await assessRecovery(userId, todayISO());
     moved = before.overdueSessions;
     minutes = before.overdueMinutes;
-    const results = await rebuildSchedule(userId);
+    const results = await withRecoveryUndo(userId, () => rebuildSchedule(userId));
     for (const r of results.values()) if (r.isOverloaded) intense++;
   } catch (e) {
     logActionError("recoverPlan", e);
@@ -61,14 +64,18 @@ async function shiftBlocksToTomorrow(
     },
     select: {
       id: true,
+      topicId: true,
       date: true,
       startTime: true,
       endTime: true,
       course: { select: { examDate: true } },
     },
   });
+  const topics = where.kind ? await prisma.topic.findMany({ where: { id: { in: blocks.map((block) => block.topicId) }, course: { userId } }, select: { id: true, confidence: true } }) : [];
   let moved = 0;
+  const updates = [];
   for (const b of blocks) {
+    if (where.kind && !canDeferReview({ kind: where.kind, confidence: topics.find((topic) => topic.id === b.topicId)?.confidence, examDays: daysUntil(b.course.examDate, today) })) continue;
     const next = new Date(b.date.getTime() + 86400_000);
     // Never push work onto or past its course's exam day — the scheduler's
     // "everything lands before the exam" invariant. A block that can't legally
@@ -88,12 +95,13 @@ async function shiftBlocksToTomorrow(
       startTime = dayMinutesToInstant(nextDayISO, instantToDayMinutes(b.startTime));
       endTime = new Date(startTime.getTime() + (b.endTime.getTime() - b.startTime.getTime()));
     }
-    await prisma.studyBlock.update({
+    updates.push(prisma.studyBlock.update({
       where: { id: b.id },
       data: { date: next, startTime, endTime },
-    });
+    }));
     moved++;
   }
+  await prisma.$transaction(updates);
   return moved;
 }
 
@@ -108,7 +116,7 @@ export async function protectToday() {
   if (!checkRateLimit("MUTATION", userId)) redirect("/today?msg=rate-limited");
   let moved = 0;
   try {
-    moved = await shiftBlocksToTomorrow(userId, { kind: "review" });
+    moved = await withRecoveryUndo(userId, () => shiftBlocksToTomorrow(userId, { kind: "review" }));
   } catch (e) {
     logActionError("protectToday", e);
     redirect("/today?msg=behind-failed");
@@ -128,11 +136,21 @@ export async function moveOptionalWork() {
   if (!checkRateLimit("MUTATION", userId)) redirect("/today?msg=rate-limited");
   let moved = 0;
   try {
-    moved = await shiftBlocksToTomorrow(userId, {});
+    moved = await withRecoveryUndo(userId, () => shiftBlocksToTomorrow(userId, {}));
   } catch (e) {
     logActionError("moveOptionalWork", e);
     redirect("/today?msg=behind-failed");
   }
   revalidatePath("/today");
   redirect(`/today?lightened=move&blocks=${moved}`);
+}
+
+export async function undoRecovery() {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) redirect("/today?msg=rate-limited");
+  let restored = false;
+  try { restored = await undoPlanAdjustment(userId); }
+  catch (error) { logActionError("undoRecovery", error); }
+  for (const path of ["/today", "/calendar", "/courses", "/insights"]) revalidatePath(path);
+  redirect(`/today?msg=${restored ? "undo-done" : "undo-unavailable"}`);
 }

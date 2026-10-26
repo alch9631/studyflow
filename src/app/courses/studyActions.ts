@@ -7,7 +7,7 @@ import { storeMaterial } from "@/lib/materials";
 import { saveStudyTaskForUser, recordStudyResult, type StudyOutcome } from "@/lib/studyTaskService";
 import { ValidationError } from "@/lib/validate";
 import { prisma } from "@/lib/db";
-import { prepareStudyDrafts, acceptStudyDrafts, startQuickStudy, saveStudyCheckpoint } from "@/lib/practicalStudy";
+import { prepareStudyDrafts, acceptStudyDrafts, startQuickStudy, saveStudyCheckpoint, quickStudySources } from "@/lib/practicalStudy";
 import type { StudyMode } from "@/lib/studyTask";
 import { readStudyDrafts } from "@/lib/studyDraft";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
@@ -107,11 +107,21 @@ export async function quickStartStudy(data: FormData) {
   try {
     const result = await startQuickStudy(userId, { courseId: String(data.get("courseId") ?? ""), topicId: String(data.get("topicId") ?? "") || undefined,
       fileId: String(data.get("fileId") ?? "") || undefined, mode: String(data.get("mode")) as StudyMode,
-      minutes: Number(data.get("minutes")), language: data.get("language") === "de" ? "de" : "en", sourceRef: String(data.get("sourceRef") ?? "") });
+      minutes: Number(data.get("minutes")), language: data.get("language") === "de" ? "de" : "en", sourceRef: String(data.get("sourceRef") ?? ""),
+      sourceCursor: data.get("sourceCursor") ? Number(data.get("sourceCursor")) : undefined });
     if (!result?.blockId) return { ok: false as const };
     refreshStudy(result.courseId);
     return { ok: true as const, blockId: result.blockId };
   } catch (error) { if (error instanceof ValidationError) return { ok: false as const }; throw error; }
+}
+
+export async function previewQuickStudySource(courseId: string, fileId: string, topicId?: string, cursor?: number) {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return { ok: false as const };
+  try {
+    const sources = await quickStudySources(userId, courseId, fileId, topicId, cursor);
+    return sources ? { ok: true as const, ...sources } : { ok: false as const };
+  } catch { return { ok: false as const }; }
 }
 
 export async function checkpointStudy(data: FormData) {

@@ -16,7 +16,7 @@ export async function saveStudyTaskForUser(userId: string, input: {
     if (task.sourceFileId && !await tx.moduleFile.count({ where: { id: task.sourceFileId, courseId: course.id } })) {
       throw new ValidationError("Choose a material belonging to this course.");
     }
-    const existing = input.topicId ? await tx.topic.findFirst({ where: { id: input.topicId, courseId: course.id }, select: { studyTask: true } }) : null;
+    const existing = input.topicId ? await tx.topic.findFirst({ where: { id: input.topicId, courseId: course.id }, select: { studyTask: true, done: true } }) : null;
     if (input.topicId && !existing) return null;
     const previous = readStudyTask(existing?.studyTask);
     if (!input.task.sourceExcerpt && previous?.sourceFileId === task.sourceFileId && previous?.sourceRef === task.sourceRef) task.sourceExcerpt = previous?.sourceExcerpt;
@@ -24,11 +24,12 @@ export async function saveStudyTaskForUser(userId: string, input: {
       title, studyTask: JSON.stringify(task),
       effort: task.estimatedMinutes / (MINUTES_PER_EFFORT * difficultyMultiplier(course.difficulty)),
     };
-    if (input.topicId) return tx.topic.update({ where: { id: input.topicId }, data, select: { id: true } });
+    if (input.topicId && previous) return tx.topic.update({ where: { id: input.topicId }, data, select: { id: true } });
     const count = await tx.topic.count({ where: { courseId: course.id } });
     if (count >= 500) throw new ValidationError("This course has reached its task limit.");
     const last = await tx.topic.aggregate({ where: { courseId: course.id }, _max: { order: true } });
-    return tx.topic.create({ data: { ...data, courseId: course.id, order: (last._max.order ?? -1) + 1 }, select: { id: true } });
+    return tx.topic.create({ data: { ...data, parentTopicId: existing ? input.topicId : null,
+      courseId: course.id, order: (last._max.order ?? -1) + 1 }, select: { id: true } });
   });
   if (topic) await rebuildSchedule(userId);
   return topic;
@@ -68,7 +69,7 @@ export async function recordStudyResult(userId: string, input: {
     // Retrying a saved submission must never add study time or extra work twice.
     if (block.studyResult) return { blockId: block.id, courseId: block.courseId, alreadySaved: true, needsReplan: !readStudyResult(block.studyResult)?.planUpdated };
     const result = JSON.stringify({ version: 1, outcome: input.outcome, response: input.response.trim(),
-      checked: input.checked, requestId: input.blockId, recordedAt: new Date().toISOString(), planUpdated: false });
+      checked: input.checked, selfReported: true, requestId: input.blockId, recordedAt: new Date().toISOString(), planUpdated: false });
     const remainingStudy = input.outcome === "complete" && block.kind === "study"
       ? await tx.studyBlock.aggregate({ where: { topicId: topic.id, courseId: block.courseId, completed: false, kind: "study" }, _sum: { minutes: true } }) : null;
     // A checked goal may finish several scheduled slices of this task. Credit
@@ -90,7 +91,7 @@ export async function recordStudyResult(userId: string, input: {
       effort = Math.max(effort, (studied + 15) / (MINUTES_PER_EFFORT * scale));
     }
     await tx.topic.update({ where: { id: topic.id }, data: {
-      done: input.outcome === "complete", confidence: input.outcome === "complete" ? "solid" : "struggling", effort,
+      done: input.outcome === "complete", confidence: input.outcome === "complete" ? "practice" : "struggling", effort,
       studyProgress: null,
     } });
     return { blockId: block.id, courseId: block.courseId, alreadySaved: false, needsReplan: true };

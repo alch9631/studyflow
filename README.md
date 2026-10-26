@@ -39,6 +39,30 @@ autosave retain answers, time, and session length on the topic, so **Resume** wo
 after scheduling changes. A practice follow-up includes the previous attempt.
 Run `npm run test:practical` for the isolated source, draft, and resume checks.
 
+## First task, progress, and recovery
+
+Use **Set up your first study task** to confirm daily capacity, study days, exam
+and material before planning. Existing catalog, manual and import flows also ask
+for total focused time across courses. Quick start previews the exact source
+section, suggests a topic match when it is unambiguous, and continues from prior
+source positions. Uncertain matches require a section choice.
+
+A concrete task can cover part of a broader topic. Finishing it preserves the
+parent topic and its uncovered work; the scheduler allocates its estimate without
+double-counting. Task completion is a self-check, and does not automatically mark
+confidence solid. Insights reports task results and later recall separately.
+
+Today keeps classes, deadlines, missed work and exam overload visible even when
+no study sessions are scheduled. Due reviews and struggling topics participate
+in the same priority queue as new material; a short reason explains the next task.
+**Adjust today** recommends rebalancing and previews the next three days. The last
+adjustment can be undone for 30 minutes while the planning state is unchanged.
+Undo preserves completed work and refuses to overwrite later activity.
+
+The additive schema changes preserve existing tasks and histories. Run
+`npm run test:experience` for integration checks and follow
+[`docs/USABILITY_CHECK.md`](docs/USABILITY_CHECK.md) with five classmates.
+
 ## TUHH exam date sync
 
 In **Settings → Calendar sync → TUHH exam dates**, refresh the official current-semester

@@ -43,6 +43,7 @@ moduleInternals._resolveFilename = function (request, ...rest) {
 const ROUTES: ReadonlyArray<readonly [label: string, spec: string]> = [
   ["/", "@/app/page"],
   ["today", "@/app/today/page"],
+  ["start", "@/app/start/page"],
   ["focus", "@/app/(focus)/focus/page"],
   ["calendar", "@/app/calendar/page"],
   ["courses", "@/app/courses/page"],

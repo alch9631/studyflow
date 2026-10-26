@@ -3,6 +3,7 @@
 import { createCourse } from "../actions";
 import SubmitButton from "@/components/SubmitButton";
 import ValidatedForm from "@/components/ValidatedForm";
+import DailyBudgetField from "@/components/DailyBudgetField";
 import { Field } from "@/components/Field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +23,7 @@ const DAYS = [
  * Accessible "new course" form: labelled fields, inline validation errors, and
  * focus-the-first-invalid on submit. Wraps the unchanged `createCourse` action.
  */
-export default function NewCourseForm() {
+export default function NewCourseForm({ dailyBudget }: { dailyBudget: number }) {
   const t = useT();
   // Browser-side bounds matching the server's date-reject rule (today … +2y).
   // The server still validates; these just block the obvious cases up front.
@@ -83,6 +84,7 @@ export default function NewCourseForm() {
         )}
       </Field>
 
+      <DailyBudgetField minutes={dailyBudget} />
       <fieldset>
         <legend className="block text-sm font-medium">{t("newCourse.studyDays")}</legend>
         <div className="mt-2 grid grid-cols-4 gap-1 sm:flex sm:flex-wrap sm:gap-3">

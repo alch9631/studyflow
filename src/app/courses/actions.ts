@@ -47,6 +47,7 @@ import {
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 import { checkBlockTimes, instantToDayMinutes, instantToDayISO, dayMinutesToInstant } from "@/lib/calendarTime";
 import { placeDayBlocks, parsePrefs } from "@/lib/timePlacer";
+import { confirmDailyBudget } from "@/lib/studyAvailability";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
   ownsCourse,
@@ -129,6 +130,7 @@ function toggleTarget(formData: FormData, current: boolean): boolean {
 export async function createCourse(formData: FormData) {
   const userId = await getCurrentUserId();
   if (!rateLimitOK("COURSE_WRITE", userId)) redirect("/courses?msg=rate-limited");
+  await confirmDailyBudget(userId, formData);
 
   const name = requireText(formData.get("name"), "Course name");
   // A past or too-far-future exam date must NOT hit the error boundary (the
@@ -195,6 +197,7 @@ export async function createCourse(formData: FormData) {
 export async function addFromCatalog(formData: FormData) {
   const userId = await getCurrentUserId();
   if (!rateLimitOK("COURSE_WRITE", userId)) redirect("/catalog?msg=rate-limited");
+  await confirmDailyBudget(userId, formData);
   // Bound the selection so junk/oversized ids can't reach Prisma.
   const ids = formData
     .getAll("moduleId")
@@ -329,6 +332,7 @@ async function extractTextFromFile(file: File): Promise<string> {
  */
 export async function importSyllabus(formData: FormData) {
   const userId = await getCurrentUserId();
+  await confirmDailyBudget(userId, formData);
   // Redirect-with-banner instead of throwing — a thrown error here lands on the
   // full-page error boundary and loses the typed form.
   // Tightest budget first — an imported document costs the same provider tokens
@@ -535,7 +539,7 @@ export async function analyzeModuleUpload(formData: FormData) {
         where: { courseId },
         // done/confidence come along so the replace path can tell a topic the
         // student has actually worked on from a purely AI-derived one.
-        select: { id: true, title: true, order: true, done: true, confidence: true, studyTask: true },
+        select: { id: true, title: true, order: true, done: true, confidence: true, studyTask: true, tasks: { select: { id: true }, take: 1 } },
       });
       const byTitle = new Map(existing.map((t) => [t.title.trim().toLowerCase(), t]));
       // Stored category: the user's explicit choice wins; if they left it on a

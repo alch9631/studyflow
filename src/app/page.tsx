@@ -82,7 +82,7 @@ export default async function Home() {
 
         <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/catalog">{t("landing.buildPlan")}</Link>
+            <Link href="/start">{t("landing.buildPlan")}</Link>
           </Button>
           <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
             <Link href="/courses">{t("landing.havePlan")}</Link>
@@ -173,7 +173,7 @@ export default async function Home() {
         </p>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/catalog">{t("landing.buildPlan")}</Link>
+            <Link href="/start">{t("landing.buildPlan")}</Link>
           </Button>
           <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
             <Link href="/today">{t("landing.seeToday")}</Link>

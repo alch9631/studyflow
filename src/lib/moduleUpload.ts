@@ -37,6 +37,7 @@ export type TopicRemovalCandidate = {
   done?: boolean | null;
   confidence?: string | null;
   studyTask?: string | null;
+  tasks?: { id: string }[];
 };
 
 /**
@@ -53,6 +54,6 @@ export function topicIdsSafeToDelete(
 ): string[] {
   const keep = new Set<string>([...notedTopicIds, ...studiedTopicIds]);
   return dropped
-    .filter((t) => !keep.has(t.id) && !t.done && t.confidence == null && !t.studyTask)
+    .filter((t) => !keep.has(t.id) && !t.done && t.confidence == null && !t.studyTask && !t.tasks?.length)
     .map((t) => t.id);
 }

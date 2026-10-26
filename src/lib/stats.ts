@@ -450,7 +450,7 @@ export async function gatherStats(userId: string, todayISO: string): Promise<Sta
         ects: true,
         examDate: true,
         intense: true,
-        topics: { select: { done: true } },
+        topics: { where: { parentTopicId: null }, select: { done: true } },
       },
       orderBy: { examDate: "asc" },
     }),

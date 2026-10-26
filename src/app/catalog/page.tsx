@@ -1,3 +1,4 @@
+import { currentDailyBudget } from "@/lib/studyAvailability";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -34,6 +35,7 @@ export default async function CatalogPage({
   // Detect "already added": compare each module's `code` against the source code
   // of the student's existing catalog-sourced courses (Course.sourceCode).
   const userId = await getCurrentUserId();
+  const dailyBudget = await currentDailyBudget(userId);
   const taken = await prisma.course.findMany({
     where: { userId, sourceCode: { not: null } },
     select: { sourceCode: true },
@@ -164,7 +166,7 @@ export default async function CatalogPage({
             </span>
           </div>
 
-          <CatalogBrowser modules={modules} action={addFromCatalog} />
+          <CatalogBrowser modules={modules} action={addFromCatalog} dailyBudget={dailyBudget} />
         </>
       )}
     </main>

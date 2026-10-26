@@ -39,7 +39,7 @@ export default function EmptyState({
       )}
       <p className="mt-2 font-semibold">{title}</p>
       {description && (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       )}
       {actions.length > 0 && (
         <div className="mt-4 flex flex-wrap justify-center gap-2">

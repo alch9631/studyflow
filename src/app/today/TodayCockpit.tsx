@@ -20,6 +20,8 @@ import SwipeRow from "@/components/SwipeRow";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
 import {
   fmtDuration,
+  priorityReason,
+  todayStatusKey,
   MAX_VISIBLE_ESSENTIALS,
   type CockpitBlock,
   type CockpitStatus,
@@ -86,7 +88,7 @@ export default function TodayCockpit({
   // Must-do = open work the day actually needs (everything except the slide lane).
   // The hero is the first of these; the list shows the rest.
   const mustDo = blocks.filter((b) => !b.completed && lanes[b.id] !== "slide");
-  const optional = blocks.filter((b) => !b.completed && lanes[b.id] === "slide");
+  const optional = blocks.filter((b) => !b.completed && lanes[b.id] === "slide" && b.id !== hero?.id);
   const restMustDo = mustDo.filter((b) => b.id !== hero?.id);
 
   // Keep the visible list short; anything past the cap folds under "Later".
@@ -98,14 +100,8 @@ export default function TodayCockpit({
   // can't make the exam — those map to truthful, non-reassuring copy that points
   // at the one recovery entry ("Adjust today").
   const allDone = risk === "clear" || !hero;
-  const statusLine = allDone
-    ? t("today.calmAllDone")
-    : status === "doesnt_fit"
-      ? t("today.statusDoesntFit")
-      : status === "needs_choice"
-        ? t("today.statusNeedsChoice")
-        : t("today.statusProtected");
-  const needsAdjust = !allDone && status !== "protected";
+  const statusLine = t(todayStatusKey(status, allDone));
+  const needsAdjust = status !== "protected";
 
 
   return (
@@ -119,6 +115,7 @@ export default function TodayCockpit({
         action={
           hero ? (
             <>
+              <p className="text-sm text-muted-foreground">{t(`today.reason.${priorityReason(hero)}`)}</p>
               {hero.task ? <>
               <p className="w-full whitespace-pre-wrap break-words text-left text-base font-medium">{hero.task.instruction}</p>
               {hero.task.sourceRef && <p className="w-full break-words text-left text-sm text-muted-foreground">{hero.task.sourceRef}</p>}

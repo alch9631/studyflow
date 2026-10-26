@@ -38,4 +38,4 @@ The point of v1 is **learning + 5 real users**, not revenue. Revenue is the rewa
 
 ## Success metric for v1
 
-5 classmates create a course and check off at least one study block in week one. If they come back after falling behind, the wedge works.
+Five classmates can begin a source-specific task without assistance, return after a missed study day, and show what they remember in a related check at least 24 hours later. Track time to first useful work, correct source selection, recovery, and delayed answers separately from checked-off minutes. Follow `docs/USABILITY_CHECK.md` for the observation script.

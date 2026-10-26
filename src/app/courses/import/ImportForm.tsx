@@ -4,6 +4,7 @@ import { importSyllabus } from "../actions";
 import FilePicker from "@/components/FilePicker";
 import SubmitButton from "@/components/SubmitButton";
 import ValidatedForm from "@/components/ValidatedForm";
+import DailyBudgetField from "@/components/DailyBudgetField";
 import { Field } from "@/components/Field";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/components/i18n/I18nProvider";
@@ -23,7 +24,7 @@ const DAYS = [
  * (computed in the page); when off, inputs are disabled but still labelled. The
  * `importSyllabus` action is unchanged.
  */
-export default function ImportForm({ enabled }: { enabled: boolean }) {
+export default function ImportForm({ enabled, dailyBudget }: { enabled: boolean; dailyBudget: number }) {
   const t = useT();
   return (
     <ValidatedForm
@@ -60,6 +61,7 @@ export default function ImportForm({ enabled }: { enabled: boolean }) {
         )}
       </Field>
 
+      <DailyBudgetField minutes={dailyBudget} />
       <fieldset>
         <legend className="block text-sm font-medium">{t("importCourse.studyDays")}</legend>
         <div className="mt-2 flex flex-wrap gap-3">

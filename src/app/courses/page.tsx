@@ -122,7 +122,7 @@ export default async function CoursesPage({
       passed: true,
       // Card only needs each topic's done flag (count + total) and each block's
       // completed/kind/minutes (remaining-study estimate) — not full records.
-      topics: { select: { done: true } },
+      topics: { where: { parentTopicId: null }, select: { done: true } },
       blocks: { select: { completed: true, kind: true, minutes: true } },
     },
   });

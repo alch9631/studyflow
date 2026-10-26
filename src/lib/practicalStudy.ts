@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "./db";
-import { materialStudySections, materialStudyBatch } from "./materialSections";
+import { materialStudyBatch } from "./materialSections";
 import { excerptStudyDrafts, groundedStudyDrafts, readStudyDrafts, type StudySection, type StudyDraftSet } from "./studyDraft";
 import { isSyllabusAIEnabled, suggestStudyTasks } from "./syllabus";
 import { quickStudyTask, readStudyTask, readStudyProgress, type StudyMode } from "./studyTask";
@@ -8,6 +8,36 @@ import { rebuildSchedule } from "./planService";
 import { saveStudyTaskForUser } from "./studyTaskService";
 import { MINUTES_PER_EFFORT, difficultyMultiplier } from "./planner";
 import { ValidationError } from "./validate";
+
+/** Resolve an exact, previewable section; never silently attach page one to a topic. */
+export async function quickStudySources(userId: string, courseId: string, fileId: string, topicId?: string, cursor?: number) {
+  const file = await prisma.moduleFile.findFirst({ where: { id: fileId, courseId, course: { userId }, content: { not: null } },
+    select: { filename: true, mimeType: true, content: true } });
+  if (!file?.content) return null;
+  if (cursor !== undefined && (!Number.isInteger(cursor) || cursor < 1 || cursor > 100000)) throw new ValidationError("Invalid source position.");
+  const topic = topicId ? await prisma.topic.findFirst({ where: { id: topicId, courseId, course: { userId } }, select: { title: true } }) : null;
+  if (topicId && !topic) return null;
+  const history = await prisma.topic.findMany({ where: { courseId, studyTask: { not: null } }, orderBy: { order: "desc" }, take: 500,
+    select: { studyTask: true, done: true } });
+  const previous = history.map((item) => ({ task: readStudyTask(item.studyTask), done: item.done })).filter((item) => item.task?.sourceFileId === fileId);
+  const latest = previous[0];
+  let position = cursor ?? Number(/^(?:PDF p\. |Lines )(\d+)/.exec(latest?.task?.sourceRef ?? "")?.[1] ?? 1);
+  let batch;
+  try { batch = await materialStudyBatch({ ...file, content: file.content }, position); }
+  catch { return { sections: [], nextCursor: null, cursor: position, suggested: null, reason: "choose" as const }; }
+  // Continue after the last completed section, retaining actual page/line numbers.
+  if (cursor === undefined && latest?.done && batch.sections[0]?.reference === latest.task?.sourceRef) {
+    if (batch.sections.length > 1) batch = { ...batch, sections: batch.sections.slice(1) };
+    else if (batch.nextCursor) { position = batch.nextCursor; batch = await materialStudyBatch({ ...file, content: file.content }, position); }
+  }
+  const tokens = topic?.title.toLocaleLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? [];
+  const ranked = batch.sections.map((section) => ({ section, score: tokens.filter((token) => section.text.toLocaleLowerCase().includes(token)).length })).sort((a, b) => b.score - a.score);
+  const matched = ranked[0]?.score > 0 && ranked[0].score > (ranked[1]?.score ?? 0);
+  const suggested = topic ? (matched ? ranked[0].section.reference : null)
+    : batch.sections.find((section) => !previous.some((item) => item.done && item.task?.sourceRef === section.reference))?.reference ?? null;
+  return { sections: batch.sections, nextCursor: batch.nextCursor, cursor: position, suggested,
+    reason: topic ? (matched ? "matched" as const : "choose" as const) : "continue" as const };
+}
 
 export async function prepareStudyDrafts(userId: string, fileId: string, language: "en" | "de",
   generate?: (name: string, sections: StudySection[], language: "en" | "de") => Promise<unknown>, next = false) {
@@ -79,7 +109,7 @@ export async function acceptStudyDrafts(userId: string, fileId: string, draftId:
 }
 
 export async function startQuickStudy(userId: string, input: {
-  courseId: string; topicId?: string; fileId?: string; mode: StudyMode; minutes: number; language: "en" | "de"; sourceRef?: string;
+  courseId: string; topicId?: string; fileId?: string; mode: StudyMode; minutes: number; language: "en" | "de"; sourceRef?: string; sourceCursor?: number;
 }) {
   const course = await prisma.course.findFirst({ where: { id: input.courseId, userId }, select: { id: true } });
   if (!course) return null;
@@ -91,14 +121,18 @@ export async function startQuickStudy(userId: string, input: {
     select: { filename: true, mimeType: true, content: true } }) : null;
   if (input.fileId && !file) return null;
   let section;
-  if (file?.content && !input.sourceRef?.trim()) {
-    try { section = (await materialStudySections({ ...file, content: file.content }))[0]; } catch { /* Originals remain usable even when extraction fails. */ }
+  if (file?.content) {
+    const sources = await quickStudySources(userId, course.id, input.fileId!, input.topicId, input.sourceCursor);
+    const reference = input.sourceRef?.trim() || sources?.suggested;
+    section = sources?.sections.find((item) => item.reference === reference);
+    if (sources?.sections.length && !section) throw new ValidationError("Choose and preview the section to study.");
+    if (!section && !input.sourceRef?.trim()) throw new ValidationError("Enter the pages or exercises to study in the original.");
   }
   const task = quickStudyTask(input.mode, input.minutes, input.language, {
     sourceFileId: input.fileId, sourceRef: input.sourceRef?.trim() || section?.reference || (input.language === "de" ? "Eigene Notizen" : "My own notes"), sourceExcerpt: section?.text,
   });
-  if (!existing) {
-    const candidates = await prisma.topic.findMany({ where: { courseId: course.id, done: false, studyTask: { not: null } }, select: { id: true, studyTask: true } });
+  {
+    const candidates = await prisma.topic.findMany({ where: { courseId: course.id, parentTopicId: existing?.id ?? null, done: false, studyTask: { not: null } }, select: { id: true, studyTask: true } });
     const match = candidates.find((candidate) => {
       const previous = readStudyTask(candidate.studyTask);
       return previous && previous.sourceFileId === task.sourceFileId && previous.sourceRef === task.sourceRef && previous.instruction === task.instruction && previous.estimatedMinutes === task.estimatedMinutes;
@@ -106,7 +140,7 @@ export async function startQuickStudy(userId: string, input: {
     if (match) return { courseId: course.id, blockId: (await nextStudyBlock(userId, match.id))?.id ?? null };
   }
   const activity = input.language === "de" ? { read: "Lesen", solve: "Lösen", recall: "Abrufen" } : { read: "Read", solve: "Solve", recall: "Recall" };
-  const title = existing?.title ?? `${activity[input.mode]}: ${file?.filename ?? (input.language === "de" ? "Eigene Notizen" : "My own notes")}`;
+  const title = existing ? `${activity[input.mode]}: ${existing.title} · ${task.sourceRef}` : `${activity[input.mode]}: ${file?.filename ?? (input.language === "de" ? "Eigene Notizen" : "My own notes")}`;
   const saved = await saveStudyTaskForUser(userId, { courseId: course.id, topicId: existing?.id, title: title.slice(0, 200), task });
   if (!saved) return null;
   await prisma.topic.update({ where: { id: saved.id }, data: { studyProgress: JSON.stringify({ version: 1, response: "", elapsedSeconds: 0, updatedAt: new Date().toISOString(), sessionMinutes: input.minutes }) } });

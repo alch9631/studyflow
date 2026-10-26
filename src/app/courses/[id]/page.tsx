@@ -261,6 +261,7 @@ export default async function CoursePage({
           done: true,
           questions: true,
           studyTask: true,
+          parentTopicId: true,
           confidence: true,
           note: { select: { body: true } },
         },
@@ -295,7 +296,8 @@ export default async function CoursePage({
   const taskMaterials = course.files.filter((file) => originalIds.has(file.id)).map(({ id, filename }) => ({ id, filename }));
 
   const overload = await courseOverloadInfo(course.id);
-  const doneCount = course.topics.filter((t) => t.done).length;
+  const rootTopics = course.topics.filter((topic) => !topic.parentTopicId);
+  const doneCount = rootTopics.filter((topic) => topic.done).length;
   const today = todayISO();
   const examInDays = daysUntil(course.examDate, today);
   // Passed (bestanden / passing grade): the header swaps countdown-and-plan
@@ -634,7 +636,7 @@ export default async function CoursePage({
                 date: formatFriendlyDate(course.examDate.toISOString(), t.locale),
                 pace: hoursLabel(t, course.minutesPerDay),
                 done: doneCount,
-                total: course.topics.length,
+                total: rootTopics.length,
               })}
             </span>
           </div>
@@ -920,6 +922,7 @@ export default async function CoursePage({
                 id={`topic-${topic.id}`}
                 className="relative scroll-mt-24 rounded-xl border border-gray-200 p-3 pr-9 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
+                {topic.parentTopicId && <p className="mb-2 text-xs text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
                 <TopicToggle
                   topicId={topic.id}
                   courseId={course.id}

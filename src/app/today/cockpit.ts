@@ -24,6 +24,10 @@ export type CockpitBlock = {
   topicId?: string;
   task?: StudyTask | null;
   progress?: StudyProgress | null;
+  examDays?: number;
+  confidence?: string | null;
+  topicOrder?: number;
+  overdueDays?: number;
 };
 
 /** The four study-queue lanes, answering "what now / what can wait". */
@@ -127,61 +131,50 @@ export function cockpitStatus(
   return "protected";
 }
 
-/**
- * Split today's INCOMPLETE blocks into the four queue lanes.
- *
- * `blocks` arrives already in the page's plan order (study before review, longest
- * first). We honour that order so "Now" is genuinely the top of the plan.
- *
- *   - Can-slide: review-kind blocks always; PLUS, when over capacity, the lowest-
- *     priority study blocks (the shortest ones at the tail of the plan) until the
- *     remaining non-slide work fits the available focus time. This is the literal
- *     "what can wait" answer — push these to tomorrow first.
- *   - Of the work that must happen today: the first is "Now", the next is "Next",
- *     the rest are "Later".
- *
- * Completed blocks are excluded from lanes entirely (they're history, shown
- * collapsed elsewhere). Returns a per-block lane map keyed by id.
- */
+/** Fit the highest-value open sessions into today's capacity; keep overflow visible. */
 export function assignLanes(
   blocks: CockpitBlock[],
   cap: Capacity,
 ): Map<string, Lane> {
   const lanes = new Map<string, Lane>();
-  const open = blocks.filter((b) => !b.completed);
-
-  // 1) Reviews always slide first (lowest priority — the "what can wait" answer).
-  const reviews = open.filter((b) => b.kind === "review");
-  const study = open.filter((b) => b.kind !== "review");
-  for (const r of reviews) lanes.set(r.id, "slide");
-
-  // 2) If still over capacity after sliding reviews, slide the lowest-priority
-  //    study blocks too — shortest first, from the tail of the plan order — until
-  //    the remaining must-do study fits the available focus time.
-  let mustDo = [...study];
-  if (cap.overMin > 0) {
-    // Tail of plan order = lowest priority; shortest-first among equals so we shed
-    // the least valuable minutes. Stable: keep plan order as the tiebreaker.
-    const byLowestPriority = study
-      .map((b, i) => ({ b, i }))
-      .sort((a, z) => a.b.minutes - z.b.minutes || z.i - a.i);
-    let studyMin = study.reduce((s, b) => s + b.minutes, 0);
-    const slid = new Set<string>();
-    for (const { b } of byLowestPriority) {
-      if (studyMin <= cap.availableMin) break;
-      slid.add(b.id);
-      lanes.set(b.id, "slide");
-      studyMin -= b.minutes;
-    }
-    mustDo = study.filter((b) => !slid.has(b.id));
+  const open = prioritizeBlocks(blocks.filter((b) => !b.completed));
+  let used = 0;
+  let essential = 0;
+  for (const block of open) {
+    if (used + block.minutes <= cap.availableMin) {
+      lanes.set(block.id, essential === 0 ? "now" : essential === 1 ? "next" : "later");
+      essential++;
+      used += block.minutes;
+    } else lanes.set(block.id, "slide");
   }
-
-  // 3) The work that must happen today → Now / Next / Later by plan order.
-  mustDo.forEach((b, i) => {
-    lanes.set(b.id, i === 0 ? "now" : i === 1 ? "next" : "later");
-  });
-
   return lanes;
+}
+
+/** Explainable task ordering; duration is never a proxy for learning value. */
+export function priorityReason(block: CockpitBlock): "resume" | "weakReview" | "exam" | "review" | "foundation" {
+  if (block.progress) return "resume";
+  if (block.kind === "review" && block.confidence === "struggling") return "weakReview";
+  if ((block.examDays ?? Infinity) <= 7) return "exam";
+  return block.kind === "review" ? "review" : "foundation";
+}
+
+export function prioritizeBlocks(blocks: CockpitBlock[]): CockpitBlock[] {
+  const score = (b: CockpitBlock) => {
+    const days = Math.max(0, b.examDays ?? 365);
+    return (days <= 3 ? 100 : days <= 7 ? 65 : days <= 14 ? 30 : 0)
+      + (b.kind === "review" ? 35 : 0)
+      + (b.confidence === "struggling" ? 40 : b.confidence === "practice" ? 15 : 0)
+      + Math.min(30, (b.overdueDays ?? 0) * 10);
+  };
+  return blocks.map((block, index) => ({ block, index })).sort((a, b) =>
+    score(b.block) - score(a.block) || (a.block.topicOrder ?? a.index) - (b.block.topicOrder ?? b.index) || a.index - b.index,
+  ).map(({ block }) => block);
+}
+
+export function todayStatusKey(status: CockpitStatus, allDone: boolean) {
+  if (status === "doesnt_fit") return "today.statusDoesntFit" as const;
+  if (status === "needs_choice") return "today.statusNeedsChoice" as const;
+  return allDone ? "today.calmAllDone" as const : "today.statusProtected" as const;
 }
 
 export type ExamReach = "possible" | "notFully" | "none";
@@ -199,7 +192,12 @@ export type RecoveryActionPreview = {
   /** Exact unfinished minutes left today, including pinned reviews. */
   afterPaceMin: number;
   examReach: ExamReach;
+  days?: { date: string; minutes: number; capacity: number }[];
 };
+
+export function canDeferReview(block: Pick<CockpitBlock, "kind" | "confidence" | "examDays">): boolean {
+  return block.kind === "review" && block.confidence !== "struggling" && (block.examDays ?? Infinity) > 3;
+}
 
 /**
  * Whether a block may legally move to tomorrow. Mirrors the real action's
@@ -223,6 +221,7 @@ export type RecoveryPreviewInput = {
   todayStudyCount: number;
   todayReviewCount: number;
   movableStudyCount: number;
+  allMovableReviewCount?: number;
   movableReviewCount: number;
   movableReviewMin: number;
   immovableMin: number;
@@ -236,7 +235,7 @@ export function recoveryActionPreviews(input: RecoveryPreviewInput): {
   lighter: RecoveryActionPreview;
 } {
   const beforeCount = input.todayStudyCount + input.todayReviewCount;
-  const moved = input.movableStudyCount + input.movableReviewCount;
+  const moved = input.movableStudyCount + (input.allMovableReviewCount ?? input.movableReviewCount);
   return {
     protect: {
       beforeCount,

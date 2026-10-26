@@ -8,15 +8,21 @@ import { Rocket, Coffee, MapPin } from "lucide-react";
 import { getT } from "@/components/i18n/server";
 import { dueLabel } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
-import Onboarding from "@/components/Onboarding";
+import BehindSheet from "@/components/BehindSheet";
+import { recoverPlan, undoRecovery } from "./actions";
+import { recoveryUndoAvailable } from "@/lib/planAdjustment";
+import { assessRecovery } from "@/lib/recovery";
+import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
 import ExamStrip, { type ExamChip } from "./ExamStrip";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
-import { parsePrefs, availableStudyMinutes } from "@/lib/timePlacer";
+import { parsePrefs, availableStudyMinutes, studyCapacityByWeekday } from "@/lib/timePlacer";
 import { readStudyTask, readStudyResult, readStudyProgress } from "@/lib/studyTask";
 import {
   assignLanes,
+  canDeferReview,
+  prioritizeBlocks,
   canMoveBlockToTomorrow,
   cockpitStatus,
   computeCapacity,
@@ -63,6 +69,7 @@ export default async function TodayPage({
   const userId = await getCurrentUserId();
   const t = await getT();
   const today = todayISO();
+  const overdue = await assessRecovery(userId, today);
   const start = new Date(today + "T00:00:00Z");
   const end = new Date(start.getTime() + 86400_000);
 
@@ -158,7 +165,7 @@ export default async function TodayPage({
     }),
     // Study-window preferences (for today's capacity / risk line). Only the
     // preferences blob is read; parsePrefs tolerates null/legacy values.
-    prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { preferences: true, recoverySnapshot: true } }),
     previewSchedule(userId),
   ]);
 
@@ -235,19 +242,22 @@ export default async function TodayPage({
           course: { userId },
           id: { in: [...new Set(blocks.map((b) => b.topicId))] },
         },
-        select: { id: true, studyTask: true, studyProgress: true, note: { select: { body: true } } },
+        select: { id: true, studyTask: true, studyProgress: true, confidence: true, order: true, note: { select: { body: true } } },
       })
     : [];
   const noteByTopic = new Map(noteRows.map((n) => [n.id, n.note?.body ?? null]));
   const taskByTopic = new Map(noteRows.map((n) => [n.id, readStudyTask(n.studyTask)]));
 
   // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
-  const cockpitBlocks: CockpitBlock[] = blocks.map((b) => ({
+  const cockpitBlocks: CockpitBlock[] = prioritizeBlocks(blocks.map((b) => ({
+    examDays: daysUntil(b.course.examDate, today),
+    confidence: noteRows.find((topic) => topic.id === b.topicId)?.confidence,
+    topicOrder: noteRows.find((topic) => topic.id === b.topicId)?.order,
     ...b,
     note: noteByTopic.get(b.topicId) ?? null,
     task: taskByTopic.get(b.topicId) ?? null,
     progress: readStudyProgress(noteRows.find((topic) => topic.id === b.topicId)?.studyProgress),
-  }));
+  })));
   const cap = computeCapacity(remainingMin, availableMin);
   const risk = riskVerdict(cap);
   const laneMap = assignLanes(cockpitBlocks, cap);
@@ -260,16 +270,13 @@ export default async function TodayPage({
   const resumeElsewhere = latest && !cockpitBlocks.some((block) => !block.completed && block.topicId === latest.id)
     ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" }, select: { id: true } }) : null;
 
-  // Honest Today status. The day's genuine must-do load = today's incomplete
-  // first-pass STUDY (reviews are deferrable, overdue is handled by recovery, not
-  // counted here). Today uses its comfort budget; exam overload comes from the
-  // full scheduler, which has the complete runway and all courses.
-  const mustDoMin = blocks
-    .filter((b) => !b.completed && b.kind !== "review")
-    .reduce((s, b) => s + b.minutes, 0);
+  // Due recall participates in today's load. Whole-plan feasibility remains
+  // separate from completion of the sessions scheduled for this one day.
+  const mustDoMin = remainingMin;
   // The scheduler includes allowed study days, lectures, overlapping courses,
   // overdue work and completed sessions. Today's time left cannot replace it.
-  const examFeasibility = nextExam ? proposal.get(nextExam.id) : undefined;
+  const examFeasibility = [...proposal.values()].some((course) => course.isOverloaded)
+    ? { isOverloaded: true } : nextExam ? proposal.get(nextExam.id) : undefined;
   const status: CockpitStatus = cockpitStatus(mustDoMin, availableMin, examFeasibility);
 
   // Minimum Viable Day — the calm, decisive alternative to an anxiety list, shown
@@ -303,8 +310,9 @@ export default async function TodayPage({
     todayStudyCount: openStudyToday.length,
     todayReviewCount: openReviewToday.length,
     movableStudyCount: openStudyToday.filter(isMovable).length,
-    movableReviewCount: openReviewToday.filter(isMovable).length,
-    movableReviewMin: openReviewToday.filter(isMovable).reduce((s, b) => s + b.minutes, 0),
+    allMovableReviewCount: openReviewToday.filter(isMovable).length,
+    movableReviewCount: openReviewToday.filter((block) => isMovable(block) && canDeferReview(cockpitBlocks.find((item) => item.id === block.id)!)).length,
+    movableReviewMin: openReviewToday.filter((block) => isMovable(block) && canDeferReview(cockpitBlocks.find((item) => item.id === block.id)!)).reduce((s, b) => s + b.minutes, 0),
     immovableMin: openToday
       .filter((b) => !isMovable(b))
       .reduce((s, b) => s + b.minutes, 0),
@@ -314,6 +322,28 @@ export default async function TodayPage({
     },
     exam: examFeasibility,
   });
+
+  const horizonEnd = new Date(start.getTime() + 3 * 86400_000);
+  const [horizon, weekLectures] = await Promise.all([
+    prisma.studyBlock.findMany({ where: { date: { gte: start, lt: horizonEnd }, course: { userId } }, select: { date: true, minutes: true, completed: true, kind: true, topicId: true, course: { select: { examDate: true } } } }),
+    prisma.lecture.findMany({ where: { userId }, select: { weekday: true, startMin: true, endMin: true } }),
+  ]);
+  const capacities = studyCapacityByWeekday(prefs, weekLectures);
+  for (const kind of ["protect", "move", "lighter"] as const) {
+    previews[kind].days = Array.from({ length: 3 }, (_, index) => {
+      const date = new Date(start.getTime() + index * 86400_000).toISOString().slice(0, 10);
+      const load = kind === "lighter" ? [...proposal.values()].flatMap((course) => course.blocks).filter((block) => block.date === date).reduce((sum, block) => sum + block.minutes, 0)
+        : horizon.filter((block) => !block.completed).reduce((sum, block) => {
+          const original = block.date.toISOString().slice(0, 10);
+          const defer = original === today && canMoveBlockToTomorrow(block.date.getTime(), block.course.examDate.getTime())
+            && (kind === "move" || canDeferReview({ kind: block.kind, confidence: noteRows.find((topic) => topic.id === block.topicId)?.confidence, examDays: daysUntil(block.course.examDate, today) }));
+          const target = defer ? new Date(block.date.getTime() + 86400_000).toISOString().slice(0, 10) : original;
+          return sum + (target === date ? block.minutes : 0);
+        }, 0);
+      const finished = horizon.filter((block) => block.completed && block.date.toISOString().slice(0, 10) === date).reduce((sum, block) => sum + block.minutes, 0);
+      return { date, minutes: load, capacity: index === 0 ? availableMin : Math.max(0, capacities[new Date(date + "T00:00:00Z").getUTCDay()] - finished) };
+    });
+  }
 
   // Exam-countdown chips (soonest first), colored by urgency in the strip.
   const examChips: ExamChip[] = upcomingExams
@@ -337,7 +367,7 @@ export default async function TodayPage({
     {/* First-run intro for brand-new users with no plan yet. It self-gates on a
         localStorage "seen" flag, so it shows at most once and never for users
         who already have courses. */}
-    <Onboarding active={hasNoPlan} />
+
     {/* Container: a narrow calm column on mobile/tablet; on lg+ it widens so the
         single spine can breathe as a calm TWO-PANE — the cockpit spine on the
         left, today's context on the right. The grid below only kicks in at lg. */}
@@ -401,17 +431,18 @@ export default async function TodayPage({
           {t("today.rateLimited")}
         </div>
       )}
+      {(overdue.overdueSessions > 0 || (blocks.length === 0 && examFeasibility?.isOverloaded)) && <section className="mb-5 rounded-xl border border-border p-4" aria-label={t("today.planHealth")}>
+        <p className="font-medium">{examFeasibility?.isOverloaded ? t("today.statusDoesntFit") : t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>
+        {examFeasibility?.isOverloaded && overdue.overdueSessions > 0 && <p className="mt-1 text-sm">{t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>}
+        <form action={recoverPlan} className="mt-3"><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.recommendedAction")}</SubmitButton></form>
+        {blocks.length === 0 && <BehindSheet preview={previews} trigger={(open) => <button type="button" onClick={open} className="mt-2 min-h-11 text-sm underline">{t("behind.otherOptions")}</button>} />}
+      </section>}
+      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
+      {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
+      {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
       {resumeElsewhere && latest && <Link href={`/focus?blockId=${resumeElsewhere.id}`} className="mb-4 flex min-h-11 items-center justify-center rounded-xl bg-brand px-4 py-3 text-center font-semibold text-brand-foreground">{t("flow.resumeTopic", { topic: latest.title })}</Link>}
+      <div className={todaysLectures.length > 0 || upcomingDeadlines.length > 0 ? "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-12 xl:gap-16" : ""}>
       {blocks.length > 0 ? (
-        // Two-pane on lg+: LEFT = the cockpit spine (status, hero Start,
-        // essentials list, "Protected for later", Adjust today — all inside
-        // TodayCockpit). RIGHT = today's context (exam countdowns, classes,
-        // deadlines). On smaller screens this collapses to the single calm
-        // column, spine first then context, EXACTLY as before.
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-12 xl:gap-16">
-          {/* LEFT — the calm spine: hero next action + one honest status line +
-              a quiet list of the rest of today, with the per-block session sheet
-              and the single "Adjust today" drawer holding everything demoted. */}
           <div className="min-w-0">
             {(checkedGoals.size > 0 || practiceNeeded.size > 0) && <p className="mb-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
               {t("study.progressSummary", { goals: checkedGoals.size, practice: practiceNeeded.size })}
@@ -427,9 +458,48 @@ export default async function TodayPage({
             />
           </div>
 
-          {/* RIGHT — today's context. On lg+ it sits in its own quiet column with
-              the exam countdowns at its head; on mobile it stacks under the spine
-              and the exam strip stays at the very top of the page (above). */}
+      ) : hasNoPlan ? (
+        <EmptyState
+          icon={<Rocket className="h-7 w-7" />}
+          title={t("today.emptyNoPlanTitle")}
+          description={t("today.emptyNoPlanDesc")}
+          actions={[
+            { label: t("start.title"), href: "/start" },
+            { label: t("today.browseModules"), href: "/catalog", variant: "secondary" },
+            { label: t("today.importSyllabus"), href: "/courses/import" },
+            { label: t("today.addCourse"), href: "/courses/new" },
+          ]}
+        />
+      ) : (
+        <div>
+          <EmptyState
+            icon={<Coffee className="h-7 w-7" />}
+            title={t("today.emptyRestTitle")}
+            description={t("today.emptyRestDesc")}
+            actions={[
+              { label: t("today.myCourses"), href: "/courses" },
+              { label: t("today.insights"), href: "/insights", variant: "secondary" },
+            ]}
+          />
+          {nextBlocks.length > 0 && (
+            <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <span>{t("today.nextUp")} · {nextDate}</span>
+                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                  {nextBlocks.length}
+                </span>
+              </summary>
+              <AnimatedList className="space-y-2 px-3 pb-3">
+                {nextBlocks.map((b) => (
+                  <AnimatedListItem key={b.id}>
+                    <TodayBlockRow b={b} />
+                  </AnimatedListItem>
+                ))}
+              </AnimatedList>
+            </details>
+          )}
+        </div>
+      )}
           <aside className="mt-6 lg:mt-0">
           {/* When there's no context at all, the right pane would be empty on
               lg+ — show a single calm line there instead of a hollow column.
@@ -506,48 +576,7 @@ export default async function TodayPage({
             </section>
           )}
           </aside>
-        </div>
-      ) : hasNoPlan ? (
-        <EmptyState
-          icon={<Rocket className="h-7 w-7" />}
-          title={t("today.emptyNoPlanTitle")}
-          description={t("today.emptyNoPlanDesc")}
-          actions={[
-            { label: t("today.browseModules"), href: "/catalog" },
-            { label: t("today.importSyllabus"), href: "/courses/import" },
-            { label: t("today.addCourse"), href: "/courses/new" },
-          ]}
-        />
-      ) : (
-        <div>
-          <EmptyState
-            icon={<Coffee className="h-7 w-7" />}
-            title={t("today.emptyRestTitle")}
-            description={t("today.emptyRestDesc")}
-            actions={[
-              { label: t("today.myCourses"), href: "/courses" },
-              { label: t("today.insights"), href: "/insights", variant: "secondary" },
-            ]}
-          />
-          {nextBlocks.length > 0 && (
-            <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                <span>{t("today.nextUp")} · {nextDate}</span>
-                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                  {nextBlocks.length}
-                </span>
-              </summary>
-              <AnimatedList className="space-y-2 px-3 pb-3">
-                {nextBlocks.map((b) => (
-                  <AnimatedListItem key={b.id}>
-                    <TodayBlockRow b={b} />
-                  </AnimatedListItem>
-                ))}
-              </AnimatedList>
-            </details>
-          )}
-        </div>
-      )}
+      </div>
     </main>
     </>
   );

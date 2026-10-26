@@ -47,10 +47,10 @@ export default function ExamStrip({ exams, t }: { exams: ExamChip[]; t: Translat
             <li key={e.id} className="shrink-0">
               <Link
                 href={`/courses/${e.id}`}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80 ${tone}`}
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:underline ${tone}`}
               >
                 <span className="max-w-[10rem] truncate">{e.name}</span>
-                <span className="tabular-nums opacity-80">{e.days}d</span>
+                <span className="tabular-nums">{e.days}d</span>
               </Link>
             </li>
           );

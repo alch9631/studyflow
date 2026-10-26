@@ -112,8 +112,8 @@ check("a heavy day with an unreachable exam is never protected", verdict !== "pr
 const withReviews = [study("a", 100), review("r", 60)];
 const rCap = computeCapacity(160, studyBudget(160));
 const rLanes = assignLanes(withReviews, rCap);
-check("review slides before study", rLanes.get("r") === "slide");
-check("the fitting study stays must-do", rLanes.get("a") !== "slide");
+check("due recall is kept ahead of new material", rLanes.get("r") !== "slide");
+check("lower-priority work moves outside the available budget", rLanes.get("a") === "slide");
 
 // ── Minimum Viable Day ───────────────────────────────────────────────────────
 // The smallest-useful day is assembled from REAL blocks: one core study, one

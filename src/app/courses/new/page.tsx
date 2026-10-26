@@ -1,3 +1,5 @@
+import { getCurrentUserId } from "@/lib/devUser";
+import { currentDailyBudget } from "@/lib/studyAvailability";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -22,6 +24,7 @@ export default async function NewCoursePage({
 }) {
   const { msg } = await searchParams;
   const t = await getT();
+  const dailyBudget = await currentDailyBudget(await getCurrentUserId());
   const banner = msg && BANNER_KEYS.has(msg) ? t(`newCourse.banners.${msg}` as MessageKey) : undefined;
   return (
     <main className="mx-auto max-w-xl p-4 sm:p-8">
@@ -37,7 +40,7 @@ export default async function NewCoursePage({
         {t("newCourse.subtitle")}
       </p>
 
-      <NewCourseForm />
+      <NewCourseForm dailyBudget={dailyBudget} />
     </main>
   );
 }

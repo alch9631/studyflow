@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { Check } from "lucide-react";
+import DailyBudgetField from "@/components/DailyBudgetField";
 import { useT } from "@/components/i18n/I18nProvider";
 import SubmitButton from "@/components/SubmitButton";
 import { Button } from "@/components/ui/button";
@@ -42,8 +43,10 @@ export type CatalogModule = {
 export default function CatalogBrowser({
   modules,
   action,
+  dailyBudget,
 }: {
   modules: CatalogModule[];
+  dailyBudget: number;
   action: (formData: FormData) => void | Promise<void>;
 }) {
   const t = useT();
@@ -196,6 +199,7 @@ export default function CatalogBrowser({
           open={confirmOpen}
           setOpen={setConfirmOpen}
           count={selectedCount}
+          dailyBudget={dailyBudget}
           formId={formId}
           t={t}
         />
@@ -295,12 +299,14 @@ function ConfirmAddDialog({
   setOpen,
   count,
   formId,
+  dailyBudget,
   t,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   count: number;
   formId: string;
+  dailyBudget: number;
   t: ReturnType<typeof useT>;
 }) {
   return (
@@ -308,6 +314,7 @@ function ConfirmAddDialog({
       <DialogContent showCloseButton={false}>
         <DialogTitle>{t.n("catalog.confirmTitle", count)}</DialogTitle>
         <DialogDescription>{t("catalog.confirmBody")}</DialogDescription>
+        <div className="mt-4"><DailyBudgetField minutes={dailyBudget} formId={formId} /></div>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <DialogClose asChild>
             <Button type="button" variant="secondary" className="w-full sm:w-auto">

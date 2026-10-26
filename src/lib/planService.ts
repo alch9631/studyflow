@@ -94,7 +94,7 @@ type DbCourseWithTopics = {
   studyDays: string;
   minutesPerDay: number;
   difficulty?: number;
-  topics: { id: string; title: string; effort: number; done: boolean; studyTask?: string | null }[];
+  topics: { id: string; title: string; effort: number; done: boolean; studyTask?: string | null; parentTopicId?: string | null }[];
 };
 
 type DbBlock = {
@@ -131,6 +131,17 @@ export function foldCompletedSessions(
   course: DbCourseWithTopics & { blocks: DbBlock[] },
   sizeScale?: number,
 ): EngineCourse {
+  // Child task estimates allocate part of the parent's original work. Keep the
+  // remainder scheduled without counting the same work twice. Completed child
+  // tasks still consume their allocation; they do not finish the whole topic.
+  const allocated = new Map<string, number>();
+  for (const topic of course.topics) {
+    if (topic.parentTopicId) allocated.set(topic.parentTopicId,
+      (allocated.get(topic.parentTopicId) ?? 0) + clampEffort(topic.effort));
+  }
+  course = { ...course, topics: course.topics.map((topic) => ({ ...topic,
+    effort: Math.max(0, topic.effort - (allocated.get(topic.id) ?? 0)),
+  })) };
   const planned: Record<string, number> = {};
   const done: Record<string, number> = {};
   for (const b of course.blocks ?? []) {
@@ -156,7 +167,7 @@ export function foldCompletedSessions(
   if (Number.isFinite(sizeScale as number) && (sizeScale as number) > 0) {
     for (const t of course.topics ?? []) {
       const full = clampEffort(t.effort) * MINUTES_PER_EFFORT * (sizeScale as number);
-      if (full > (planned[t.id] ?? 0)) planned[t.id] = full;
+      if (allocated.has(t.id) || full > (planned[t.id] ?? 0)) planned[t.id] = full;
     }
   }
   const folded = applyCompletedWork(toEngineCourse(course), done, planned);
@@ -458,7 +469,7 @@ async function loadScheduleInputs(userId: string) {
       passed: true,
       topics: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, effort: true, done: true, confidence: true, studyTask: true },
+        select: { id: true, title: true, effort: true, done: true, confidence: true, studyTask: true, parentTopicId: true },
       },
       blocks: {
         select: {
@@ -985,7 +996,7 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
       passed: true,
       topics: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, effort: true, done: true, confidence: true, studyTask: true },
+        select: { id: true, title: true, effort: true, done: true, confidence: true, studyTask: true, parentTopicId: true },
       },
       blocks: { select: { topicId: true, topicTitle: true, date: true, minutes: true, completed: true, kind: true, actualMinutes: true, studyResult: true } },
     },

@@ -52,6 +52,11 @@ export default function BehindSheet({
           <DialogDescription>{t("behind.subtitle")}</DialogDescription>
 
           <div className="mt-5 flex flex-col gap-3">
+            <BehindOption action={recoverPlan} label={t("behind.recommendedAction")} hint={t("behind.recommendedHint")}
+              preview={preview ? t("behind.lighterPreview", { from: preview.lighter.beforeCount, remaining: preview.lighter.afterCount, pace: fmtDuration(preview.lighter.afterPaceMin) }) : null}
+              days={preview?.lighter.days} examLine={examLine} pendingLabel={t("behind.working")} recommended />
+            <details><summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">{t("behind.otherOptions")}</summary>
+            <div className="mt-3 space-y-4">
             {showProtect && (
               <BehindOption
                 action={protectToday}
@@ -68,6 +73,7 @@ export default function BehindSheet({
                     : null
                 }
                 pendingLabel={t("behind.working")}
+                days={preview?.protect.days}
               />
             )}
             {showMove && (
@@ -86,24 +92,10 @@ export default function BehindSheet({
                     : null
                 }
                 pendingLabel={t("behind.working")}
+                days={preview?.move.days}
               />
             )}
-            <BehindOption
-              action={recoverPlan}
-              label={t("behind.lighterTitle")}
-              hint={t("behind.lighterHint")}
-              preview={
-                preview
-                  ? t("behind.lighterPreview", {
-                      from: preview.lighter.beforeCount,
-                      remaining: preview.lighter.afterCount,
-                      pace: fmtDuration(preview.lighter.afterPaceMin),
-                    })
-                  : null
-              }
-              examLine={examLine}
-              pendingLabel={t("behind.working")}
-            />
+            </div></details>
           </div>
 
           <p className="mt-5 text-center text-xs text-muted-foreground">
@@ -127,6 +119,8 @@ function BehindOption({
   preview,
   examLine,
   pendingLabel,
+  days,
+  recommended = false,
 }: {
   action: () => Promise<void>;
   label: string;
@@ -136,10 +130,13 @@ function BehindOption({
   /** Honest nearest-exam line ("still possible" / "no longer fully possible"). */
   examLine?: string | null;
   pendingLabel: string;
+  days?: { date: string; minutes: number; capacity: number }[];
+  recommended?: boolean;
 }) {
+  const t = useT();
   return (
     <form action={action} className="flex flex-col gap-1.5">
-      <SubmitButton variant="secondary" pendingLabel={pendingLabel} className="w-full">
+      <SubmitButton variant={recommended ? "primary" : "secondary"} pendingLabel={pendingLabel} className="w-full">
         {label}
       </SubmitButton>
       {preview && (
@@ -149,6 +146,9 @@ function BehindOption({
         <p className="px-1 text-xs font-medium text-muted-foreground">{examLine}</p>
       )}
       <p className="px-1 text-xs text-muted-foreground">{hint}</p>
+      {days && <ul className="mt-2 space-y-1 text-sm">{days.map((day) => <li key={day.date} className="flex flex-wrap justify-between gap-2">
+        <span>{day.date}</span><span>{t("behind.dayLoad", { time: fmtDuration(day.minutes), capacity: fmtDuration(day.capacity) })}{day.minutes > day.capacity ? ` · ${t("behind.overCapacity")}` : ""}</span>
+      </li>)}</ul>}
     </form>
   );
 }

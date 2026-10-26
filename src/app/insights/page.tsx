@@ -14,6 +14,7 @@ import { getT } from "@/components/i18n/server";
 import { examCountdownLabel, type MessageKey } from "@/components/i18n/messages";
 import StudyHeatmap, { type HeatmapDay } from "./StudyHeatmap";
 import { buildHeatmap } from "./heatmapData";
+import { summarizeLearning } from "@/lib/learningEvidence";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -34,6 +35,8 @@ export default async function InsightsPage() {
   const t = await getT();
   const today = todayISO();
   const stats = await getStatsCached(userId, today);
+  const evidence = summarizeLearning(await prisma.studyBlock.findMany({ where: { course: { userId }, studyResult: { not: null } },
+    orderBy: { date: "desc" }, take: 10000, select: { topicId: true, kind: true, studyResult: true } }));
 
   const {
     hasData,
@@ -150,6 +153,13 @@ export default async function InsightsPage() {
         {t("insights.subtitle")}
       </p>
 
+      {hasData && <section className="mb-7 border-b border-border pb-6" aria-labelledby="learning-evidence">
+        <h2 id="learning-evidence" className="text-lg font-semibold">{t("study.evidenceTitle")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t("study.evidenceHint")}</p>
+        <dl className="mt-4 space-y-2 text-sm">
+          {([["goalsMet", evidence.goalsMet], ["practiceNeeded", evidence.practiceNeeded], ["laterRecall", evidence.laterRecall]] as const).map(([key, count]) => <div key={key} className="flex justify-between gap-4"><dt>{t(`study.evidence.${key}`)}</dt><dd className="font-semibold tabular-nums">{count}</dd></div>)}
+        </dl>
+      </section>}
       {!hasData ? (
         <EmptyState
           icon={<Sprout className="h-7 w-7" />}

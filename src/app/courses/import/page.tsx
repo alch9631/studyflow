@@ -1,3 +1,5 @@
+import { getCurrentUserId } from "@/lib/devUser";
+import { currentDailyBudget } from "@/lib/studyAvailability";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -36,6 +38,7 @@ export default async function ImportPage({
   }
 
   const t = await getT();
+  const dailyBudget = await currentDailyBudget(await getCurrentUserId());
   const banner =
     msg && BANNER_KEYS.has(msg) ? t(`importCourse.banners.${msg}` as MessageKey) : undefined;
 
@@ -61,7 +64,7 @@ export default async function ImportPage({
         </div>
       )}
 
-      <ImportForm enabled={enabled} />
+      <ImportForm enabled={enabled} dailyBudget={dailyBudget} />
     </main>
   );
 }

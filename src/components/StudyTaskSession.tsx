@@ -79,6 +79,7 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
           : <div className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-surface-muted p-3 text-sm"><strong>{t("study.answerKey")}</strong><p className="mt-2">{task.answerKey}</p></div>)}
         {source && <a href={source} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-11 items-center text-sm text-brand-ink underline">{t("study.openMaterial")}</a>}
         <p className="mt-3 text-sm text-muted-foreground">{t("flow.finishHint")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("study.readinessHint")}</p>
         <div className="mt-4 flex flex-col gap-2">
           <Button type="button" onClick={() => void finish("complete")} disabled={pending || (!!task.answerKey && !revealed) || (!!task.checkQuestion && !response.trim())}>{pending ? t("study.saving") : t("study.finish")}</Button>
           <Button type="button" variant="secondary" disabled={pending} onClick={() => void finish("practice")}>{t("study.needsPractice")}</Button>

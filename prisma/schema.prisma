@@ -34,6 +34,7 @@ model User {
   // sqlite→postgresql production swap stays a one-line provider change). Holds
   // things like preferred study window / focus settings. null = unset.
   preferences   String?
+  recoverySnapshot String? // Expiring undo of the last plan adjustment.
 }
 
 // --- Auth.js (NextAuth) models ---
@@ -210,6 +211,11 @@ model Topic {
   questions String? // JSON array of AI self-test questions (active recall)
   studyTask String? // Versioned JSON: concrete work, source, success criteria, optional answer key.
   studyProgress String? // Saved answer and elapsed time; survives schedule rebuilds.
+  // Concrete tasks can cover part of a broader topic. Completing a child never
+  // marks its parent covered or changes the parent's original work estimate.
+  parentTopicId String?
+  parentTopic Topic? @relation("TopicTasks", fields: [parentTopicId], references: [id], onDelete: SetNull)
+  tasks Topic[] @relation("TopicTasks")
   // Student self-rated confidence: "solid" | "practice" | "struggling" (null =
   // unrated). Drives spaced-review spacing — struggling earns more/earlier
   // reviews, solid fewer/later. Set once per topic (not per study session).
@@ -223,6 +229,7 @@ model Topic {
   // detail page, planner rebuild). Leading courseId still serves plain
   // by-course lookups; the trailing `order` lets SQLite skip the sort step.
   @@index([courseId, order])
+  @@index([parentTopicId])
 }
 
 // A student's free-text study note for a single topic (one note per topic — a

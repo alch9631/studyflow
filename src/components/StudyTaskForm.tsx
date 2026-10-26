@@ -64,7 +64,7 @@ export default function StudyTaskForm({ courseId, topicId, title = "", task, mat
             {t("study.answerKey")}<Textarea name="answerKey" maxLength={4000} rows={3} defaultValue={task?.answerKey} className="mt-1 w-full" />
           </label>
         </details>
-        <SubmitButton className="w-full" pendingLabel={t("study.saving")}>{t("study.saveTask")}</SubmitButton>
+        <SubmitButton variant="primary" className="w-full" pendingLabel={t("study.saving")}>{t("study.saveTask")}</SubmitButton>
       </ValidatedForm>
     </details>
   );
