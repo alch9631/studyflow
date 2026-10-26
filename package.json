@@ -63,7 +63,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:catalog": "tsx prisma/seedCatalog.ts",
     "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:focus": "tsx src/lib/focusSession.test.ts"
   },
   "engines": {
     "node": ">=24"

@@ -325,7 +325,7 @@ export function calibrationFromHistory(
   // Only COMPLETED sessions are evidence of pace: an abandoned sprint has
   // actual < planned by construction, so counting it would read as "student is
   // faster than the estimate" and shrink the plan for work never finished.
-  const logged = blocks.filter((b) => b.completed && b.actualMinutes && b.actualMinutes > 0 && readStudyResult(b.studyResult)?.outcome !== "practice");
+  const logged = blocks.filter((b) => b.completed && b.actualMinutes && b.actualMinutes > 0 && !["practice", "session"].includes(readStudyResult(b.studyResult)?.outcome ?? ""));
   if (logged.length < 3) return 1;
   const planned = logged.reduce((s, b) => s + b.minutes, 0);
   const actual = logged.reduce((s, b) => s + (b.actualMinutes ?? 0), 0);

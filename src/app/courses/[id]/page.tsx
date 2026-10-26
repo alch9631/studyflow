@@ -925,13 +925,13 @@ export default async function CoursePage({
                   title={topic.title}
                   done={topic.done}
                 />
-                {task && <div className="ml-7 mt-2 space-y-1 text-sm">
+                {task && <details className="ml-7 mt-2 space-y-1 text-sm"><summary className="min-h-11 cursor-pointer py-3 text-muted-foreground">{t("flow.preview")}</summary>
                   <p className="whitespace-pre-wrap break-words">{task.instruction}</p>
                   {task.sourceRef && <p className="break-words text-xs text-muted-foreground">{task.sourceRef}</p>}
                   {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
                   <p className="whitespace-pre-wrap break-words text-muted-foreground">{t("study.criteria")} {task.successCriteria}</p>
-                </div>}
-                {!task && <div className="mt-3"><QuickStudySetup courseId={course.id} topicId={topic.id} title={topic.title} /></div>}
+                </details>}
+                {!topic.done && <div className="mt-3"><QuickStudySetup courseId={course.id} topicId={topic.id} title={topic.title} /></div>}
                 <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />
                 <TopicMeta
                   topicId={topic.id}

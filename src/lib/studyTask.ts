@@ -13,11 +13,11 @@ export type StudyTask = {
   sourceExcerpt?: string;
 };
 
-export function readStudyResult(raw: string | null | undefined): { outcome: "complete" | "practice"; planUpdated?: boolean; response?: string; recordedAt?: string } | null {
+export function readStudyResult(raw: string | null | undefined): { outcome: "complete" | "practice" | "session"; planUpdated?: boolean; response?: string; recordedAt?: string } | null {
   if (!raw) return null;
   try {
     const result = JSON.parse(raw);
-    return result?.version === 1 && ["complete", "practice"].includes(result.outcome) ? result : null;
+    return result?.version === 1 && ["complete", "practice", "session"].includes(result.outcome) ? result : null;
   } catch { return null; }
 }
 

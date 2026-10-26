@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Download, Share, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { useT } from "./i18n/I18nProvider";
@@ -73,6 +74,7 @@ function rememberDismissed() {
 
 export default function InstallPrompt() {
   const t = useT();
+  const pathname = usePathname();
   const [mode, setMode] = useState<Mode>(null);
   const deferred = useRef<BeforeInstallPromptEvent | null>(null);
 
@@ -131,7 +133,7 @@ export default function InstallPrompt() {
     }
   }
 
-  if (mode === null) return null;
+  if (mode === null || pathname === "/focus" || pathname.startsWith("/focus/")) return null;
 
   return (
     <div

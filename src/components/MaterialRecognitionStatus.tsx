@@ -7,8 +7,8 @@ import { readMaterialRecognition, recognitionNeedsRefresh } from "@/lib/material
 import { useT } from "./i18n/I18nProvider";
 import { Button } from "./ui/button";
 
-// Older uploads are processed one at a time while their course is open. Leaving
-// the page cancels queued work; the next visit resumes from persisted results.
+// Older uploads are processed when their preparation dialog is open. Closing
+// it cancels queued work; persisted results are reused on the next review.
 let queue: Promise<unknown> = Promise.resolve();
 
 export default function MaterialRecognitionStatus({ fileId, analysis, onRecognized }: {

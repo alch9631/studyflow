@@ -32,7 +32,7 @@ Check Safari and the installed home-screen app in portrait and landscape:
 - Open the menu on a small screen. Reach language and appearance by scrolling,
   change a preference, then close the menu and scroll the page again.
 - Scroll to the last course. Its controls must clear the add button and tabs.
-- Upload a file with a long filename. Open its study setup and chapter preview;
+- Upload a file with a long filename. Open its timer and chapter preview;
   the filename, controls, and actions must stay inside the screen.
 - In a study sheet, focus a text field with the keyboard open. Scroll to the
   final action, dismiss the keyboard, and rotate the phone. Keep pinch zoom usable.
@@ -47,16 +47,22 @@ Check Safari and the installed home-screen app in portrait and landscape:
   Complete a task or edit a calendar session, switch tabs, and confirm the change
   appears immediately. Leave the app idle for more than 30 seconds and check
   that the next visit fetches fresh content.
-- Start a prepared task from Today after its link has prefetched. The study
-  screen should show the task, material link and result action; open the source
-  excerpt or notes and timer only when needed. Write an answer, leave, resume,
-  and check that it is kept. Reveal an answer key and record a result.
-- For an unprepared topic, check that Quick start loads its preferred material
-  and preview together. Choose another section, expand the duration/activity
-  control, and start. A failed source preview must still allow opening the
-  original and entering an exact page or exercise reference.
-
-The automated experience suite (`npm run test:experience`) checks task/parent
-separation, conservation of planned work, source matching and ownership,
-explainable review priority, honest status, guarded undo, first-run capacity,
-and repeated setup requests. Human observation is still needed for usefulness.
+- Tap Start on Today, or tap a task row. Both prepared and unprepared tasks
+  should open a running countdown immediately, with no setup form or second Start.
+  The default screen contains the task name, clock, optional material link,
+  Pause and Finish. Details, instructions, notes and result checks stay collapsed.
+- Open a course with older, unanalyzed files. No document-recognition request
+  should run until you open Prepare a study plan. Timer starts must not queue
+  behind file parsing.
+- Start from a course, topic or material. No page, activity, file or duration
+  selection is required. An unreadable PDF must not block starting the timer.
+  The existing task duration is used; new sessions default to 30 minutes.
+- Pause, reload, and verify the time stays paused. Resume from Today and verify
+  it starts again at the saved time. Background the iPhone while running and
+  verify the clock catches up on return. A completed countdown stops at zero.
+- Open Details & notes to change the duration, view the source and write notes.
+  Leave and resume, then verify the notes and elapsed time survive. Original
+  course notes must remain intact. Check a result only when explicitly requested.
+- Finish without a quiz. The session and time are saved, including work notes;
+  it must not count as a passed knowledge check or change learning confidence.
+  Retry a failed save and verify time is never counted twice.

@@ -13,9 +13,33 @@ import { readStudyDrafts } from "@/lib/studyDraft";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
 import { prepareMaterialOutline, acceptMaterialOutline, recognizeMaterialOutline } from "@/lib/materialOutline";
 import { readMaterialOutline } from "@/lib/documentOutline";
+import { startFocusForUser, finishFocusForUser } from "@/lib/focusSession";
 
-function refreshStudy(courseId: string) {
-  for (const path of [`/courses/${courseId}`, "/today", "/calendar", "/insights", "/focus", "/practice"]) revalidatePath(path);
+export async function startFocusSession(input: { courseId: string; topicId?: string; fileId?: string; language: "en" | "de" }) {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return { ok: false as const };
+  const result = await startFocusForUser(userId, input);
+  // No revalidation before navigation: it would re-render the entire course just to start a clock.
+  return result ? { ok: true as const, ...result } : { ok: false as const };
+}
+
+export async function finishFocusSession(input: { blockId: string; topicId: string; elapsedSeconds: number; response: string }) {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return { ok: false };
+  try {
+    const result = await finishFocusForUser(userId, input);
+    if (result) refreshStudy(result.courseId, false);
+    return { ok: !!result };
+  } catch (error) {
+    if (error instanceof ValidationError) return { ok: false };
+    throw error;
+  }
+}
+
+function refreshStudy(courseId: string, includeFocus = true) {
+  // Finishing navigates to Today. Refreshing the active focus page first would
+  // resolve and mount the next task (and its clock) before that navigation.
+  for (const path of [`/courses/${courseId}`, "/today", "/calendar", "/insights", "/practice", ...(includeFocus ? ["/focus"] : [])]) revalidatePath(path);
 }
 
 export async function uploadMaterial(data: FormData) {
@@ -64,7 +88,7 @@ export async function finishStudyTask(data: FormData) {
       actualMinutes: Number(data.get("actualMinutes") ?? 0),
     });
     if (!saved) return { ok: false };
-    refreshStudy(saved.courseId);
+    refreshStudy(saved.courseId, false);
     return { ok: true };
   } catch (error) {
     if (error instanceof ValidationError) return { ok: false, error: error.message };
@@ -173,6 +197,6 @@ export async function checkpointStudy(data: FormData) {
     topicId: String(data.get("topicId") ?? "") || undefined,
     sessionMinutes: data.has("sessionMinutes") ? Number(data.get("sessionMinutes")) : undefined,
     elapsedSeconds: Number(data.get("elapsedSeconds")), updatedAt: String(data.get("updatedAt") ?? "") });
-  if (result) revalidatePath("/today");
+  if (result && data.get("leaving") === "1") revalidatePath("/today");
   return { ok: !!result };
 }

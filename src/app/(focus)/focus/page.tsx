@@ -7,7 +7,7 @@ import { daysUntil } from "@/lib/dates";
 import { prioritizeBlocks } from "@/app/today/cockpit";
 import { todayISO } from "@/lib/planService";
 import { getT } from "@/components/i18n/server";
-import FocusSession, { type FocusBlock } from "./FocusSession";
+import type { FocusBlock } from "@/lib/focusTypes";
 import { readStudyTask, readStudyProgress, readStudyResult } from "@/lib/studyTask";
 import PracticalStudySession from "@/components/PracticalStudySession";
 
@@ -17,16 +17,7 @@ export const metadata: Metadata = {
   description: "Distraction-free focus mode: one task, a timer, and nothing else.",
 };
 
-/**
- * Distraction-free Focus mode (/focus?blockId=...).
- *
- * A server component that resolves the ONE block to focus on — the explicitly
- * requested block (ownership-scoped) or, failing that, today's next incomplete
- * block in plan order — then hands it to a full-screen client island with a big
- * timer, quick notes, and done/stop. The island renders as a fixed overlay so
- * the global nav chrome is visually out of the way without touching the root
- * layout. Mark-done reuses toggleBlock; notes reuse saveBlockNote.
- */
+/** Resolve an owned session; the client starts its clock only when mounted. */
 export default async function FocusPage({
   searchParams,
 }: {
@@ -71,7 +62,6 @@ export default async function FocusPage({
 
   // Resolve the daily queue only when no usable block was requested. A direct
   // task start does not need to load and rank the rest of the day's work.
-  let upNext: { topicTitle: string } | null = null;
   if (!block || block.completed) {
     // Today and Focus use the same explainable ordering, including due reviews.
     const candidates = await prisma.studyBlock.findMany({
@@ -86,7 +76,6 @@ export default async function FocusPage({
     }));
     const next = queue.find((candidate) => candidate.progress) ?? queue[0];
     block = next ? candidates.find((candidate) => candidate.id === next.id)! : null;
-    upNext = queue.find((candidate) => candidate.id !== block?.id) ?? null;
   }
 
   if (!block) {
@@ -107,17 +96,15 @@ export default async function FocusPage({
     );
   }
 
-  // The topic's existing note, so the Focus quick-note editor opens pre-filled.
-  // It writes the same Note.body as the course-page editor — seeding it empty
-  // made every save an overwrite that destroyed the student's existing note.
+  // Session drafts and original course notes are kept separate.
   const topic = await prisma.topic.findFirst({
     where: { id: block.topicId, courseId: block.course.id, course: { userId } },
     select: { studyTask: true, studyProgress: true, note: { select: { body: true } } },
   });
   const task = readStudyTask(topic?.studyTask);
   const [attempts, fileCount] = await Promise.all([
-    task ? prisma.studyBlock.findMany({ where: { topicId: block.topicId, course: { userId }, completed: true, studyResult: { not: null } },
-      orderBy: { date: "desc" }, take: 20, select: { studyResult: true } }) : [],
+    prisma.studyBlock.findMany({ where: { topicId: block.topicId, course: { userId }, completed: true, studyResult: { not: null } },
+      orderBy: { date: "desc" }, take: 20, select: { studyResult: true } }),
     task?.sourceFileId ? prisma.moduleFile.count({
       where: { id: task.sourceFileId, courseId: block.course.id, content: { not: null } },
     }) : 0,
@@ -135,12 +122,12 @@ export default async function FocusPage({
     topicId: block.topicId,
     course: block.course,
     note: topic?.note?.body ?? null,
-    task, fileAvailable, progress: readStudyProgress(topic?.studyProgress), lastAttempt: lastAttempt?.outcome === "practice" ? lastAttempt.response : null,
+    task, fileAvailable, progress: readStudyProgress(topic?.studyProgress), lastAttempt: lastAttempt?.outcome !== "complete" ? lastAttempt?.response : null,
   };
 
   // Keyed by block id: if the mounted /focus route ever receives a different
   // block (searchParams change without unmount), the whole session — timer AND
   // seeded note draft — resets for the new block, so one topic's note text can
   // never be saved onto another topic.
-  return task ? <PracticalStudySession key={focusBlock.id} block={focusBlock} /> : <FocusSession key={focusBlock.id} block={focusBlock} upNextTopic={upNext?.topicTitle ?? null} />;
+  return <PracticalStudySession key={focusBlock.id} block={focusBlock} />;
 }

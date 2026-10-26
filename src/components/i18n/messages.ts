@@ -311,10 +311,10 @@ const en = {
     calmAllDone: "Today’s scheduled study is complete.",
     // ── Three truthful states (never false calm) ──
     statusProtected: "You're set for today.",
-    statusNeedsChoice: "Today is heavier than one sitting.",
-    statusDoesntFit: "Your remaining work needs more study time.",
+    statusNeedsChoice: "More than one sitting today.",
+    statusDoesntFit: "Your plan needs more time.",
     taskActions: "Actions for {topic}",
-    laterToggle: "Protected for later ({count})",
+    laterToggle: "Later ({count})",
     laterHint: "Outside today’s available focus time. These sessions remain scheduled until you adjust the plan.",
     contextEmpty: "No exams or classes on the horizon. Just today's sessions.",
     // ── Minimum Viable Day (the smallest day that still moves you forward) ──
@@ -326,6 +326,8 @@ const en = {
     mvdStart: "Start {minutes}m",
   },
   focus: {
+    details: "Details & notes", resume: "Resume", finish: "Finish",
+    startError: "Could not start the timer. Try again.",
     title: "Focus",
     noBlock: "Nothing to focus on",
     noBlockBody: "Every session for today is done. Head back to Today.",
@@ -1484,6 +1486,8 @@ const de: Messages = {
     mvdStart: "{minutes} Min starten",
   },
   focus: {
+    details: "Details & Notizen", resume: "Weiter", finish: "Beenden",
+    startError: "Timer konnte nicht starten. Bitte erneut versuchen.",
     title: "Fokus",
     noBlock: "Nichts zum Fokussieren",
     noBlockBody: "Alle heutigen Einheiten sind erledigt. Zurück zu Heute.",

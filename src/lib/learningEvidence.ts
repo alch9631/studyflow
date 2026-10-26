@@ -7,7 +7,7 @@ export function summarizeLearning(blocks: { topicId: string; kind: string; study
   const laterRecall = new Set<string>();
   const results = blocks.flatMap((block) => {
     const result = readStudyResult(block.studyResult);
-    return typeof result?.recordedAt === "string" && Number.isFinite(Date.parse(result.recordedAt)) ? [{ ...block, result }] : [];
+    return result?.outcome !== "session" && typeof result?.recordedAt === "string" && Number.isFinite(Date.parse(result.recordedAt)) ? [{ ...block, result }] : [];
   }).sort((a, b) => a.result.recordedAt!.localeCompare(b.result.recordedAt!));
   for (const { topicId, kind, result } of results) {
     const at = Date.parse(result.recordedAt!);

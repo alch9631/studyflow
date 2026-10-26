@@ -71,11 +71,13 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
     } catch { toast(t("flow.prepareError"), "error"); } finally { setPending(false); }
   }
   return <div className="mt-3 space-y-2">
-    <MaterialRecognitionStatus fileId={fileId} analysis={analysis} onRecognized={onRecognized} />
-    <Button type="button" variant="secondary" className="w-full whitespace-normal" onClick={() => { setError(""); setOpen(true); }}>{t(outline ? "flow.reviewRecognizedPlan" : "flow.preparePlan")}</Button>
     <QuickStudySetup courseId={courseId} fileId={fileId} title={filename} />
+    <Button type="button" variant="secondary" className="w-full whitespace-normal" onClick={() => { setError(""); setOpen(true); }}>{t(outline ? "flow.reviewRecognizedPlan" : "flow.preparePlan")}</Button>
     <Dialog open={open} onOpenChange={(value) => !pending && setOpen(value)}><DialogContent mobileSheet className={outline && !smallTasks ? "sm:max-w-xl" : ""}>
       <DialogTitle>{t(outline && !smallTasks ? "flow.reviewOutline" : "flow.reviewDrafts")}</DialogTitle><DialogDescription>{filename}</DialogDescription>
+      {/* Document work starts only after explicitly opening preparation. Running
+          it on every course visit queues timer starts behind PDF extraction. */}
+      <MaterialRecognitionStatus fileId={fileId} analysis={analysis} onRecognized={onRecognized} />
       {!prepared && !error && <p role="status" className="py-6 text-sm">{t("flow.readingStructure")}</p>}
       {error && <div className="mt-4 space-y-3"><p role="alert" className="text-sm">{t(error === "NO_READABLE_TEXT" ? "flow.noText" : error === "RATE_LIMITED" ? "flow.rateLimited" : "flow.prepareError")}</p>
         <QuickStudySetup courseId={courseId} fileId={fileId} title={filename} />

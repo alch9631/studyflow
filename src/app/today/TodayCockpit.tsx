@@ -1,9 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
+import FocusLink from "@/components/FocusLink";
 import NavigationPending from "@/components/NavigationPending";
-import QuickStudySetup from "@/components/QuickStudySetup";
 import { Check, MoreHorizontal, Undo2 } from "lucide-react";
 import {
   Dialog,
@@ -22,7 +21,6 @@ import SwipeRow from "@/components/SwipeRow";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
 import {
   fmtDuration,
-  priorityReason,
   todayStatusKey,
   MAX_VISIBLE_ESSENTIALS,
   type CockpitBlock,
@@ -104,60 +102,28 @@ export default function TodayCockpit({
   return (
     <>
       <GuardianScaffold
-        status={
-          <p className="text-balance text-xl font-semibold leading-snug sm:text-2xl">
-            {statusLine}
-          </p>
-        }
-        action={
-          hero ? (
-            <>
-              <p className="text-sm text-muted-foreground">{t(`today.reason.${priorityReason(hero)}`)}</p>
-              {hero.task ? (
-                <>
-                  <p className="w-full whitespace-pre-wrap break-words text-left text-base font-medium">{hero.task.instruction}</p>
-                  {hero.task.sourceRef && <p className="w-full break-words text-left text-sm text-muted-foreground">{hero.task.sourceRef}</p>}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t("flow.quickHint")}</p>
-              )}
-              <div className="flex w-full items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  {hero.task ? (
-                    <Button
-                      asChild
-                      size="lg"
-                      className="relative w-full whitespace-normal break-words"
-                    >
-                      <Link href={`/focus?blockId=${encodeURIComponent(hero.id)}`} prefetch={true}>
-                      {hero.progress ? t("flow.resumeTopic", { topic: hero.topicTitle }) : t("today.heroNextAction", {
-                        minutes: hero.minutes,
-                        topic: hero.topicTitle,
-                      })}
-                      <NavigationPending />
-                      </Link>
-                    </Button>
-                  ) : (
-                    <QuickStudySetup courseId={hero.course.id} topicId={hero.topicId} title={hero.topicTitle} label={t("flow.startTopic", { topic: hero.topicTitle })} />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  aria-label={t("today.taskActions", { topic: hero.topicTitle })}
-                  aria-haspopup="dialog"
-                  aria-expanded={taskMenuOpen && openId === hero.id}
-                  onClick={() => {
-                    setTaskMenuOpen(true);
-                    setOpenId(hero.id);
-                  }}
-                  className={iconButtonClass("inline-flex shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground")}
-                >
-                  <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-                </button>
-              </div>
-            </>
-          ) : undefined
-        }
+        className="gap-5"
+        status={needsAdjust || allDone ? <p className="text-sm text-muted-foreground">{statusLine}</p> : undefined}
+        action={hero ? <>
+          <div className="w-full text-left">
+            <h2 className="break-words text-2xl font-semibold">{hero.topicTitle}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{hero.course.name}</p>
+          </div>
+          <div className="mt-2 flex w-full items-center gap-2">
+            <Button asChild size="lg" className="relative min-w-0 flex-1">
+              <FocusLink blockId={hero.id}>
+                {hero.progress ? t("focus.resume") : t("today.mvdStart", { minutes: hero.minutes })}
+                <NavigationPending />
+              </FocusLink>
+            </Button>
+            <button type="button" aria-label={t("today.taskActions", { topic: hero.topicTitle })}
+              aria-haspopup="dialog" aria-expanded={taskMenuOpen && openId === hero.id}
+              onClick={() => { setTaskMenuOpen(true); setOpenId(hero.id); }}
+              className={iconButtonClass("inline-flex shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground")}>
+              <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+        </> : undefined}
         escape={
           <BehindSheet
             preview={previews ?? undefined}
@@ -192,7 +158,7 @@ export default function TodayCockpit({
           real core block to anchor it. One core session + (if any) one retrieval
           + one optional — all from the student's real plan, never invented. */}
       {needsAdjust && mvd && mvd.core && (
-        <MinimumViableDayCard mvd={mvd} onOpen={(id) => setOpenId(id)} />
+        <details className="mx-auto mt-4 max-w-md"><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("today.mvdTitle")}</summary><MinimumViableDayCard mvd={mvd} onOpen={(id) => setOpenId(id)} /></details>
       )}
 
       {/* ── SHORT must-do list (left-aligned, quiet rows) ── */}
@@ -200,7 +166,7 @@ export default function TodayCockpit({
         <ul className="mx-auto mt-8 max-w-md space-y-1 text-left">
           {visibleRest.map((b) => (
             <li key={b.id}>
-              <QuietRow block={b} onOpen={() => setOpenId(b.id)} />
+              <QuietRow block={b} onOpen={() => { setTaskMenuOpen(true); setOpenId(b.id); }} />
             </li>
           ))}
         </ul>
@@ -218,7 +184,7 @@ export default function TodayCockpit({
           <ul className="mt-2 space-y-1">
             {laterBlocks.map((b) => (
               <li key={b.id}>
-                <QuietRow block={b} onOpen={() => setOpenId(b.id)} muted />
+                <QuietRow block={b} onOpen={() => { setTaskMenuOpen(true); setOpenId(b.id); }} muted />
               </li>
             ))}
           </ul>
@@ -260,8 +226,7 @@ function MinimumViableDayCard({
   if (mvd.optional) slots.push({ block: mvd.optional, label: t("today.mvdOptional") });
 
   return (
-    <section className="mx-auto mt-8 max-w-md rounded-2xl bg-surface-muted p-5 text-left">
-      <p className="text-base font-semibold">{t("today.mvdTitle")}</p>
+    <section className="mx-auto max-w-md py-2 text-left">
       <p className="mt-1 text-sm text-muted-foreground">
         {t("today.mvdSubtitle", { time: fmtDuration(mvd.totalMin) })}
       </p>
@@ -293,8 +258,8 @@ function MinimumViableDayCard({
 }
 
 /**
- * A quiet row in the must-do / later list: tap the body to open the session
- * sheet; tap the checkbox to mark done inline; swipe to complete/reopen —
+ * A quiet row in the must-do / later list: tap the task to start its timer;
+ * the menu opens secondary actions. Check off or swipe to complete/reopen —
  * reusing the shared optimistic toggle. Borderless: whitespace over edges.
  */
 function QuietRow({
@@ -358,7 +323,7 @@ function QuietRow({
           </span>
         </button>
       </form>
-      <button type="button" onClick={onOpen} className="min-h-11 min-w-0 flex-1 text-left">
+      <FocusLink blockId={block.id} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
         <span
           className={`block break-words ${
             optimisticDone ? "text-muted-foreground line-through" : "font-medium"
@@ -370,7 +335,9 @@ function QuietRow({
           {fmtDuration(block.minutes)} · {block.course.name}
           {isReview && <> · {t("block.review")}</>}
         </span>
-      </button>
+        <NavigationPending />
+      </FocusLink>
+      <button type="button" onClick={onOpen} aria-label={t("today.taskActions", { topic: block.topicTitle })} className={iconButtonClass("inline-flex shrink-0 text-muted-foreground hover:bg-accent")}><MoreHorizontal className="h-5 w-5" aria-hidden="true" /></button>
     </SwipeRow>
   );
 }
@@ -490,10 +457,10 @@ function SessionSheet({
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {showStartFocus && (
                 <Button asChild className="relative sm:col-span-2">
-                  <Link href={`/focus?blockId=${encodeURIComponent(block.id)}`} prefetch={true} onNavigate={onClose}>
+                  <FocusLink blockId={block.id} onNavigate={onClose}>
                     {t("today.heroStartFocus")}
                     <NavigationPending />
-                  </Link>
+                  </FocusLink>
                 </Button>
               )}
               <Button type="button" variant="secondary" onClick={markDone}>
