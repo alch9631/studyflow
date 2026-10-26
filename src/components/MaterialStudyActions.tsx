@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { prepareMaterialTasks, prepareMaterialPlan, addMaterialTasks } from "@/app/courses/studyActions";
-import type { MaterialOutline } from "@/lib/documentOutline";
+import { readMaterialOutline, type MaterialOutline } from "@/lib/documentOutline";
 import { readStudyDrafts, type StudyDraftSet } from "@/lib/studyDraft";
 import { useLocale, useT } from "./i18n/I18nProvider";
 import { useToast } from "./Toast";
@@ -11,9 +11,10 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import QuickStudySetup from "./QuickStudySetup";
 import MaterialOutlineReview from "./MaterialOutlineReview";
+import MaterialRecognitionStatus from "./MaterialRecognitionStatus";
 
-export default function MaterialStudyActions({ fileId, courseId, filename, stored, autoOpen = false }: {
-  fileId: string; courseId: string; filename: string; stored: string | null; autoOpen?: boolean;
+export default function MaterialStudyActions({ fileId, courseId, filename, stored, analysis, autoOpen = false }: {
+  fileId: string; courseId: string; filename: string; stored: string | null; analysis: string | null; autoOpen?: boolean;
 }) {
   const t = useT(); const language = useLocale(); const router = useRouter(); const { toast } = useToast();
   const [open, setOpen] = useState(autoOpen);
@@ -21,10 +22,14 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
   const [selected, setSelected] = useState<string[]>(() => readStudyDrafts(stored)?.items.map((item) => item.id) ?? []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [outline, setOutline] = useState<MaterialOutline | null>(null);
-  const [prepared, setPrepared] = useState(false);
+  const [outline, setOutline] = useState<MaterialOutline | null>(() => readMaterialOutline(analysis));
+  const [prepared, setPrepared] = useState(!!readMaterialOutline(analysis));
   const [smallTasks, setSmallTasks] = useState(false);
   const preparing = useRef(false);
+  const onRecognized = useCallback((recognized: MaterialOutline | null) => {
+    setOutline(recognized);
+    setPrepared(!!recognized);
+  }, []);
   useEffect(() => {
     if (!open || prepared || preparing.current) return;
     preparing.current = true;
@@ -67,7 +72,8 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
     } catch { toast(t("flow.prepareError"), "error"); } finally { setPending(false); }
   }
   return <div className="mt-3 space-y-2">
-    <Button type="button" variant="secondary" className="w-full whitespace-normal" onClick={() => { setError(""); setOpen(true); }}>{t("flow.preparePlan")}</Button>
+    <MaterialRecognitionStatus fileId={fileId} analysis={analysis} onRecognized={onRecognized} />
+    <Button type="button" variant="secondary" className="w-full whitespace-normal" onClick={() => { setError(""); setOpen(true); }}>{t(outline ? "flow.reviewRecognizedPlan" : "flow.preparePlan")}</Button>
     <QuickStudySetup courseId={courseId} fileId={fileId} title={filename} />
     <Dialog open={open} onOpenChange={(value) => !pending && setOpen(value)}><DialogContent mobileSheet className={outline && !smallTasks ? "sm:max-w-xl" : ""}>
       <DialogTitle>{t(outline && !smallTasks ? "flow.reviewOutline" : "flow.reviewDrafts")}</DialogTitle><DialogDescription>{filename}</DialogDescription>

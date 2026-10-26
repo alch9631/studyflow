@@ -160,7 +160,7 @@ export default function ModuleUploadForm({
         variant="primary"
         size="md"
         className="w-full sm:w-auto"
-        pendingLabel={t("study.saving")}
+        pendingLabel={t("flow.recognizingUpload")}
       >
           {t("flow.uploadPrepare")}
       </SubmitButton>

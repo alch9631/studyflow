@@ -28,8 +28,13 @@ structure. Multi-page contents lists and numbered/Markdown headings retain their
 original titles, hierarchy and source pages. Chapters group the preview; their
 sections become ordered planning units without counting both a chapter and all
 its sections as separate full workloads. The student reviews the outline before
-adding it. Existing uploads also use this flow through **Prepare a study plan**,
-even if they already have an old six-page task batch. Optional replacement keeps
+adding it. Every upload path, including Quick start and first setup, recognizes
+chapters automatically when saving the file. Opening a course also refreshes
+older uploads one at a time, even when they have an old six-page task batch.
+File cards show the result and offer **Review chapter plan**. Recognition is
+versioned and caches both found outlines and no-outline results; failed reads
+retain the original and offer a retry. Automatic refresh preserves accepted
+source mappings and never changes the plan before review. Optional replacement keeps
 completed work, notes, confidence ratings and existing study tasks. Scanned PDFs
 still need a readable text layer; uncertain outlines are explicitly reported.
 

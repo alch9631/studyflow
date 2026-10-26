@@ -11,7 +11,7 @@ import { prepareStudyDrafts, acceptStudyDrafts, startQuickStudy, saveStudyCheckp
 import type { StudyMode } from "@/lib/studyTask";
 import { readStudyDrafts } from "@/lib/studyDraft";
 import { isSyllabusAIEnabled } from "@/lib/syllabus";
-import { prepareMaterialOutline, acceptMaterialOutline } from "@/lib/materialOutline";
+import { prepareMaterialOutline, acceptMaterialOutline, recognizeMaterialOutline } from "@/lib/materialOutline";
 import { readMaterialOutline } from "@/lib/documentOutline";
 
 function refreshStudy(courseId: string) {
@@ -106,6 +106,15 @@ export async function prepareMaterialPlan(fileId: string, language: "en" | "de")
   } catch (error) {
     return { ok: false as const, error: error instanceof ValidationError ? error.message : "PREPARE_FAILED" };
   }
+}
+
+export async function recognizeMaterial(fileId: string, force = false) {
+  const userId = await getCurrentUserId();
+  if (!checkRateLimit("MUTATION", userId)) return { ok: false as const, error: "RATE_LIMITED" };
+  try {
+    const result = await recognizeMaterialOutline(userId, fileId, force === true);
+    return result ? { ok: true as const, ...result } : { ok: false as const, error: "NOT_FOUND" };
+  } catch { return { ok: false as const, error: "RECOGNITION_FAILED" }; }
 }
 
 export async function applyMaterialOutline(fileId: string, outlineId: string, ids: string[], replace: boolean) {

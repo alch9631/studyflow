@@ -102,7 +102,7 @@ export default function QuickStudySetup({ courseId, topicId, title, fileId = "",
             </Select>
           </label>
           <label className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-brand-ink underline">
-            {uploading ? t("study.saving") : t("courseDetail.addFile")}
+            {uploading ? t("flow.recognizingUpload") : t("courseDetail.addFile")}
             <input type="file" className="sr-only" accept={UPLOAD_ACCEPT} disabled={pending || uploading} onChange={(event) => void addFile(event.target.files?.[0])} />
           </label>
           {source && <a href={`/api/materials/${encodeURIComponent(source)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-ink underline">{t("study.openMaterial")}</a>}

@@ -754,7 +754,7 @@ export default async function CoursePage({
                   >
                     {t(`courseDetail.fileCategory.${category}` as MessageKey)}
                   </span>
-                  <span className="text-gray-400 dark:text-gray-500">({files.length})</span>
+                  <span className="text-muted-foreground">({files.length})</span>
                 </h4>
                 <AnimatedList className="space-y-2">
                   {files.map((file) => {
@@ -787,7 +787,7 @@ export default async function CoursePage({
                             {originalIds.has(file.id) ? (
                               <a href={`/api/materials/${file.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>
                             ) : <p className="mt-1 text-xs text-muted-foreground">{t("study.originalUnavailable")}</p>}
-                            {originalIds.has(file.id) && <MaterialStudyActions fileId={file.id} courseId={course.id} filename={file.filename} stored={file.studyDrafts} autoOpen={prepare === file.id} />}
+                            {originalIds.has(file.id) && <MaterialStudyActions fileId={file.id} courseId={course.id} filename={file.filename} stored={file.studyDrafts} analysis={file.analysis} autoOpen={prepare === file.id} />}
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                               <span
                                 className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${CATEGORY_BADGE[category]}`}
@@ -875,11 +875,7 @@ export default async function CoursePage({
                               )}
                             </div>
                           </details>
-                        ) : (
-                          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                            {t("courseDetail.fileNoAnalysis")}
-                          </p>
-                        )}
+                        ) : null}
                       </AnimatedListItem>
                     );
                   })}

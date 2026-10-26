@@ -25,14 +25,23 @@ export async function guardMaterialStorage(db: Pick<typeof prisma, "moduleFile">
   }
 }
 
-/** Store the original bytes without text extraction, AI configuration, or a model call. */
+/** Save the original, then recognize its structure locally on every upload path. */
 export async function storeMaterial(userId: string, courseId: string, file: File, category: unknown) {
   if (!await prisma.course.count({ where: { id: courseId, userId } })) return null;
   const data = await prepareMaterial(file, category);
-  return prisma.$transaction(async (tx) => {
+  const saved = await prisma.$transaction(async (tx) => {
     await guardMaterialStorage(tx, userId, courseId, file.size);
     return tx.moduleFile.create({ data: { courseId, ...data }, select: { id: true, filename: true } });
   });
+  try {
+    const { recognizeMaterialOutline } = await import("./materialOutline");
+    await recognizeMaterialOutline(userId, saved.id);
+  } catch {
+    // A metadata/write failure must not report a failed upload after the
+    // original was committed. Opening the course will retry recognition.
+    console.warn("[material-recognition] Recognition will retry when the material is opened.");
+  }
+  return saved;
 }
 
 export function readMaterial(userId: string, id: string) {

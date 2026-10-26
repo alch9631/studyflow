@@ -24,6 +24,7 @@
     "test:serviceworker": "tsx src/lib/serviceWorker.test.ts",
     "test:moduleupload": "tsx src/lib/moduleUpload.test.ts",
     "test:outline": "tsx src/lib/documentOutline.test.ts",
+    "test:recognition": "tsx src/lib/materialRecognition.test.ts",
     "test:passed": "tsx src/lib/passedCourse.test.ts",
     "test:calendar-overrides": "tsx src/lib/calendarOverrides.test.ts",
     "test:dates": "tsx src/lib/dates.test.ts",
