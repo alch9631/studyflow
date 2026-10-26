@@ -20,4 +20,5 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: python3 -m unittest discover -s ops -p 'test_autodeploy.py'
       - run: npm run ci

@@ -1,0 +1,10 @@
+[Unit]
+Description=Deploy CI-green StudyFlow pushes from GitHub
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/share/studyflow-deploy/autodeploy.py --config %h/.config/studyflow-deploy/config.json
+TimeoutStartSec=25min
+Nice=10
+UMask=0077

@@ -66,6 +66,9 @@ npm run ci   # prisma generate + db push → lint → tsc --noEmit → tests →
 
 For production (Postgres + auth + deploy), see **[PRODUCTION.md](PRODUCTION.md)**.
 
+The live Pi instance automatically deploys CI-green pushes to `main`. Installation,
+status, logs, and rollback behavior are documented in **[ops/AUTO_DEPLOY.md](ops/AUTO_DEPLOY.md)**.
+
 ## Daily study reminders (cron)
 
 `POST /api/reminders/run` sends each user with a push subscription a notification

@@ -41,6 +41,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Python deployment tools
+__pycache__/
+*.py[cod]
+
 # local sqlite dev db
 *.db
 prisma/*.db

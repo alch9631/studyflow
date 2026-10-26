@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for new StudyFlow pushes every minute
+
+[Timer]
+OnStartupSec=60s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=studyflow-autodeploy.service
+
+[Install]
+WantedBy=timers.target
