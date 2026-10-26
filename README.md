@@ -12,6 +12,20 @@ Students don't fail at planning for lack of a calendar — they fail because nob
 2. **"I fell behind" button** — redistributes unfinished work, no guilt. *The reason people stay.*
 3. **Syllabus → plan (AI)** — paste a syllabus / upload material, OpenAI fills in topics + dates.
 
+## TUHH exam date sync
+
+In **Settings → Calendar sync → TUHH exam dates**, refresh the official current-semester
+exam schedule, review the suggested course matches, and apply selected date changes.
+You can choose an exam manually when course names differ. Applying dates rebuilds the
+study plan and preserves completed sessions. Passed courses are excluded.
+
+This is an on-demand check, with the last check time shown in the preview. Individual
+appointments and multi-day exam windows need your personal date entered in the course
+settings. The source is checked again before saving, and changed courses or exam entries
+require a refreshed preview. No TUHH login or extra configuration is needed.
+
+Run the parser and isolated database checks with `npm run test:exam-sync`.
+
 ## The plan engine
 
 The heart of the app lives in [`src/lib/planner.ts`](src/lib/planner.ts) — pure, framework-free TypeScript. No DB, no React, fully unit-tested.

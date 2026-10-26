@@ -18,6 +18,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import ThemeSetting from "@/components/ThemeSetting";
 import LanguageToggle from "@/components/LanguageToggle";
 import CalendarSync from "@/components/CalendarSync";
+import ExamDateSync from "@/components/ExamDateSync";
 import PushReminders from "@/components/PushReminders";
 import StudyPrefsForm from "@/components/StudyPrefs";
 import { panelClass } from "@/components/ui";
@@ -185,7 +186,14 @@ export default async function SettingsPage({
 
       {/* CALENDAR — live subscribe feed (auto-updates in Apple/Google Calendar). */}
       <GroupLabel>{t("settings.calendarTitle")}</GroupLabel>
-      <div className={panelClass}>
+      <div className={`${panelClass} divide-y divide-gray-200 dark:divide-gray-800`}>
+        <Row
+          icon={CalendarDays}
+          title={t("examSync.title")}
+          description={t("examSync.description")}
+        >
+          <ExamDateSync />
+        </Row>
         <Row
           icon={CalendarPlus}
           title={t("settings.calendarTitle")}

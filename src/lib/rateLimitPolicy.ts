@@ -54,6 +54,8 @@ export const RATE_LIMITS = {
   AI_DOCUMENT: { max: 2, windowMs: 60_000 },
   /** Create/import a course — heavier writes + (often) an AI follow-up. */
   COURSE_WRITE: { max: 20, windowMs: 60_000 },
+  /** Fetch TUHH's public exam list or apply a reviewed set of exam dates. */
+  EXAM_SYNC: { max: 6, windowMs: 60_000 },
   /** Everyday mutations: toggles, edits, assignments, lectures, grade, heal. */
   MUTATION: { max: 60, windowMs: 60_000 },
   /** Push subscribe/unsubscribe from the API. */
