@@ -12,10 +12,10 @@
 /* ─────────────────────────────────────────────────────────────────────────
    GUARDIAN design system (redesign draft).
 
-   A calm, quiet palette. Background is near-white (light) / a deep but
-   soft slate (dark) — never beige, never pure black. Surfaces carry a very
-   faint cool tint and read by fill + spacing, not by hard edges. The accent
-   is a calm teal (not the old bright TUHH cyan). Amber is the *only* attention
+   A calm, quiet palette: near-white in light mode, neutral graphite in dark
+   mode. Surfaces use a faint cool tint in light mode and neutral grays in dark
+   mode, with fill and spacing separating panels. TUHH cyan is the accent.
+   Amber is the *only* attention
    colour, used sparingly when an action is genuinely needed; red is reserved
    for truly destructive / urgent moments.
 
@@ -84,60 +84,66 @@
 }
 
 .dark {
-  /* Softer charcoal — NOT near-black. A muted warm-cool charcoal that's restful
-     at night and reads like a calm room, not an ops console. Surfaces sit only a
-     small step above it so the page→panel contrast is gentle (mirrors the light
-     theme's quiet near-white → white step), never the old harsh dark jump. */
-  --background: #1b2128; /* lifted charcoal, not the old near-black #10161d */
-  --foreground: #d7dde2; /* soft off-white, eased from stark white (AA on bg) */
+  color-scheme: dark;
 
-  /* TUHH cyan, dark — same brand cyan (#00b9cc) as light; on the bright fill it
-     carries DARK ink, and a lighter cyan is used for text/links/focus on the
-     charcoal page so contrast holds. */
-  --brand: #00b9cc; /* TUHH cyan — fill on dark */
-  --brand-dark: #00a0b3; /* hover — a touch deeper cyan */
-  --brand-foreground: #04313a; /* dark ink on the bright cyan fill (AA) */
-  --brand-ink: #3fd0e0; /* lighter cyan TEXT on the charcoal page (links/accents) */
-  /* Focus ring — lighter cyan, clears 3:1 on the charcoal bg. */
+  /* Neutral graphite: subtle steps separate the page, panels, and controls. */
+  --background: #1c1c1c;
+  --foreground: #e5e5e5;
+
+  /* Keep the cyan brand accent distinct against the graphite surfaces. */
+  --brand: #00b9cc;
+  --brand-dark: #00a0b3;
+  --brand-foreground: #04313a;
+  --brand-ink: #3fd0e0;
   --focus-ring: #3fd0e0;
-  /* Data-viz palette, dark theme — lighter cyan active series on the charcoal. */
-  --chart-series: #3fd0e0;
-  /* Secondary series — softer amber so it lifts gently off the charcoal. */
-  --chart-series-2: #e0ab5f;
-  --chart-track: #262e37;
-  --chart-axis: #828f9a;
-  --chart-grid: #262e37;
 
-  /* Calm surface system, dark. Elevated panels are only a small step up from the
-     page (gentle contrast); muted/inset surfaces a hair lower. Cool-tinted, both
-     softer than the old harsh #18212b on near-black. */
-  --surface: #232b34; /* elevated panel — a gentle step above the charcoal */
-  --surface-muted: #1f262e; /* inset surface for empty states/callouts */
+  /* Chart tracks, axes, and grid lines share the neutral surface palette. */
+  --chart-series: #3fd0e0;
+  --chart-series-2: #e0ab5f;
+  --chart-track: #2c2c2c;
+  --chart-axis: #a3a3a3;
+  --chart-grid: #2c2c2c;
+
+  --surface: #242424;
+  --surface-muted: #202020;
   --surface-foreground: var(--foreground);
 
-  /* Muted attention — amber on dark, calmed. Soft deep wash + readable ink. */
-  --warning: #2c2418; /* soft deep amber wash */
-  --warning-foreground: #e9c489; /* calmer amber ink, AA on the wash */
-  --warning-border: #463a22; /* gentle amber divider for warning rows */
+  /* Semantic attention colours retain their meaning on graphite. */
+  --warning: #2c2418;
+  --warning-foreground: #e9c489;
+  --warning-border: #463a22;
 
-  /* shadcn/ui theme tokens — dark theme, mapped to the calm surface palette. */
   --card: var(--surface);
   --card-foreground: var(--foreground);
   --popover: var(--surface);
   --popover-foreground: var(--foreground);
-  --primary: var(--brand); /* calm teal */
+  --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: #283038;
-  --secondary-foreground: #d7dde2;
-  --muted: #283038;
-  --muted-foreground: #909da8; /* calm slate-gray, AA on the charcoal bg */
-  --accent: #232f33; /* faint teal-tinted hover/active row */
-  --accent-foreground: #d7dde2;
+  --secondary: #2c2c2c;
+  --secondary-foreground: var(--foreground);
+  --muted: #2c2c2c;
+  --muted-foreground: #a3a3a3;
+  --accent: #303030;
+  --accent-foreground: var(--foreground);
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #303a44; /* soft cool divider on the charcoal */
-  --input: #3a4651; /* legible input edge on dark */
+  --border: #363636;
+  --input: #4a4a4a;
   --ring: var(--focus-ring);
+
+  /* Existing gray utilities inherit graphite in dark mode, including hover,
+     borders, skeletons, and translucent navigation or overlay surfaces. */
+  --color-gray-50: #f5f5f5;
+  --color-gray-100: #ededed;
+  --color-gray-200: #dedede;
+  --color-gray-300: #c7c7c7;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #969696;
+  --color-gray-600: #6b6b6b;
+  --color-gray-700: #4a4a4a;
+  --color-gray-800: #2c2c2c;
+  --color-gray-900: #242424;
+  --color-gray-950: #1c1c1c;
 }
 
 @theme inline {
@@ -145,11 +151,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  /* Brand — primary actions, active nav. Per-theme: TUHH turquoise on light,
-     TUHH blue on dark (see :root / .dark for the values and contrast notes). */
+  /* Brand — cyan primary actions and active navigation in both themes. */
   --color-brand: var(--brand);
   --color-brand-dark: var(--brand-dark);
-  /* Text that sits ON the brand fill (dark-teal on cyan / white on blue). */
+  /* Dark teal text on the cyan brand fill. */
   --color-brand-foreground: var(--brand-foreground);
   /* Brand-coloured TEXT on the page background (links, accents) — AA-safe. */
   --color-brand-ink: var(--brand-ink);
@@ -237,10 +242,7 @@ body {
   outline: none;
 }
 
-/* Branded text selection — a small cohesive touch. Uses the per-theme brand
-   fill (cyan on light, blue on dark) with the matching readable foreground
-   (dark-teal on the light cyan, white on the dark blue) so selected text stays
-   AA-legible on both. */
+/* Branded text selection uses cyan with dark teal ink in both themes. */
 ::selection {
   background-color: var(--brand);
   color: var(--brand-foreground);
