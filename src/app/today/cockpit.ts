@@ -6,6 +6,8 @@
  * client island, so the client never re-derives them.
  */
 
+import type { StudyTask } from "@/lib/studyTask";
+
 /** A serializable Today study block — the shape the cockpit UI consumes. */
 export type CockpitBlock = {
   id: string;
@@ -19,6 +21,8 @@ export type CockpitBlock = {
    *  open pre-filled with it — saving from an empty box overwrites Note.body,
    *  which used to silently destroy the student's course-page note. */
   note?: string | null;
+  topicId?: string;
+  task?: StudyTask | null;
 };
 
 /** The four study-queue lanes, answering "what now / what can wait". */
@@ -42,8 +46,8 @@ export const MAX_VISIBLE_ESSENTIALS = 4;
  * denominator for "does today fit", deliberately conservative so the system errs
  * toward protecting the student rather than overloading them.
  */
-export function studyBudget(windowAvailableMin: number): number {
-  return Math.min(Math.max(0, windowAvailableMin), DAILY_STUDY_BUDGET_MIN);
+export function studyBudget(windowAvailableMin: number, dailyBudgetMin = DAILY_STUDY_BUDGET_MIN): number {
+  return Math.min(Math.max(0, windowAvailableMin), Math.max(0, dailyBudgetMin));
 }
 
 /** "1h 20m" / "45m" / "0m" — shared duration formatter (no i18n; numbers only). */
@@ -105,61 +109,19 @@ export function riskVerdict(cap: Capacity): RiskVerdict {
   return "ontrack";
 }
 
-/**
- * The three truthful Today states — never false calm. Exactly one is shown:
- *
- *   - "protected"   — the system reduced today to a viable load (remaining must-do
- *                     study fits the budget). Calm: "You're set for today."
- *   - "needs_choice"— more must-do study than the budget allows. Honest nudge to
- *                     the single recovery entry: "Today is heavier than one
- *                     sitting. Want me to make it lighter?"
- *   - "doesnt_fit"  — even a minimal day can't make the nearest exam (not enough
- *                     days left for the work that must happen before it). Honest,
- *                     calm, with the real next step.
- *
- * "doesnt_fit" dominates: a missable exam is the gravest truth, so it is reported
- * even when today itself would otherwise look protected.
- */
+/** Today fits, Today needs adjusting, or the full scheduler reports exam overload. */
 export type CockpitStatus = "protected" | "needs_choice" | "doesnt_fit";
 
-/**
- * Feasibility input for the nearest upcoming exam: how many days are left before
- * it, and the total still-incomplete study minutes (today + future) that must
- * land before it. Past/overdue work is surfaced separately (recovery), never here.
- */
-export type ExamFeasibility = {
-  /** Whole days until the nearest exam (0 = exam is today). Omit if no exam. */
-  daysUntil: number;
-  /** Total remaining study minutes that must happen before that exam. */
-  remainingMin: number;
-};
+/** The nearest exam's result from the shared, full-runway scheduler. */
+export type ExamFeasibility = { isOverloaded: boolean };
 
-/**
- * Decide the single honest Today status from the capacity verdict and (optionally)
- * the nearest exam's feasibility. Pure: same inputs → same state.
- *
- *   - If a minimal-but-realistic day (the study budget per remaining day) still
- *     can't clear the exam's remaining work in time → "doesnt_fit".
- *   - Else if today's remaining must-do study exceeds the budget → "needs_choice".
- *   - Else → "protected".
- *
- * `mustDoMin` is the minutes the day genuinely needs (must-do study only, NOT
- * reviews/overdue); `budgetMin` is {@link studyBudget}. We compare against the
- * budget, not the raw window, so the verdict matches the conservative model.
- */
+/** Today's comfort budget and the exam's feasibility are separate decisions. */
 export function cockpitStatus(
   mustDoMin: number,
   budgetMin: number,
   exam?: ExamFeasibility,
 ): CockpitStatus {
-  if (exam && budgetMin > 0) {
-    // Days available to study before the exam: today plus each remaining day.
-    // (Exam today → only today.) Conservatively assume the budget is the most
-    // that can be done per day; if even that can't clear it, the exam can't be made.
-    const studyDays = Math.max(1, exam.daysUntil + 1);
-    const reachableMin = studyDays * budgetMin;
-    if (exam.remainingMin > reachableMin) return "doesnt_fit";
-  }
+  if (exam?.isOverloaded) return "doesnt_fit";
   if (mustDoMin > budgetMin) return "needs_choice";
   return "protected";
 }
@@ -221,53 +183,20 @@ export function assignLanes(
   return lanes;
 }
 
-/**
- * Whether the nearest exam can still be fully made after an action runs. Honest:
- *   - "possible"  — the remaining work that lands before the exam still fits a
- *                   budget-paced run-up to it.
- *   - "atRisk"    — it fits, but only by using nearly every budget minute left
- *                   (little slack — true but tight).
- *   - "notFully"  — even a budget-paced run-up can't clear the work in time.
- *   - "none"      — there is no upcoming exam to reason about.
- */
-export type ExamReach = "possible" | "atRisk" | "notFully" | "none";
+export type ExamReach = "possible" | "notFully" | "none";
 
-/**
- * Classify exam reachability from the work that must land before it and the days
- * left. `budgetMin` is the conservative {@link studyBudget}. Pure arithmetic so
- * the preview's honesty is unit-testable. Mirrors {@link cockpitStatus}'s
- * "doesnt_fit" maths (studyDays = today + each remaining day, paced at the budget).
- */
-export function examReach(
-  exam: ExamFeasibility | undefined,
-  budgetMin: number,
-): ExamReach {
-  if (!exam || budgetMin <= 0) return "none";
-  const studyDays = Math.max(1, exam.daysUntil + 1);
-  const reachableMin = studyDays * budgetMin;
-  if (exam.remainingMin > reachableMin) return "notFully";
-  // Fits, but flag honestly when it leans on almost all the run-up's capacity.
-  if (exam.remainingMin > reachableMin * 0.85) return "atRisk";
-  return "possible";
+/** Use the real scheduler, never extrapolate today's shrinking time to every day. */
+export function examReach(exam: ExamFeasibility | undefined): ExamReach {
+  if (!exam) return "none";
+  return exam.isOverloaded ? "notFully" : "possible";
 }
 
-/**
- * A before→after preview of ONE recovery action, computed from real planner data
- * WITHOUT committing it. Each action only re-dates today's open blocks (or, for
- * the respread, paces everything to each exam), so the preview simulates that
- * shift and reports the honest resulting shape of today + whether the nearest
- * exam is still reachable afterwards.
- */
 export type RecoveryActionPreview = {
-  /** Open sessions on today BEFORE the action. */
   beforeCount: number;
-  /** Essential (first-pass study) sessions left on today AFTER the action. */
-  afterEssentials: number;
-  /** How many of today's sessions this action moves off today. */
+  afterCount: number;
   moved: number;
-  /** New realistic pace for what remains today, in minutes (0 if it clears today). */
+  /** Exact unfinished minutes left today, including pinned reviews. */
   afterPaceMin: number;
-  /** Honest exam reachability after the action runs. */
   examReach: ExamReach;
 };
 
@@ -286,103 +215,51 @@ export function canMoveBlockToTomorrow(
   return blockDateMs + 86400_000 < examDateMs;
 }
 
-/**
- * Inputs the preview needs, all derived from real planner reads (no wall clock,
- * no DB here — the server wrapper fetches these and calls this pure function).
- */
+/** Actual row totals for shifts and the read-only shared scheduler's proposal. */
 export type RecoveryPreviewInput = {
-  /** Today's open study (first-pass) minutes. */
   todayStudyMin: number;
-  /** Today's open review minutes. */
   todayReviewMin: number;
-  /** Count of today's open study sessions. */
   todayStudyCount: number;
-  /** Count of today's open review sessions. */
   todayReviewCount: number;
-  /**
-   * Count of today's open study sessions that can LEGALLY move to tomorrow
-   * (see {@link canMoveBlockToTomorrow} — the real action skips blocks whose
-   * next day would land on/past the exam). Defaults to todayStudyCount so
-   * callers without exam context keep the old optimistic behaviour.
-   */
-  movableStudyCount?: number;
-  /** Same as {@link RecoveryPreviewInput.movableStudyCount}, for reviews. */
-  movableReviewCount?: number;
-  /** Minutes of today's open sessions that CANNOT move (they stay on today). */
-  immovableMin?: number;
-  /** The conservative daily study budget (studyBudget(window)). */
-  budgetMin: number;
-  /** Nearest exam feasibility (work due before it + days left), if any. */
+  movableStudyCount: number;
+  movableReviewCount: number;
+  movableReviewMin: number;
+  immovableMin: number;
+  rebuilt: { count: number; minutes: number };
   exam?: ExamFeasibility;
 };
 
-/**
- * Simulate all three recovery actions and return an honest before→after for each:
- *
- *   - protect → moves only today's reviews to tomorrow (essentials stay).
- *   - move    → moves ALL of today's open sessions to tomorrow (today clears).
- *   - lighter → respreads everything across the days before each exam, so today
- *               drops to the budget-paced share and the exam is recomputed as if
- *               the work were evenly spread (the best case the planner can offer).
- *
- * Exam reachability: protect/move only shift TODAY's load by a day, which doesn't
- * change the total work that must land before the exam — so the exam verdict is
- * the same as the current one. The respread is the only action that can change
- * feasibility, and even then it can only make the exam if the work fundamentally
- * fits; if it can't, we say so (never false hope).
- */
 export function recoveryActionPreviews(input: RecoveryPreviewInput): {
   protect: RecoveryActionPreview;
   move: RecoveryActionPreview;
   lighter: RecoveryActionPreview;
 } {
   const beforeCount = input.todayStudyCount + input.todayReviewCount;
-  const baseReach = examReach(input.exam, input.budgetMin);
-  // Only blocks the real action can legally move count as "moved" — the action
-  // skips anything whose next day would land on/past its course's exam day, so
-  // the preview must never promise moves the commit won't deliver.
-  const movableStudy = input.movableStudyCount ?? input.todayStudyCount;
-  const movableReview = input.movableReviewCount ?? input.todayReviewCount;
-  const immovableMin = input.immovableMin ?? 0;
-
-  // Protect: keep essentials, move only the reviews that can legally move.
-  // (An exam-pinned review stays on today; the pace line keeps its honest
-  // study-minutes floor either way.)
-  const protectPaceMin = Math.min(input.todayStudyMin, input.budgetMin);
-  const protect: RecoveryActionPreview = {
-    beforeCount,
-    afterEssentials: input.todayStudyCount,
-    moved: movableReview,
-    afterPaceMin: protectPaceMin,
-    examReach: baseReach,
+  const moved = input.movableStudyCount + input.movableReviewCount;
+  return {
+    protect: {
+      beforeCount,
+      afterCount: beforeCount - input.movableReviewCount,
+      moved: input.movableReviewCount,
+      afterPaceMin: input.todayStudyMin + input.todayReviewMin - input.movableReviewMin,
+      // A date shift is not a simulation of the whole future plan.
+      examReach: "none",
+    },
+    move: {
+      beforeCount,
+      afterCount: beforeCount - moved,
+      moved,
+      afterPaceMin: input.immovableMin,
+      examReach: "none",
+    },
+    lighter: {
+      beforeCount,
+      afterCount: input.rebuilt.count,
+      moved: 0,
+      afterPaceMin: input.rebuilt.minutes,
+      examReach: examReach(input.exam),
+    },
   };
-
-  // Move: everything MOVABLE goes to tomorrow; exam-pinned blocks stay on today
-  // (the action's clamp), so today only clears when nothing is pinned.
-  const move: RecoveryActionPreview = {
-    beforeCount,
-    afterEssentials: input.todayStudyCount - movableStudy,
-    moved: movableStudy + movableReview,
-    afterPaceMin: Math.min(immovableMin, input.budgetMin),
-    examReach: baseReach,
-  };
-
-  // Lighter plan: respread paces today down to (at most) the budget share. The
-  // exam reachability is the honest best case — examReach already encodes whether
-  // a budget-paced run-up can clear the work; the respread achieves exactly that.
-  const lighterPaceMin = Math.min(
-    input.todayStudyMin + input.todayReviewMin,
-    input.budgetMin,
-  );
-  const lighter: RecoveryActionPreview = {
-    beforeCount,
-    afterEssentials: input.todayStudyCount,
-    moved: Math.max(0, beforeCount - input.todayStudyCount),
-    afterPaceMin: lighterPaceMin,
-    examReach: baseReach,
-  };
-
-  return { protect, move, lighter };
 }
 
 /**

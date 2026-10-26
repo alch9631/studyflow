@@ -13,21 +13,12 @@ import {
 } from "./planner";
 import { isSyllabusAIEnabled, optimizeStudyPlan, generateSelfTests } from "./syllabus";
 import { coursePassed } from "./coursePassed";
+import { parsePrefs, studyCapacityByWeekday } from "./timePlacer";
+import { readStudyResult, readStudyTask } from "./studyTask";
 
-/**
- * Realistic MAX total study time per day across ALL of a student's courses. This
- * is now a CEILING, not a target: the scheduler paces each course to its exam
- * (see TARGET pace below) and only fills up to this cap when several courses
- * overlap. Raised to ~6h so the even-spread plan (multiple courses, each touched
- * a little every study day) fits the student's real Mon–Fri capacity instead of
- * being squeezed into 3h and front-packed.
- */
-export const GLOBAL_DAILY_MINUTES = 360; // ~6h ceiling
-/**
- * Cap on one topic's time in a single day. Lowered so a substantial topic is
- * TOUCHED ACROSS SEVERAL DAYS (progressing over time) instead of being finished
- * in one or two sittings — the per-topic half of the "spread, don't cram" goal.
- */
+/** Absolute safety ceiling; the student's daily budget and free window may be lower. */
+export const GLOBAL_DAILY_MINUTES = 360;
+/** Preferred spacing per topic. Can rise when the remaining runway requires it. */
 const MAX_TOPIC_MINUTES_PER_DAY = 45;
 /**
  * Smallest study block we'll emit. When a course's even pace is below this (a
@@ -103,7 +94,7 @@ type DbCourseWithTopics = {
   studyDays: string;
   minutesPerDay: number;
   difficulty?: number;
-  topics: { id: string; title: string; effort: number; done: boolean }[];
+  topics: { id: string; title: string; effort: number; done: boolean; studyTask?: string | null }[];
 };
 
 type DbBlock = {
@@ -168,7 +159,19 @@ export function foldCompletedSessions(
       if (full > (planned[t.id] ?? 0)) planned[t.id] = full;
     }
   }
-  return applyCompletedWork(toEngineCourse(course), done, planned);
+  const folded = applyCompletedWork(toEngineCourse(course), done, planned);
+  const originals = new Map(course.topics.map((topic) => [topic.id, topic]));
+  const scale = Number.isFinite(sizeScale) && (sizeScale ?? 0) > 0 ? sizeScale! : 1;
+  folded.topics = folded.topics.map((topic) => {
+    const original = originals.get(topic.id)!;
+    if (original.done || !readStudyTask(original.studyTask)) return topic;
+    // Checking off time in Calendar/Today records a session, not a checked goal.
+    // Keep a concrete follow-up until the student verifies the task's result.
+    const studied = done[topic.id] ?? 0;
+    const remaining = Math.max(studied > 0 ? MIN_BLOCK_MINUTES : 0, clampEffort(original.effort) * MINUTES_PER_EFFORT * scale - studied);
+    return { ...topic, done: false, effort: remaining / (MINUTES_PER_EFFORT * scale) };
+  });
+  return folded;
 }
 
 /** Student confidence → review difficulty. Struggling earns more/earlier reviews
@@ -306,12 +309,12 @@ async function persistBlocks(courseId: string, blocks: EngineBlock[]) {
  * estimate and scale future plans. Clamped, and only once there's enough data.
  */
 export function calibrationFromHistory(
-  blocks: { minutes: number; actualMinutes: number | null; completed: boolean }[],
+  blocks: { minutes: number; actualMinutes: number | null; completed: boolean; studyResult?: string | null }[],
 ): number {
   // Only COMPLETED sessions are evidence of pace: an abandoned sprint has
   // actual < planned by construction, so counting it would read as "student is
   // faster than the estimate" and shrink the plan for work never finished.
-  const logged = blocks.filter((b) => b.completed && b.actualMinutes && b.actualMinutes > 0);
+  const logged = blocks.filter((b) => b.completed && b.actualMinutes && b.actualMinutes > 0 && readStudyResult(b.studyResult)?.outcome !== "practice");
   if (logged.length < 3) return 1;
   const planned = logged.reduce((s, b) => s + b.minutes, 0);
   const actual = logged.reduce((s, b) => s + (b.actualMinutes ?? 0), 0);
@@ -436,11 +439,10 @@ export function rebuildSchedule(
  * cannot fit before its exam is piled onto the last study day (never dropped) and
  * the course is flagged `intense`.
  */
-async function rebuildScheduleInner(
-  userId: string,
-): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
+async function loadScheduleInputs(userId: string) {
   const courses = await prisma.course.findMany({
     where: { userId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     // Only the fields the scheduler reads: course identity/pace + each topic's
     // effort/done + each block's completion (folding) and logged time (calibration).
     select: {
@@ -456,7 +458,7 @@ async function rebuildScheduleInner(
       passed: true,
       topics: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, effort: true, done: true, confidence: true },
+        select: { id: true, title: true, effort: true, done: true, confidence: true, studyTask: true },
       },
       blocks: {
         select: {
@@ -467,6 +469,7 @@ async function rebuildScheduleInner(
           completed: true,
           kind: true,
           actualMinutes: true,
+          studyResult: true,
         },
       },
     },
@@ -478,12 +481,23 @@ async function rebuildScheduleInner(
     where: { userId },
     select: { weekday: true, startMin: true, endMin: true },
   });
-  const lectureMinByDow = [0, 0, 0, 0, 0, 0, 0];
-  for (const l of lectures) {
-    lectureMinByDow[l.weekday] += Math.max(0, l.endMin - l.startMin);
-  }
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } });
+  return { courses, lectures, prefs: parsePrefs(user?.preferences) };
+}
 
-  const today = todayISO();
+export type CourseSchedule = {
+  blocks: EngineBlock[];
+  isOverloaded: boolean;
+  minutesPerDay: number;
+};
+
+/** Calculate once for both recovery previews and commits; this never writes. */
+function calculateSchedule(
+  { courses, lectures, prefs }: Awaited<ReturnType<typeof loadScheduleInputs>>,
+  today: string,
+): Map<string, CourseSchedule> {
+  const capacityByDow = studyCapacityByWeekday(prefs, lectures);
+
   // Courses the scheduler could not fully fit before their exam (→ `intense`).
   const overloaded = new Set<string>();
 
@@ -563,7 +577,7 @@ async function rebuildScheduleInner(
   const dayLoad = new Map<string, number>();
   const ceilingFor = (date: string) => {
     const dow = new Date(date + "T00:00:00Z").getUTCDay();
-    return dailyStudyCeiling(lectureMinByDow[dow]);
+    return capacityByDow[dow];
   };
 
   // Completed sessions consume real capacity. Seed each day's load with the
@@ -610,7 +624,7 @@ async function rebuildScheduleInner(
       const remTotal = p.work.reduce((s, w) => s + w.rem, 0);
       // Spend once we've banked a real block — or unconditionally near the exam,
       // so the run-up days still carry study and nothing slides past the deadline.
-      if (credit < MIN_BLOCK_MINUTES && remTotal > 0 && daysLeft > credit / Math.max(1, p.targetPerDay)) {
+      if (credit < Math.min(MIN_BLOCK_MINUTES, remTotal) && daysLeft > 1) {
         continue;
       }
       // What this course may use today: the credit it has banked, but never
@@ -618,9 +632,13 @@ async function rebuildScheduleInner(
       // already took their share first, so a later exam yields on a crowded day).
       const used = dayLoad.get(date) ?? 0;
       const room = Math.max(0, ceilingFor(date) - used);
-      let courseBudget = Math.min(credit, room);
+      let courseBudget = Math.floor(Math.min(credit, room));
       const spentBefore = courseBudget;
       const perTopicToday: Record<string, number> = {};
+      // Spacing is a preference, not an impossibility rule. A short runway may
+      // need more than 45 minutes per topic while still fitting the daily limit.
+      const topicLimits = new Map(p.work.map((w) => [w.topicId,
+        Math.max(MAX_TOPIC_MINUTES_PER_DAY, Math.ceil(w.rem / daysLeft))]));
       let guard = 0;
       while (courseBudget > 0 && guard++ < 1000) {
         if (!p.work.some((w) => w.rem > 0)) break;
@@ -634,7 +652,7 @@ async function rebuildScheduleInner(
           const w = p.work[(ti + k) % p.work.length];
           if (
             w.rem > 0 &&
-            (perTopicToday[w.topicId] ?? 0) < MAX_TOPIC_MINUTES_PER_DAY &&
+            (perTopicToday[w.topicId] ?? 0) < topicLimits.get(w.topicId)! &&
             !completedTopicDays.has(`${w.topicId}|${date}`)
           ) {
             pick = w;
@@ -647,7 +665,7 @@ async function rebuildScheduleInner(
           SESSION_MINUTES,
           pick.rem,
           courseBudget,
-          MAX_TOPIC_MINUTES_PER_DAY - (perTopicToday[pick.topicId] ?? 0),
+          topicLimits.get(pick.topicId)! - (perTopicToday[pick.topicId] ?? 0),
         );
         studyByCourse.get(pick.courseId)!.push({
           date,
@@ -697,8 +715,7 @@ async function rebuildScheduleInner(
     }
   }
 
-  // Persist per course: study blocks + spaced reviews; record pace + intensity.
-  const result = new Map<string, { isOverloaded: boolean; minutesPerDay: number }>();
+  const result = new Map<string, CourseSchedule>();
   for (const c of courses) {
     const study = studyByCourse.get(c.id) ?? [];
     const exam = c.examDate.toISOString().slice(0, 10);
@@ -753,14 +770,42 @@ async function rebuildScheduleInner(
       dayLoad,
       ceilingFor,
     );
-    await persistBlocks(c.id, [...study, ...reviews, ...preserved]);
-
+    // Match persistBlocks: a completed recall already covers that topic/day.
+    // Filtering here keeps the preview's counts and minutes equal to the rows
+    // the commit will actually create, including partially completed courses.
+    const completedReviews = new Set(
+      c.blocks.filter((b) => b.completed && b.kind !== "study")
+        .map((b) => blockKey(b.topicId, b.date, b.kind)),
+    );
+    const blocks = [...study, ...reviews, ...preserved].filter(
+      (b) => b.kind === "study" ||
+        !completedReviews.has(blockKey(b.topicId, new Date(b.date + "T00:00:00Z"), b.kind)),
+    );
     const daysUsed = new Set(study.map((b) => b.date)).size || 1;
     const minutesPerDay = Math.round(study.reduce((s, b) => s + b.minutes, 0) / daysUsed);
     const isOverloaded = overloaded.has(c.id);
+    result.set(c.id, { blocks, isOverloaded, minutesPerDay });
+  }
+  return result;
+}
+
+/** Read-only recovery proposal, calculated by the same scheduler as apply. */
+export async function previewSchedule(userId: string): Promise<Map<string, CourseSchedule>> {
+  return calculateSchedule(await loadScheduleInputs(userId), todayISO());
+}
+
+async function rebuildScheduleInner(
+  userId: string,
+): Promise<Map<string, { isOverloaded: boolean; minutesPerDay: number }>> {
+  const input = await loadScheduleInputs(userId);
+  const schedule = calculateSchedule(input, todayISO());
+  const result = new Map<string, { isOverloaded: boolean; minutesPerDay: number }>();
+  for (const c of input.courses) {
+    const { blocks, minutesPerDay, isOverloaded } = schedule.get(c.id)!;
+    await persistBlocks(c.id, blocks);
     await prisma.course.update({
       where: { id: c.id },
-      data: { minutesPerDay: minutesPerDay || c.minutesPerDay, intense: isOverloaded },
+      data: { minutesPerDay, intense: isOverloaded },
     });
     result.set(c.id, { isOverloaded, minutesPerDay });
   }
@@ -895,9 +940,9 @@ export async function isCourseOverloaded(courseId: string): Promise<boolean> {
  * Why a course is overloaded — the single dominant reason the scheduler couldn't
  * fit it before the exam. Drives a truthful banner instead of a hardcoded one.
  *  - `no-runway`   : the exam is here / no study days are left before it.
- *  - `few-days`    : there ARE study days, but too few of them (add study days).
+ *  - `few-days`    : this course fits alone, but shared capacity cannot hold it.
  *  - `over-ceiling`: even using every study day, the required pace exceeds what a
- *                    realistic day allows (the global ~6h ceiling) — the work
+ *                    realistic day allows (budget and free window) — the work
  *                    simply doesn't fit; heal/replan is the honest next step.
  */
 export type OverloadCause = "no-runway" | "few-days" | "over-ceiling";
@@ -911,15 +956,14 @@ export type CourseOverloadInfo = {
   daysLeft: number;
   /** Required minutes/day to finish exactly on time over the days left. */
   requiredPerDay: number;
-  /** The realistic per-day study ceiling this pace is measured against (~6h). */
+  /** The realistic per-day study ceiling this pace is measured against. */
   ceilingPerDay: number;
   /** The dominant reason it doesn't fit. Null when not overloaded. */
   cause: OverloadCause | null;
 };
 
 /**
- * Read the persisted `intense` flag (authoritative, from the global scheduler)
- * AND recompute the same real figures the scheduler uses for THIS course, so the
+ * Preview the current global plan and compute its real figures for this course, so the
  * UI can show the actual required pace / days left / cause rather than a static
  * string. Mirrors {@link rebuildScheduleInner}'s per-course pace maths
  * (fold completed work → scale by calibration & difficulty → spread over the
@@ -941,9 +985,9 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
       passed: true,
       topics: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, effort: true, done: true, confidence: true },
+        select: { id: true, title: true, effort: true, done: true, confidence: true, studyTask: true },
       },
-      blocks: { select: { topicId: true, topicTitle: true, date: true, minutes: true, completed: true, kind: true, actualMinutes: true } },
+      blocks: { select: { topicId: true, topicTitle: true, date: true, minutes: true, completed: true, kind: true, actualMinutes: true, studyResult: true } },
     },
   });
 
@@ -960,7 +1004,9 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
   // this read-only view can never claim overload for a module that's done.
   if (coursePassed(course)) return empty;
 
-  const overloaded = course.intense;
+  // Current availability and remaining work decide this, not a stale persisted
+  // flag from a previous plan or from an older scheduling algorithm.
+  const overloaded = (await previewSchedule(course.userId)).get(course.id)?.isOverloaded ?? false;
 
   // Remaining study minutes for this course, computed exactly as the scheduler
   // does: completed sessions reduce a topic's effort (fold), then calibration and
@@ -992,25 +1038,17 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
   // Required even pace to finish on time over the days that remain.
   const requiredPerDay = daysLeft > 0 ? Math.ceil(remainingMinutes / daysLeft) : remainingMinutes;
 
-  // Worst (smallest) realistic study ceiling across the remaining study days —
-  // a class-heavy weekday leaves less room, so we compare the required pace
-  // against the tightest day's ceiling rather than the raw global cap.
-  // Lectures are per user; total lecture minutes per weekday so the ceiling
-  // matches the scheduler's timetable-aware budget (a class-heavy day allows less).
+  // Compare the even pace with average usable capacity across its study days.
+  // The preview above remains authoritative for shared, uneven daily loads.
   let ceilingPerDay = GLOBAL_DAILY_MINUTES;
   if (dates.length > 0) {
     const lectures = await prisma.lecture.findMany({
       where: { userId: course.userId },
       select: { weekday: true, startMin: true, endMin: true },
     });
-    const lectureMinByDow = [0, 0, 0, 0, 0, 0, 0];
-    for (const l of lectures) lectureMinByDow[l.weekday] += Math.max(0, l.endMin - l.startMin);
-    let worst = GLOBAL_DAILY_MINUTES;
-    for (const d of dates) {
-      const dow = new Date(d + "T00:00:00Z").getUTCDay();
-      worst = Math.min(worst, dailyStudyCeiling(lectureMinByDow[dow]));
-    }
-    ceilingPerDay = worst;
+    const user = await prisma.user.findUnique({ where: { id: course.userId }, select: { preferences: true } });
+    const capacities = studyCapacityByWeekday(parsePrefs(user?.preferences), lectures);
+    ceilingPerDay = Math.floor(dates.reduce((sum, date) => sum + capacities[new Date(date + "T00:00:00Z").getUTCDay()], 0) / dates.length);
   }
 
   if (!overloaded) {
@@ -1023,7 +1061,7 @@ export async function courseOverloadInfo(courseId: string): Promise<CourseOverlo
   //    won't fit, no number of extra days helps within the runway → over-ceiling;
   //  - otherwise this course alone fits under the ceiling but the global scheduler
   //    still couldn't place it (too few study days / crowded out by other courses)
-  //    → adding study days gives it more room → few-days.
+  //    → review availability, study days or scope → few-days.
   let cause: OverloadCause;
   if (daysLeft === 0) {
     cause = "no-runway";

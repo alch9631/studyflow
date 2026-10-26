@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Check, Undo2 } from "lucide-react";
 import {
   Dialog,
@@ -106,22 +107,6 @@ export default function TodayCockpit({
         : t("today.statusProtected");
   const needsAdjust = !allDone && status !== "protected";
 
-  // Richer before→after preview for the one "Adjust today" sheet, computed
-  // server-side from real planner data (page.tsx → recoveryActionPreviews) and
-  // passed down. It carries, per option, the resulting essentials/moved counts,
-  // the new pace, and an HONEST exam-reachability verdict — so each option's line
-  // matches its true effect and never promises an exam it can't make.
-  const behindPreview = previews
-    ? {
-        todayCount: previews.protect.beforeCount,
-        protectMoves: previews.protect.moved,
-        essentialsAfterProtect: previews.protect.afterEssentials,
-        moveMoves: previews.move.moved,
-        protectPaceMin: previews.protect.afterPaceMin,
-        lighterPaceMin: previews.lighter.afterPaceMin,
-        examReach: previews.protect.examReach,
-      }
-    : undefined;
 
   return (
     <>
@@ -134,9 +119,12 @@ export default function TodayCockpit({
         action={
           hero ? (
             <>
+              {hero.task ? <>
+              <p className="w-full whitespace-pre-wrap break-words text-left text-base font-medium">{hero.task.instruction}</p>
+              {hero.task.sourceRef && <p className="w-full break-words text-left text-sm text-muted-foreground">{hero.task.sourceRef}</p>}
               <Button
                 size="lg"
-                className="w-full"
+                className="w-full whitespace-normal break-words"
                 onClick={() => openFocus(hero.id)}
               >
                 {t("today.heroNextAction", {
@@ -144,10 +132,16 @@ export default function TodayCockpit({
                   topic: hero.topicTitle,
                 })}
               </Button>
+              </> : <>
+                <p className="text-sm text-muted-foreground">{t("study.unconfigured")}</p>
+                <Button asChild size="lg" className="w-full whitespace-normal">
+                  <Link href={`/courses/${hero.course.id}#topic-${hero.topicId ?? ""}`}>{t("study.defineTask")} · {hero.topicTitle}</Link>
+                </Button>
+              </>}
               <button
                 type="button"
                 onClick={() => setOpenId(hero.id)}
-                className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
                 {t("today.heroOptions")}
               </button>
@@ -156,7 +150,7 @@ export default function TodayCockpit({
         }
         escape={
           <BehindSheet
-            preview={behindPreview}
+            preview={previews ?? undefined}
             trigger={(open) =>
               needsAdjust ? (
                 // Heavier states surface the ONE recovery entry as a clear button.
@@ -173,7 +167,7 @@ export default function TodayCockpit({
                 <button
                   type="button"
                   onClick={open}
-                  className="mx-auto block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  className="mx-auto block min-h-11 px-3 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
                   {t("behind.open")}
                 </button>
@@ -188,7 +182,7 @@ export default function TodayCockpit({
           real core block to anchor it. One core session + (if any) one retrieval
           + one optional — all from the student's real plan, never invented. */}
       {needsAdjust && mvd && mvd.core && (
-        <MinimumViableDayCard mvd={mvd} onStart={openFocus} onOpen={(id) => setOpenId(id)} />
+        <MinimumViableDayCard mvd={mvd} onOpen={(id) => setOpenId(id)} />
       )}
 
       {/* ── SHORT must-do list (left-aligned, quiet rows) ── */}
@@ -205,7 +199,7 @@ export default function TodayCockpit({
       {/* ── Everything else, calmly collapsed under "Protected for later" ── */}
       {laterBlocks.length > 0 && (
         <details className="mx-auto mt-6 max-w-md text-left">
-          <summary className="cursor-pointer list-none px-1 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center px-1 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
             {t("today.laterToggle", { count: laterBlocks.length })}
           </summary>
           <p className="mt-1 px-1 text-xs text-muted-foreground">
@@ -240,16 +234,14 @@ export default function TodayCockpit({
  * still moves the student forward, drawn entirely from their real plan: one core
  * study session (the highest-priority work for the nearest exam), one retrieval
  * (a review) when the plan has one, and one optional session. It replaces the
- * dread of a full list with a decisive, doable choice. The primary button starts
- * the core session; the other slots open their session sheet on tap.
+ * dread of a full list with a doable choice. Slots open their session sheet;
+ * the page keeps a single primary Start action above this card.
  */
 function MinimumViableDayCard({
   mvd,
-  onStart,
   onOpen,
 }: {
   mvd: MinimumViableDay;
-  onStart: (blockId: string) => void;
   onOpen: (blockId: string) => void;
 }) {
   const t = useT();
@@ -271,14 +263,14 @@ function MinimumViableDayCard({
             <button
               type="button"
               onClick={() => onOpen(block.id)}
-              className="flex w-full items-baseline gap-3 text-left"
+              className="flex min-h-11 w-full items-baseline gap-3 text-left"
             >
               <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {label}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{block.topicTitle}</span>
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                <span className="block break-words font-medium">{block.topicTitle}</span>
+                <span className="mt-0.5 block break-words text-xs text-muted-foreground">
                   {fmtDuration(block.minutes)} · {block.course.name}
                 </span>
               </span>
@@ -287,11 +279,6 @@ function MinimumViableDayCard({
         ))}
       </ul>
 
-      {mvd.core && (
-        <Button size="lg" className="mt-4 w-full" onClick={() => onStart(mvd.core!.id)}>
-          {t("today.mvdStart", { minutes: mvd.core.minutes, topic: mvd.core.topicTitle })}
-        </Button>
-      )}
     </section>
   );
 }
@@ -327,7 +314,7 @@ function QuietRow({
   return (
     <SwipeRow
       className="rounded-xl"
-      contentClassName={`flex items-center gap-3 rounded-xl bg-transparent px-1 py-2.5 ${
+      contentClassName={`flex items-center gap-1 rounded-xl bg-transparent py-2.5 ${
         muted ? "opacity-70" : ""
       }`}
       right={
@@ -347,18 +334,22 @@ function QuietRow({
         <button
           type="button"
           onClick={() => fire(formData(), !optimisticDone, true)}
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
-            optimisticDone
-              ? "border-brand bg-brand text-brand-foreground"
-              : "border-input hover:border-muted-foreground"
-          }`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent"
           aria-pressed={optimisticDone}
           aria-label={optimisticDone ? t("block.markNotDone") : t("block.markDone")}
         >
-          {optimisticDone ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
+          <span
+            className={`flex h-6 w-6 items-center justify-center rounded-full border ${
+              optimisticDone
+                ? "border-brand bg-brand text-brand-foreground"
+                : "border-input hover:border-muted-foreground"
+            }`}
+          >
+            {optimisticDone ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
+          </span>
         </button>
       </form>
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+      <button type="button" onClick={onOpen} className="min-h-11 min-w-0 flex-1 text-left">
         <span
           className={`block break-words ${
             optimisticDone ? "text-muted-foreground line-through" : "font-medium"
@@ -478,17 +469,17 @@ function SessionSheet({
     >
       {/* Bottom-sheet styling on mobile (pinned to the bottom edge), centred card
           on larger screens — overriding the primitive's default centring. */}
-      <DialogContent className="inset-x-0 bottom-0 top-auto m-0 max-w-none rounded-b-none rounded-t-2xl sm:inset-0 sm:m-auto sm:max-w-sm sm:rounded-2xl">
+      <DialogContent mobileSheet>
         {block && (
           <>
-            <DialogTitle className="pr-8">{block.topicTitle}</DialogTitle>
+            <DialogTitle>{block.topicTitle}</DialogTitle>
             <DialogDescription>
               {block.course.name} · {t("today.sheetEst", { time: fmtDuration(block.minutes) })}
               {block.kind === "review" && <> · {t("today.sheetReview")}</>}
             </DialogDescription>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button type="button" onClick={onStartFocus} className="col-span-2">
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button type="button" onClick={onStartFocus} className="sm:col-span-2">
                 {t("today.heroStartFocus")}
               </Button>
               <Button type="button" variant="secondary" onClick={markDone}>
@@ -500,10 +491,11 @@ function SessionSheet({
             </div>
 
             <div className="mt-4">
-              <label className="block text-xs font-medium text-muted-foreground">
+              <label htmlFor="session-note" className="block text-xs font-medium text-muted-foreground">
                 {t("today.sheetNoteLabel")}
               </label>
               <textarea
+                id="session-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={t("today.sheetNotePlaceholder")}

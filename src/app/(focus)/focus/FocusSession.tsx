@@ -14,6 +14,8 @@ import { useT } from "@/components/i18n/I18nProvider";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import { toggleBlock, saveBlockNote, logFocus } from "@/app/courses/actions";
 import { fmtDuration } from "@/app/today/cockpit";
+import StudyTaskSession from "@/components/StudyTaskSession";
+import type { StudyTask } from "@/lib/studyTask";
 
 /** The single block Focus mode works on (serializable across the boundary). */
 export type FocusBlock = {
@@ -22,7 +24,10 @@ export type FocusBlock = {
   minutes: number;
   completed: boolean;
   kind: string;
-  course: { name: string };
+  course: { id: string; name: string };
+  topicId: string;
+  task: StudyTask | null;
+  fileAvailable: boolean;
   /** The topic's existing note body — the quick-note editor MUST open with it,
    *  because saving writes the same Note.body the course page uses (an empty
    *  seed made every save destroy the existing note). */
@@ -117,6 +122,7 @@ export default function FocusSession({
   const [note, setNote] = useState(block.note ?? "");
   const [savingNote, setSavingNote] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [checkOpen, setCheckOpen] = useState(false);
 
   // Session lifecycle + the elapsed focus clock FocusSession owns — the ONE
   // source of truth for both the visible countdown and whether any real focus
@@ -249,6 +255,11 @@ export default function FocusSession({
   const ss = String(remainingSec % 60).padStart(2, "0");
 
   function markDone() {
+    if (block.task) {
+      setPhase("resting");
+      setCheckOpen(true);
+      return;
+    }
     const fd = new FormData();
     fd.set("blockId", block.id);
     fd.set("revalidate", "/today");
@@ -317,11 +328,15 @@ export default function FocusSession({
           </p>
         </div>
 
+        <StudyTaskSession blockId={block.id} courseId={block.course.id} topicId={block.topicId} task={block.task}
+          fileAvailable={block.fileAvailable} actualMinutes={Math.floor(elapsedSec / 60)} open={checkOpen}
+          onOpenChange={(value) => { if (value && phase === "running") setPhase("resting"); setCheckOpen(value); }} />
+
         {/* The big clock — the block's planned minutes counting down, driven
             only by the bottom session controls. No buttons up here: this is a
             quiet room, not a control panel. */}
-        <div className="mt-12 text-center">
-          <div className="text-6xl font-semibold tabular-nums sm:text-7xl">
+        <div className="mt-6 text-center">
+          <div className={`${block.task ? "text-4xl sm:text-5xl" : "text-6xl sm:text-7xl"} font-semibold tabular-nums`}>
             {mm}:{ss}
           </div>
           {phase === "resting" && remainingSec > 0 && (

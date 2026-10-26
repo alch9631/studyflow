@@ -6,6 +6,7 @@ import { getCurrentUserId } from "@/lib/devUser";
 import { todayISO } from "@/lib/planService";
 import { getT } from "@/components/i18n/server";
 import FocusSession, { type FocusBlock } from "./FocusSession";
+import { readStudyTask } from "@/lib/studyTask";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -43,7 +44,7 @@ export default async function FocusPage({
     completed: true,
     kind: true,
     topicId: true,
-    course: { select: { name: true } },
+    course: { select: { id: true, name: true } },
   } as const;
 
   // The requested block, if any — ownership-scoped via course.userId so a guessed
@@ -56,7 +57,7 @@ export default async function FocusPage({
         completed: boolean;
         kind: string;
         topicId: string;
-        course: { name: string };
+        course: { id: string; name: string };
       }
     | null = null;
   const requested = typeof sp.blockId === "string" ? sp.blockId : "";
@@ -114,9 +115,13 @@ export default async function FocusPage({
   // The topic's existing note, so the Focus quick-note editor opens pre-filled.
   // It writes the same Note.body as the course-page editor — seeding it empty
   // made every save an overwrite that destroyed the student's existing note.
-  const existingNote = await prisma.note.findFirst({
-    where: { topicId: block.topicId, topic: { course: { userId } } },
-    select: { body: true },
+  const topic = await prisma.topic.findFirst({
+    where: { id: block.topicId, courseId: block.course.id, course: { userId } },
+    select: { studyTask: true, note: { select: { body: true } } },
+  });
+  const task = readStudyTask(topic?.studyTask);
+  const fileAvailable = !!task?.sourceFileId && !!await prisma.moduleFile.count({
+    where: { id: task.sourceFileId, courseId: block.course.id, content: { not: null } },
   });
 
   const focusBlock: FocusBlock = {
@@ -125,8 +130,10 @@ export default async function FocusPage({
     minutes: block.minutes,
     completed: block.completed,
     kind: block.kind,
-    course: { name: block.course.name },
-    note: existingNote?.body ?? null,
+    topicId: block.topicId,
+    course: block.course,
+    note: topic?.note?.body ?? null,
+    task, fileAvailable,
   };
 
   // Keyed by block id: if the mounted /focus route ever receives a different

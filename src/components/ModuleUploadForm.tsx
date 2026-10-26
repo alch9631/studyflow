@@ -12,6 +12,8 @@ import {
   type FileCategory,
 } from "@/lib/fileCategory";
 import { analyzeModuleUpload } from "@/app/courses/actions";
+import { uploadMaterial } from "@/app/courses/studyActions";
+import ValidatedForm from "./ValidatedForm";
 import { UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, isWithinUploadLimit } from "@/lib/fileText";
 
 /**
@@ -34,9 +36,11 @@ import { UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, isWithinUploadLimit } from "@/lib/file
 export default function ModuleUploadForm({
   courseId,
   collapsible = false,
+  aiEnabled = false,
 }: {
   courseId: string;
   collapsible?: boolean;
+  aiEnabled?: boolean;
 }) {
   const t = useT();
   const [name, setName] = useState("");
@@ -83,7 +87,7 @@ export default function ModuleUploadForm({
   }
 
   return (
-    <form action={analyzeModuleUpload} className="space-y-3">
+    <ValidatedForm action={uploadMaterial} successMessage={t("study.materialSaved")} errorMessage={t("study.materialError")} onDone={() => { setName(""); setOpen(false); }} className="space-y-3">
       <input type="hidden" name="courseId" value={courseId} />
 
       <label
@@ -93,6 +97,7 @@ export default function ModuleUploadForm({
       >
         <input
           type="file"
+          required
           name="file"
           accept={UPLOAD_ACCEPT}
           className="sr-only"
@@ -150,10 +155,13 @@ export default function ModuleUploadForm({
         variant="primary"
         size="md"
         className="w-full sm:w-auto"
-        pendingLabel={t("courseDetail.analyzing")}
+        pendingLabel={t("study.saving")}
       >
-        {t("courseDetail.analyzeFile")}
+          {t("study.saveMaterial")}
       </SubmitButton>
-    </form>
+      {aiEnabled && <button type="submit" formAction={analyzeModuleUpload} className={buttonClasses("secondary", "md")}>
+        {t("study.analyzeOptional")}
+      </button>}
+    </ValidatedForm>
   );
 }

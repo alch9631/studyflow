@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "mammoth"],
   experimental: {
     // Allow uploading lecture scripts / study materials via server actions.
-    serverActions: { bodySizeLimit: "20mb" },
+    serverActions: { bodySizeLimit: "22mb" },
   },
 };
 

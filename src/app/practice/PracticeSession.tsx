@@ -9,6 +9,7 @@ import { useT } from "@/components/i18n/I18nProvider";
 import type { MessageKey } from "@/components/i18n/messages";
 import { haptics } from "@/components/haptics";
 import { setTopicConfidence } from "@/app/courses/actions";
+import { Textarea } from "@/components/ui/textarea";
 
 type Confidence = "solid" | "practice" | "struggling";
 
@@ -19,6 +20,8 @@ export type PracticeCard = {
   question: string;
   /** The topic's current confidence, if any — pre-selects the matching rating. */
   confidence: Confidence | null;
+  answerKey?: string | null;
+  sourceHref?: string | null;
 };
 
 /**
@@ -58,15 +61,14 @@ const LEVELS: {
 
 /**
  * Calm, focused active-recall flow: ONE question at a time, lots of quiet space
- * (the spirit of Focus). The student tries to recall, reveals the prompt-as-cue,
+ * (the spirit of Focus). The student tries to recall, checks the answer or source,
  * then self-rates Solid · Needs practice · Struggling. The rating persists to the
  * question's topic via the shared `setTopicConfidence` action (feeding the spaced
  * reviews) and the card advances. When the queue is done, a gentle finish screen
  * offers another pass or a way back to the course.
  *
- * "Reveal" here is a recall cue, not an answer key: the stored `questions` are
- * prompts, so revealing re-frames the prompt as a "say it out loud" cue rather
- * than inventing an answer the data doesn't hold.
+ * Manual check questions include a stored answer key. Legacy generated prompts
+ * show an honest source-comparison instruction when no answer key is available.
  */
 export default function PracticeSession({
   courseId,
@@ -81,7 +83,8 @@ export default function PracticeSession({
   const { toast } = useToast();
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
+  const [response, setResponse] = useState("");
 
   const total = cards.length;
   const done = index >= total;
@@ -89,30 +92,33 @@ export default function PracticeSession({
 
   function advance() {
     setRevealed(false);
+    setResponse("");
     setIndex((i) => i + 1);
   }
 
   function rate(value: Confidence) {
-    if (!card) return;
+    if (!card || pending) return;
     haptics.tap();
     // Persist the rating to the topic's confidence (shared action → spaced
-    // reviews re-adapt server-side), then move on optimistically.
+    // reviews re-adapt server-side), then advance only after saving succeeds.
     const fd = new FormData();
     fd.set("topicId", card.topicId);
     fd.set("confidence", value);
     startTransition(async () => {
       try {
-        await setTopicConfidence(fd);
+        const result = await setTopicConfidence(fd);
+        if (!result.ok) { toast(t("practice.rateError"), "error"); return; }
+        advance();
       } catch {
         toast(t("practice.rateError"), "error");
       }
     });
-    advance();
   }
 
   function restart() {
     setIndex(0);
     setRevealed(false);
+    setResponse("");
   }
 
   return (
@@ -163,18 +169,25 @@ export default function PracticeSession({
               {card!.question}
             </h1>
 
+            <label className="mt-5 w-full text-left text-sm font-medium">
+              {t("study.response")}<Textarea value={response} onChange={(event) => setResponse(event.target.value)} rows={3} maxLength={4000} className="mt-1 w-full" />
+            </label>
+
             {revealed ? (
-              <p className="mt-6 max-w-sm text-sm text-muted-foreground">
-                {t("practice.recallCue")}
-              </p>
+              <div className="mt-6 w-full whitespace-pre-wrap break-words rounded-xl bg-surface-muted p-4 text-left text-sm">
+                {card!.answerKey ? <><p className="font-semibold">{t("study.answerKey")}</p><p className="mt-2">{card!.answerKey}</p></>
+                  : <p className="text-muted-foreground">{t("study.noAnswerKey")}</p>}
+                {card!.sourceHref && <a href={card!.sourceHref} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-ink underline">{t("study.openMaterial")}</a>}
+              </div>
             ) : (
               <Button
                 type="button"
                 variant="secondary"
                 className="mt-8"
                 onClick={() => setRevealed(true)}
+                disabled={!response.trim()}
               >
-                {t("practice.reveal")}
+                {t("study.checkResult")}
               </Button>
             )}
           </div>
@@ -193,6 +206,7 @@ export default function PracticeSession({
                     key={lvl.value}
                     type="button"
                     onClick={() => rate(lvl.value)}
+                    disabled={pending}
                     className={`flex flex-col items-center gap-0.5 rounded-xl border px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${lvl.tone}`}
                   >
                     {t(lvl.labelKey)}
@@ -205,6 +219,7 @@ export default function PracticeSession({
               <button
                 type="button"
                 onClick={advance}
+                disabled={pending}
                 className="mt-4 block w-full rounded-full px-3 py-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {t("practice.skip")}

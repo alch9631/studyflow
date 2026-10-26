@@ -95,7 +95,7 @@ type DropData = { dayISO: string; startMin: number | null };
 
 /**
  * True only on the client, after mount, when the viewport is actually desktop
- * (≥768px — Tailwind's `md`). Starts `false` so SSR and the first client render
+ * (≥1024px — Tailwind's `lg`). Starts `false` so SSR and the first client render
  * agree (no hydration mismatch) and the heavy desktop @dnd-kit tree — droppables,
  * day columns, drag overlay — is never instantiated on phones, where the `Issues`
  * badge otherwise flags a mismatch and the work is wasted (mobile has its own
@@ -104,7 +104,7 @@ type DropData = { dayISO: string; startMin: number | null };
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    const mql = window.matchMedia("(min-width: 768px)");
+    const mql = window.matchMedia("(min-width: 1024px)");
     const sync = () => setIsDesktop(mql.matches);
     sync();
     mql.addEventListener("change", sync);
@@ -148,6 +148,11 @@ function BlockCard({
   });
   const isReview = block.kind === "review";
   const timed = block.startMin != null && block.endMin != null;
+  // Fit the visible content to the real slot height. A 15-minute block has
+  // room for one title line; forcing three shrinking lines into it hid the title.
+  const cardHeight = positioned?.height ?? Infinity;
+  const compact = cardHeight < 30;
+  const showCourse = cardHeight >= 54;
   const label = timed
     ? `${minutesToHHMM(block.startMin!)}–${minutesToHHMM(block.endMin!)}`
     : `${block.minutes}m`;
@@ -166,7 +171,7 @@ function BlockCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/card flex flex-col overflow-hidden rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition-opacity ${
+      className={`group/card relative flex flex-col overflow-hidden rounded-md border px-1.5 text-left text-[11px] leading-tight shadow-sm transition-opacity ${compact ? "py-0" : "py-0.5"} ${
         isReview
           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/30 dark:text-emerald-100"
           : "border-gray-200 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -198,19 +203,23 @@ function BlockCard({
         type="button"
         aria-label={`${block.topicTitle}, ${block.courseName}, ${label}. ${t("calendar.dragHint")}`}
         title={`${block.topicTitle} · ${block.courseName} · ${label}`}
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden pr-4 text-left focus:outline-none focus:ring-2 focus:ring-brand ${
+        className={`flex min-h-0 flex-1 flex-col justify-center overflow-hidden pr-4 text-left focus:outline-none focus:ring-2 focus:ring-brand ${
           block.completed ? "line-through" : ""
         }`}
         {...listeners}
         {...attributes}
       >
-        <span className="truncate font-medium">{block.topicTitle}</span>
-        <span className="truncate text-[10px] text-gray-500 dark:text-gray-400">
-          {block.courseName}
-        </span>
-        <span className="mt-auto text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
-          {label}
-        </span>
+        <span className="w-full shrink-0 truncate font-medium leading-[14px]">{block.topicTitle}</span>
+        {showCourse && (
+          <span className="w-full shrink-0 truncate text-[10px] leading-3 text-gray-500 dark:text-gray-400">
+            {block.courseName}
+          </span>
+        )}
+        {!compact && (
+          <span className="w-full shrink-0 truncate text-[10px] leading-3 tabular-nums text-gray-500 dark:text-gray-400">
+            {label}
+          </span>
+        )}
       </button>
 
       {/* Resize grip: drag the bottom edge to change the block's duration. */}
@@ -223,7 +232,7 @@ function BlockCard({
             e.preventDefault();
             onResize(block, e.clientY);
           }}
-          className="absolute inset-x-0 bottom-0 z-10 flex h-2 cursor-ns-resize items-end justify-center"
+          className={`absolute inset-x-0 bottom-0 z-10 flex cursor-ns-resize items-end justify-center ${compact ? "h-1" : "h-2"}`}
         >
           <span className="mb-0.5 h-0.5 w-5 rounded-full bg-gray-300 opacity-0 transition-opacity group-hover/card:opacity-100 dark:bg-gray-500" />
         </div>
@@ -481,6 +490,7 @@ export default function WeekCalendar({
   if (seenWeek !== weekStartISO) {
     setSeenWeek(weekStartISO);
     setSelectedDay(defaultDay);
+    setPlaceTarget(null);
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -916,7 +926,6 @@ export default function WeekCalendar({
     void move(block, data.dayISO, data.startMin);
   }
 
-  const dayIndex = dayISOs.indexOf(selectedDay);
   const examsByDay = useMemo(() => {
     const m = new Map<string, CalExam[]>();
     for (const e of exams) {
@@ -969,20 +978,20 @@ export default function WeekCalendar({
           <Link
             href={`/calendar?week=${prevWeekISO}`}
             aria-label={t("calendar.prevWeek")}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 lg:min-h-0 lg:min-w-0 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
           <Link
             href="/calendar"
-            className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium hover:bg-gray-100 lg:min-h-0 lg:px-2 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             {t("calendar.thisWeek")}
           </Link>
           <Link
             href={`/calendar?week=${nextWeekISO}`}
             aria-label={t("calendar.nextWeek")}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-200 px-2 py-1 text-sm hover:bg-gray-100 lg:min-h-0 lg:min-w-0 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -993,7 +1002,7 @@ export default function WeekCalendar({
               type="button"
               aria-pressed={planningMode}
               onClick={() => setPlanningMode((v) => !v)}
-              className={`hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors md:inline-flex ${
+              className={`hidden items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors lg:inline-flex ${
                 planningMode
                   ? "border-brand bg-brand/10 text-brand-ink"
                   : "border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -1006,50 +1015,36 @@ export default function WeekCalendar({
         </div>
       </div>
 
-      {/* Mobile day switcher (below md): prev/next + a tappable Mon–Sun strip. */}
-      <div className="mb-2 md:hidden">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            aria-label={t("calendar.prevDay")}
-            disabled={dayIndex <= 0}
-            onClick={() => dayIndex > 0 && setSelectedDay(dayISOs[dayIndex - 1])}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <div className="flex flex-1 justify-between gap-1">
-            {dayISOs.map((dayISO, i) => {
-              const isSel = dayISO === selectedDay;
-              const isToday = dayISO === todayISO;
-              return (
-                <button
-                  key={dayISO}
-                  type="button"
-                  onClick={() => setSelectedDay(dayISO)}
-                  className={`flex flex-1 flex-col items-center rounded-md py-1 text-[11px] font-semibold ${
-                    isSel
-                      ? "bg-brand text-brand-foreground"
-                      : isToday
-                        ? "bg-brand/10 text-brand"
-                        : "text-gray-500 dark:text-gray-400"
-                  }`}
-                >
-                  <span>{weekdayLabels[i]}</span>
-                  <span className="tabular-nums">{Number(dayISO.slice(8, 10))}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            aria-label={t("calendar.nextDay")}
-            disabled={dayIndex >= dayISOs.length - 1}
-            onClick={() => dayIndex < dayISOs.length - 1 && setSelectedDay(dayISOs[dayIndex + 1])}
-            className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-sm disabled:opacity-40 dark:border-gray-700"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+      {/* All seven days fit on a phone without squeezing in duplicate arrows. */}
+      <div className="mb-4 lg:hidden">
+        <p className="mb-3 text-sm text-muted-foreground">
+          {new Intl.DateTimeFormat(t.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(selectedDay + "T00:00:00Z"))}
+        </p>
+        <div className="grid grid-cols-7 gap-1" role="group" aria-label={t("calendar.placeDayLabel")}>
+          {dayISOs.map((dayISO, i) => {
+            const isSel = dayISO === selectedDay;
+            const isToday = dayISO === todayISO;
+            return (
+              <button
+                key={dayISO}
+                type="button"
+                onClick={() => setSelectedDay(dayISO)}
+                aria-pressed={isSel}
+                aria-current={isToday ? "date" : undefined}
+                aria-label={new Intl.DateTimeFormat(t.locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(dayISO + "T00:00:00Z"))}
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold ${
+                  isSel
+                    ? "bg-brand text-brand-foreground"
+                    : isToday
+                      ? "bg-brand/10 text-brand-ink"
+                      : "text-gray-500 dark:text-gray-400"
+                }`}
+              >
+                <span>{weekdayLabels[i]}</span>
+                <span className="tabular-nums">{Number(dayISO.slice(8, 10))}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1060,11 +1055,9 @@ export default function WeekCalendar({
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        {/* ── Mobile: calm read-only agenda for the selected day ───────────
-            Precise drag/resize is desktop-only (#9). Mobile shows the grouped
-            Overview plus a read-only agenda; manual placement stays via the
-            placement sheet, and "Auto-arrange my week" is the primary path. */}
-        <div className="md:hidden">
+        {/* Phone agenda: tap to edit a session or mark it done. Unplaced work
+            stays grouped by course, with automatic and manual placement. */}
+        <div className="lg:hidden">
           {/* Exam marker for the selected day. */}
           {examsByDay.get(selectedDay)?.map((e) => (
             <div
@@ -1078,17 +1071,19 @@ export default function WeekCalendar({
           <MobileDayView
             weekUnplaced={weekUnplaced}
             dayTimed={timedFor(selectedDay)}
+            dayLectures={lecturesFor(selectedDay)}
             isArranging={isArranging}
             onAutoArrange={() => autoArrange()}
             onPlace={setPlaceTarget}
+            onToggle={toggle}
           />
         </div>
 
-        {/* ── Desktop (md+): full 7-column week ───────────────────────────── */}
+        {/* ── Desktop (lg+): full 7-column week ───────────────────────────── */}
         {/* Rendered only once we're on a real desktop viewport (client, post-mount)
             so the @dnd-kit droppables/columns never instantiate on mobile or SSR. */}
         {isDesktop && (
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           <div className="overflow-x-auto">
             <div className="min-w-[900px]">
               {/* Header row: time gutter + weekday labels. */}
@@ -1315,6 +1310,7 @@ export default function WeekCalendar({
         target={placeTarget}
         dayISOs={dayISOs}
         todayISO={todayISO}
+        selectedDayISO={selectedDay}
         onClose={() => setPlaceTarget(null)}
         onPlaced={() => router.refresh()}
       />

@@ -14,8 +14,8 @@
  * Override the location with TEST_DATABASE_URL (must still be a *test* db).
  */
 import { execSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 /**
  * Resolve (and validate) the test database URL. Kept pure so it's unit-testable
@@ -59,6 +59,10 @@ const filePath = testDbFilePath(TEST_DATABASE_URL);
 for (const f of [filePath, `${filePath}-journal`, `${filePath}-wal`, `${filePath}-shm`]) {
   if (existsSync(f)) rmSync(f);
 }
+// The schema engine can fail to create a missing SQLite file on a fresh checkout.
+// An empty file is a valid starting point; the schema push creates its tables.
+mkdirSync(dirname(filePath), { recursive: true });
+writeFileSync(filePath, "");
 // `--accept-data-loss`: this is a throwaway DB we just deleted, so any drop is by
 // design — without the flag prisma can refuse the push (e.g. against a leftover
 // file the delete missed) and exit non-zero. We DON'T silence output: a failed

@@ -15,6 +15,12 @@ export default async function StudyPrefsForm({ prefs }: { prefs: StudyPrefs }) {
   const t = await getT();
   return (
     <form action={saveStudyPrefs} className="mt-4 space-y-4">
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">{t("study.dailyBudget")}</span>
+        <input type="number" name="dailyBudgetMin" required min={15} max={360} step={15} defaultValue={prefs.dailyBudgetMin ?? 180}
+          className="rounded-lg border border-input bg-surface px-3 py-2" />
+        <span className="text-xs text-muted-foreground">{t("study.dailyBudgetHint")}</span>
+      </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">{t("settings.studyWindowStart")}</span>

@@ -22,6 +22,9 @@ import {
   setCoursePassed,
 } from "../actions";
 import ModuleUploadForm from "@/components/ModuleUploadForm";
+import StudyTaskForm from "@/components/StudyTaskForm";
+import { readStudyTask, taskSourceHref } from "@/lib/studyTask";
+import { availableMaterialIds } from "@/lib/materials";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
 import TopicMeta from "./TopicMeta";
@@ -255,6 +258,7 @@ export default async function CoursePage({
           title: true,
           done: true,
           questions: true,
+          studyTask: true,
           confidence: true,
           note: { select: { body: true } },
         },
@@ -283,6 +287,9 @@ export default async function CoursePage({
     },
   });
   if (!course) notFound();
+
+  const originalIds = new Set((await availableMaterialIds(userId, course.id)).map((file) => file.id));
+  const taskMaterials = course.files.filter((file) => originalIds.has(file.id)).map(({ id, filename }) => ({ id, filename }));
 
   const overload = await courseOverloadInfo(course.id);
   const doneCount = course.topics.filter((t) => t.done).length;
@@ -342,6 +349,7 @@ export default async function CoursePage({
   // non-empty `questions` JSON array. Gates the "Practice" entry point so it
   // never leads into an empty state.
   const hasPracticeQuestions = course.topics.some((topic) => {
+    if (readStudyTask(topic.studyTask)?.checkQuestion) return true;
     if (!topic.questions) return false;
     try {
       const parsed = JSON.parse(topic.questions);
@@ -406,9 +414,9 @@ export default async function CoursePage({
               </p>
               <fieldset>
                 <legend className="block text-sm font-medium">{t("courseDetail.studyDays")}</legend>
-                <div className="mt-2 flex flex-wrap gap-3">
+                <div className="mt-2 grid grid-cols-4 gap-1 sm:flex sm:flex-wrap sm:gap-3">
                   {DAY_OPTS.map((d) => (
-                    <label key={d.v} className="flex items-center gap-1.5 text-sm">
+                    <label key={d.v} className="flex min-h-11 items-center gap-1.5 text-sm">
                       <input
                         type="checkbox"
                         name="studyDays"
@@ -688,7 +696,9 @@ export default async function CoursePage({
             <span>
               {/* Truthful, plan-derived headline: the REAL required pace + days
                   left, phrased calmly (rounded to ~h/day to match the page). */}
-              {overload.cause === "no-runway"
+              {overload.cause === "few-days"
+                ? t("study.crowded", { hours: hoursLabel(t, overload.requiredPerDay), days: overload.daysLeft })
+                : overload.cause === "no-runway"
                 ? t("courseDetail.overload.headlineNoRunway", {
                     hours: hoursLabel(t, overload.requiredPerDay),
                   })
@@ -723,13 +733,7 @@ export default async function CoursePage({
           </summary>
 
           <div className="space-y-4 border-t border-gray-100 px-4 pb-4 pt-4 dark:border-gray-800">
-            {isSyllabusAIEnabled() ? (
-              <ModuleUploadForm courseId={course.id} collapsible />
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t("courseDetail.apiKeyFiles")}
-              </p>
-            )}
+            <ModuleUploadForm courseId={course.id} collapsible aiEnabled={isSyllabusAIEnabled()} />
 
             {course.files.length === 0 ? (
               <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
@@ -775,6 +779,9 @@ export default async function CoursePage({
                           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
                           <div className="min-w-0 flex-1">
                             <div className="break-words font-medium">{file.filename}</div>
+                            {originalIds.has(file.id) ? (
+                              <a href={`/api/materials/${file.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>
+                            ) : <p className="mt-1 text-xs text-muted-foreground">{t("study.originalUnavailable")}</p>}
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                               <span
                                 className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${CATEGORY_BADGE[category]}`}
@@ -894,8 +901,11 @@ export default async function CoursePage({
             </Link>
           )}
         </div>
+        <div className="mb-4"><StudyTaskForm courseId={course.id} materials={taskMaterials} /></div>
         <AnimatedList className="space-y-2">
           {course.topics.map((topic) => {
+            const task = readStudyTask(topic.studyTask);
+            const sourceHref = task && taskSourceHref(task, !!task.sourceFileId && originalIds.has(task.sourceFileId));
             let questions: string[] = [];
             try {
               questions = topic.questions ? (JSON.parse(topic.questions) as string[]) : [];
@@ -912,6 +922,13 @@ export default async function CoursePage({
                   title={topic.title}
                   done={topic.done}
                 />
+                {task && <div className="ml-7 mt-2 space-y-1 text-sm">
+                  <p className="whitespace-pre-wrap break-words">{task.instruction}</p>
+                  {task.sourceRef && <p className="break-words text-xs text-muted-foreground">{task.sourceRef}</p>}
+                  {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
+                  <p className="whitespace-pre-wrap break-words text-muted-foreground">{t("study.criteria")} {task.successCriteria}</p>
+                </div>}
+                <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />
                 <TopicMeta
                   topicId={topic.id}
                   topicTitle={topic.title}
@@ -1028,7 +1045,7 @@ export default async function CoursePage({
           <ProgressForm courseId={course.id} />
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("courseDetail.apiKeyProgress")}
+            {t("study.progressHint")}
           </p>
         )}
       </section>

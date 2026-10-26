@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
-import { todayISO } from "@/lib/planService";
+import { previewSchedule, todayISO } from "@/lib/planService";
 import { daysUntil } from "@/lib/dates";
 import { Rocket, Coffee, MapPin } from "lucide-react";
 import { getT } from "@/components/i18n/server";
@@ -13,7 +13,8 @@ import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
 import ExamStrip, { type ExamChip } from "./ExamStrip";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
-import { parsePrefs } from "@/lib/timePlacer";
+import { parsePrefs, availableStudyMinutes } from "@/lib/timePlacer";
+import { readStudyTask, readStudyResult } from "@/lib/studyTask";
 import {
   assignLanes,
   canMoveBlockToTomorrow,
@@ -82,10 +83,8 @@ export default async function TodayPage({
   // calm banner instead of silently rendering nothing.
   const rateLimited = sp.msg === "rate-limited";
 
-  // These four reads are independent, so fire them concurrently in a single
-  // round-trip batch instead of awaiting one after another (avoids a serial
-  // query waterfall). Identical results — only the wall-clock timing changes.
-  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, prefUser] =
+  // Load the proposal alongside the current plan. Previewing never writes rows.
+  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, prefUser, proposal] =
     await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
@@ -98,6 +97,7 @@ export default async function TodayPage({
         kind: true,
         actualMinutes: true,
         topicId: true,
+        studyResult: true,
         // course.examDate drives the per-course exam proximity used by the
         // explain-my-plan ordering reason and the catch-up urgency.
         course: { select: { name: true, id: true, examDate: true } },
@@ -159,6 +159,7 @@ export default async function TodayPage({
     // Study-window preferences (for today's capacity / risk line). Only the
     // preferences blob is read; parsePrefs tolerates null/legacy values.
     prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
+    previewSchedule(userId),
   ]);
 
   let nextDate = "";
@@ -193,6 +194,8 @@ export default async function TodayPage({
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const remainingMin = Math.max(0, totalMin - doneMin);
+  const checkedGoals = new Set(blocks.filter((b) => readStudyResult(b.studyResult)?.outcome === "complete").map((b) => b.topicId));
+  const practiceNeeded = new Set(blocks.filter((b) => readStudyResult(b.studyResult)?.outcome === "practice" && !checkedGoals.has(b.topicId)).map((b) => b.topicId));
 
   // Realistic focus time left today, for the cockpit's one-line risk verdict.
   // Capacity = the student's study WINDOW today (prefs day-start…day-end) minus
@@ -201,10 +204,6 @@ export default async function TodayPage({
   // before a wind-down cutoff (Europe/Berlin). This is "how much can today really
   // hold" — the denominator for "am I over capacity / on track".
   const prefs = parsePrefs(prefUser?.preferences);
-  const todaysLectureMin = todaysLectures.reduce(
-    (s, l) => s + Math.max(0, l.endMin - l.startMin),
-    0,
-  );
   const nowParts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     hour: "2-digit",
@@ -213,38 +212,40 @@ export default async function TodayPage({
   }).format(new Date());
   const [hh, mm] = nowParts.split(":").map(Number);
   const minutesNow = hh * 60 + mm;
-  const FOCUS_RATIO = 0.6; // ~60% of window hours is realistically focused study
+  const FOCUS_RATIO = 0.75;
   // The window still open today: from now (or the window start) to the window end.
-  const windowLeft = Math.max(0, prefs.dayEndMin - Math.max(minutesNow, prefs.dayStartMin));
-  // Subtract lectures that fall in the remaining window before discounting; clamp
-  // at 0 so a heavy class day never yields negative capacity.
+  const windowLeft = availableStudyMinutes({ startMin: Math.max(minutesNow, prefs.dayStartMin), endMin: prefs.dayEndMin }, todaysLectures);
+  // Only lectures overlapping the remaining window consume time still available.
   const windowAvailableMin = Math.max(
     0,
-    Math.round((windowLeft - todaysLectureMin) * FOCUS_RATIO),
+    Math.floor(windowLeft * FOCUS_RATIO),
   );
   // Conservative ceiling: the smaller of the window math and the fixed daily study
   // budget. This is the realistic load today can hold — it stops the planner from
   // manufacturing a wall of "must-do" out of an optimistic 14h window.
-  const availableMin = studyBudget(windowAvailableMin);
+  const completedTodayMin = blocks.filter((b) => b.completed).reduce((sum, b) => sum + b.minutes, 0);
+  const availableMin = studyBudget(windowAvailableMin, Math.max(0, (prefs.dailyBudgetMin ?? 180) - completedTodayMin));
 
   // Each block's topic note, so the session sheet's quick-note editor opens
   // PRE-FILLED. It shares Note.body with the course-page editor — seeding it
   // empty made every sheet save an overwrite that destroyed the existing note.
   const noteRows = blocks.length
-    ? await prisma.note.findMany({
+    ? await prisma.topic.findMany({
         where: {
-          topic: { course: { userId } },
-          topicId: { in: [...new Set(blocks.map((b) => b.topicId))] },
+          course: { userId },
+          id: { in: [...new Set(blocks.map((b) => b.topicId))] },
         },
-        select: { topicId: true, body: true },
+        select: { id: true, studyTask: true, note: { select: { body: true } } },
       })
     : [];
-  const noteByTopic = new Map(noteRows.map((n) => [n.topicId, n.body]));
+  const noteByTopic = new Map(noteRows.map((n) => [n.id, n.note?.body ?? null]));
+  const taskByTopic = new Map(noteRows.map((n) => [n.id, readStudyTask(n.studyTask)]));
 
   // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
   const cockpitBlocks: CockpitBlock[] = blocks.map((b) => ({
     ...b,
     note: noteByTopic.get(b.topicId) ?? null,
+    task: taskByTopic.get(b.topicId) ?? null,
   }));
   const cap = computeCapacity(remainingMin, availableMin);
   const risk = riskVerdict(cap);
@@ -254,33 +255,14 @@ export default async function TodayPage({
 
   // Honest Today status. The day's genuine must-do load = today's incomplete
   // first-pass STUDY (reviews are deferrable, overdue is handled by recovery, not
-  // counted here). If that exceeds the budget → "Needs a choice". If even a
-  // budget-paced run-up to the nearest exam can't clear its remaining work →
-  // "Doesn't fit". Otherwise → "Protected".
+  // counted here). Today uses its comfort budget; exam overload comes from the
+  // full scheduler, which has the complete runway and all courses.
   const mustDoMin = blocks
     .filter((b) => !b.completed && b.kind !== "review")
     .reduce((s, b) => s + b.minutes, 0);
-  // Remaining (incomplete) study minutes due on/before the nearest exam date —
-  // the work that must land before it. Only when there's an exam ahead.
-  let examFeasibility: { daysUntil: number; remainingMin: number } | undefined;
-  if (nextExam) {
-    const examEnd = new Date(
-      nextExam.examDate.toISOString().slice(0, 10) + "T00:00:00Z",
-    );
-    examEnd.setUTCDate(examEnd.getUTCDate() + 1); // include the exam day itself
-    const examRemaining = await prisma.studyBlock.aggregate({
-      where: {
-        completed: false,
-        date: { gte: start, lt: examEnd },
-        course: { userId },
-      },
-      _sum: { minutes: true },
-    });
-    examFeasibility = {
-      daysUntil: Math.max(0, daysUntil(nextExam.examDate, today)),
-      remainingMin: examRemaining._sum.minutes ?? 0,
-    };
-  }
+  // The scheduler includes allowed study days, lectures, overlapping courses,
+  // overdue work and completed sessions. Today's time left cannot replace it.
+  const examFeasibility = nextExam ? proposal.get(nextExam.id) : undefined;
   const status: CockpitStatus = cockpitStatus(mustDoMin, availableMin, examFeasibility);
 
   // Minimum Viable Day — the calm, decisive alternative to an anxiety list, shown
@@ -306,6 +288,8 @@ export default async function TodayPage({
   // feed the honest after-pace for "Move today's work".
   const isMovable = (b: (typeof blocks)[number]) =>
     canMoveBlockToTomorrow(start.getTime(), b.course.examDate.getTime());
+  const rebuiltToday = [...proposal.values()].flatMap((p) => p.blocks)
+    .filter((b) => b.date === today);
   const previews = recoveryActionPreviews({
     todayStudyMin: openStudyToday.reduce((s, b) => s + b.minutes, 0),
     todayReviewMin: openReviewToday.reduce((s, b) => s + b.minutes, 0),
@@ -313,10 +297,14 @@ export default async function TodayPage({
     todayReviewCount: openReviewToday.length,
     movableStudyCount: openStudyToday.filter(isMovable).length,
     movableReviewCount: openReviewToday.filter(isMovable).length,
+    movableReviewMin: openReviewToday.filter(isMovable).reduce((s, b) => s + b.minutes, 0),
     immovableMin: openToday
       .filter((b) => !isMovable(b))
       .reduce((s, b) => s + b.minutes, 0),
-    budgetMin: availableMin,
+    rebuilt: {
+      count: rebuiltToday.length,
+      minutes: rebuiltToday.reduce((s, b) => s + b.minutes, 0),
+    },
     exam: examFeasibility,
   });
 
@@ -417,6 +405,9 @@ export default async function TodayPage({
               a quiet list of the rest of today, with the per-block session sheet
               and the single "Adjust today" drawer holding everything demoted. */}
           <div className="min-w-0">
+            {(checkedGoals.size > 0 || practiceNeeded.size > 0) && <p className="mb-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
+              {t("study.progressSummary", { goals: checkedGoals.size, practice: practiceNeeded.size })}
+            </p>}
             <TodayCockpit
               blocks={cockpitBlocks}
               lanes={lanes}

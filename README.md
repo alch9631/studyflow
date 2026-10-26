@@ -11,6 +11,17 @@ Students don't fail at planning for lack of a calendar — they fail because nob
 1. **Auto-generated study plan** — enter a course, get a daily/weekly schedule that works backward from the exam.
 2. **"I fell behind" button** — redistributes unfinished work, no guilt. *The reason people stay.*
 3. **Syllabus → plan (AI)** — paste a syllabus / upload material, OpenAI fills in topics + dates.
+4. **Source → task → result** — save course materials without AI, attach a file or link and a page/exercise reference to a task, and define what counts as finished. Focus shows the instruction and source; optional check questions include an answer key. A checked goal finishes the task, while **Needs more practice** updates the remaining plan with another attempt.
+
+Set **Settings → Focused study per day** to your available study time. The planner
+uses this limit together with your study window and lectures. Logged timer minutes
+do not automatically finish a task with a defined goal.
+
+Original uploads are stored privately in the database (20 MB per file, 100 files
+per course, 200 MB per user). Older analysis-only uploads need uploading again to
+open the original. The schema additions are nullable and preserve existing plans,
+topics, and completed sessions. Run the isolated study-loop checks with
+`npm run test:study-tasks`.
 
 ## TUHH exam date sync
 

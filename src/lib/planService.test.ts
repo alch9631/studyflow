@@ -16,6 +16,7 @@ import {
   clampEffort,
   fitReviews,
   rebuildSchedule,
+  previewSchedule,
   courseOverloadInfo,
   todayISO,
   MIN_DAILY_AFTER_LECTURES,
@@ -737,6 +738,43 @@ async function dbTests() {
       "hand-set times carry over to the matching re-created block",
       !!timed && timed.startTime!.getTime() === start.getTime() && timed.endTime!.getTime() === end.getTime(),
     );
+  }
+
+  // Recovery previews must be read-only and match the persisted proposal exactly.
+  {
+    const user = await newUser();
+    const healthy = await newCourse(user.id, "Preview healthy", 24, [{ title: "Graphs", effort: 4 }]);
+    await newCourse(user.id, "Preview crunch", 4, [
+      { title: "Processes", effort: 4 }, { title: "Memory", effort: 5 },
+    ]);
+    await rebuildSchedule(user.id);
+    const completed = await prisma.studyBlock.findFirst({
+      where: { courseId: healthy.id, kind: "study" }, orderBy: { date: "asc" },
+    });
+    await prisma.studyBlock.update({ where: { id: completed!.id }, data: { completed: true } });
+
+    const readState = () => prisma.course.findMany({
+      where: { userId: user.id }, orderBy: { id: "asc" },
+      include: { blocks: { orderBy: { id: "asc" } } },
+    });
+    const before = JSON.stringify(await readState());
+    const proposal = await previewSchedule(user.id);
+    check("preview leaves courses, timestamps and session rows unchanged", before === JSON.stringify(await readState()));
+
+    const expected = [...proposal].flatMap(([courseId, plan]) => plan.blocks.map((b) =>
+      `${courseId}|${b.topicId}|${b.date}|${b.kind}|${b.minutes}`,
+    )).sort();
+    const todayExpected = [...proposal.values()].flatMap((p) => p.blocks).filter((b) => b.date === today);
+    await rebuildSchedule(user.id);
+    const actual = await prisma.studyBlock.findMany({ where: { completed: false, course: { userId: user.id } } });
+    check("preview equals every session the rebuild actually persists", JSON.stringify(expected) === JSON.stringify(actual.map((b) =>
+      `${b.courseId}|${b.topicId}|${isoDay(b.date)}|${b.kind}|${b.minutes}`,
+    ).sort()));
+    const todayActual = actual.filter((b) => isoDay(b.date) === today);
+    check("preview's Today session count matches apply", todayExpected.length === todayActual.length);
+    check("preview's Today minutes match apply without a comfort-budget cap", todayExpected.reduce((s, b) => s + b.minutes, 0) === todayActual.reduce((s, b) => s + b.minutes, 0));
+    const other = await newUser();
+    check("preview is scoped to its owning user", (await previewSchedule(other.id)).size === 0);
   }
 
   // ---- Far-future exam stays bounded end-to-end ------------------------------

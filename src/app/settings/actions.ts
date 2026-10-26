@@ -9,6 +9,7 @@ import { signOut } from "@/auth";
 import { str } from "@/lib/validate";
 import { hhmmToMinutes, MINUTES_PER_DAY } from "@/lib/calendarTime";
 import { parsePrefs, serializePrefs, type Energy } from "@/lib/timePlacer";
+import { rebuildSchedule } from "@/lib/planService";
 
 /** End the current Auth.js session and return to the sign-in page. */
 export async function signOutAction() {
@@ -77,6 +78,9 @@ export async function saveStudyPrefs(formData: FormData) {
   const end = hhmmToMinutes(str(formData.get("dayEnd"))) ?? prefs.dayEndMin;
   const energyRaw = str(formData.get("energy"));
   const energy = ENERGY.has(energyRaw as Energy) ? (energyRaw as Energy) : prefs.energy;
+  const requestedBudget = Number(formData.get("dailyBudgetMin"));
+  const dailyBudgetMin = Number.isInteger(requestedBudget) && requestedBudget >= 15 && requestedBudget <= 360
+    ? requestedBudget : prefs.dailyBudgetMin;
 
   // Only accept a sane same-day window; otherwise keep the existing one.
   const validWindow = start >= 0 && end <= MINUTES_PER_DAY && end > start;
@@ -88,9 +92,12 @@ export async function saveStudyPrefs(formData: FormData) {
         dayStartMin: validWindow ? start : prefs.dayStartMin,
         dayEndMin: validWindow ? end : prefs.dayEndMin,
         energy,
+        dailyBudgetMin,
       }),
     },
   });
+  await rebuildSchedule(userId);
+  for (const path of ["/today", "/calendar", "/courses"]) revalidatePath(path);
   revalidatePath("/settings");
   redirect("/settings?msg=prefs-saved");
 }

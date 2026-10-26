@@ -77,35 +77,35 @@ const budget = DAILY_STUDY_BUDGET_MIN; // 120
 // Protected: must-do study fits the budget and the exam is reachable.
 check(
   "protected when must-do fits the budget and the exam is reachable",
-  cockpitStatus(90, budget, { daysUntil: 5, remainingMin: 300 }) === "protected",
+  cockpitStatus(90, budget, { isOverloaded: false }) === "protected",
 );
 check("protected with no exam ahead when must-do fits", cockpitStatus(90, budget) === "protected");
 
 // Needs a choice: more must-do study than the budget allows (but exam reachable).
 check(
   "needs_choice when must-do study exceeds the budget",
-  cockpitStatus(180, budget, { daysUntil: 10, remainingMin: 400 }) === "needs_choice",
+  cockpitStatus(180, budget, { isOverloaded: false }) === "needs_choice",
 );
 check("needs_choice with no exam when must-do exceeds budget", cockpitStatus(200, budget) === "needs_choice");
 
 // Doesn't fit: even a budget-paced run-up can't clear the exam's remaining work.
-// 2 days (today + tomorrow) * 120 = 240 reachable; 600 required → can't make it.
+// The scheduler has already checked the full runway and flagged overload.
 check(
-  "doesnt_fit when even a budget-paced day can't reach the exam",
-  cockpitStatus(60, budget, { daysUntil: 1, remainingMin: 600 }) === "doesnt_fit",
+  "doesnt_fit when the full scheduler reports exam overload",
+  cockpitStatus(60, budget, { isOverloaded: true }) === "doesnt_fit",
 );
 check(
   "doesnt_fit dominates even when today alone would look protected",
-  cockpitStatus(30, budget, { daysUntil: 0, remainingMin: 500 }) === "doesnt_fit",
+  cockpitStatus(30, budget, { isOverloaded: true }) === "doesnt_fit",
 );
-// Boundary: required exactly equals reachable → still makes it (protected).
+// A feasible exam must not override a fitting Today load.
 check(
-  "exactly reachable exam load is NOT doesnt_fit",
-  cockpitStatus(60, budget, { daysUntil: 2, remainingMin: 3 * budget }) === "protected",
+  "a feasible exam does not override a fitting Today load",
+  cockpitStatus(60, budget, { isOverloaded: false }) === "protected",
 );
 
 // Honest, never false-calm: a heavy day with a near exam is never "protected".
-const verdict = cockpitStatus(180, budget, { daysUntil: 1, remainingMin: 600 });
+const verdict = cockpitStatus(180, budget, { isOverloaded: true });
 check("a heavy day with an unreachable exam is never protected", verdict !== "protected");
 
 // ── Reviews still slide first (capacity unchanged on that front) ──────────────
@@ -158,97 +158,60 @@ const withDone = [{ ...study("done", 60), completed: true }, study("live", 30)];
 const mvdDone = minimumViableDay(withDone);
 check("MVD ignores completed blocks", mvdDone.core?.id === "live");
 
-// ── Exam reachability (honest preview) ───────────────────────────────────────
-check("examReach is 'none' without an exam", examReach(undefined, budget) === "none");
-check("examReach is 'none' with a zero budget", examReach({ daysUntil: 5, remainingMin: 100 }, 0) === "none");
-// 6 days (today+5) * 120 = 720 reachable. 300 << 720 → comfortably possible.
-check("examReach is 'possible' when work fits comfortably", examReach({ daysUntil: 5, remainingMin: 300 }, budget) === "possible");
-// 2 days * 120 = 240 reachable; 230 is >85% of 240 → at risk but still fits.
-check("examReach is 'atRisk' when it fits only by a sliver", examReach({ daysUntil: 1, remainingMin: 230 }, budget) === "atRisk");
-// 1 day * 120 = 120 reachable; 600 required → cannot be made.
-check("examReach is 'notFully' when even a budget run-up can't clear it", examReach({ daysUntil: 0, remainingMin: 600 }, budget) === "notFully");
+// Exam feasibility comes from the full scheduler, independently of the clock.
+check("no exam has no reachability claim", examReach(undefined) === "none");
+check("a feasible scheduler result is possible", examReach({ isOverloaded: false }) === "possible");
+check("an overloaded scheduler result stays at risk", examReach({ isOverloaded: true }) === "notFully");
+check("late today does not make a feasible exam impossible", cockpitStatus(30, 10, { isOverloaded: false }) === "needs_choice");
+check("midnight does not hide a genuinely overloaded exam", cockpitStatus(0, 0, { isOverloaded: true }) === "doesnt_fit");
 
-// ── Recovery action previews (before → after, no commit) ─────────────────────
-// Today: 5 study (150m) + 6 reviews (90m) = 11 open, exam comfortably reachable.
 const prev = recoveryActionPreviews({
-  todayStudyMin: 150,
-  todayReviewMin: 90,
-  todayStudyCount: 5,
-  todayReviewCount: 6,
-  budgetMin: budget,
-  exam: { daysUntil: 8, remainingMin: 400 },
+  todayStudyMin: 150, todayReviewMin: 90,
+  todayStudyCount: 5, todayReviewCount: 6,
+  movableStudyCount: 5, movableReviewCount: 6, movableReviewMin: 90,
+  immovableMin: 0,
+  rebuilt: { count: 9, minutes: 243 },
+  exam: { isOverloaded: false },
 });
-check("preview beforeCount counts all open today sessions", prev.protect.beforeCount === 11);
-check("protect keeps essentials, moves the reviews", prev.protect.afterEssentials === 5 && prev.protect.moved === 6);
-check("protect pace is study capped at the budget", prev.protect.afterPaceMin === Math.min(150, budget));
-check("move clears today entirely", prev.move.afterEssentials === 0 && prev.move.moved === 11 && prev.move.afterPaceMin === 0);
-check("lighter keeps essentials and paces to the budget", prev.lighter.afterEssentials === 5 && prev.lighter.afterPaceMin === budget);
-check("all previews agree the exam is still possible", prev.protect.examReach === "possible" && prev.move.examReach === "possible" && prev.lighter.examReach === "possible");
+check("before count includes both study and review", prev.protect.beforeCount === 11);
+check("protect moves reviews and leaves all five study sessions", prev.protect.afterCount === 5 && prev.protect.moved === 6);
+check("protect reports all 150 remaining minutes, without a 120m cap", prev.protect.afterPaceMin === 150);
+check("moving all movable work clears today", prev.move.afterCount === 0 && prev.move.moved === 11 && prev.move.afterPaceMin === 0);
+check("rebuild reports the actual candidate session count", prev.lighter.afterCount === 9);
+check("rebuild reports 243m even when that is over the comfort budget", prev.lighter.afterPaceMin === 243);
+check("only the simulated rebuild makes a future-exam claim", prev.protect.examReach === "none" && prev.move.examReach === "none" && prev.lighter.examReach === "possible");
 
-// Honest: an unreachable exam stays "notFully" across every option (no false hope).
-const prevHard = recoveryActionPreviews({
-  todayStudyMin: 150,
-  todayReviewMin: 90,
-  todayStudyCount: 5,
-  todayReviewCount: 6,
-  budgetMin: budget,
-  exam: { daysUntil: 1, remainingMin: 600 },
-});
-check("an unreachable exam is reported as notFully on every option", prevHard.protect.examReach === "notFully" && prevHard.move.examReach === "notFully" && prevHard.lighter.examReach === "notFully");
-
-// ── Exam-eve clamp awareness (preview must match the real action) ────────────
-// The real action (today/actions.ts shiftBlocksToTomorrow) skips any block whose
-// next day lands on/past its course's exam day. canMoveBlockToTomorrow mirrors
-// that exact UTC-midnight compare: movable iff blockDate + 1 day < examDate.
 const DAY = 86400_000;
-const d0 = Date.UTC(2026, 6, 2); // an arbitrary UTC midnight "today"
-check("block can move when the exam is 2+ days out", canMoveBlockToTomorrow(d0, d0 + 2 * DAY) === true);
-check("block CANNOT move when the exam is tomorrow", canMoveBlockToTomorrow(d0, d0 + DAY) === false);
-check("block CANNOT move when the exam is today", canMoveBlockToTomorrow(d0, d0) === false);
-check("block with no exam context can always move", canMoveBlockToTomorrow(d0, null) === true);
+const d0 = Date.UTC(2026, 6, 2);
+check("work can move when the exam is two days away", canMoveBlockToTomorrow(d0, d0 + 2 * DAY));
+check("work cannot move onto exam day", !canMoveBlockToTomorrow(d0, d0 + DAY));
+check("work cannot move after exam day", !canMoveBlockToTomorrow(d0, d0));
+check("work without an exam clamp can move", canMoveBlockToTomorrow(d0, null));
 
-// Exam tomorrow: NOTHING can legally move → previews must promise 0 moves (so
-// the sheet hides those options instead of offering a dead choice), and the
-// pinned minutes stay in today's honest after-pace.
-const prevExamEve = recoveryActionPreviews({
-  todayStudyMin: 150,
-  todayReviewMin: 90,
-  todayStudyCount: 5,
-  todayReviewCount: 6,
-  movableStudyCount: 0,
-  movableReviewCount: 0,
+const pinned = recoveryActionPreviews({
+  todayStudyMin: 150, todayReviewMin: 90,
+  todayStudyCount: 5, todayReviewCount: 6,
+  movableStudyCount: 0, movableReviewCount: 0, movableReviewMin: 0,
   immovableMin: 240,
-  budgetMin: budget,
-  exam: { daysUntil: 1, remainingMin: 240 },
+  rebuilt: { count: 12, minutes: 300 },
+  exam: { isOverloaded: true },
 });
-check("exam-eve: protect promises 0 moves (nothing can legally move)", prevExamEve.protect.moved === 0);
-check("exam-eve: move promises 0 moves and keeps all essentials on today", prevExamEve.move.moved === 0 && prevExamEve.move.afterEssentials === 5);
-check("exam-eve: move's after-pace reflects the pinned minutes (budget-capped)", prevExamEve.move.afterPaceMin === Math.min(240, budget));
+check("exam-eve options promise zero moves", pinned.protect.moved === 0 && pinned.move.moved === 0);
+check("pinned study AND reviews remain in protect's count and minutes", pinned.protect.afterCount === 11 && pinned.protect.afterPaceMin === 240);
+check("move does not promise an empty day when work is pinned", pinned.move.afterCount === 11 && pinned.move.afterPaceMin === 240);
+check("rebuild does not hide overload", pinned.lighter.examReach === "notFully" && pinned.lighter.afterPaceMin === 300);
 
-// Partial clamp: only some blocks can move → moved counts only the legal ones.
-const prevPartial = recoveryActionPreviews({
-  todayStudyMin: 150,
-  todayReviewMin: 90,
-  todayStudyCount: 5,
-  todayReviewCount: 6,
-  movableStudyCount: 3,
-  movableReviewCount: 4,
+const partial = recoveryActionPreviews({
+  todayStudyMin: 150, todayReviewMin: 90,
+  todayStudyCount: 5, todayReviewCount: 6,
+  movableStudyCount: 3, movableReviewCount: 4, movableReviewMin: 50,
   immovableMin: 100,
-  budgetMin: budget,
-  exam: { daysUntil: 3, remainingMin: 240 },
+  rebuilt: { count: 0, minutes: 0 },
 });
-check("partial clamp: protect moves only the movable reviews", prevPartial.protect.moved === 4);
-check("partial clamp: move moves only the movable blocks, pinned study stays", prevPartial.move.moved === 7 && prevPartial.move.afterEssentials === 2);
-
-// Back-compat: omitting the movable inputs keeps the old optimistic counts.
-const prevDefault = recoveryActionPreviews({
-  todayStudyMin: 60,
-  todayReviewMin: 30,
-  todayStudyCount: 2,
-  todayReviewCount: 1,
-  budgetMin: budget,
-});
-check("defaults: without movable inputs, all open blocks count as movable", prevDefault.protect.moved === 1 && prevDefault.move.moved === 3 && prevDefault.move.afterPaceMin === 0);
+check("protect leaves pinned reviews in its count", partial.protect.afterCount === 7);
+check("protect subtracts only the review minutes actually moved", partial.protect.afterPaceMin === 190);
+check("partial move leaves four pinned sessions and their real duration", partial.move.afterCount === 4 && partial.move.afterPaceMin === 100 && partial.move.moved === 7);
+check("a rebuild with no work today correctly previews zero", partial.lighter.afterCount === 0 && partial.lighter.afterPaceMin === 0);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

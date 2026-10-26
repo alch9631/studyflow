@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { Check, ChevronRight, GraduationCap } from "lucide-react";
 import { useT } from "@/components/i18n/I18nProvider";
 import { Button } from "@/components/ui/button";
 import { minutesToHHMM } from "@/lib/calendarTime";
-import type { CalBlock } from "./WeekCalendar";
+import type { CalBlock, CalLecture } from "./WeekCalendar";
 import type { PlacementTarget } from "./PlacementSheet";
 
 /**
@@ -16,7 +17,7 @@ import type { PlacementTarget } from "./PlacementSheet";
  *  - the unplaced work shown as a few GROUPED-BY-COURSE summary rows
  *    ("OS · 9 sessions · 3h 23m") rather than one card per session — tapping a
  *    row opens the placement sheet for that whole course;
- *  - the selected day's already-timed sessions as a quiet, read-only summary.
+ *  - the selected day's sessions and lectures in a readable agenda.
  *
  * No drag, no resize here — precise drag placement is desktop-only. The PRIMARY
  * action is one-tap "Auto-arrange my week"; placing by hand (the placement sheet)
@@ -51,7 +52,7 @@ function CourseSummaryRow({
       className="flex w-full items-center gap-3 rounded-xl bg-white px-3 py-3 text-left shadow-sm transition-colors hover:bg-gray-50 dark:bg-gray-800/60 dark:hover:bg-gray-800"
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-gray-800 dark:text-gray-100">
+        <span className="block break-words font-medium text-gray-800 dark:text-gray-100">
           {courseName}
         </span>
         <span className="block text-[12px] text-gray-500 dark:text-gray-400">
@@ -59,36 +60,53 @@ function CourseSummaryRow({
           {formatDuration(t, minutes)}
         </span>
       </span>
-      <span className="shrink-0 rounded-full bg-brand/10 px-3 py-1 text-[12px] font-medium text-brand">
+      <span className="shrink-0 rounded-full bg-brand/10 px-3 py-1 text-[12px] font-medium text-brand-ink">
         {t("calendar.place")}
       </span>
     </button>
   );
 }
 
-/** A quiet read-only line for one already-timed session. */
-function TimedSummaryRow({ block }: { block: CalBlock }) {
+/** Separate edit and completion targets, with enough room to read the topic. */
+function TimedSummaryRow({ block, onPlace, onToggle }: {
+  block: CalBlock;
+  onPlace: () => void;
+  onToggle: () => void;
+}) {
+  const t = useT();
   const isReview = block.kind === "review";
   return (
-    <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[12px] leading-tight ${
-        block.completed ? "opacity-50" : ""
-      }`}
-    >
-      <span className="w-[80px] shrink-0 tabular-nums text-gray-500 dark:text-gray-400">
-        {minutesToHHMM(block.startMin!)}–{minutesToHHMM(block.endMin!)}
-      </span>
-      <span
-        className={`min-w-0 flex-1 truncate ${
-          block.completed ? "line-through" : ""
-        } ${isReview ? "text-emerald-700 dark:text-emerald-300" : "text-gray-800 dark:text-gray-100"}`}
+    <li className="flex items-center gap-1 rounded-xl bg-surface p-2 shadow-sm">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={block.completed}
+        aria-label={`${t(block.completed ? "calendar.markNotDone" : "calendar.markDone")}: ${block.topicTitle}`}
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-accent"
       >
-        {block.topicTitle}
-      </span>
-      <span className="min-w-0 max-w-[38%] truncate text-gray-500 dark:text-gray-400">
-        {block.courseName}
-      </span>
-    </div>
+        <span className={`flex h-6 w-6 items-center justify-center rounded-full border ${block.completed ? "border-brand bg-brand text-brand-foreground" : "border-input"}`}>
+          {block.completed && <Check className="h-4 w-4" aria-hidden="true" />}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onPlace}
+        aria-label={t("calendar.editSession", { topic: block.topicTitle })}
+        className="flex min-h-14 min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pl-1 pr-2 text-left hover:bg-accent"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-medium tabular-nums text-muted-foreground">
+            {minutesToHHMM(block.startMin!)}–{minutesToHHMM(block.endMin!)}
+            {isReview && <> · {t("block.review")}</>}
+          </span>
+          <span className={`mt-1 block break-words text-sm font-medium ${block.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+            {block.topicTitle}
+          </span>
+          <span className="mt-0.5 block break-words text-xs text-muted-foreground">{block.courseName}</span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </button>
+    </li>
   );
 }
 
@@ -97,21 +115,24 @@ function TimedSummaryRow({ block }: { block: CalBlock }) {
  *
  * `weekUnplaced` are every day-granular (timeless) block across the whole shown
  * week — grouped here by course. `dayTimed` are the selected day's already-timed
- * sessions, shown as a quiet read-only summary. Auto-arrange and Place-manually
- * are wired by the parent.
+ * sessions. Auto-arrange, editing, and completion use the parent's actions.
  */
 export default function MobileDayView({
   weekUnplaced,
   dayTimed,
+  dayLectures,
   isArranging,
   onAutoArrange,
   onPlace,
+  onToggle,
 }: {
   weekUnplaced: CalBlock[];
   dayTimed: CalBlock[];
+  dayLectures: CalLecture[];
   isArranging: boolean;
   onAutoArrange: () => void;
   onPlace: (target: PlacementTarget) => void;
+  onToggle: (block: CalBlock) => void;
 }) {
   const t = useT();
 
@@ -136,9 +157,12 @@ export default function MobileDayView({
   }, [weekUnplaced]);
 
   const unplacedCount = weekUnplaced.length;
-  const sortedTimed = useMemo(
-    () => [...dayTimed].sort((a, b) => a.startMin! - b.startMin!),
-    [dayTimed],
+  const agenda = useMemo(
+    () => [
+      ...dayTimed.map((block) => ({ kind: "session" as const, startMin: block.startMin!, block })),
+      ...dayLectures.map((lecture) => ({ kind: "lecture" as const, startMin: lecture.startMin, lecture })),
+    ].sort((a, b) => a.startMin - b.startMin),
+    [dayTimed, dayLectures],
   );
 
   return (
@@ -189,11 +213,11 @@ export default function MobileDayView({
             </Button>
           </div>
         </div>
-      ) : (
+      ) : dayTimed.length > 0 ? (
         <div className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
-          {t("calendar.allArranged")}
+          {t("calendar.allArrangedMobile")}
         </div>
-      )}
+      ) : null}
 
       {/* ── Grouped-by-course summaries of what still needs a time ── */}
       {courseGroups.length > 0 && (
@@ -222,19 +246,32 @@ export default function MobileDayView({
         </div>
       )}
 
-      {/* ── Quiet read-only summary of the selected day's timed sessions ── */}
+      {/* The selected day's sessions and lectures share the same time order. */}
       <div>
         <h3 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {t("calendar.thisDay")}
         </h3>
-        {sortedTimed.length > 0 ? (
-          <div className="flex flex-col">
-            {sortedTimed.map((b) => (
-              <TimedSummaryRow key={b.id} block={b} />
+        {agenda.length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {agenda.map((item) => item.kind === "session" ? (
+              <TimedSummaryRow
+                key={item.block.id}
+                block={item.block}
+                onPlace={() => onPlace({ kind: "block", block: item.block })}
+                onToggle={() => onToggle(item.block)}
+              />
+            ) : (
+              <li key={`lecture-${item.lecture.id}`} className="flex items-start gap-3 rounded-xl bg-surface-muted px-4 py-4">
+                <GraduationCap className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block text-xs tabular-nums text-muted-foreground">{minutesToHHMM(item.lecture.startMin)}–{minutesToHHMM(item.lecture.endMin)} · {t("calendar.lecture")}</span>
+                  <span className="mt-1 block break-words text-sm font-medium">{item.lecture.title}</span>
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
-          <p className="px-1 py-2 text-[12px] text-gray-400">{t("calendar.noTimedToday")}</p>
+          <p className="rounded-xl bg-surface-muted px-4 py-5 text-sm text-muted-foreground">{t("calendar.noTimedToday")}</p>
         )}
       </div>
     </div>

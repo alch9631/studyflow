@@ -62,7 +62,7 @@ export default function AddLectureForm({
       validate={validate}
       className={`${panelClass} mb-6 space-y-3 p-4`}
     >
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Field
           name="title"
           label={t("timetable.fTitle")}
@@ -80,9 +80,9 @@ export default function AddLectureForm({
             />
           )}
         </Field>
-        <Field name="weekday" label={t("timetable.fDay")} className="text-sm" labelClassName={LABEL}>
+        <Field name="weekday" label={t("timetable.fDay")} className="min-w-0 text-sm" labelClassName={LABEL}>
           {(p) => (
-            <Select {...p} defaultValue="1" className={INPUT}>
+            <Select {...p} defaultValue="1" className={`${INPUT} w-full`}>
               {DAYS.map((d) => (
                 <option key={d.v} value={d.v}>
                   {t(`charts.weekdays.${d.key}`)}
@@ -92,17 +92,17 @@ export default function AddLectureForm({
           )}
         </Field>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <Field name="start" label={t("timetable.fStart")} required className="text-sm" labelClassName={LABEL}>
-          {(p) => <Input {...p} type="time" required defaultValue="10:00" className={INPUT} />}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Field name="start" label={t("timetable.fStart")} required className="min-w-0 text-sm" labelClassName={LABEL}>
+          {(p) => <Input {...p} type="time" required defaultValue="10:00" className={`${INPUT} w-full`} />}
         </Field>
-        <Field name="end" label={t("timetable.fEnd")} required className="text-sm" labelClassName={LABEL}>
-          {(p) => <Input {...p} type="time" required defaultValue="12:00" className={INPUT} />}
+        <Field name="end" label={t("timetable.fEnd")} required className="min-w-0 text-sm" labelClassName={LABEL}>
+          {(p) => <Input {...p} type="time" required defaultValue="12:00" className={`${INPUT} w-full`} />}
         </Field>
         <Field
           name="location"
           label={t("timetable.fRoom")}
-          className="min-w-0 flex-1 text-sm"
+          className="col-span-2 min-w-0 text-sm sm:col-span-1"
           labelClassName={LABEL}
         >
           {(p) => (
