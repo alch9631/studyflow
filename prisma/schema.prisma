@@ -191,6 +191,7 @@ model ModuleFile {
   extractedChars Int      @default(0)
   analysis       String? // JSON: summary, concepts, prerequisites, detected topics
   content        Bytes?  // Original material; nullable for older analysis-only uploads.
+  studyDrafts    String? // Source-backed task suggestions and accepted topic IDs.
   // Auto-classified material type. String union (nullable, no DB enum so the
   // schema stays Postgres-portable): "uebung" | "altklausur" | "slides" |
   // "skript" | "mockexam" | "sonstiges". Null = unclassified (old rows).
@@ -208,6 +209,7 @@ model Topic {
   order     Int     @default(0)
   questions String? // JSON array of AI self-test questions (active recall)
   studyTask String? // Versioned JSON: concrete work, source, success criteria, optional answer key.
+  studyProgress String? // Saved answer and elapsed time; survives schedule rebuilds.
   // Student self-rated confidence: "solid" | "practice" | "struggling" (null =
   // unrated). Drives spaced-review spacing — struggling earns more/earlier
   // reviews, solid fewer/later. Set once per topic (not per study session).

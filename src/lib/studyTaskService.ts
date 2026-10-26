@@ -16,7 +16,10 @@ export async function saveStudyTaskForUser(userId: string, input: {
     if (task.sourceFileId && !await tx.moduleFile.count({ where: { id: task.sourceFileId, courseId: course.id } })) {
       throw new ValidationError("Choose a material belonging to this course.");
     }
-    if (input.topicId && !await tx.topic.count({ where: { id: input.topicId, courseId: course.id } })) return null;
+    const existing = input.topicId ? await tx.topic.findFirst({ where: { id: input.topicId, courseId: course.id }, select: { studyTask: true } }) : null;
+    if (input.topicId && !existing) return null;
+    const previous = readStudyTask(existing?.studyTask);
+    if (!input.task.sourceExcerpt && previous?.sourceFileId === task.sourceFileId && previous?.sourceRef === task.sourceRef) task.sourceExcerpt = previous?.sourceExcerpt;
     const data = {
       title, studyTask: JSON.stringify(task),
       effort: task.estimatedMinutes / (MINUTES_PER_EFFORT * difficultyMultiplier(course.difficulty)),
@@ -35,17 +38,26 @@ export type StudyOutcome = "complete" | "practice";
 
 /** A checked result changes the plan; elapsed time alone never finishes a task. */
 export async function recordStudyResult(userId: string, input: {
-  blockId: string; outcome: StudyOutcome; response: string; checked: boolean; actualMinutes: number;
+  blockId: string; topicId?: string; outcome: StudyOutcome; response: string; checked: boolean; actualMinutes: number;
 }) {
-  if (!["complete", "practice"].includes(input.outcome) || input.response.length > 4000 ||
+  if (!input.blockId || input.blockId.length > 200 || (input.topicId?.length ?? 0) > 200 || !["complete", "practice"].includes(input.outcome) || input.response.length > 4000 ||
       !Number.isInteger(input.actualMinutes) || input.actualMinutes < 0 || input.actualMinutes > 600) {
     throw new ValidationError("Please check the study result.");
   }
   const saved = await prisma.$transaction(async (tx) => {
-    const block = await tx.studyBlock.findFirst({
+    let block = await tx.studyBlock.findFirst({
       where: { id: input.blockId, course: { userId } },
       include: { course: { select: { difficulty: true } } },
     });
+    if (block && input.topicId && block.topicId !== input.topicId) return null;
+    if (!block && input.topicId) {
+      // Keep the open attempt usable after a planner rebuild changes block IDs.
+      // The original request ID also makes retries after that rebuild idempotent.
+      block = await tx.studyBlock.findFirst({ where: { topicId: input.topicId, course: { userId },
+        studyResult: { contains: `"requestId":${JSON.stringify(input.blockId)}` } }, include: { course: { select: { difficulty: true } } } })
+        ?? await tx.studyBlock.findFirst({ where: { topicId: input.topicId, completed: false, kind: "study", course: { userId } },
+          orderBy: { date: "asc" }, include: { course: { select: { difficulty: true } } } });
+    }
     if (!block) return null;
     const topic = await tx.topic.findFirst({ where: { id: block.topicId, courseId: block.courseId } });
     const task = readStudyTask(topic?.studyTask);
@@ -54,11 +66,17 @@ export async function recordStudyResult(userId: string, input: {
       throw new ValidationError("Check your result against the goal before finishing.");
     }
     // Retrying a saved submission must never add study time or extra work twice.
-    if (block.studyResult) return { courseId: block.courseId, alreadySaved: true, needsReplan: !readStudyResult(block.studyResult)?.planUpdated };
+    if (block.studyResult) return { blockId: block.id, courseId: block.courseId, alreadySaved: true, needsReplan: !readStudyResult(block.studyResult)?.planUpdated };
     const result = JSON.stringify({ version: 1, outcome: input.outcome, response: input.response.trim(),
-      checked: input.checked, recordedAt: new Date().toISOString(), planUpdated: false });
+      checked: input.checked, requestId: input.blockId, recordedAt: new Date().toISOString(), planUpdated: false });
+    const remainingStudy = input.outcome === "complete" && block.kind === "study"
+      ? await tx.studyBlock.aggregate({ where: { topicId: topic.id, courseId: block.courseId, completed: false, kind: "study" }, _sum: { minutes: true } }) : null;
+    // A checked goal may finish several scheduled slices of this task. Credit
+    // that full estimate so adaptive pacing compares like-for-like with time used.
+    const plannedMinutes = remainingStudy ? Math.max(block.minutes, (remainingStudy._sum.minutes ?? 0) + (block.completed ? block.minutes : 0)) : block.minutes;
     await tx.studyBlock.update({ where: { id: block.id }, data: {
       completed: true, studyResult: result,
+      minutes: plannedMinutes,
       actualMinutes: Math.max(block.actualMinutes ?? 0, input.actualMinutes),
     } });
     let effort = topic.effort;
@@ -73,13 +91,14 @@ export async function recordStudyResult(userId: string, input: {
     }
     await tx.topic.update({ where: { id: topic.id }, data: {
       done: input.outcome === "complete", confidence: input.outcome === "complete" ? "solid" : "struggling", effort,
+      studyProgress: null,
     } });
-    return { courseId: block.courseId, alreadySaved: false, needsReplan: true };
+    return { blockId: block.id, courseId: block.courseId, alreadySaved: false, needsReplan: true };
   });
   if (saved?.needsReplan) {
     await rebuildSchedule(userId);
-    const block = await prisma.studyBlock.findUniqueOrThrow({ where: { id: input.blockId }, select: { studyResult: true } });
-    await prisma.studyBlock.update({ where: { id: input.blockId }, data: {
+    const block = await prisma.studyBlock.findUniqueOrThrow({ where: { id: saved.blockId }, select: { studyResult: true } });
+    await prisma.studyBlock.update({ where: { id: saved.blockId }, data: {
       studyResult: JSON.stringify({ ...JSON.parse(block.studyResult!), planUpdated: true }),
     } });
   }

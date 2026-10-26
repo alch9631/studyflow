@@ -6,7 +6,7 @@
  * client island, so the client never re-derives them.
  */
 
-import type { StudyTask } from "@/lib/studyTask";
+import type { StudyTask, StudyProgress } from "@/lib/studyTask";
 
 /** A serializable Today study block — the shape the cockpit UI consumes. */
 export type CockpitBlock = {
@@ -23,6 +23,7 @@ export type CockpitBlock = {
   note?: string | null;
   topicId?: string;
   task?: StudyTask | null;
+  progress?: StudyProgress | null;
 };
 
 /** The four study-queue lanes, answering "what now / what can wait". */
@@ -334,6 +335,8 @@ export function pickHero(
   blocks: CockpitBlock[],
   lanes: Map<string, Lane>,
 ): CockpitBlock | null {
+  const resumable = blocks.filter((b) => !b.completed && b.progress).sort((a, b) => b.progress!.updatedAt.localeCompare(a.progress!.updatedAt))[0];
+  if (resumable) return resumable;
   for (const lane of ["now", "next", "later"] as const) {
     const hit = blocks.find((b) => !b.completed && lanes.get(b.id) === lane);
     if (hit) return hit;

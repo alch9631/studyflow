@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FileText, Paperclip } from "lucide-react";
 import { buttonClasses } from "./ui";
 import { Select } from "./ui/select";
@@ -11,7 +12,6 @@ import {
   categorizeByFilename,
   type FileCategory,
 } from "@/lib/fileCategory";
-import { analyzeModuleUpload } from "@/app/courses/actions";
 import { uploadMaterial } from "@/app/courses/studyActions";
 import ValidatedForm from "./ValidatedForm";
 import { UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, isWithinUploadLimit } from "@/lib/fileText";
@@ -43,6 +43,7 @@ export default function ModuleUploadForm({
   aiEnabled?: boolean;
 }) {
   const t = useT();
+  const router = useRouter();
   const [name, setName] = useState("");
   // The currently-selected type. "" until a file is picked / user chooses.
   const [docType, setDocType] = useState<FileCategory | "">("");
@@ -87,7 +88,11 @@ export default function ModuleUploadForm({
   }
 
   return (
-    <ValidatedForm action={uploadMaterial} successMessage={t("study.materialSaved")} errorMessage={t("study.materialError")} onDone={() => { setName(""); setOpen(false); }} className="space-y-3">
+    <ValidatedForm action={uploadMaterial} successMessage={t("study.materialSaved")} errorMessage={t("study.materialError")} onDone={(result) => {
+      setName(""); setOpen(false);
+      const id = (result as { id?: string })?.id;
+      if (id) router.push(`/courses/${courseId}?prepare=${encodeURIComponent(id)}#materials`);
+    }} className="space-y-3">
       <input type="hidden" name="courseId" value={courseId} />
 
       <label
@@ -157,11 +162,9 @@ export default function ModuleUploadForm({
         className="w-full sm:w-auto"
         pendingLabel={t("study.saving")}
       >
-          {t("study.saveMaterial")}
+          {t("flow.uploadPrepare")}
       </SubmitButton>
-      {aiEnabled && <button type="submit" formAction={analyzeModuleUpload} className={buttonClasses("secondary", "md")}>
-        {t("study.analyzeOptional")}
-      </button>}
+      <p className="text-xs text-muted-foreground">{t(aiEnabled ? "flow.aiUploadHint" : "flow.uploadHint")}</p>
     </ValidatedForm>
   );
 }

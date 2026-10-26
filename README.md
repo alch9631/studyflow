@@ -23,6 +23,22 @@ open the original. The schema additions are nullable and preserve existing plans
 topics, and completed sessions. Run the isolated study-loop checks with
 `npm run test:study-tasks`.
 
+On mobile, **Upload and prepare tasks** splits material into source-backed tasks
+you review before adding. AI can suggest specific instructions and recall checks;
+without AI the app prepares reading/exercise tasks directly from the excerpts.
+Generated answer keys must be exact text from the supplied source. **Next excerpts** prepares
+later sections of the same upload. PDF references retain real page numbers; DOCX
+uses text excerpts. Scans without readable text keep the original available for
+Quick start.
+
+**Quick start** also opens directly from Today: choose Read, Solve, or Recall,
+your material (or own notes), and 15/30/45 minutes. Instructions and a finish
+condition are supplied automatically. Focus shows the source beside your working
+answer, with an optional timer and a quick outcome check. **Save and leave** and
+autosave retain answers, time, and session length on the topic, so **Resume** works
+after scheduling changes. A practice follow-up includes the previous attempt.
+Run `npm run test:practical` for the isolated source, draft, and resume checks.
+
 ## TUHH exam date sync
 
 In **Settings → Calendar sync → TUHH exam dates**, refresh the official current-semester
