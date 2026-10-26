@@ -22,6 +22,7 @@ import ThemeSetting from "./ThemeSetting";
 import LanguageToggle from "./LanguageToggle";
 import { useT } from "./i18n/I18nProvider";
 import type { MessageKey } from "./i18n/messages";
+import NavigationPending from "./NavigationPending";
 
 type Tab = { href: string; labelKey: MessageKey; Icon: LucideIcon; external?: boolean };
 
@@ -171,7 +172,7 @@ export default function Nav() {
           <div className="mr-1 hidden items-center gap-1 lg:flex">
             {DESKTOP_TABS.map((tab) => {
               const active = isActive(pathname, tab);
-              const cls = `rounded-full px-3 py-1.5 font-medium transition-colors ${
+              const cls = `relative rounded-full px-3 py-1.5 font-medium transition-colors ${
                 active
                   ? "bg-brand text-brand-foreground"
                   : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -181,8 +182,9 @@ export default function Nav() {
                   {t(tab.labelKey)}
                 </a>
               ) : (
-                <Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined} className={cls}>
+                <Link key={tab.href} href={tab.href} prefetch={true} aria-current={active ? "page" : undefined} className={cls}>
                   {t(tab.labelKey)}
+                  <NavigationPending />
                 </Link>
               );
             })}
@@ -292,6 +294,7 @@ export default function Nav() {
                 <Link
                   key={tab.href}
                   href={tab.href}
+                  prefetch={open ? null : false}
                   aria-current={active ? "page" : undefined}
                   className={cls}
                   onClick={() => setOpen(false)}

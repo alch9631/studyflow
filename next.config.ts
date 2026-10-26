@@ -32,6 +32,10 @@ const nextConfig: NextConfig = {
   // pdf-parse + pdfjs are heavy Node-native libs; run them unbundled at runtime.
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "mammoth"],
   experimental: {
+    // Primary tabs fully prefetch dynamic pages. Reuse that work for quick
+    // switches, but cap it at 30 seconds rather than the five-minute default.
+    // Server-action revalidation and router.refresh() still invalidate it.
+    staleTimes: { static: 30 },
     // Allow uploading lecture scripts / study materials via server actions.
     serverActions: { bodySizeLimit: "22mb" },
   },

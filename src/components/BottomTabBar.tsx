@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactElement, SVGProps } from "react";
 import { useT } from "./i18n/I18nProvider";
 import type { MessageKey } from "./i18n/messages";
+import NavigationPending from "./NavigationPending";
 
 type Icon = (props: SVGProps<SVGSVGElement>) => ReactElement;
 type Tab = { href: string; labelKey: MessageKey; Icon: Icon };
@@ -105,8 +106,9 @@ export default function BottomTabBar() {
             <li key={tab.href} className="min-w-0">
               <Link
                 href={tab.href}
+                prefetch={true}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[var(--mobile-tab-height)] flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs font-medium leading-4 transition-colors active:bg-accent ${
+                className={`relative flex min-h-[var(--mobile-tab-height)] flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs font-medium leading-4 transition-colors active:bg-accent ${
                   active
                     ? "text-brand-ink dark:text-white"
                     : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
@@ -114,6 +116,7 @@ export default function BottomTabBar() {
               >
                 <tab.Icon className="h-6 w-6" />
                 <span>{t(tab.labelKey)}</span>
+                <NavigationPending />
               </Link>
             </li>
           );

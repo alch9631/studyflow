@@ -40,6 +40,13 @@ Check Safari and the installed home-screen app in portrait and landscape:
   a course. Scroll a source excerpt and focus session without refreshing the page.
 - Check date and time fields, German and English labels, both themes, and a
   larger system text size. Verify the notch and home indicator leave controls clear.
+- With a slow connection, switch between Today, Calendar, Courses, and Insights.
+  Once their background prefetch completes, switching should reuse the content
+  without a network wait. On a cold visit, the selected tab immediately shows
+  its pending indicator while the page loads.
+  Complete a task or edit a calendar session, switch tabs, and confirm the change
+  appears immediately. Leave the app idle for more than 30 seconds and check
+  that the next visit fetches fresh content.
 
 The automated experience suite (`npm run test:experience`) checks task/parent
 separation, conservation of planned work, source matching and ownership,
