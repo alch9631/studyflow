@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { getT } from "@/components/i18n/server";
 import PracticeSession, { type PracticeCard } from "./PracticeSession";
+import { readStudyTask, taskSourceHref } from "@/lib/studyTask";
+import { availableMaterialIds } from "@/lib/materials";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -84,7 +86,7 @@ export default async function PracticePage({
           name: true,
           topics: {
             orderBy: { order: "asc" },
-            select: { id: true, title: true, questions: true, confidence: true },
+            select: { id: true, title: true, questions: true, confidence: true, studyTask: true },
           },
         },
       })
@@ -111,6 +113,7 @@ export default async function PracticePage({
   // confidence. Initial confidence is carried through so re-practising a topic
   // shows where the student last left it.
   const cards: PracticeCard[] = [];
+  const originalIds = new Set((await availableMaterialIds(userId, course.id)).map((file) => file.id));
 
   // MOCK EXAM MODE — questions drafted from an uploaded past/mock exam, stored
   // in that file's analysis blob when it was analyzed. Ownership is enforced
@@ -133,6 +136,7 @@ export default async function PracticePage({
         topicTitle: q.topic.trim() || topic.title,
         question: q.question,
         confidence: asConfidence(topic.confidence),
+        sourceHref: file && originalIds.has(examFileId) ? `/api/materials/${encodeURIComponent(examFileId)}` : null,
       });
     }
     mockExamName = file?.filename ?? "";
@@ -141,8 +145,14 @@ export default async function PracticePage({
   if (!examFileId) for (const topic of course.topics) {
     const questions = parseQuestions(topic.questions);
     const confidence = asConfidence(topic.confidence);
+    const task = readStudyTask(topic.studyTask);
+    const sourceHref = task ? taskSourceHref(task, !!task.sourceFileId && originalIds.has(task.sourceFileId)) : null;
+    if (task?.checkQuestion && task.answerKey) cards.push({
+      topicId: topic.id, topicTitle: topic.title, question: task.checkQuestion,
+      answerKey: task.answerKey, sourceHref, confidence,
+    });
     for (const question of questions) {
-      cards.push({ topicId: topic.id, topicTitle: topic.title, question, confidence });
+      cards.push({ topicId: topic.id, topicTitle: topic.title, question, confidence, sourceHref });
     }
   }
 

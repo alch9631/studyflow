@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { regeneratePlan, healCoursePlan, aiOptimizeCourse, rebuildSchedule, todayISO } from "@/lib/planService";
 import { coursePassed } from "@/lib/coursePassed";
+import { readStudyTask } from "@/lib/studyTask";
 import {
   extractSyllabus,
   isSyllabusAIEnabled,
@@ -513,6 +514,9 @@ export async function analyzeModuleUpload(formData: FormData) {
   let result = "analyze-error";
   let n = 0;
   try {
+    const { prepareMaterial, guardMaterialStorage } = await import("@/lib/materials");
+    const original = await prepareMaterial(file, chosenType);
+    await guardMaterialStorage(prisma, userId, courseId, file.size);
     const text = await extractTextFromFile(file as File);
     if (!text.trim()) throw new Error("No readable text in that file");
     // Feed the chosen type into analysis so the AI generates type-appropriate
@@ -531,7 +535,7 @@ export async function analyzeModuleUpload(formData: FormData) {
         where: { courseId },
         // done/confidence come along so the replace path can tell a topic the
         // student has actually worked on from a purely AI-derived one.
-        select: { id: true, title: true, order: true, done: true, confidence: true },
+        select: { id: true, title: true, order: true, done: true, confidence: true, studyTask: true },
       });
       const byTitle = new Map(existing.map((t) => [t.title.trim().toLowerCase(), t]));
       // Stored category: the user's explicit choice wins; if they left it on a
@@ -544,6 +548,7 @@ export async function analyzeModuleUpload(formData: FormData) {
       // were replaced must never report analyze-error while the course was
       // already rewritten — either everything commits or nothing does.
       await prisma.$transaction(async (tx) => {
+        await guardMaterialStorage(tx, userId, courseId, file.size);
         if (mode === "append") {
           // Append after the current max order, but bound the TOTAL to the per-course
           // cap (not just the new set — else append could exceed the limit).
@@ -622,9 +627,7 @@ export async function analyzeModuleUpload(formData: FormData) {
         await tx.moduleFile.create({
           data: {
             courseId,
-            filename: file.name,
-            mimeType: file.type || null,
-            sizeBytes: file.size,
+            ...original,
             extractedChars: text.length,
             category,
             // examQuestions rides along in the same JSON blob (no migration):
@@ -824,7 +827,7 @@ export async function logFocus(formData: FormData) {
   const minutes = clampInt(formData.get("minutes"), 1, 600, 25);
   const path = safeRevalidatePath(str(formData.get("revalidate")), "/today");
   // Scoped: only a block whose course the current user owns is logged against.
-  const block = await findOwnedBlock(userId, id);
+  const block = await prisma.studyBlock.findFirst({ where: { id, course: { userId } }, select: { id: true, topicId: true } });
   if (block) {
     // Atomic increment so two concurrent logs can't drop minutes (the old
     // read-modify-write raced). actualMinutes is nullable and SQL NULL + n stays
@@ -840,7 +843,8 @@ export async function logFocus(formData: FormData) {
     });
     // Completion is judged against the post-increment total, so concurrent logs
     // each see at least their own minutes included. Only ever flips false → true.
-    if (!updated.completed && (updated.actualMinutes ?? 0) >= updated.minutes) {
+    const topic = await prisma.topic.findFirst({ where: { id: block.topicId, course: { userId } }, select: { studyTask: true } });
+    if (!readStudyTask(topic?.studyTask) && !updated.completed && (updated.actualMinutes ?? 0) >= updated.minutes) {
       await prisma.studyBlock.update({ where: { id }, data: { completed: true } });
     }
   }

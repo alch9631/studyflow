@@ -48,6 +48,7 @@ const dropped = [
   { id: "noted", done: false, confidence: null },
   { id: "studied", done: false, confidence: null },
   { id: "plain2", done: false, confidence: null },
+  { id: "task", done: false, confidence: null, studyTask: '{"version":1}' },
 ];
 const safe = topicIdsSafeToDelete(dropped, ["noted"], ["studied"]);
 
@@ -56,6 +57,7 @@ check("a topic the student marked done is kept", !safe.includes("done"));
 check("a topic the student rated is kept", !safe.includes("rated"));
 check("a topic carrying a note is kept (its note would cascade away)", !safe.includes("noted"));
 check("a topic with completed study is kept (its history would orphan)", !safe.includes("studied"));
+check("a configured study task survives AI replacement", !safe.includes("task"));
 check("exactly the untouched topics are deletable", safe.length === 2, `got ${JSON.stringify(safe)}`);
 
 // Degenerate / drift inputs must not widen the deletion set.

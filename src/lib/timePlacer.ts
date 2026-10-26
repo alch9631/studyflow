@@ -73,6 +73,19 @@ function freeGaps(window: StudyWindow, busy: BusyInterval[]): BusyInterval[] {
   return gaps;
 }
 
+/** Available wall-clock minutes, with overlapping classes counted once. */
+export function availableStudyMinutes(window: StudyWindow, busy: BusyInterval[]): number {
+  return freeGaps(window, busy).reduce((sum, gap) => sum + gap.endMin - gap.startMin, 0);
+}
+
+export function studyCapacityByWeekday(prefs: StudyPrefs, lectures: { weekday: number; startMin: number; endMin: number }[]): number[] {
+  return Array.from({ length: 7 }, (_, weekday) => Math.min(
+    360, prefs.dailyBudgetMin ?? 180,
+    Math.floor(availableStudyMinutes({ startMin: prefs.dayStartMin, endMin: prefs.dayEndMin },
+      lectures.filter((lecture) => lecture.weekday === weekday)) * 0.75),
+  ));
+}
+
 /**
  * Pack a day's `blocks` into the free time inside `window`, flowing around the
  * `busy` intervals (lectures). Blocks keep the order given; a {@link STUDY_GAP_MIN}
@@ -171,13 +184,14 @@ function placeEvening(
 // ── Preferences ──────────────────────────────────────────────────────────────
 
 /** Parsed, validated scheduling preferences (minutes-of-day + energy). */
-export type StudyPrefs = { dayStartMin: number; dayEndMin: number; energy: Energy };
+export type StudyPrefs = { dayStartMin: number; dayEndMin: number; energy: Energy; dailyBudgetMin?: number };
 
 /** Safe defaults when a user has no (or malformed) preferences: 08:00–22:00, any. */
 export const DEFAULT_PREFS: StudyPrefs = {
   dayStartMin: 8 * 60, // 08:00
   dayEndMin: 22 * 60, // 22:00
   energy: "any",
+  dailyBudgetMin: 180,
 };
 
 function isEnergy(v: unknown): v is Energy {
@@ -205,6 +219,8 @@ export function parsePrefs(raw: string | null | undefined): StudyPrefs {
   const start = Number(rec.dayStartMin);
   const end = Number(rec.dayEndMin);
   const energy = isEnergy(rec.energy) ? rec.energy : DEFAULT_PREFS.energy;
+  const budget = Number(rec.dailyBudgetMin);
+  const dailyBudgetMin = Number.isInteger(budget) && budget >= 15 && budget <= 360 ? budget : DEFAULT_PREFS.dailyBudgetMin;
 
   const validWindow =
     Number.isFinite(start) &&
@@ -214,8 +230,8 @@ export function parsePrefs(raw: string | null | undefined): StudyPrefs {
     end > start;
 
   return validWindow
-    ? { dayStartMin: start, dayEndMin: end, energy }
-    : { ...DEFAULT_PREFS, energy };
+    ? { dayStartMin: start, dayEndMin: end, energy, dailyBudgetMin }
+    : { ...DEFAULT_PREFS, energy, dailyBudgetMin };
 }
 
 /** Serialize prefs back to the JSON string stored in User.preferences. */
@@ -224,5 +240,6 @@ export function serializePrefs(prefs: StudyPrefs): string {
     dayStartMin: prefs.dayStartMin,
     dayEndMin: prefs.dayEndMin,
     energy: prefs.energy,
+    dailyBudgetMin: prefs.dailyBudgetMin ?? 180,
   });
 }

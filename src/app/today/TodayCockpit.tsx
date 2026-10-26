@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Check, Undo2 } from "lucide-react";
 import {
   Dialog,
@@ -118,6 +119,9 @@ export default function TodayCockpit({
         action={
           hero ? (
             <>
+              {hero.task ? <>
+              <p className="w-full whitespace-pre-wrap break-words text-left text-base font-medium">{hero.task.instruction}</p>
+              {hero.task.sourceRef && <p className="w-full break-words text-left text-sm text-muted-foreground">{hero.task.sourceRef}</p>}
               <Button
                 size="lg"
                 className="w-full whitespace-normal break-words"
@@ -128,6 +132,12 @@ export default function TodayCockpit({
                   topic: hero.topicTitle,
                 })}
               </Button>
+              </> : <>
+                <p className="text-sm text-muted-foreground">{t("study.unconfigured")}</p>
+                <Button asChild size="lg" className="w-full whitespace-normal">
+                  <Link href={`/courses/${hero.course.id}#topic-${hero.topicId ?? ""}`}>{t("study.defineTask")} · {hero.topicTitle}</Link>
+                </Button>
+              </>}
               <button
                 type="button"
                 onClick={() => setOpenId(hero.id)}

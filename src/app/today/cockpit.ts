@@ -6,6 +6,8 @@
  * client island, so the client never re-derives them.
  */
 
+import type { StudyTask } from "@/lib/studyTask";
+
 /** A serializable Today study block — the shape the cockpit UI consumes. */
 export type CockpitBlock = {
   id: string;
@@ -19,6 +21,8 @@ export type CockpitBlock = {
    *  open pre-filled with it — saving from an empty box overwrites Note.body,
    *  which used to silently destroy the student's course-page note. */
   note?: string | null;
+  topicId?: string;
+  task?: StudyTask | null;
 };
 
 /** The four study-queue lanes, answering "what now / what can wait". */
@@ -42,8 +46,8 @@ export const MAX_VISIBLE_ESSENTIALS = 4;
  * denominator for "does today fit", deliberately conservative so the system errs
  * toward protecting the student rather than overloading them.
  */
-export function studyBudget(windowAvailableMin: number): number {
-  return Math.min(Math.max(0, windowAvailableMin), DAILY_STUDY_BUDGET_MIN);
+export function studyBudget(windowAvailableMin: number, dailyBudgetMin = DAILY_STUDY_BUDGET_MIN): number {
+  return Math.min(Math.max(0, windowAvailableMin), Math.max(0, dailyBudgetMin));
 }
 
 /** "1h 20m" / "45m" / "0m" — shared duration formatter (no i18n; numbers only). */

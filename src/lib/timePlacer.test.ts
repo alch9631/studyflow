@@ -195,8 +195,8 @@ check("prefs: junk JSON → defaults", JSON.stringify(parsePrefs("{not json")) =
 }
 check(
   "prefs: round-trips through serialize",
-  JSON.stringify(parsePrefs(serializePrefs({ dayStartMin: 480, dayEndMin: 1320, energy: "morning" }))) ===
-    JSON.stringify({ dayStartMin: 480, dayEndMin: 1320, energy: "morning" }),
+  JSON.stringify(parsePrefs(serializePrefs({ dayStartMin: 480, dayEndMin: 1320, energy: "morning", dailyBudgetMin: 90 }))) ===
+    JSON.stringify({ dayStartMin: 480, dayEndMin: 1320, energy: "morning", dailyBudgetMin: 90 }),
 );
 
 console.log(`\n${passed} passed, ${failed} failed`);

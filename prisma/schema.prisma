@@ -190,6 +190,7 @@ model ModuleFile {
   sizeBytes      Int      @default(0)
   extractedChars Int      @default(0)
   analysis       String? // JSON: summary, concepts, prerequisites, detected topics
+  content        Bytes?  // Original material; nullable for older analysis-only uploads.
   // Auto-classified material type. String union (nullable, no DB enum so the
   // schema stays Postgres-portable): "uebung" | "altklausur" | "slides" |
   // "skript" | "mockexam" | "sonstiges". Null = unclassified (old rows).
@@ -206,6 +207,7 @@ model Topic {
   done      Boolean @default(false)
   order     Int     @default(0)
   questions String? // JSON array of AI self-test questions (active recall)
+  studyTask String? // Versioned JSON: concrete work, source, success criteria, optional answer key.
   // Student self-rated confidence: "solid" | "practice" | "struggling" (null =
   // unrated). Drives spaced-review spacing — struggling earns more/earlier
   // reviews, solid fewer/later. Set once per topic (not per study session).
@@ -264,6 +266,7 @@ model StudyBlock {
   completed     Boolean  @default(false)
   kind          String   @default("study") // "study" | "review" (spaced repetition)
   actualMinutes Int? // logged via the Pomodoro timer — feeds adaptive estimates
+  studyResult   String? // JSON: checked outcome and response, independent of elapsed time.
   // Optional time-of-day scheduling. Both null = the block is day-granular only
   // (the existing behaviour — every block planned so far). When set, they pin the
   // block to a concrete start/end on its `date`, surfaced on the calendar. Stored

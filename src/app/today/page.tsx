@@ -13,7 +13,8 @@ import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
 import ExamStrip, { type ExamChip } from "./ExamStrip";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
-import { parsePrefs } from "@/lib/timePlacer";
+import { parsePrefs, availableStudyMinutes } from "@/lib/timePlacer";
+import { readStudyTask, readStudyResult } from "@/lib/studyTask";
 import {
   assignLanes,
   canMoveBlockToTomorrow,
@@ -96,6 +97,7 @@ export default async function TodayPage({
         kind: true,
         actualMinutes: true,
         topicId: true,
+        studyResult: true,
         // course.examDate drives the per-course exam proximity used by the
         // explain-my-plan ordering reason and the catch-up urgency.
         course: { select: { name: true, id: true, examDate: true } },
@@ -192,6 +194,8 @@ export default async function TodayPage({
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const remainingMin = Math.max(0, totalMin - doneMin);
+  const checkedGoals = new Set(blocks.filter((b) => readStudyResult(b.studyResult)?.outcome === "complete").map((b) => b.topicId));
+  const practiceNeeded = new Set(blocks.filter((b) => readStudyResult(b.studyResult)?.outcome === "practice" && !checkedGoals.has(b.topicId)).map((b) => b.topicId));
 
   // Realistic focus time left today, for the cockpit's one-line risk verdict.
   // Capacity = the student's study WINDOW today (prefs day-start…day-end) minus
@@ -208,42 +212,40 @@ export default async function TodayPage({
   }).format(new Date());
   const [hh, mm] = nowParts.split(":").map(Number);
   const minutesNow = hh * 60 + mm;
-  const FOCUS_RATIO = 0.6; // ~60% of window hours is realistically focused study
+  const FOCUS_RATIO = 0.75;
   // The window still open today: from now (or the window start) to the window end.
-  const windowLeft = Math.max(0, prefs.dayEndMin - Math.max(minutesNow, prefs.dayStartMin));
+  const windowLeft = availableStudyMinutes({ startMin: Math.max(minutesNow, prefs.dayStartMin), endMin: prefs.dayEndMin }, todaysLectures);
   // Only lectures overlapping the remaining window consume time still available.
-  const remainingLectureMin = todaysLectures.reduce(
-    (sum, l) => sum + Math.max(0, Math.min(l.endMin, prefs.dayEndMin) -
-      Math.max(l.startMin, minutesNow, prefs.dayStartMin)),
-    0,
-  );
   const windowAvailableMin = Math.max(
     0,
-    Math.round((windowLeft - remainingLectureMin) * FOCUS_RATIO),
+    Math.floor(windowLeft * FOCUS_RATIO),
   );
   // Conservative ceiling: the smaller of the window math and the fixed daily study
   // budget. This is the realistic load today can hold — it stops the planner from
   // manufacturing a wall of "must-do" out of an optimistic 14h window.
-  const availableMin = studyBudget(windowAvailableMin);
+  const completedTodayMin = blocks.filter((b) => b.completed).reduce((sum, b) => sum + b.minutes, 0);
+  const availableMin = studyBudget(windowAvailableMin, Math.max(0, (prefs.dailyBudgetMin ?? 180) - completedTodayMin));
 
   // Each block's topic note, so the session sheet's quick-note editor opens
   // PRE-FILLED. It shares Note.body with the course-page editor — seeding it
   // empty made every sheet save an overwrite that destroyed the existing note.
   const noteRows = blocks.length
-    ? await prisma.note.findMany({
+    ? await prisma.topic.findMany({
         where: {
-          topic: { course: { userId } },
-          topicId: { in: [...new Set(blocks.map((b) => b.topicId))] },
+          course: { userId },
+          id: { in: [...new Set(blocks.map((b) => b.topicId))] },
         },
-        select: { topicId: true, body: true },
+        select: { id: true, studyTask: true, note: { select: { body: true } } },
       })
     : [];
-  const noteByTopic = new Map(noteRows.map((n) => [n.topicId, n.body]));
+  const noteByTopic = new Map(noteRows.map((n) => [n.id, n.note?.body ?? null]));
+  const taskByTopic = new Map(noteRows.map((n) => [n.id, readStudyTask(n.studyTask)]));
 
   // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
   const cockpitBlocks: CockpitBlock[] = blocks.map((b) => ({
     ...b,
     note: noteByTopic.get(b.topicId) ?? null,
+    task: taskByTopic.get(b.topicId) ?? null,
   }));
   const cap = computeCapacity(remainingMin, availableMin);
   const risk = riskVerdict(cap);
@@ -403,6 +405,9 @@ export default async function TodayPage({
               a quiet list of the rest of today, with the per-block session sheet
               and the single "Adjust today" drawer holding everything demoted. */}
           <div className="min-w-0">
+            {(checkedGoals.size > 0 || practiceNeeded.size > 0) && <p className="mb-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
+              {t("study.progressSummary", { goals: checkedGoals.size, practice: practiceNeeded.size })}
+            </p>}
             <TodayCockpit
               blocks={cockpitBlocks}
               lanes={lanes}
