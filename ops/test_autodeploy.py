@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import sqlite3
+import tarfile
 import tempfile
 import time
 import unittest
@@ -82,6 +83,31 @@ class DeployTests(unittest.TestCase):
         self.assertEqual(self.deployer.latest.call_count, 2)
         self.assertEqual(self.deployer.ci.call_count, 2)
         self.deployer.activate.assert_called_once()
+
+    def test_clean_build_generates_prisma_without_using_the_live_database(self):
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode='w') as source:
+            content = b'{}'
+            entry = tarfile.TarInfo('package.json')
+            entry.size = len(content)
+            source.addfile(entry, io.BytesIO(content))
+        commands = []
+        def run(args, **kwargs):
+            if args[:2] == ['git', 'archive']:
+                return archive.getvalue()
+            commands.append(args)
+            self.assertNotEqual(kwargs['env']['DATABASE_URL'], f"file:{self.config['database_file']}")
+            self.assertIn('/prisma/test-build.db', kwargs['env']['DATABASE_URL'])
+            if args[1:] == ['run', 'build']:
+                self.bundle(kwargs['cwd'] / '.next', 'new')
+            return b''
+        self.deployer.run = Mock(side_effect=run)
+        with contextlib.redirect_stdout(io.StringIO()):
+            stage = self.deployer.prepare('new')
+        self.assertEqual(commands[0][1], 'ci')
+        self.assertEqual(commands[1][-1], 'generate')
+        self.assertEqual(commands[2][1:], ['run', 'build'])
+        self.assertTrue((stage / '.next/standalone/server.js').is_file())
 
     def test_a_new_push_supersedes_a_build(self):
         self.polling()

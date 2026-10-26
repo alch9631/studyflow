@@ -95,6 +95,9 @@ class Deployer:
                          NODE_OPTIONS='--max-old-space-size=1536', CI='true')
         build_env.pop('NODE_ENV', None)
         self.run([self.config['npm'], 'ci', '--include=dev', '--no-audit', '--no-fund'], cwd=stage, env=build_env)
+        # npm can skip dependency lifecycle scripts; never rely on Prisma's postinstall.
+        self.run([self.config['node'], str(stage / 'node_modules/prisma/build/index.js'),
+                  'generate'], cwd=stage, env=build_env)
         self.run([self.config['npm'], 'run', 'build'], cwd=stage, env=build_env)
         candidate = stage / '.next'
         build_id = (candidate / 'BUILD_ID').read_text().strip()

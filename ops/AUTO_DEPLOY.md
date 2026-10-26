@@ -5,7 +5,7 @@ deployed after the **CI** workflow (`ci.yml`, push event, exact commit SHA) pass
 The app still runs as the existing `studyflow.service` on port 3000.
 
 The deployer exports a clean Git snapshot into `~/.cache/studyflow-deploy`, runs
-`npm ci` and the production build there, then switches the standalone bundle.
+`npm ci`, generates the Prisma client, and builds there, then switches the standalone bundle.
 Builds use a separate SQLite path and receive no production `.env` files.
 The developer checkout and its unfinished changes are not checked out or reset.
 
