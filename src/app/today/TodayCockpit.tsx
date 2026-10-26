@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QuickStudySetup from "@/components/QuickStudySetup";
-import { Check, Undo2 } from "lucide-react";
+import { Check, MoreHorizontal, Undo2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { iconButtonClass } from "@/components/ui";
 import { GuardianScaffold } from "@/components/GuardianScaffold";
 import BehindSheet from "@/components/BehindSheet";
 import { useToast } from "@/components/Toast";
@@ -77,6 +78,7 @@ export default function TodayCockpit({
   const t = useT();
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
 
   const openBlock = openId ? blocks.find((b) => b.id === openId) ?? null : null;
 
@@ -116,30 +118,45 @@ export default function TodayCockpit({
           hero ? (
             <>
               <p className="text-sm text-muted-foreground">{t(`today.reason.${priorityReason(hero)}`)}</p>
-              {hero.task ? <>
-              <p className="w-full whitespace-pre-wrap break-words text-left text-base font-medium">{hero.task.instruction}</p>
-              {hero.task.sourceRef && <p className="w-full break-words text-left text-sm text-muted-foreground">{hero.task.sourceRef}</p>}
-              <Button
-                size="lg"
-                className="w-full whitespace-normal break-words"
-                onClick={() => openFocus(hero.id)}
-              >
-                {hero.progress ? t("flow.resumeTopic", { topic: hero.topicTitle }) : t("today.heroNextAction", {
-                  minutes: hero.minutes,
-                  topic: hero.topicTitle,
-                })}
-              </Button>
-              </> : <>
+              {hero.task ? (
+                <>
+                  <p className="w-full whitespace-pre-wrap break-words text-left text-base font-medium">{hero.task.instruction}</p>
+                  {hero.task.sourceRef && <p className="w-full break-words text-left text-sm text-muted-foreground">{hero.task.sourceRef}</p>}
+                </>
+              ) : (
                 <p className="text-sm text-muted-foreground">{t("flow.quickHint")}</p>
-                <QuickStudySetup courseId={hero.course.id} topicId={hero.topicId} title={hero.topicTitle} label={t("flow.startTopic", { topic: hero.topicTitle })} />
-              </>}
-              <button
-                type="button"
-                onClick={() => setOpenId(hero.id)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                {t("today.heroOptions")}
-              </button>
+              )}
+              <div className="flex w-full items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  {hero.task ? (
+                    <Button
+                      size="lg"
+                      className="w-full whitespace-normal break-words"
+                      onClick={() => openFocus(hero.id)}
+                    >
+                      {hero.progress ? t("flow.resumeTopic", { topic: hero.topicTitle }) : t("today.heroNextAction", {
+                        minutes: hero.minutes,
+                        topic: hero.topicTitle,
+                      })}
+                    </Button>
+                  ) : (
+                    <QuickStudySetup courseId={hero.course.id} topicId={hero.topicId} title={hero.topicTitle} label={t("flow.startTopic", { topic: hero.topicTitle })} />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label={t("today.taskActions", { topic: hero.topicTitle })}
+                  aria-haspopup="dialog"
+                  aria-expanded={taskMenuOpen && openId === hero.id}
+                  onClick={() => {
+                    setTaskMenuOpen(true);
+                    setOpenId(hero.id);
+                  }}
+                  className={iconButtonClass("inline-flex shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground")}
+                >
+                  <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
             </>
           ) : undefined
         }
@@ -213,7 +230,11 @@ export default function TodayCockpit({
       {/* ── SESSION SHEET (per-block actions) ── */}
       <SessionSheet
         block={openBlock}
-        onClose={() => setOpenId(null)}
+        showStartFocus={!taskMenuOpen}
+        onClose={() => {
+          setOpenId(null);
+          setTaskMenuOpen(false);
+        }}
         onStartFocus={() => {
           const id = openBlock?.id;
           setOpenId(null);
@@ -369,10 +390,12 @@ function QuietRow({
  */
 function SessionSheet({
   block,
+  showStartFocus = true,
   onClose,
   onStartFocus,
 }: {
   block: CockpitBlock | null;
+  showStartFocus?: boolean;
   onClose: () => void;
   onStartFocus: () => void;
 }) {
@@ -474,9 +497,11 @@ function SessionSheet({
             </DialogDescription>
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button type="button" onClick={onStartFocus} className="sm:col-span-2">
-                {t("today.heroStartFocus")}
-              </Button>
+              {showStartFocus && (
+                <Button type="button" onClick={onStartFocus} className="sm:col-span-2">
+                  {t("today.heroStartFocus")}
+                </Button>
+              )}
               <Button type="button" variant="secondary" onClick={markDone}>
                 {optimisticDone ? t("today.sheetMarkNotDone") : t("today.sheetMarkDone")}
               </Button>
