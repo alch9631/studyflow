@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pause, Play, X } from "lucide-react";
 import type { FocusBlock } from "@/lib/focusTypes";
 import { checkpointStudy, finishFocusSession } from "@/app/courses/studyActions";
 import { readStudyProgress, taskSourceHref } from "@/lib/studyTask";
+import { advanceFocusClock, restoreFocusClock } from "@/lib/focusClock";
+import { focusHref } from "@/lib/focusNavigation";
+import { useToast } from "./Toast";
 import { useT } from "./i18n/I18nProvider";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
@@ -19,15 +23,13 @@ const subscribe = () => () => {};
 
 /** Read once after hydration, advancing a suspended iPhone clock by wall time. */
 function readClock(key: string) {
-  const clock = JSON.parse(sessionStorage.getItem(key) ?? "null");
-  if (!clock || !Number.isFinite(clock.at) || !Number.isInteger(clock.elapsed) || clock.elapsed < 0 || clock.elapsed > 36000 ||
-      !Number.isInteger(clock.minutes) || clock.minutes < 5 || clock.minutes > 600 || typeof clock.running !== "boolean") return null;
-  return { ...clock, elapsed: Math.min(clock.minutes * 60, clock.elapsed + (clock.running ? Math.max(0, Math.floor((Date.now() - clock.at) / 1000)) : 0)) };
+  return restoreFocusClock(sessionStorage.getItem(key), Date.now());
 }
 
 export default function PracticalStudySession({ block }: { block: FocusBlock }) {
   const t = useT();
   const router = useRouter();
+  const { toast } = useToast();
   const [response, setResponse] = useState(block.progress?.response ?? "");
   const [elapsed, setElapsed] = useState(block.progress?.elapsedSeconds ?? 0);
   const [sessionMinutes, setSessionMinutes] = useState(block.progress?.sessionMinutes ?? block.minutes);
@@ -42,6 +44,10 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
   const clockKey = `sf-study-clock-${block.id}`;
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
   const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    // Upgrade old block-only links without a server round trip. The topic survives a replan.
+    window.history.replaceState(null, "", focusHref(block.id, block.topicId, block.kind));
+  }, [block.id, block.topicId, block.kind]);
   if (hydrated && !restored) {
     setRestored(true);
     try {
@@ -109,9 +115,9 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
   }, [restored, response, save, block.progress?.response]);
   useEffect(() => {
     if (!running || !restored) return;
-    const base = Date.now() - work.current.elapsedSeconds * 1000;
+    const base = { elapsed: work.current.elapsedSeconds, minutes: sessionMinutes, running: true, at: Date.now() };
     const tick = () => {
-      const seconds = Math.min(sessionMinutes * 60, Math.max(0, Math.floor((Date.now() - base) / 1000)));
+      const seconds = advanceFocusClock(base, Date.now()).elapsed;
       work.current.elapsedSeconds = seconds;
       setElapsed(seconds);
       if (seconds >= sessionMinutes * 60) setRunning(false);
@@ -125,18 +131,22 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
     finished.current = true;
     try { sessionStorage.removeItem(localKey); sessionStorage.removeItem(clockKey); sessionStorage.removeItem("sf-focus-session"); } catch {}
   }
+  function pauseClock() {
+    // Leaving must not count the break if this page is restored from history.
+    setRunning(false);
+    persist();
+    try { sessionStorage.setItem(clockKey, JSON.stringify({ elapsed: work.current.elapsedSeconds, minutes: work.current.sessionMinutes, running: false, at: Date.now() })); } catch {}
+  }
   async function leave(complete = false) {
     if (leaving) return;
-    setRunning(false); setLeaving(true);
-    // Save the paused clock immediately; reloading after leaving must not count the break.
-    try { sessionStorage.setItem(clockKey, JSON.stringify({ elapsed: work.current.elapsedSeconds, minutes: work.current.sessionMinutes, running: false, at: Date.now() })); } catch {}
+    pauseClock(); setLeaving(true);
     if (complete) {
       finished.current = true;
       if (saving.current) await saving.current;
       try {
-        const result = await finishFocusSession({ blockId: block.id, topicId: block.topicId, response: work.current.response, elapsedSeconds: work.current.elapsedSeconds });
+        const result = await finishFocusSession({ blockId: block.id, topicId: block.topicId, kind: block.kind, response: work.current.response, elapsedSeconds: work.current.elapsedSeconds });
         if (!result.ok) throw new Error();
-        clearDraft(); router.push("/today"); return;
+        clearDraft(); toast(t("focus.doneToast")); router.push("/today"); return;
       } catch { finished.current = false; setStatus("error"); setLeaving(false); }
     } else if (await save(true)) router.push("/today");
     else setLeaving(false);
@@ -173,7 +183,7 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
             {block.note && <p className="mt-3 whitespace-pre-wrap break-words text-sm text-muted-foreground">{block.note}</p>}
           </div>}
         </details>
-        {status === "error" && <div role="alert" className="py-2 text-sm"><p>{t("flow.saveError")}</p><Button variant="secondary" className="mt-2" onClick={() => void save()}>{t("common.save")}</Button></div>}
+        {status === "error" && <div role="alert" className="py-2 text-sm"><p>{t("flow.saveError")}</p><div className="mt-2 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={() => void save()}>{t("common.save")}</Button><Link href="/today" className="inline-flex min-h-11 items-center underline underline-offset-4" onClick={pauseClock}>{t("flow.leaveUnsaved")}</Link></div></div>}
       </main>
     </div>
     <footer className="shrink-0 bg-background pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] pt-3">

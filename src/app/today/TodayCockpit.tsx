@@ -40,7 +40,7 @@ export default function TodayCockpit({ blocks, lanes, hero }: {
         <TaskActions block={hero} onNotes={(trigger) => notes(hero, trigger)} />
       </div>
       <Button asChild size="lg" className="relative mt-5 w-full">
-        <FocusLink blockId={hero.id}>{t(hero.progress ? "focus.resume" : "minimal.start")}<NavigationPending /></FocusLink>
+        <FocusLink blockId={hero.id} topicId={hero.topicId} kind={hero.kind}>{t(hero.progress ? "focus.resume" : "minimal.start")}<NavigationPending /></FocusLink>
       </Button>
     </section>}
     {next.length > 0 && <ul className="mx-auto mt-6 max-w-md divide-y divide-border">
@@ -110,7 +110,7 @@ function QuietRow({ block, onNotes }: { block: CockpitBlock; onNotes: (trigger: 
     <button type="button" onClick={() => fire(!done)} aria-pressed={done} aria-label={t(done ? "block.markNotDone" : "block.markDone")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-accent">
       <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${done ? "border-brand bg-brand text-brand-foreground" : "border-input"}`}>{done && <Check className="h-3.5 w-3.5" aria-hidden="true" />}</span>
     </button>
-    <FocusLink blockId={block.id} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
+    <FocusLink blockId={block.id} topicId={block.topicId} kind={block.kind} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
       <span title={block.topicTitle} className={`line-clamp-2 break-words text-sm font-medium ${done ? "text-muted-foreground line-through" : ""}`}>{block.topicTitle}</span>
       <span className="mt-1 block truncate text-xs text-muted-foreground">{block.course.name} · {fmtDuration(block.minutes)}</span><NavigationPending />
     </FocusLink>

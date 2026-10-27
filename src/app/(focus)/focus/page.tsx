@@ -10,6 +10,7 @@ import { getT } from "@/components/i18n/server";
 import type { FocusBlock } from "@/lib/focusTypes";
 import { readStudyTask, readStudyProgress, readStudyResult } from "@/lib/studyTask";
 import PracticalStudySession from "@/components/PracticalStudySession";
+import { resolveFocusForUser } from "@/lib/focusSession";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 export default async function FocusPage({
   searchParams,
 }: {
-  searchParams: Promise<{ blockId?: string }>;
+  searchParams: Promise<{ blockId?: string; topicId?: string; kind?: string }>;
 }) {
   const [userId, t, sp] = await Promise.all([getCurrentUserId(), getT(), searchParams]);
 
@@ -54,15 +55,12 @@ export default async function FocusPage({
     | null = null;
   const requested = typeof sp.blockId === "string" ? sp.blockId : "";
   if (requested) {
-    block = await prisma.studyBlock.findFirst({
-      where: { id: requested, course: { userId } },
-      select,
-    });
+    block = await resolveFocusForUser(userId, { blockId: requested, topicId: typeof sp.topicId === "string" ? sp.topicId : undefined, kind: typeof sp.kind === "string" ? sp.kind : undefined });
   }
 
-  // Resolve the daily queue only when no usable block was requested. A direct
+  // Resolve the daily queue only when no explicit block was requested. A direct
   // task start does not need to load and rank the rest of the day's work.
-  if (!block || block.completed) {
+  if (!requested) {
     // Today and Focus use the same explainable ordering, including due reviews.
     const candidates = await prisma.studyBlock.findMany({
       where: { date: { gte: start, lt: end }, course: { userId }, completed: false }, select,
@@ -78,17 +76,17 @@ export default async function FocusPage({
     block = next ? candidates.find((candidate) => candidate.id === next.id)! : null;
   }
 
-  if (!block) {
+  if (!block || block.completed) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background p-8 text-center text-foreground">
         <p className="flex items-center gap-2 text-2xl font-semibold">
-          <PartyPopper className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
-          {t("focus.noBlock")}
+          {!requested && <PartyPopper className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />}
+          {t(requested ? block?.completed ? "focus.finished" : "focus.unavailable" : "focus.noBlock")}
         </p>
-        <p className="max-w-sm text-muted-foreground">{t("focus.noBlockBody")}</p>
+        {!requested && <p className="max-w-sm text-muted-foreground">{t("focus.noBlockBody")}</p>}
         <Link
           href="/today"
-          className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand-dark"
+          className="inline-flex min-h-11 items-center rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand-dark"
         >
           {t("focus.backToToday")}
         </Link>
@@ -120,7 +118,7 @@ export default async function FocusPage({
     completed: block.completed,
     kind: block.kind,
     topicId: block.topicId,
-    course: block.course,
+    course: { id: block.course.id, name: block.course.name },
     note: topic?.note?.body ?? null,
     task, fileAvailable, progress: readStudyProgress(topic?.studyProgress), lastAttempt: lastAttempt?.outcome !== "complete" ? lastAttempt?.response : null,
   };

@@ -64,6 +64,9 @@ export default function Nav() {
   const pathname = usePathname();
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [menuPath, setMenuPath] = useState(pathname);
+  // Back/forward can change routes without tapping a drawer link.
+  if (menuPath !== pathname) { setMenuPath(pathname); setOpen(false); }
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const drawerHostRef = useRef<HTMLDivElement>(null);
@@ -252,6 +255,7 @@ export default function Nav() {
           role="dialog"
           aria-modal="true"
           aria-label={t("nav.mainMenu")}
+          aria-hidden={!open}
           inert={!open}
           className={`absolute inset-y-0 right-0 flex w-80 max-w-[90%] flex-col overflow-y-auto overscroll-contain border-l border-gray-200 bg-white pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-border dark:bg-surface ${
             open ? "translate-x-0" : "translate-x-full"

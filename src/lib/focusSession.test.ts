@@ -1,10 +1,10 @@
 import "./testDb";
 import assert from "node:assert/strict";
 import { prisma } from "./db";
-import { startFocusForUser, finishFocusForUser } from "./focusSession";
-import { readStudyResult, readStudyTask, quickStudyTask } from "./studyTask";
+import { startFocusForUser, finishFocusForUser, resolveFocusForUser } from "./focusSession";
+import { readStudyProgress, readStudyResult, readStudyTask, quickStudyTask } from "./studyTask";
 import { saveStudyCheckpoint } from "./practicalStudy";
-import { calibrationFromHistory } from "./planService";
+import { calibrationFromHistory, rebuildSchedule, todayISO } from "./planService";
 import { summarizeLearning } from "./learningEvidence";
 
 async function main() {
@@ -45,7 +45,9 @@ async function main() {
   assert.equal(summarizeLearning([{ ...block, studyResult: JSON.stringify({ version: 1, outcome: "complete", recordedAt: "2020-01-01T00:00:00Z" }) }, block]).goalsMet, 1, "timer sessions do not erase earlier learning evidence");
   const next = await startFocusForUser(user.id, input);
   assert.ok(next && next.blockId !== block.id, "next session gets a fresh clock");
-  assert.equal(await finishFocusForUser(user.id, { ...finish, blockId: "stale-id" }), null, "stale requests cannot finish new sessions");
+  assert.equal((await resolveFocusForUser(user.id, { blockId: block.id }))?.completed, true, "completed links do not start another task");
+  assert.equal(await resolveFocusForUser(other.id, { blockId: next.blockId, topicId: topic.id }), null, "focus links stay ownership-scoped");
+  assert.equal(await resolveFocusForUser(user.id, { blockId: "missing" }), null, "missing links do not substitute today's task");
   await prisma.topic.update({ where: { id: topic.id }, data: { studyTask: JSON.stringify(quickStudyTask("read", 15, "en", {})) } });
   await finishFocusForUser(user.id, { ...finish, blockId: next.blockId });
   assert.equal((await prisma.topic.findUniqueOrThrow({ where: { id: topic.id } })).done, false, "prepared tasks also finish without claiming a checked goal");
@@ -56,6 +58,61 @@ async function main() {
   const materialTopic = await prisma.topic.findUniqueOrThrow({ where: { id: materialBlock.topicId } });
   assert.equal(readStudyTask(materialTopic.studyTask)?.sourceFileId, file.id, "original material link is retained");
   assert.equal(await startFocusForUser(other.id, { courseId: course.id, fileId: file.id, language: "en" }), null);
-  console.log("Focus session checks passed: direct starts, defaults, ownership, notes, completion, retries, stale saves and unreadable materials.");
+
+  const exam = new Date(todayISO() + "T00:00:00Z"); exam.setUTCDate(exam.getUTCDate() + 10);
+  const scheduledUser = await prisma.user.create({ data: { email: "scheduled-focus@example.test" } });
+  const scheduled = await prisma.course.create({ data: { userId: scheduledUser.id, name: "Scheduled", examDate: exam, studyDays: "0,1,2,3,4,5,6",
+    topics: { create: [{ title: "First", effort: 1, order: 0 }, { title: "Second", effort: 1, order: 1 }] } }, include: { topics: { orderBy: { order: "asc" } } } });
+  await rebuildSchedule(scheduledUser.id);
+  const first = await startFocusForUser(scheduledUser.id, { courseId: scheduled.id, language: "en" });
+  assert.ok(first);
+  const original = await prisma.studyBlock.findUniqueOrThrow({ where: { id: first.blockId } });
+  const before = (await prisma.studyBlock.aggregate({ where: { courseId: scheduled.id, kind: "study" }, _sum: { minutes: true } }))._sum.minutes!;
+  await saveStudyCheckpoint(scheduledUser.id, { blockId: original.id, topicId: original.topicId, response: "Keep this work", elapsedSeconds: 60, sessionMinutes: 30, updatedAt: new Date().toISOString() });
+  await rebuildSchedule(scheduledUser.id);
+  assert.equal(await prisma.studyBlock.findUnique({ where: { id: original.id } }), null, "replan actually replaces the open ID");
+  const recovered = await resolveFocusForUser(scheduledUser.id, { blockId: original.id, topicId: original.topicId });
+  assert.equal(recovered?.id, original.id, "recovered routes retain the logical clock ID");
+  assert.equal(recovered?.topicId, original.topicId, "a reloaded session keeps its topic");
+  const replannedFinish = { blockId: original.id, topicId: original.topicId, elapsedSeconds: 60, response: "Keep this work" };
+  assert.ok(await finishFocusForUser(scheduledUser.id, replannedFinish), "an open session finishes after replan");
+  const completed = await prisma.studyBlock.findMany({ where: { courseId: scheduled.id, completed: true } });
+  assert.equal(completed.length, 1);
+  assert.equal(completed[0].actualMinutes, 1);
+  assert.equal(readStudyResult(completed[0].studyResult)?.response, "Keep this work");
+  const pending = (await prisma.studyBlock.aggregate({ where: { courseId: scheduled.id, kind: "study", completed: false }, _sum: { minutes: true } }))._sum.minutes!;
+  assert.equal(pending, before - 1, "ending early replans every unstudied minute");
+  assert.equal((await resolveFocusForUser(scheduledUser.id, { blockId: original.id, topicId: original.topicId }))?.completed, true, "old completed aliases cannot restart a different session");
+  await finishFocusForUser(scheduledUser.id, replannedFinish);
+  assert.equal(await prisma.studyBlock.count({ where: { courseId: scheduled.id, completed: true } }), 1, "retry after two replans cannot finish another session");
+  assert.equal(await saveStudyCheckpoint(scheduledUser.id, { ...replannedFinish, response: "late save", updatedAt: new Date().toISOString() }), null, "late saves using old IDs cannot resurrect completed work");
+  // Force a chronological choice where the first course topic is scheduled later.
+  const [a, b] = scheduled.topics;
+  await prisma.studyBlock.deleteMany({ where: { courseId: scheduled.id, completed: false } });
+  await prisma.studyBlock.create({ data: { courseId: scheduled.id, topicId: a.id, topicTitle: a.title, date: exam, minutes: 25 } });
+  const earlier = await prisma.studyBlock.create({ data: { courseId: scheduled.id, topicId: b.id, topicTitle: b.title, date: new Date(todayISO() + "T00:00:00Z"), minutes: 25 } });
+  const count = await prisma.studyBlock.count({ where: { courseId: scheduled.id } });
+  assert.equal((await startFocusForUser(scheduledUser.id, { courseId: scheduled.id, language: "en" }))?.blockId, earlier.id, "course Start follows the next scheduled topic");
+  assert.equal(await prisma.studyBlock.count({ where: { courseId: scheduled.id } }), count, "course Start does not create a duplicate");
+  assert.equal((await startFocusForUser(scheduledUser.id, { courseId: scheduled.id, topicId: a.id, language: "en" }))?.topicId, a.id, "an explicit topic still overrides chronological order");
+  const later = await prisma.studyBlock.findFirstOrThrow({ where: { courseId: scheduled.id, topicId: a.id, completed: false } });
+  await saveStudyCheckpoint(scheduledUser.id, { blockId: later.id, topicId: a.id, response: "Resume this", elapsedSeconds: 5, updatedAt: new Date().toISOString() });
+  assert.equal((await startFocusForUser(scheduledUser.id, { courseId: scheduled.id, language: "en" }))?.topicId, a.id, "course Start resumes saved work before starting a different task");
+  const review = await prisma.studyBlock.create({ data: { courseId: scheduled.id, topicId: a.id, topicTitle: a.title, date: exam, kind: "review", minutes: 25 } });
+  await prisma.studyBlock.delete({ where: { id: review.id } });
+  const replacementReview = await prisma.studyBlock.create({ data: { courseId: scheduled.id, topicId: a.id, topicTitle: a.title, date: exam, kind: "review", minutes: 25 } });
+  assert.equal((await resolveFocusForUser(scheduledUser.id, { blockId: review.id, topicId: a.id, kind: "review" }))?.kind, "review", "review recovery cannot silently turn into a study task");
+  await finishFocusForUser(scheduledUser.id, { blockId: review.id, topicId: a.id, kind: "review", elapsedSeconds: 1500, response: "Recall notes" });
+  assert.equal((await prisma.studyBlock.findUniqueOrThrow({ where: { id: replacementReview.id } })).completed, true);
+  assert.equal((await prisma.studyBlock.findUniqueOrThrow({ where: { id: later.id } })).completed, false, "finishing a rebuilt review cannot finish its study block");
+  assert.equal(await resolveFocusForUser(user.id, { blockId: earlier.id, topicId: topic.id }), null, "foreign IDs cannot redirect into an owned topic");
+  assert.equal(await finishFocusForUser(user.id, { ...finish, blockId: earlier.id }), null, "foreign IDs cannot finish an owned replacement");
+  const short = await prisma.studyBlock.create({ data: { courseId: scheduled.id, topicId: b.id, topicTitle: b.title, minutes: 2, date: exam } });
+  assert.ok(await saveStudyCheckpoint(scheduledUser.id, { blockId: short.id, topicId: b.id, response: "Short remainder", elapsedSeconds: 15, sessionMinutes: 2, updatedAt: new Date().toISOString() }), "short scheduled remainders can save and leave");
+  assert.equal(readStudyProgress((await prisma.topic.findUniqueOrThrow({ where: { id: b.id } })).studyProgress)?.sessionMinutes, 2);
+  await prisma.course.delete({ where: { id: scheduled.id } });
+  assert.equal(await resolveFocusForUser(scheduledUser.id, { blockId: original.id, topicId: original.topicId }), null);
+  assert.equal(await finishFocusForUser(scheduledUser.id, replannedFinish), null, "deleted courses fail safely");
+  console.log("Focus session checks passed: starts, ownership, notes, completion, retries, stale saves, materials, replan recovery, workload conservation and chronological starts.");
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => prisma.$disconnect());

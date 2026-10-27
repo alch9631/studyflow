@@ -483,7 +483,7 @@ export default async function TodayPage({
             </p>}
 
               <BehindSheet preview={previews} />
-              {mvd?.core && <div><p className="mb-2 text-sm font-medium">{t("today.mvdTitle")}</p><ul>{[mvd.core, mvd.retrieval, mvd.optional].filter((block): block is CockpitBlock => !!block).map((block) => <li key={block.id}><FocusLink blockId={block.id} className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="min-w-0 break-words">{block.topicTitle}</span><span className="shrink-0 text-muted-foreground">{fmtDuration(block.minutes)}</span></FocusLink></li>)}</ul></div>}
+              {mvd?.core && <div><p className="mb-2 text-sm font-medium">{t("today.mvdTitle")}</p><ul>{[mvd.core, mvd.retrieval, mvd.optional].filter((block): block is CockpitBlock => !!block).map((block) => <li key={block.id}><FocusLink blockId={block.id} topicId={block.topicId} kind={block.kind} className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="min-w-0 break-words">{block.topicTitle}</span><span className="shrink-0 text-muted-foreground">{fmtDuration(block.minutes)}</span></FocusLink></li>)}</ul></div>}
             </div>
           </details>
           {(examChips.length > 0 || todaysLectures.length > 0 || upcomingDeadlines.length > 0) && <details data-today-schedule className="mx-auto mt-3 max-w-md">

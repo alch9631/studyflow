@@ -23,7 +23,7 @@ export async function startFocusSession(input: { courseId: string; topicId?: str
   return result ? { ok: true as const, ...result } : { ok: false as const };
 }
 
-export async function finishFocusSession(input: { blockId: string; topicId: string; elapsedSeconds: number; response: string }) {
+export async function finishFocusSession(input: { blockId: string; topicId: string; kind?: string; elapsedSeconds: number; response: string }) {
   const userId = await getCurrentUserId();
   if (!checkRateLimit("MUTATION", userId)) return { ok: false };
   try {

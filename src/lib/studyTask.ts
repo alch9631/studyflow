@@ -66,7 +66,7 @@ export function readStudyProgress(raw: string | null | undefined): StudyProgress
     const p = JSON.parse(raw ?? "null");
     const valid = p?.version === 1 && typeof p.response === "string" && p.response.length <= 4000 &&
       Number.isInteger(p.elapsedSeconds) && p.elapsedSeconds >= 0 && p.elapsedSeconds <= 36000 && typeof p.updatedAt === "string" &&
-      Number.isFinite(Date.parse(p.updatedAt)) && (p.sessionMinutes === undefined || Number.isInteger(p.sessionMinutes) && p.sessionMinutes >= 5 && p.sessionMinutes <= 600);
+      Number.isFinite(Date.parse(p.updatedAt)) && (p.sessionMinutes === undefined || Number.isInteger(p.sessionMinutes) && p.sessionMinutes >= 1 && p.sessionMinutes <= 600);
     return valid ? { version: 1, response: p.response, elapsedSeconds: p.elapsedSeconds, updatedAt: new Date(p.updatedAt).toISOString(),
       ...(p.sessionMinutes === undefined ? {} : { sessionMinutes: p.sessionMinutes }) } : null;
   } catch { return null; }

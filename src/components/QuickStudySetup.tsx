@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { startFocusSession } from "@/app/courses/studyActions";
+import { focusHref } from "@/lib/focusNavigation";
 import { useLocale, useT } from "./i18n/I18nProvider";
 import { Button } from "./ui/button";
 
@@ -22,7 +23,7 @@ export default function QuickStudySetup({ courseId, topicId, fileId, label }: {
       const result = await startFocusSession({ courseId, topicId, fileId, language });
       if (!result.ok) throw new Error();
       try { sessionStorage.setItem("sf-focus-start", result.blockId); } catch {}
-      router.push(`/focus?blockId=${encodeURIComponent(result.blockId)}`);
+      router.push(focusHref(result.blockId, result.topicId, result.kind));
     } catch { setError(true); setPending(false); }
   }
   return <div>
