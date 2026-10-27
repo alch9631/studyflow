@@ -40,8 +40,6 @@ export default async function InsightsPage() {
 
   const {
     hasData,
-    currentStreak: streak,
-    longestStreak,
     loggedMinutes,
     weekPlanned,
     weekDone,
@@ -130,36 +128,9 @@ export default async function InsightsPage() {
   }
   const hasHeatmapData = heatmapDays.some((d) => d.min > 0);
 
-  // ONE soft lead line — a single calm reflection, never a stacked report. We
-  // pick the gentlest true sentence for where the day/week stands, leading with
-  // an invitation rather than a verdict.
-  let leadLine: string;
-  if (loggedMinutes === 0 && dueDone === 0) {
-    leadLine = t("insights.leadNoData");
-  } else if (streak >= 3) {
-    leadLine = t("insights.leadStreak", { days: streak });
-  } else if (weekPlanned > 0 && weekPct >= 50) {
-    leadLine = t("insights.leadOnTrack", { pct: weekPct });
-  } else if (weekPlanned === 0) {
-    leadLine = t("insights.leadWeekClear");
-  } else {
-    leadLine = t("insights.leadNextBlock");
-  }
-
   return (
     <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-5xl">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight">{t("insights.title")}</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-        {t("insights.subtitle")}
-      </p>
-
-      {hasData && <section className="mb-7 border-b border-border pb-6" aria-labelledby="learning-evidence">
-        <h2 id="learning-evidence" className="text-lg font-semibold">{t("study.evidenceTitle")}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t("study.evidenceHint")}</p>
-        <dl className="mt-4 space-y-2 text-sm">
-          {([["goalsMet", evidence.goalsMet], ["practiceNeeded", evidence.practiceNeeded], ["laterRecall", evidence.laterRecall]] as const).map(([key, count]) => <div key={key} className="flex justify-between gap-4"><dt>{t(`study.evidence.${key}`)}</dt><dd className="font-semibold tabular-nums">{count}</dd></div>)}
-        </dl>
-      </section>}
+      <h1 className="mb-6 text-2xl font-bold tracking-tight">{t("insights.title")}</h1>
       {!hasData ? (
         <EmptyState
           icon={<Sprout className="h-7 w-7" />}
@@ -172,38 +143,21 @@ export default async function InsightsPage() {
         />
       ) : (
         <>
-          {/* ONE soft lead line — the calm "where you are" up top, an invitation
-              rather than a verdict. */}
-          <p className="mb-5 text-base text-gray-700 dark:text-gray-200">{leadLine}</p>
-
-          {/* Rhythm · Recovery · Consistency stay in the open — the three calm
-              reflections the page leads with. Nothing logged recently: hide the
-              would-be-empty activity chart and consistency gauge behind ONE
-              gentle note instead of a wall of empty grids; the 12-week heatmap
-              keeps its own data-driven gate (hasHeatmapData). */}
+          {/* A chart leads. History, learning evidence and analysis open on request. */}
           <div className="space-y-6">
             {/* Rhythm — a quiet reflection on recent study (never a flame or a
                 milestone to live up to) plus the day-by-day shape of the last
                 week. Rested days read as calm, not as failure. */}
             <section aria-label={t("insights.rhythm")} className={`${panelClass} p-4 sm:p-5`}>
               <div className="flex items-baseline justify-between">
-                <h2 className="font-semibold">{t("insights.rhythm")}</h2>
+                <h2 className="font-semibold">{t("minimal.studyTime")}</h2>
                 {!noLoggedData && (
                   <span className="text-sm text-gray-500 dark:text-gray-400">
                     {t("insights.last7days")}
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-base text-gray-700 dark:text-gray-200">
-                {streak > 0 ? t("insights.rhythmRecent") : t("insights.rhythmRested")}
-              </p>
-              {(activeDays > 0 || longestStreak > 1) && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {activeDays > 0 && t("insights.rhythmActiveDays", { days: activeDays })}
-                  {activeDays > 0 && longestStreak > 1 && " "}
-                  {longestStreak > 1 && t("insights.rhythmBest", { days: longestStreak })}
-                </p>
-              )}
+              {noLoggedData && <p className="mt-3 text-sm text-muted-foreground">{t("minimal.noSessions")}</p>}
               {!noLoggedData && (
                 <div className="mt-3">
                   <WeeklyActivityChart data={activity} />
@@ -211,15 +165,9 @@ export default async function InsightsPage() {
               )}
             </section>
 
-            {noLoggedData && (
-              <section className={`${panelClass} bg-surface-muted p-5`}>
-                <h2 className="font-semibold">{t("insights.notEnoughData")}</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {t("insights.notEnoughDataDesc")}
-                </p>
-              </section>
-            )}
-
+            {(hasHeatmapData || !noLoggedData) && <details className="mt-3">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.history")}</summary>
+              <div className="space-y-5 pt-2">
             {/* Recovery — the 12-week shape of when you studied and rested, exam
                 weeks gently marked. Rest reads as part of the rhythm, not a gap.
                 Gated on the heatmap's own window having completed minutes — not
@@ -246,16 +194,12 @@ export default async function InsightsPage() {
                 <h2 className="font-semibold">{t("insights.consistency")}</h2>
                 <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
                   <ConsistencyGauge consistency={consistency} activeDays={activeDays} />
-                  <p className="text-center text-sm text-gray-600 dark:text-gray-300 sm:text-left">
-                    {consistency >= 80
-                      ? t("insights.rockSolid", { days: activeDays })
-                      : consistency >= 40
-                        ? t("insights.steadyHabit", { days: activeDays })
-                        : t("insights.smallSessions", { days: activeDays })}
-                  </p>
+
                 </div>
               </section>
             )}
+              </div>
+            </details>}
           </div>
 
           {/* Everything number-heavy lives behind one quiet disclosure, so the
@@ -263,12 +207,19 @@ export default async function InsightsPage() {
               the sections are calm nouns — Load · Grades · By course — rather
               than a competitive scoreboard. */}
           <details className="group mt-6">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">
               {t("insights.details")}
-              <span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span>
             </summary>
 
             <div className="mt-4 space-y-6">
+      <section className="mb-7 border-b border-border pb-6" aria-labelledby="learning-evidence">
+        <h2 id="learning-evidence" className="text-lg font-semibold">{t("study.evidenceTitle")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t("study.evidenceHint")}</p>
+        <dl className="mt-4 space-y-2 text-sm">
+          {([["goalsMet", evidence.goalsMet], ["practiceNeeded", evidence.practiceNeeded], ["laterRecall", evidence.laterRecall]] as const).map(([key, count]) => <div key={key} className="flex justify-between gap-4"><dt>{t(`study.evidence.${key}`)}</dt><dd className="font-semibold tabular-nums">{count}</dd></div>)}
+        </dl>
+      </section>
+
           {/* Load — what's planned and what's due, framed as workload not a race.
               Headline figures + the closest courses to look at next. */}
           <section className="space-y-3">

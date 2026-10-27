@@ -159,6 +159,12 @@ const en = {
     continue: "Prepare my first task", catalog: "Choose a TUHH module instead", daysError: "Choose at least one study day.", sourceError: "Upload material or describe the work in your notes.",
     error: "Could not set up your task. Check the exam date, study days, time window and material, then try again.",
   },
+  minimal: {
+    start: "Start", moreTasks: "More tasks ({count})", plan: "Plan", planAttention: "Plan needs attention", schedule: "Schedule",
+    history: "History", details: "Details", studyTime: "Study time", noSessions: "No study sessions yet.",
+    addCourse: "Add a course", begin: "Add a course to begin.", exam: "Exam {date}",
+    unplaced: "{count} unscheduled", arrange: "Arrange", manual: "Choose times",
+  },
   flow: {
     sessionTools: "Notes & timer", starting: "Starting…",
     recognizingUpload: "Saving file and recognizing chapters…", recognizingAutomatic: "Recognizing chapters automatically…",
@@ -222,7 +228,7 @@ const en = {
     answerSaved: "Your answer is saved when you pause or leave.",
     timer: "Focus timer",
     resumeElsewhere: "Continue your unfinished task",
-    customTask: "Write a custom task (optional)",
+    customTask: "Add task",
   },
   study: {
     evidenceTitle: "What you have checked", evidenceHint: "These are your self-checks. Time spent alone does not show retention. Recall checked again after at least 24 hours is recorded separately.",
@@ -1319,6 +1325,12 @@ const de: Messages = {
     continue: "Erste Aufgabe vorbereiten", catalog: "Stattdessen ein TUHH-Modul wählen", daysError: "Wähle mindestens einen Lerntag.", sourceError: "Lade Material hoch oder beschreibe die Arbeit mit deinen Notizen.",
     error: "Die Aufgabe konnte nicht eingerichtet werden. Prüfe Prüfungsdatum, Lerntage, Zeitfenster und Material und versuche es erneut.",
   },
+  minimal: {
+    start: "Start", moreTasks: "Weitere Aufgaben ({count})", plan: "Plan", planAttention: "Plan anpassen", schedule: "Termine",
+    history: "Verlauf", details: "Details", studyTime: "Lernzeit", noSessions: "Noch keine Lerneinheiten.",
+    addCourse: "Kurs hinzufügen", begin: "Füge einen Kurs hinzu.", exam: "Prüfung {date}",
+    unplaced: "{count} ohne Zeit", arrange: "Einplanen", manual: "Zeiten wählen",
+  },
   flow: {
     sessionTools: "Notizen & Timer", starting: "Wird gestartet…",
     recognizingUpload: "Datei speichern und Kapitel erkennen…", recognizingAutomatic: "Kapitel werden automatisch erkannt…",
@@ -1382,7 +1394,7 @@ const de: Messages = {
     answerSaved: "Deine Antwort wird beim Pausieren oder Verlassen gespeichert.",
     timer: "Fokus-Timer",
     resumeElsewhere: "Deine offene Aufgabe fortsetzen",
-    customTask: "Eigene Aufgabe schreiben (optional)",
+    customTask: "Aufgabe hinzufügen",
   },
   study: {
     evidenceTitle: "Was du geprüft hast", evidenceHint: "Diese Angaben beruhen auf deinen Selbstprüfungen. Lernzeit allein zeigt nicht, ob du das Material behalten hast. Erneutes Abrufen nach mindestens 24 Stunden wird separat erfasst.",

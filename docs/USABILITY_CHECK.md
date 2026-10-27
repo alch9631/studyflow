@@ -66,3 +66,19 @@ Check Safari and the installed home-screen app in portrait and landscape:
 - Finish without a quiz. The session and time are saved, including work notes;
   it must not count as a passed knowledge check or change learning confidence.
   Retry a failed save and verify time is never counted twice.
+
+## Minimal interface
+
+- On Today, confirm the next or resumed task is the first content after the title,
+  with one Start/Resume button. Plan warnings, exam chips and explanatory text
+  must not stack above it. Open Plan and Schedule to find the full information.
+- The next task's dots sit beside its title, above Start; other dots sit at the
+  end of their task rows. Each opens a short menu for completion, tomorrow and
+  notes. Open Notes, save an edit, and verify Escape returns focus to the dots.
+- Check two following tasks and expand More tasks for the rest. Every task can
+  still start directly, and completion and moving work still update the plan.
+- In Courses, open a course, start a topic, expand Details, edit its task and
+  open its notes. Course settings contain refresh and pass actions. Open the
+  study plan and material disclosures to check their contents remain available.
+- In Calendar, Arrange remains directly available. Expand Choose times to place
+  a course manually. In Insights, expand History and Details for the full data.

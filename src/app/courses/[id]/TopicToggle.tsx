@@ -53,7 +53,7 @@ export default function TopicToggle({
           >
             {done ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
           </button>
-          <span className={`min-w-0 break-words ${done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
+          <span title={title} className={`line-clamp-2 min-w-0 break-words ${done ? "text-gray-500 dark:text-gray-400 line-through" : ""}`}>
             {title}
           </span>
         </>

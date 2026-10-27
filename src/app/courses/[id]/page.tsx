@@ -374,6 +374,57 @@ export default async function CoursePage({
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t("courseDetail.back")}
       </Link>
           <CourseOptionsSheet>
+            <section className="mb-6">
+        <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
+          {passed ? (
+            // Undo is only offered when the pass came from the FLAG — a pass
+            // recorded as a grade (≤ 4.0) is undone by editing the grade in the
+            // course options, not by this toggle.
+            course.passed && (
+              <form action={setCoursePassed} className="min-w-0 flex-1 sm:flex-none">
+                <input type="hidden" name="courseId" value={course.id} />
+                <input type="hidden" name="passed" value="0" />
+                <SubmitButton
+                  variant="secondary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  pendingLabel={t("common.saving")}
+                >
+                  {t("courseDetail.unmarkPassed")}
+                </SubmitButton>
+              </form>
+            )
+          ) : (
+            <>
+              {/* The one-tap "I'm done with this module" — wipes its pending
+                  sessions from the plan and stops all countdowns/nagging. */}
+              <form action={setCoursePassed} className="min-w-0 flex-1 sm:flex-none">
+                <input type="hidden" name="courseId" value={course.id} />
+                <input type="hidden" name="passed" value="1" />
+                <SubmitButton
+                  variant="secondary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  pendingLabel={t("common.saving")}
+                >
+                  {t("courseDetail.markPassed")}
+                </SubmitButton>
+              </form>
+              <form action={refreshPlan} className="min-w-0 flex-1 sm:flex-none">
+                <input type="hidden" name="courseId" value={course.id} />
+                <SubmitButton
+                  variant="primary"
+                  size="md"
+                  className="w-full sm:w-auto"
+                  pendingLabel={t("courseDetail.refreshingPlan")}
+                >
+                  {t("courseDetail.refreshPlan")}
+                </SubmitButton>
+              </form>
+            </>
+          )}
+        </div>
+            </section>
             <form action={updateCourse} className="space-y-4">
               <input type="hidden" name="courseId" value={course.id} />
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -603,7 +654,7 @@ export default async function CoursePage({
 
       <div className="mb-6 mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{course.name}</h1>
+          <h1 title={course.name} className="line-clamp-2 break-words text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">{course.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {passed ? (
               // Passed: no countdown to an exam the student is done with — one
@@ -632,70 +683,17 @@ export default async function CoursePage({
             </span>
             )}
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {t("courseDetail.examOn", {
-                date: formatFriendlyDate(course.examDate.toISOString(), t.locale),
-                pace: hoursLabel(t, course.minutesPerDay),
-                done: doneCount,
-                total: rootTopics.length,
-              })}
+              {t("minimal.exam", { date: formatFriendlyDate(course.examDate.toISOString(), t.locale) })}
             </span>
           </div>
         </div>
-        {/* ONE plan action (refresh) plus the completion action. A passed
-            course has no plan to refresh — it shows only the undo. */}
-        <div className="flex w-full shrink-0 items-stretch gap-2 sm:w-auto sm:items-end">
-          {passed ? (
-            // Undo is only offered when the pass came from the FLAG — a pass
-            // recorded as a grade (≤ 4.0) is undone by editing the grade in the
-            // course options, not by this toggle.
-            course.passed && (
-              <form action={setCoursePassed} className="min-w-0 flex-1 sm:flex-none">
-                <input type="hidden" name="courseId" value={course.id} />
-                <input type="hidden" name="passed" value="0" />
-                <SubmitButton
-                  variant="secondary"
-                  size="md"
-                  className="w-full sm:w-auto"
-                  pendingLabel={t("common.saving")}
-                >
-                  {t("courseDetail.unmarkPassed")}
-                </SubmitButton>
-              </form>
-            )
-          ) : (
-            <>
-              {/* The one-tap "I'm done with this module" — wipes its pending
-                  sessions from the plan and stops all countdowns/nagging. */}
-              <form action={setCoursePassed} className="min-w-0 flex-1 sm:flex-none">
-                <input type="hidden" name="courseId" value={course.id} />
-                <input type="hidden" name="passed" value="1" />
-                <SubmitButton
-                  variant="secondary"
-                  size="md"
-                  className="w-full sm:w-auto"
-                  pendingLabel={t("common.saving")}
-                >
-                  {t("courseDetail.markPassed")}
-                </SubmitButton>
-              </form>
-              <form action={refreshPlan} className="min-w-0 flex-1 sm:flex-none">
-                <input type="hidden" name="courseId" value={course.id} />
-                <SubmitButton
-                  variant="primary"
-                  size="md"
-                  className="w-full sm:w-auto"
-                  pendingLabel={t("courseDetail.refreshingPlan")}
-                >
-                  {t("courseDetail.refreshPlan")}
-                </SubmitButton>
-              </form>
-            </>
-          )}
-        </div>
+
       </div>
 
+      {!passed && <div className="mb-6"><QuickStudySetup courseId={course.id} title={course.name} /></div>}
+
       {overload.overloaded && (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+        <details className="mb-6 text-sm text-muted-foreground"><summary className="min-h-11 cursor-pointer py-3">{t("minimal.planAttention")}</summary>
           <p className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
@@ -717,7 +715,7 @@ export default async function CoursePage({
               {t(`courseDetail.overload.next.${overload.cause}` as MessageKey)}
             </span>
           </p>
-        </div>
+        </details>
       )}
 
       <section className="mb-8" id="materials">
@@ -903,7 +901,7 @@ export default async function CoursePage({
             </Link>
           )}
         </div>
-        <div className="mb-4 space-y-2"><QuickStudySetup courseId={course.id} title={course.name} /><StudyTaskForm courseId={course.id} materials={taskMaterials} /></div>
+        <div className="mb-4"><StudyTaskForm courseId={course.id} materials={taskMaterials} /></div>
         <AnimatedList className="space-y-2">
           {course.topics.map((topic) => {
             const task = readStudyTask(topic.studyTask);
@@ -916,24 +914,26 @@ export default async function CoursePage({
               <AnimatedListItem
                 key={topic.id}
                 id={`topic-${topic.id}`}
-                className="relative scroll-mt-24 rounded-xl border border-gray-200 p-3 pr-9 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
+                className="relative scroll-mt-24 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
-                {topic.parentTopicId && <p className="mb-2 text-xs text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
+                <div className="flex items-center gap-3"><div className="min-w-0 flex-1">
                 <TopicToggle
                   topicId={topic.id}
                   courseId={course.id}
                   title={topic.title}
                   done={topic.done}
                 />
-                {task && <details className="ml-7 mt-2 space-y-1 text-sm"><summary className="min-h-11 cursor-pointer py-3 text-muted-foreground">{t("flow.preview")}</summary>
+                </div>{!topic.done && <QuickStudySetup courseId={course.id} topicId={topic.id} title={topic.title} label={t("minimal.start")} />}</div>
+                <details className="mt-2"><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.details")}</summary>
+                {topic.parentTopicId && <p className="mb-2 text-xs text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
+                {task && <div className="ml-7 mt-2 space-y-1 text-sm">
                   <p className="whitespace-pre-wrap break-words">{task.instruction}</p>
                   {task.sourceRef && <p className="break-words text-xs text-muted-foreground">{task.sourceRef}</p>}
                   {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
                   <p className="whitespace-pre-wrap break-words text-muted-foreground">{t("study.criteria")} {task.successCriteria}</p>
-                </details>}
-                {!topic.done && <div className="mt-3"><QuickStudySetup courseId={course.id} topicId={topic.id} title={topic.title} /></div>}
+                </div>}
                 <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />
-                <TopicMeta
+                <div className="relative min-h-14"><p className="py-4 pr-12 text-sm text-muted-foreground">{t("courseDetail.topicMeta")}</p><TopicMeta
                   topicId={topic.id}
                   topicTitle={topic.title}
                   showConfidence={topic.done}
@@ -946,6 +946,7 @@ export default async function CoursePage({
                   }
                   initialNote={topic.note?.body ?? ""}
                 />
+                </div>
                 {questions.length > 0 && (
                   <details className="ml-7 mt-1">
                     <summary className="cursor-pointer text-xs text-brand-ink">
@@ -958,6 +959,7 @@ export default async function CoursePage({
                     </ul>
                   </details>
                 )}
+                </details>
               </AnimatedListItem>
             );
           })}
@@ -969,8 +971,8 @@ export default async function CoursePage({
         </AnimatedList>
       </section>
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.studyPlan")}</h2>
+      <details className="mb-5">
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-muted-foreground">{t("courseDetail.studyPlan")}</summary>
 
         {/* MISSED: past sessions whose work was never completed. These are NOT the
             current plan — shown separately, with the recovery (heal) flow as the
@@ -1041,18 +1043,9 @@ export default async function CoursePage({
             })}
           </div>
         )}
-      </section>
+      </details>
 
-      <section>
-        <h2 className="mb-2 text-lg font-semibold">{t("courseDetail.updateProgressHeading")}</h2>
-        {isSyllabusAIEnabled() ? (
-          <ProgressForm courseId={course.id} />
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("study.progressHint")}
-          </p>
-        )}
-      </section>
+      {isSyllabusAIEnabled() && <details><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("courseDetail.updateProgressHeading")}</summary><ProgressForm courseId={course.id} /></details>}
     </main>
   );
 }

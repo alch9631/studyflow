@@ -60,9 +60,7 @@ function CourseSummaryRow({
           {formatDuration(t, minutes)}
         </span>
       </span>
-      <span className="shrink-0 rounded-full bg-brand/10 px-3 py-1 text-[12px] font-medium text-brand-ink">
-        {t("calendar.place")}
-      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>
   );
 }
@@ -167,64 +165,14 @@ export default function MobileDayView({
 
   return (
     <div>
-      {/* ── Calm header: the build-itself promise. The PRIMARY action is one-tap
-          "Auto-arrange my week"; placing by hand is the quiet secondary path. ── */}
-      {unplacedCount > 0 ? (
-        <div className="mb-4 rounded-2xl bg-brand/5 px-4 py-4">
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-            {unplacedCount === 1
-              ? t("calendar.sessionWaiting")
-              : t("calendar.sessionsWaiting", { count: String(unplacedCount) })}
-          </p>
-          <p className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">
-            {t("calendar.autoArrangeWeekHint")}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={onAutoArrange}
-              disabled={isArranging}
-            >
-              {isArranging
-                ? t("calendar.autoArrangeBuilding")
-                : t("calendar.autoArrangeWeek")}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isArranging}
-              onClick={() => {
-                // Refinement path: open the sheet for the first course's unplaced
-                // sessions; the per-course rows below place the rest.
-                const g = courseGroups[0];
-                if (g)
-                  onPlace({
-                    kind: "course",
-                    courseId: g.courseId,
-                    courseName: g.courseName,
-                    blocks: g.blocks,
-                  });
-              }}
-            >
-              {t("calendar.placeManually")}
-            </Button>
-          </div>
-        </div>
-      ) : dayTimed.length > 0 ? (
-        <div className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200">
-          {t("calendar.allArrangedMobile")}
-        </div>
-      ) : null}
+      {unplacedCount > 0 && <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{t("minimal.unplaced", { count: unplacedCount })}</p>
+        <Button type="button" variant="secondary" disabled={isArranging} onClick={onAutoArrange}>{t(isArranging ? "calendar.autoArrangeBuilding" : "minimal.arrange")}</Button>
+      </div>}
 
       {/* ── Grouped-by-course summaries of what still needs a time ── */}
       {courseGroups.length > 0 && (
-        <div className="mb-5">
-          <h3 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            {t("calendar.toPlace")}
-          </h3>
+        <details className="mb-5"><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.manual")}</summary>
           <div className="flex flex-col gap-2">
             {courseGroups.map((g) => (
               <CourseSummaryRow
@@ -243,12 +191,12 @@ export default function MobileDayView({
               />
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {/* The selected day's sessions and lectures share the same time order. */}
       <div>
-        <h3 className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h3 className="mb-2 text-sm font-medium text-muted-foreground">
           {t("calendar.thisDay")}
         </h3>
         {agenda.length > 0 ? (

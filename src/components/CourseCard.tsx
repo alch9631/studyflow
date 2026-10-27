@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Card } from "./ui/card";
 import { examCountdownLabel, type Translator } from "./i18n/messages";
-import { formatFriendlyDate } from "@/lib/dates";
 
 /**
  * One of five at-a-glance course states, derived server-side in
@@ -95,12 +94,6 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
   // nothing else — earns the muted amber accent on the exam countdown. Everything
   // else stays neutral slate; red is never used here.
   const actionNeeded = health.status !== "healthy";
-  // The single plain-language confidence word. "Needs a decision" gets the muted
-  // amber accent (it asks for action); "Tight" and "Comfortable" stay neutral —
-  // calm by default, never an alarm.
-  const confidence = health.confidence;
-  const confidenceLabel = t(confidenceLabelKey(confidence));
-
   return (
     <Card
       asChild
@@ -129,24 +122,10 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
             >
               {examCountdownLabel(t, course.examInDays)}
             </span>
-            <span className="block text-xs text-gray-400 dark:text-gray-500">
-              {formatFriendlyDate(course.examDate, t.locale)}
-            </span>
+
           </span>
         </div>
 
-        {/* The single plain-language confidence word — ONE calm signal, kept
-            consistent with Today (Comfortable · Tight · Needs a decision). Amber
-            only when it asks for a decision; otherwise neutral. Not a scoreboard. */}
-        <p
-          className={`mt-3 text-sm font-semibold ${
-            confidence === "decision"
-              ? "text-warning-foreground"
-              : "text-gray-700 dark:text-gray-200"
-          }`}
-        >
-          {confidenceLabel}
-        </p>
       </Link>
     </Card>
   );

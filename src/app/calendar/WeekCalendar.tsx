@@ -1140,9 +1140,6 @@ export default function WeekCalendar({
                         ? t("calendar.sessionWaiting")
                         : t("calendar.sessionsWaiting", { count: String(weekUnplaced.length) })}
                     </p>
-                    <p className="text-[12px] text-muted-foreground">
-                      {t("calendar.autoArrangeWeekHint")}
-                    </p>
                   </div>
                   <Button
                     type="button"

@@ -264,7 +264,7 @@ export default function TopicMeta({
           aria-label={t("courseDetail.topicMetaAria", { title: topicTitle })}
           title={t("courseDetail.topicMeta")}
           onClick={() => setOpen((o) => !o)}
-          className="relative inline-flex cursor-pointer items-center justify-center rounded p-0.5 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          className="relative inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full p-2 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           <PencilLine className="h-4 w-4" aria-hidden="true" />
           {hasNote && (

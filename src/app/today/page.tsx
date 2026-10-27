@@ -30,7 +30,6 @@ import {
   minimumViableDay,
   pickHero,
   recoveryActionPreviews,
-  riskVerdict,
   studyBudget,
   type CockpitBlock,
   type CockpitStatus,
@@ -260,16 +259,18 @@ export default async function TodayPage({
     progress: readStudyProgress(noteRows.find((topic) => topic.id === b.topicId)?.studyProgress),
   })));
   const cap = computeCapacity(remainingMin, availableMin);
-  const risk = riskVerdict(cap);
   const laneMap = assignLanes(cockpitBlocks, cap);
   const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
   const hero = pickHero(cockpitBlocks, laneMap);
   const unfinished = await prisma.topic.findMany({ where: { course: { userId }, done: false, studyProgress: { not: null } },
-    take: 100, select: { id: true, title: true, studyProgress: true } });
+    take: 100, select: { id: true, title: true, studyProgress: true, studyTask: true, note: { select: { body: true } } } });
   const latest = unfinished.map((topic) => ({ ...topic, progress: readStudyProgress(topic.studyProgress) }))
     .filter((topic) => topic.progress).sort((a, b) => b.progress!.updatedAt.localeCompare(a.progress!.updatedAt))[0];
   const resumeElsewhere = latest && !cockpitBlocks.some((block) => !block.completed && block.topicId === latest.id)
-    ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" }, select: { id: true } }) : null;
+    ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" }, select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, actualMinutes: true, course: { select: { id: true, name: true } } } }) : null;
+  const displayHero: CockpitBlock | null = resumeElsewhere && latest ? { ...resumeElsewhere, progress: latest.progress, task: readStudyTask(latest.studyTask), note: latest.note?.body ?? null } : hero;
+  const displayBlocks = resumeElsewhere && displayHero ? [displayHero, ...cockpitBlocks] : cockpitBlocks;
+  const displayLanes = resumeElsewhere ? { ...lanes, [resumeElsewhere.id]: "now" as const } : lanes;
 
   // Due recall participates in today's load. Whole-plan feasibility remains
   // separate from completion of the sessions scheduled for this one day.
@@ -369,19 +370,9 @@ export default async function TodayPage({
         localStorage "seen" flag, so it shows at most once and never for users
         who already have courses. */}
 
-    {/* Container: a narrow calm column on mobile/tablet; on lg+ it widens so the
-        single spine can breathe as a calm TWO-PANE — the cockpit spine on the
-        left, today's context on the right. The grid below only kicks in at lg. */}
+    {/* One task leads; plan and schedule details are available on request. */}
     <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-5xl">
-      {/* Header row: page title left, exam-countdown chips right — aligned on one
-          baseline. Chips stack under the title on mobile (full-width scroll strip),
-          and sit to the right of the title, bounded, on desktop. */}
-      <div className="mb-4 lg:flex lg:items-start lg:justify-between lg:gap-6">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("today.title")}</h1>
-        <div className="mt-3 min-w-0 lg:mt-1 lg:max-w-[24rem]">
-          <ExamStrip exams={examChips} t={t} />
-        </div>
-      </div>
+      <h1 className="mx-auto mb-6 max-w-md text-xl font-semibold">{t("today.title")}</h1>
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
           rebuilt. The proactive trigger now lives in the single "Adjust today"
@@ -432,54 +423,29 @@ export default async function TodayPage({
           {t("today.rateLimited")}
         </div>
       )}
-      {(overdue.overdueSessions > 0 || (blocks.length === 0 && examFeasibility?.isOverloaded)) && <section className="mb-5 rounded-xl border border-border p-4" aria-label={t("today.planHealth")}>
-        <p className="font-medium">{examFeasibility?.isOverloaded ? t("today.statusDoesntFit") : t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>
-        {examFeasibility?.isOverloaded && overdue.overdueSessions > 0 && <p className="mt-1 text-sm">{t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>}
-        <form action={recoverPlan} className="mt-3"><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.recommendedAction")}</SubmitButton></form>
-        {blocks.length === 0 && <BehindSheet preview={previews} trigger={(open) => <button type="button" onClick={open} className="mt-2 min-h-11 text-sm underline">{t("behind.otherOptions")}</button>} />}
-      </section>}
-      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
-      {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
-      {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
-      {resumeElsewhere && latest && <FocusLink blockId={resumeElsewhere.id} className="mb-4 flex min-h-11 items-center justify-center rounded-xl bg-brand px-4 py-3 text-center font-semibold text-brand-foreground">{t("flow.resumeTopic", { topic: latest.title })}</FocusLink>}
-      <div className={todaysLectures.length > 0 || upcomingDeadlines.length > 0 ? "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-12 xl:gap-16" : ""}>
-      {blocks.length > 0 ? (
+      <div>
+      {displayHero ? (
           <div className="min-w-0">
-            {(checkedGoals.size > 0 || practiceNeeded.size > 0) && <p className="mb-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
-              {t("study.progressSummary", { goals: checkedGoals.size, practice: practiceNeeded.size })}
-            </p>}
-            <TodayCockpit
-              blocks={cockpitBlocks}
-              lanes={lanes}
-              hero={hero}
-              risk={risk}
-              status={status}
-              mvd={mvd}
-              previews={previews}
-            />
+            <TodayCockpit blocks={displayBlocks} lanes={displayLanes} hero={displayHero} />
           </div>
 
       ) : hasNoPlan ? (
         <EmptyState
           icon={<Rocket className="h-7 w-7" />}
           title={t("today.emptyNoPlanTitle")}
-          description={t("today.emptyNoPlanDesc")}
+          description={t("minimal.begin")}
           actions={[
-            { label: t("start.title"), href: "/start" },
+            { label: t("minimal.addCourse"), href: "/courses/new" },
             { label: t("today.browseModules"), href: "/catalog", variant: "secondary" },
-            { label: t("today.importSyllabus"), href: "/courses/import" },
-            { label: t("today.addCourse"), href: "/courses/new" },
           ]}
         />
       ) : (
         <div>
           <EmptyState
             icon={<Coffee className="h-7 w-7" />}
-            title={t("today.emptyRestTitle")}
-            description={t("today.emptyRestDesc")}
+            title={t(blocks.length > 0 && blocks.every((block) => block.completed) ? "today.calmAllDone" : "today.emptyRestTitle")}
             actions={[
               { label: t("today.myCourses"), href: "/courses" },
-              { label: t("today.insights"), href: "/insights", variant: "secondary" },
             ]}
           />
           {nextBlocks.length > 0 && (
@@ -501,18 +467,29 @@ export default async function TodayPage({
           )}
         </div>
       )}
-          <aside className="mt-6 lg:mt-0">
-          {/* When there's no context at all, the right pane would be empty on
-              lg+ — show a single calm line there instead of a hollow column.
-              Hidden on mobile (nothing to fill, so the column just collapses). */}
-          {examChips.length === 0 &&
-            todaysLectures.length === 0 &&
-            upcomingDeadlines.length === 0 && (
-              <p className="hidden text-sm text-muted-foreground lg:block">
-                {t("today.contextEmpty")}
-              </p>
-            )}
+          <details data-today-plan className="mx-auto mt-6 max-w-md border-t border-border pt-2">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t(status !== "protected" || overdue.overdueSessions > 0 ? "minimal.planAttention" : "minimal.plan")}</summary>
+            <div className="space-y-4 pb-3">
+      {(overdue.overdueSessions > 0 || (blocks.length === 0 && examFeasibility?.isOverloaded)) && <section className="mb-5 rounded-xl border border-border p-4" aria-label={t("today.planHealth")}>
+        <p className="font-medium">{examFeasibility?.isOverloaded ? t("today.statusDoesntFit") : t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>
+        {examFeasibility?.isOverloaded && overdue.overdueSessions > 0 && <p className="mt-1 text-sm">{t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>}
+        <form action={recoverPlan} className="mt-3"><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.recommendedAction")}</SubmitButton></form>
+      </section>}
+      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
+      {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
+      {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
+            {(checkedGoals.size > 0 || practiceNeeded.size > 0) && <p className="mb-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
+              {t("study.progressSummary", { goals: checkedGoals.size, practice: practiceNeeded.size })}
+            </p>}
 
+              <BehindSheet preview={previews} />
+              {mvd?.core && <div><p className="mb-2 text-sm font-medium">{t("today.mvdTitle")}</p><ul>{[mvd.core, mvd.retrieval, mvd.optional].filter((block): block is CockpitBlock => !!block).map((block) => <li key={block.id}><FocusLink blockId={block.id} className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="min-w-0 break-words">{block.topicTitle}</span><span className="shrink-0 text-muted-foreground">{fmtDuration(block.minutes)}</span></FocusLink></li>)}</ul></div>}
+            </div>
+          </details>
+          {(examChips.length > 0 || todaysLectures.length > 0 || upcomingDeadlines.length > 0) && <details data-today-schedule className="mx-auto mt-3 max-w-md">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.schedule")}</summary>
+            <div className="pb-3">
+              <ExamStrip exams={examChips} t={t} />
           {/* Demoted secondary context: today's classes + upcoming deadlines. */}
           {todaysLectures.length > 0 && (
             <section className="mt-6 first:mt-0">
@@ -576,7 +553,8 @@ export default async function TodayPage({
               </ul>
             </section>
           )}
-          </aside>
+            </div>
+          </details>}
       </div>
     </main>
     </>

@@ -4,500 +4,141 @@ import { useRef, useState } from "react";
 import FocusLink from "@/components/FocusLink";
 import NavigationPending from "@/components/NavigationPending";
 import { Check, MoreHorizontal, Undo2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { iconButtonClass } from "@/components/ui";
-import { GuardianScaffold } from "@/components/GuardianScaffold";
-import BehindSheet from "@/components/BehindSheet";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import SwipeRow from "@/components/SwipeRow";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
-import {
-  fmtDuration,
-  todayStatusKey,
-  MAX_VISIBLE_ESSENTIALS,
-  type CockpitBlock,
-  type CockpitStatus,
-  type Lane,
-  type MinimumViableDay,
-  type RecoveryActionPreview,
-  type RiskVerdict,
-} from "./cockpit";
+import { fmtDuration, type CockpitBlock, type Lane } from "./cockpit";
 
-/** Up to this many must-do rows are shown directly; the rest collapse under "Later". */
-const VISIBLE_MUST_DO = MAX_VISIBLE_ESSENTIALS;
-
-/**
- * The Today screen — sacredly simple, built on the GuardianScaffold core trio.
- *
- *   STATUS  — one big, calm, honest line ("You're okay. I set the low-priority
- *             work aside.") plus a quiet reassurance count ("2 must-do, 3
- *             optional"). It only claims what's true: deferral is mentioned only
- *             when work was actually set aside.
- *   ACTION  — ONE large primary action: "Start 30m: <topic>" → /focus.
- *   ESCAPE  — the persistent, low-key "I'm behind" affordance (BehindSheet).
- *
- * Below the trio: a SHORT list of must-do sessions (max a handful visible),
- * with everything lower-priority collapsed under "Protected for later". No
- * charts, no dense cards, no goal-at-risk, no achievement pressure. Tapping a
- * row opens the focused session sheet (mark done / move / note / start focus).
- */
-export default function TodayCockpit({
-  blocks,
-  lanes,
-  hero,
-  risk,
-  status,
-  mvd = null,
-  previews = null,
-}: {
-  blocks: CockpitBlock[];
-  /** Plain object map of blockId → lane (serializable across the boundary). */
-  lanes: Record<string, Lane>;
-  hero: CockpitBlock | null;
-  risk: RiskVerdict;
-  /** The one honest Today state — drives the big status line (never false calm). */
-  status: CockpitStatus;
-  /** The smallest-useful day (only for non-protected states); null otherwise. */
-  mvd?: MinimumViableDay | null;
-  /** Before→after preview for each "Adjust today" option (real planner data). */
-  previews?: {
-    protect: RecoveryActionPreview;
-    move: RecoveryActionPreview;
-    lighter: RecoveryActionPreview;
-  } | null;
+/** The next task leads. Menus belong to task headings, never the Start button. */
+export default function TodayCockpit({ blocks, lanes, hero }: {
+  blocks: CockpitBlock[]; lanes: Record<string, Lane>; hero: CockpitBlock | null;
 }) {
   const t = useT();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
-
-  const openBlock = openId ? blocks.find((b) => b.id === openId) ?? null : null;
-
-  // Must-do = open work the day actually needs (everything except the slide lane).
-  // The hero is the first of these; the list shows the rest.
-  const mustDo = blocks.filter((b) => !b.completed && lanes[b.id] !== "slide");
-  const optional = blocks.filter((b) => !b.completed && lanes[b.id] === "slide" && b.id !== hero?.id);
-  const restMustDo = mustDo.filter((b) => b.id !== hero?.id);
-
-  // Keep the visible list short; anything past the cap folds under "Later".
-  const visibleRest = restMustDo.slice(0, VISIBLE_MUST_DO);
-  const overflowRest = restMustDo.slice(VISIBLE_MUST_DO);
-  const laterBlocks = [...overflowRest, ...optional];
-
-  // The single honest status line. NEVER calm when the state needs a choice or
-  // can't make the exam — those map to truthful, non-reassuring copy that points
-  // at the one recovery entry ("Adjust today").
-  const allDone = risk === "clear" || !hero;
-  const statusLine = t(todayStatusKey(status, allDone));
-  const needsAdjust = status !== "protected";
-
-
-  return (
-    <>
-      <GuardianScaffold
-        className="gap-5"
-        status={needsAdjust || allDone ? <p className="text-sm text-muted-foreground">{statusLine}</p> : undefined}
-        action={hero ? <>
-          <div className="w-full text-left">
-            <h2 className="break-words text-2xl font-semibold">{hero.topicTitle}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{hero.course.name}</p>
-          </div>
-          <div className="mt-2 flex w-full items-center gap-2">
-            <Button asChild size="lg" className="relative min-w-0 flex-1">
-              <FocusLink blockId={hero.id}>
-                {hero.progress ? t("focus.resume") : t("today.mvdStart", { minutes: hero.minutes })}
-                <NavigationPending />
-              </FocusLink>
-            </Button>
-            <button type="button" aria-label={t("today.taskActions", { topic: hero.topicTitle })}
-              aria-haspopup="dialog" aria-expanded={taskMenuOpen && openId === hero.id}
-              onClick={() => { setTaskMenuOpen(true); setOpenId(hero.id); }}
-              className={iconButtonClass("inline-flex shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground")}>
-              <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-        </> : undefined}
-        escape={
-          <BehindSheet
-            preview={previews ?? undefined}
-            trigger={(open) =>
-              needsAdjust ? (
-                // Heavier states surface the ONE recovery entry as a clear button.
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full"
-                  onClick={open}
-                >
-                  {t("behind.open")}
-                </Button>
-              ) : (
-                // Protected: keep it quiet — a low-key, always-there affordance.
-                <button
-                  type="button"
-                  onClick={open}
-                  className="mx-auto block min-h-11 px-3 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  {t("behind.open")}
-                </button>
-              )
-            }
-          />
-        }
-      />
-
-      {/* ── MINIMUM VIABLE DAY ── the calm, decisive alternative to an anxiety
-          list. Shown only when today needs a choice / can't fit and there's a
-          real core block to anchor it. One core session + (if any) one retrieval
-          + one optional — all from the student's real plan, never invented. */}
-      {needsAdjust && mvd && mvd.core && (
-        <details className="mx-auto mt-4 max-w-md"><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("today.mvdTitle")}</summary><MinimumViableDayCard mvd={mvd} onOpen={(id) => setOpenId(id)} /></details>
-      )}
-
-      {/* ── SHORT must-do list (left-aligned, quiet rows) ── */}
-      {visibleRest.length > 0 && (
-        <ul className="mx-auto mt-8 max-w-md space-y-1 text-left">
-          {visibleRest.map((b) => (
-            <li key={b.id}>
-              <QuietRow block={b} onOpen={() => { setTaskMenuOpen(true); setOpenId(b.id); }} />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* ── Everything else, calmly collapsed under "Protected for later" ── */}
-      {laterBlocks.length > 0 && (
-        <details className="mx-auto mt-6 max-w-md text-left">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center px-1 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-            {t("today.laterToggle", { count: laterBlocks.length })}
-          </summary>
-          <p className="mt-1 px-1 text-xs text-muted-foreground">
-            {t("today.laterHint")}
-          </p>
-          <ul className="mt-2 space-y-1">
-            {laterBlocks.map((b) => (
-              <li key={b.id}>
-                <QuietRow block={b} onOpen={() => { setTaskMenuOpen(true); setOpenId(b.id); }} muted />
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {/* ── SESSION SHEET (per-block actions) ── */}
-      <SessionSheet
-        block={openBlock}
-        showStartFocus={!taskMenuOpen}
-        onClose={() => {
-          setOpenId(null);
-          setTaskMenuOpen(false);
-        }}
-      />
-    </>
-  );
-}
-
-/**
- * The Minimum Viable Day — a single calm card offering the smallest day that
- * still moves the student forward, drawn entirely from their real plan: one core
- * study session (the highest-priority work for the nearest exam), one retrieval
- * (a review) when the plan has one, and one optional session. It replaces the
- * dread of a full list with a doable choice. Slots open their session sheet;
- * the page keeps a single primary Start action above this card.
- */
-function MinimumViableDayCard({
-  mvd,
-  onOpen,
-}: {
-  mvd: MinimumViableDay;
-  onOpen: (blockId: string) => void;
-}) {
-  const t = useT();
-  const slots: { block: CockpitBlock; label: string }[] = [];
-  if (mvd.core) slots.push({ block: mvd.core, label: t("today.mvdCore") });
-  if (mvd.retrieval) slots.push({ block: mvd.retrieval, label: t("today.mvdRetrieval") });
-  if (mvd.optional) slots.push({ block: mvd.optional, label: t("today.mvdOptional") });
-
-  return (
-    <section className="mx-auto max-w-md py-2 text-left">
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("today.mvdSubtitle", { time: fmtDuration(mvd.totalMin) })}
-      </p>
-
-      <ul className="mt-4 space-y-2">
-        {slots.map(({ block, label }) => (
-          <li key={block.id}>
-            <button
-              type="button"
-              onClick={() => onOpen(block.id)}
-              className="flex min-h-11 w-full items-baseline gap-3 text-left"
-            >
-              <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {label}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block break-words font-medium">{block.topicTitle}</span>
-                <span className="mt-0.5 block break-words text-xs text-muted-foreground">
-                  {fmtDuration(block.minutes)} · {block.course.name}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
-    </section>
-  );
-}
-
-/**
- * A quiet row in the must-do / later list: tap the task to start its timer;
- * the menu opens secondary actions. Check off or swipe to complete/reopen —
- * reusing the shared optimistic toggle. Borderless: whitespace over edges.
- */
-function QuietRow({
-  block,
-  onOpen,
-  muted = false,
-}: {
-  block: CockpitBlock;
-  onOpen: () => void;
-  muted?: boolean;
-}) {
-  const t = useT();
-  const isReview = block.kind === "review";
-  const { optimisticDone, fire } = useOptimisticToggle({
-    action: toggleBlock,
-    actionId: "toggleBlock",
-    done: block.completed,
-    doneMessage: t("block.sessionDone"),
-    undoneMessage: t("block.sessionNotDone"),
-    errorMessage: t("block.sessionError"),
-    fields: { blockId: block.id, revalidate: "/today" },
-  });
-  const formRef = useRef<HTMLFormElement>(null);
-  const formData = () => new FormData(formRef.current ?? undefined);
-
-  return (
-    <SwipeRow
-      className="rounded-xl"
-      contentClassName={`flex items-center gap-1 rounded-xl bg-transparent py-2.5 ${
-        muted ? "opacity-70" : ""
-      }`}
-      right={
-        optimisticDone
-          ? undefined
-          : { label: t("block.done"), icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: "success", onTrigger: () => fire(formData(), true, true) }
-      }
-      left={
-        optimisticDone
-          ? { label: t("block.reopen"), icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, tone: "neutral", onTrigger: () => fire(formData(), false, true) }
-          : undefined
-      }
-    >
-      <form ref={formRef} className="contents">
-        <input type="hidden" name="blockId" value={block.id} />
-        <input type="hidden" name="revalidate" value="/today" />
-        <button
-          type="button"
-          onClick={() => fire(formData(), !optimisticDone, true)}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent"
-          aria-pressed={optimisticDone}
-          aria-label={optimisticDone ? t("block.markNotDone") : t("block.markDone")}
-        >
-          <span
-            className={`flex h-6 w-6 items-center justify-center rounded-full border ${
-              optimisticDone
-                ? "border-brand bg-brand text-brand-foreground"
-                : "border-input hover:border-muted-foreground"
-            }`}
-          >
-            {optimisticDone ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
-          </span>
-        </button>
-      </form>
-      <FocusLink blockId={block.id} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
-        <span
-          className={`block break-words ${
-            optimisticDone ? "text-muted-foreground line-through" : "font-medium"
-          }`}
-        >
-          {block.topicTitle}
-        </span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-          {fmtDuration(block.minutes)} · {block.course.name}
-          {isReview && <> · {t("block.review")}</>}
-        </span>
-        <NavigationPending />
-      </FocusLink>
-      <button type="button" onClick={onOpen} aria-label={t("today.taskActions", { topic: block.topicTitle })} className={iconButtonClass("inline-flex shrink-0 text-muted-foreground hover:bg-accent")}><MoreHorizontal className="h-5 w-5" aria-hidden="true" /></button>
-    </SwipeRow>
-  );
-}
-
-/**
- * Focused bottom-sheet for one study block: topic + course + est time, with
- * actions — Start focus (→ /focus), Mark done (toggleBlock), Move to tomorrow
- * (moveBlockToTomorrow), and a quick note (saveBlockNote). Built on the shared
- * Dialog primitive, pinned to the bottom on mobile.
- */
-function SessionSheet({
-  block,
-  showStartFocus = true,
-  onClose,
-}: {
-  block: CockpitBlock | null;
-  showStartFocus?: boolean;
-  onClose: () => void;
-}) {
-  const t = useT();
-  const { toast } = useToast();
-  const [pendingMove, setPendingMove] = useState(false);
-  const [note, setNote] = useState("");
-  const [pendingNote, setPendingNote] = useState(false);
-
-  // The draft note belongs to ONE block: when the sheet switches to a different
-  // block, reset it during render (the "adjust state when a prop changes"
-  // pattern) so block A's draft can never be saved onto block B. Seed it with
-  // the topic's EXISTING note — this editor writes the same Note.body as the
-  // course page's, so starting empty made every save an overwrite that
-  // destroyed whatever the student had written there.
-  const [noteBlockId, setNoteBlockId] = useState<string | null>(null);
-  if (block && block.id !== noteBlockId) {
-    setNoteBlockId(block.id);
-    setNote(block.note ?? "");
+  const [noteBlock, setNoteBlock] = useState<CockpitBlock | null>(null);
+  const noteTrigger = useRef<HTMLButtonElement | null>(null);
+  const rest = blocks.filter((block) => !block.completed && block.id !== hero?.id);
+  const next = rest.filter((block) => lanes[block.id] !== "slide").slice(0, 2);
+  const later = rest.filter((block) => !next.some((item) => item.id === block.id));
+  function notes(block: CockpitBlock, trigger: HTMLButtonElement | null) {
+    noteTrigger.current = trigger;
+    setNoteBlock(block);
   }
+  return <>
+    {hero && <section data-today-task className="mx-auto max-w-md py-2">
+      <div data-task-heading className="flex items-start justify-between gap-3">
+        <div className="min-w-0 pt-1">
+          <h2 title={hero.topicTitle} className="line-clamp-2 break-words text-2xl font-semibold">{hero.topicTitle}</h2>
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><span className="truncate">{hero.course.name}</span><span className="shrink-0">· {fmtDuration(hero.minutes)}</span></p>
+        </div>
+        <TaskActions block={hero} onNotes={(trigger) => notes(hero, trigger)} />
+      </div>
+      <Button asChild size="lg" className="relative mt-5 w-full">
+        <FocusLink blockId={hero.id}>{t(hero.progress ? "focus.resume" : "minimal.start")}<NavigationPending /></FocusLink>
+      </Button>
+    </section>}
+    {next.length > 0 && <ul className="mx-auto mt-6 max-w-md divide-y divide-border">
+      {next.map((block) => <li key={block.id}><QuietRow block={block} onNotes={(trigger) => notes(block, trigger)} /></li>)}
+    </ul>}
+    {later.length > 0 && <details data-more-tasks className="mx-auto mt-3 max-w-md">
+      <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.moreTasks", { count: later.length })}</summary>
+      <ul className="divide-y divide-border">{later.map((block) => <li key={block.id}><QuietRow block={block} onNotes={(trigger) => notes(block, trigger)} /></li>)}</ul>
+    </details>}
+    <TaskNotes block={noteBlock} onClose={() => setNoteBlock(null)} returnFocus={() => noteTrigger.current?.focus()} />
+  </>;
+}
 
-  const { optimisticDone, fire } = useOptimisticToggle({
-    action: toggleBlock,
-    actionId: "toggleBlock",
-    done: block?.completed ?? false,
-    doneMessage: t("block.sessionDone"),
-    undoneMessage: t("block.sessionNotDone"),
-    errorMessage: t("block.sessionError"),
-    fields: block ? { blockId: block.id, revalidate: "/today" } : undefined,
-  });
+function useBlockToggle(block: CockpitBlock) {
+  const t = useT();
+  const toggle = useOptimisticToggle({ action: toggleBlock, actionId: "toggleBlock", done: block.completed,
+    doneMessage: t("block.sessionDone"), undoneMessage: t("block.sessionNotDone"), errorMessage: t("block.sessionError"),
+    fields: { blockId: block.id, revalidate: "/today" } });
+  function fire(next: boolean) {
+    const data = new FormData(); data.set("blockId", block.id); data.set("revalidate", "/today");
+    toggle.fire(data, next, true);
+  }
+  return { done: toggle.optimisticDone, fire };
+}
 
+function TaskActions({ block, onNotes }: { block: CockpitBlock; onNotes: (trigger: HTMLButtonElement | null) => void }) {
+  const t = useT(); const { toast } = useToast();
+  const { done, fire } = useBlockToggle(block);
+  const [pending, setPending] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const openingNotes = useRef(false);
   async function move() {
-    if (!block || pendingMove) return;
-    setPendingMove(true);
-    const fd = new FormData();
-    fd.set("blockId", block.id);
+    if (pending) return;
+    setPending(true);
+    const data = new FormData(); data.set("blockId", block.id);
     try {
-      // Only claim "Moved" when the action really moved it — the server no-ops
-      // on the exam-eve clamp, rate limits, and stale ids, and says so honestly.
-      const res = await moveBlockToTomorrow(fd);
-      if (res.ok) {
-        toast(t("today.sheetMoved"), "success");
-        onClose();
-      } else if (res.reason === "exam-day") {
-        toast(t("today.sheetMoveExamEve"), "error");
-      } else {
-        toast(t("today.sheetMoveError"), "error");
-      }
-    } catch {
-      toast(t("today.sheetMoveError"), "error");
-    } finally {
-      setPendingMove(false);
-    }
+      const result = await moveBlockToTomorrow(data);
+      toast(t(result.ok ? "today.sheetMoved" : result.reason === "exam-day" ? "today.sheetMoveExamEve" : "today.sheetMoveError"), result.ok ? "success" : "error");
+    } catch { toast(t("today.sheetMoveError"), "error"); }
+    finally { setPending(false); }
   }
+  return <DropdownMenu>
+    <DropdownMenuTrigger asChild><button ref={trigger} type="button" disabled={pending}
+      aria-label={t("today.taskActions", { topic: block.topicTitle })}
+      className={iconButtonClass("inline-flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent")}>
+      <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+    </button></DropdownMenuTrigger>
+    <DropdownMenuContent align="end" onCloseAutoFocus={(event) => {
+      if (!openingNotes.current) return;
+      openingNotes.current = false;
+      event.preventDefault();
+      // Finish releasing the menu's focus scope before opening the editor.
+      onNotes(trigger.current);
+    }}>
+      <DropdownMenuItem className="min-h-11" onSelect={() => fire(!done)}>{t(done ? "today.sheetMarkNotDone" : "today.sheetMarkDone")}</DropdownMenuItem>
+      <DropdownMenuItem className="min-h-11" onSelect={() => void move()}>{t("today.sheetMoveTomorrow")}</DropdownMenuItem>
+      <DropdownMenuItem className="min-h-11" onSelect={() => { openingNotes.current = true; }}>{t("focus.notesLabel")}</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
 
-  async function saveNote() {
-    // Unchanged text = nothing to save. An emptied box IS a change (clearing
-    // the note) — the action's blank path deletes it server-side.
-    if (!block || pendingNote || note === (block.note ?? "")) return;
-    setPendingNote(true);
-    const fd = new FormData();
-    fd.set("blockId", block.id);
-    fd.set("body", note);
+function QuietRow({ block, onNotes }: { block: CockpitBlock; onNotes: (trigger: HTMLButtonElement | null) => void }) {
+  const t = useT(); const { done, fire } = useBlockToggle(block);
+  return <SwipeRow className="rounded-xl" contentClassName="flex items-center gap-1 bg-background py-2"
+    right={done ? undefined : { label: t("block.done"), icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: "success", onTrigger: () => fire(true) }}
+    left={done ? { label: t("block.reopen"), icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, tone: "neutral", onTrigger: () => fire(false) } : undefined}>
+    <button type="button" onClick={() => fire(!done)} aria-pressed={done} aria-label={t(done ? "block.markNotDone" : "block.markDone")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-accent">
+      <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${done ? "border-brand bg-brand text-brand-foreground" : "border-input"}`}>{done && <Check className="h-3.5 w-3.5" aria-hidden="true" />}</span>
+    </button>
+    <FocusLink blockId={block.id} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
+      <span title={block.topicTitle} className={`line-clamp-2 break-words text-sm font-medium ${done ? "text-muted-foreground line-through" : ""}`}>{block.topicTitle}</span>
+      <span className="mt-1 block truncate text-xs text-muted-foreground">{block.course.name} · {fmtDuration(block.minutes)}</span><NavigationPending />
+    </FocusLink>
+    <TaskActions block={block} onNotes={onNotes} />
+  </SwipeRow>;
+}
+
+function TaskNotes({ block, onClose, returnFocus }: { block: CockpitBlock | null; onClose: () => void; returnFocus: () => void }) {
+  const t = useT(); const { toast } = useToast();
+  const [draft, setDraft] = useState(""); const [topic, setTopic] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  if (block && block.id !== topic) { setTopic(block.id); setDraft(block.note ?? ""); }
+  async function save() {
+    if (!block || pending) return;
+    setPending(true);
+    const data = new FormData(); data.set("blockId", block.id); data.set("body", draft);
     try {
-      const res = await saveBlockNote(fd);
-      if (res.ok) toast(t("today.sheetNoteSaved"), "success");
-      else toast(t("today.sheetNoteError"), "error");
-    } catch {
-      toast(t("today.sheetNoteError"), "error");
-    } finally {
-      setPendingNote(false);
-    }
+      const result = await saveBlockNote(data);
+      toast(t(result.ok ? "today.sheetNoteSaved" : "today.sheetNoteError"), result.ok ? "success" : "error");
+      if (result.ok) onClose();
+    } catch { toast(t("today.sheetNoteError"), "error"); }
+    finally { setPending(false); }
   }
-
-  function markDone() {
-    if (!block) return;
-    const fd = new FormData();
-    fd.set("blockId", block.id);
-    fd.set("revalidate", "/today");
-    fire(fd, !optimisticDone, true);
-  }
-
-  return (
-    <Dialog
-      open={block != null}
-      onOpenChange={(next) => {
-        if (!next && !pendingMove && !pendingNote) onClose();
-      }}
-    >
-      {/* Bottom-sheet styling on mobile (pinned to the bottom edge), centred card
-          on larger screens — overriding the primitive's default centring. */}
-      <DialogContent mobileSheet>
-        {block && (
-          <>
-            <DialogTitle>{block.topicTitle}</DialogTitle>
-            <DialogDescription>
-              {block.course.name} · {t("today.sheetEst", { time: fmtDuration(block.minutes) })}
-              {block.kind === "review" && <> · {t("today.sheetReview")}</>}
-            </DialogDescription>
-
-            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {showStartFocus && (
-                <Button asChild className="relative sm:col-span-2">
-                  <FocusLink blockId={block.id} onNavigate={onClose}>
-                    {t("today.heroStartFocus")}
-                    <NavigationPending />
-                  </FocusLink>
-                </Button>
-              )}
-              <Button type="button" variant="secondary" onClick={markDone}>
-                {optimisticDone ? t("today.sheetMarkNotDone") : t("today.sheetMarkDone")}
-              </Button>
-              <Button type="button" variant="secondary" disabled={pendingMove} onClick={move}>
-                {pendingMove ? t("today.sheetMoving") : t("today.sheetMoveTomorrow")}
-              </Button>
-            </div>
-
-            <div className="mt-4">
-              <label htmlFor="session-note" className="block text-xs font-medium text-muted-foreground">
-                {t("today.sheetNoteLabel")}
-              </label>
-              <textarea
-                id="session-note"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={t("today.sheetNotePlaceholder")}
-                rows={2}
-                className="mt-1 w-full resize-none rounded-xl border border-input bg-surface p-2.5 text-sm"
-              />
-              <div className="mt-2 flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={pendingNote || note === (block?.note ?? "")}
-                  onClick={saveNote}
-                >
-                  {pendingNote ? t("today.sheetNoteSaving") : t("today.sheetNoteSave")}
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+  return <Dialog open={!!block} onOpenChange={(open) => { if (!open && !pending) onClose(); }}>
+    <DialogContent mobileSheet onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus(); }}>
+      <DialogTitle>{t("focus.notesLabel")}</DialogTitle><DialogDescription>{block?.topicTitle}</DialogDescription>
+      <Textarea aria-label={t("focus.notesLabel")} value={draft} maxLength={10000} rows={4} onChange={(event) => setDraft(event.target.value)} className="mt-3 w-full" />
+      <Button className="mt-3 w-full" disabled={pending || draft === (block?.note ?? "")} onClick={() => void save()}>{t(pending ? "today.sheetNoteSaving" : "today.sheetNoteSave")}</Button>
+    </DialogContent>
+  </Dialog>;
 }

@@ -20,7 +20,7 @@ export default function BehindSheet({
   preview,
 }: {
   /** Render-prop for the opener; receives an `open` callback. */
-  trigger: (open: () => void) => React.ReactNode;
+  trigger?: (open: () => void) => React.ReactNode;
   /** Optional before→after numbers; without it the options show hints only. */
   preview?: BehindPreview;
 }) {
@@ -42,7 +42,7 @@ export default function BehindSheet({
 
   return (
     <>
-      {trigger(() => setOpen(true))}
+      {trigger ? trigger(() => setOpen(true)) : <button type="button" onClick={() => setOpen(true)} className="min-h-11 text-sm font-medium text-brand-ink">{t("behind.open")}</button>}
 
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Bottom-sheet on mobile, centred card on larger screens — matching the
