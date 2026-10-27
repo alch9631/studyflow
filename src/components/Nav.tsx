@@ -17,7 +17,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { iconButtonClass } from "./ui";
-import SettingsMenu from "./SettingsMenu";
 import ThemeSetting from "./ThemeSetting";
 import LanguageToggle from "./LanguageToggle";
 import { useT } from "./i18n/I18nProvider";
@@ -26,31 +25,29 @@ import NavigationPending from "./NavigationPending";
 
 type Tab = { href: string; labelKey: MessageKey; Icon: LucideIcon; external?: boolean };
 
-// The four — and only four — primary destinations. They are the desktop inline
+// The three primary destinations. They are the desktop inline
 // tabs and (on mobile) the BottomTabBar. The drawer deliberately omits them to
 // avoid duplicate affordances.
 const CORE_TABS: Tab[] = [
   { href: "/today", labelKey: "nav.today", Icon: CalendarDays },
   { href: "/calendar", labelKey: "nav.calendar", Icon: CalendarDays },
   { href: "/courses", labelKey: "nav.courses", Icon: BookOpen },
-  { href: "/insights", labelKey: "nav.insights", Icon: BarChart3 },
 ];
 
-// Secondary, contextual destinations. Reachable from the mobile drawer only —
-// never the bottom bar and never the desktop inline tabs, which stay limited to
-// the four primaries. Catalog export route (/api/calendar) stays hidden from nav.
+// Secondary destinations live in the menu on both mobile and desktop.
 const SECONDARY_TABS: Tab[] = [
+  { href: "/insights", labelKey: "nav.insights", Icon: BarChart3 },
   { href: "/catalog", labelKey: "nav.modules", Icon: GraduationCap },
   { href: "/timetable", labelKey: "nav.timetable", Icon: Calendar },
 ];
 
-// Desktop inline tabs: the four primaries, in reading order.
+// Desktop inline tabs, in reading order.
 const DESKTOP_TABS: Tab[] = CORE_TABS;
 
 const SEARCH: Tab = { href: "/search", labelKey: "nav.search", Icon: Search };
 const SETTINGS: Tab = { href: "/settings", labelKey: "nav.settings", Icon: Settings };
 
-// Mobile drawer entries: secondary routes + Settings. The four primaries are
+// Drawer entries: secondary routes + Settings. The three primaries are
 // excluded (they live in the BottomTabBar) and Search is excluded too (it has a
 // dedicated, always-visible icon in the top bar) — no duplicates.
 const DRAWER_TABS: Tab[] = [...SECONDARY_TABS, SETTINGS];
@@ -210,11 +207,7 @@ export default function Nav() {
             <Search className="h-5 w-5" aria-hidden="true" />
           </Link>
 
-          {/* Desktop settings: a dropdown for the theme switch + a link through
-              to the full Settings page. */}
-          <SettingsMenu />
-
-          {/* Mobile menu toggle */}
+          {/* Menu on every screen size; includes Insights and preferences. */}
           <button
             ref={toggleRef}
             type="button"
@@ -223,7 +216,7 @@ export default function Nav() {
             aria-expanded={open}
             aria-controls="mobile-nav-drawer"
             className={iconButtonClass(
-              "ml-1 inline-flex text-gray-600 hover:bg-gray-100 lg:hidden dark:text-gray-300 dark:hover:bg-gray-800",
+              "ml-1 inline-flex text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
             )}
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
@@ -240,7 +233,7 @@ export default function Nav() {
         createPortal(
           <div
             ref={drawerHostRef}
-            className={`fixed inset-0 z-40 lg:hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+            className={`fixed inset-0 z-40 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
           >
         <div
           aria-hidden="true"

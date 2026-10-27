@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import FocusLink from "@/components/FocusLink";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { previewSchedule, todayISO } from "@/lib/planService";
 import { daysUntil } from "@/lib/dates";
-import { Rocket, Coffee, MapPin } from "lucide-react";
+import { Rocket, Coffee } from "lucide-react";
 import { getT } from "@/components/i18n/server";
-import { dueLabel } from "@/components/i18n/messages";
 import EmptyState from "@/components/EmptyState";
 import BehindSheet from "@/components/BehindSheet";
-import { recoverPlan, undoRecovery } from "./actions";
+import { undoRecovery } from "./actions";
 import { recoveryUndoAvailable } from "@/lib/planAdjustment";
 import { assessRecovery } from "@/lib/recovery";
 import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
-import ExamStrip, { type ExamChip } from "./ExamStrip";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
 import { parsePrefs, availableStudyMinutes, studyCapacityByWeekday } from "@/lib/timePlacer";
-import { readStudyTask, readStudyResult, readStudyProgress } from "@/lib/studyTask";
+import { readStudyTask, readStudyProgress } from "@/lib/studyTask";
 import {
   assignLanes,
   canDeferReview,
@@ -27,14 +23,11 @@ import {
   canMoveBlockToTomorrow,
   cockpitStatus,
   computeCapacity,
-  minimumViableDay,
   pickHero,
   recoveryActionPreviews,
   studyBudget,
   type CockpitBlock,
   type CockpitStatus,
-  type Lane,
-  type MinimumViableDay,
 } from "./cockpit";
 
 export const dynamic = "force-dynamic";
@@ -91,7 +84,7 @@ export default async function TodayPage({
   const rateLimited = sp.msg === "rate-limited";
 
   // Load the proposal alongside the current plan. Previewing never writes rows.
-  const [blocks, nextExam, upcomingExams, todaysLectures, upcomingDeadlines, prefUser, proposal] =
+  const [blocks, nextExam, todaysLectures, prefUser, proposal] =
     await Promise.all([
     // Only the fields the BlockRow / header math actually read (the `Row` shape).
     prisma.studyBlock.findMany({
@@ -104,7 +97,6 @@ export default async function TodayPage({
         kind: true,
         actualMinutes: true,
         topicId: true,
-        studyResult: true,
         // course.examDate drives the per-course exam proximity used by the
         // explain-my-plan ordering reason and the catch-up urgency.
         course: { select: { name: true, id: true, examDate: true } },
@@ -127,41 +119,11 @@ export default async function TodayPage({
       orderBy: { examDate: "asc" },
       select: { id: true, name: true, examDate: true },
     }),
-    // All upcoming exams (soonest first) → the exam-countdown chip strip. Capped
-    // so the strip can't grow unbounded for a user with many courses. Same
-    // passed-course exclusion as the header exam above.
-    prisma.course.findMany({
-      where: {
-        userId,
-        examDate: { gte: start },
-        passed: false,
-        OR: [{ grade: null }, { grade: { gt: 4 } }],
-      },
-      orderBy: { examDate: "asc" },
-      take: 12,
-      select: { id: true, name: true, examDate: true },
-    }),
     // Today's recurring classes (lectures/tutorials/labs).
     prisma.lecture.findMany({
       where: { userId, weekday: new Date(today + "T00:00:00Z").getUTCDay() },
       orderBy: { startMin: "asc" },
       select: { id: true, title: true, location: true, startMin: true, endMin: true },
-    }),
-    // Open deadlines due within the next 2 weeks, soonest first.
-    prisma.assignment.findMany({
-      where: {
-        done: false,
-        course: { userId },
-        dueDate: { lt: new Date(start.getTime() + 14 * 86400_000) },
-      },
-      orderBy: { dueDate: "asc" },
-      take: 6,
-      select: {
-        id: true,
-        title: true,
-        dueDate: true,
-        course: { select: { name: true, id: true } },
-      },
     }),
     // Study-window preferences (for today's capacity / risk line). Only the
     // preferences blob is read; parsePrefs tolerates null/legacy values.
@@ -201,8 +163,6 @@ export default async function TodayPage({
   const totalMin = blocks.reduce((s, b) => s + b.minutes, 0);
   const doneMin = blocks.filter((b) => b.completed).reduce((s, b) => s + b.minutes, 0);
   const remainingMin = Math.max(0, totalMin - doneMin);
-  const checkedGoals = new Set(blocks.filter((b) => readStudyResult(b.studyResult)?.outcome === "complete").map((b) => b.topicId));
-  const practiceNeeded = new Set(blocks.filter((b) => readStudyResult(b.studyResult)?.outcome === "practice" && !checkedGoals.has(b.topicId)).map((b) => b.topicId));
 
   // Realistic focus time left today, for the cockpit's one-line risk verdict.
   // Capacity = the student's study WINDOW today (prefs day-start…day-end) minus
@@ -260,7 +220,6 @@ export default async function TodayPage({
   })));
   const cap = computeCapacity(remainingMin, availableMin);
   const laneMap = assignLanes(cockpitBlocks, cap);
-  const lanes: Record<string, Lane> = Object.fromEntries(laneMap);
   const hero = pickHero(cockpitBlocks, laneMap);
   const unfinished = await prisma.topic.findMany({ where: { course: { userId }, done: false, studyProgress: { not: null } },
     take: 100, select: { id: true, title: true, studyProgress: true, studyTask: true, note: { select: { body: true } } } });
@@ -270,7 +229,6 @@ export default async function TodayPage({
     ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" }, select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, actualMinutes: true, course: { select: { id: true, name: true } } } }) : null;
   const displayHero: CockpitBlock | null = resumeElsewhere && latest ? { ...resumeElsewhere, progress: latest.progress, task: readStudyTask(latest.studyTask), note: latest.note?.body ?? null } : hero;
   const displayBlocks = resumeElsewhere && displayHero ? [displayHero, ...cockpitBlocks] : cockpitBlocks;
-  const displayLanes = resumeElsewhere ? { ...lanes, [resumeElsewhere.id]: "now" as const } : lanes;
 
   // Due recall participates in today's load. Whole-plan feasibility remains
   // separate from completion of the sessions scheduled for this one day.
@@ -280,14 +238,6 @@ export default async function TodayPage({
   const examFeasibility = [...proposal.values()].some((course) => course.isOverloaded)
     ? { isOverloaded: true } : nextExam ? proposal.get(nextExam.id) : undefined;
   const status: CockpitStatus = cockpitStatus(mustDoMin, availableMin, examFeasibility);
-
-  // Minimum Viable Day — the calm, decisive alternative to an anxiety list, shown
-  // only when today needs a choice or can't fit. Selected from the student's REAL
-  // open blocks (core study for the nearest exam + one retrieval + one optional),
-  // never invented. The cockpit surfaces it as "the smallest day that still moves
-  // you forward".
-  const mvd: MinimumViableDay | null =
-    status === "protected" ? null : minimumViableDay(cockpitBlocks, nextExam?.id ?? null);
 
   // Richer recovery preview: a before→after for each "Adjust today" option, computed
   // from real planner data WITHOUT committing. We split today's open load into
@@ -347,11 +297,6 @@ export default async function TodayPage({
     });
   }
 
-  // Exam-countdown chips (soonest first), colored by urgency in the strip.
-  const examChips: ExamChip[] = upcomingExams
-    .map((c) => ({ id: c.id, name: c.name, days: daysUntil(c.examDate, today) }))
-    .filter((c) => Number.isFinite(c.days) && c.days >= 0);
-
   // No plan exists at all (no sessions today, none scheduled ahead, no upcoming
   // exam) → treat as a brand-new user and onboard them, rather than implying a
   // "rest day" they never set up.
@@ -359,8 +304,7 @@ export default async function TodayPage({
     blocks.length === 0 &&
     nextBlocks.length === 0 &&
     !nextExam &&
-    todaysLectures.length === 0 &&
-    upcomingDeadlines.length === 0;
+    todaysLectures.length === 0;
 
   return (
     // Pull-to-refresh now lives in the root layout (wraps every route once), so
@@ -370,9 +314,20 @@ export default async function TodayPage({
         localStorage "seen" flag, so it shows at most once and never for users
         who already have courses. */}
 
-    {/* One task leads; plan and schedule details are available on request. */}
+    {/* All tasks stay visible; plan adjustments open beside the heading. */}
     <main className="mx-auto max-w-2xl p-4 sm:p-8 lg:max-w-5xl">
-      <h1 className="mx-auto mb-6 max-w-md text-xl font-semibold">{t("today.title")}</h1>
+      <div data-today-header className="mx-auto mb-6 flex max-w-md items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t("today.title")}</h1>
+        <BehindSheet preview={previews} iconOnly attention={status !== "protected" || overdue.overdueSessions > 0}>
+      {(overdue.overdueSessions > 0 || (blocks.length === 0 && examFeasibility?.isOverloaded)) && <section className="space-y-1" aria-label={t("today.planHealth")}>
+        <p className="font-medium">{examFeasibility?.isOverloaded ? t("today.statusDoesntFit") : t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>
+        {examFeasibility?.isOverloaded && overdue.overdueSessions > 0 && <p className="mt-1 text-sm">{t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>}
+      </section>}
+      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
+      {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
+      {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
+        </BehindSheet>
+      </div>
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
           rebuilt. The proactive trigger now lives in the single "Adjust today"
@@ -426,7 +381,7 @@ export default async function TodayPage({
       <div>
       {displayHero ? (
           <div className="min-w-0">
-            <TodayCockpit blocks={displayBlocks} lanes={displayLanes} hero={displayHero} />
+            <TodayCockpit blocks={displayBlocks} hero={displayHero} />
           </div>
 
       ) : hasNoPlan ? (
@@ -449,13 +404,13 @@ export default async function TodayPage({
             ]}
           />
           {nextBlocks.length > 0 && (
-            <details className="mt-6 rounded-xl border border-gray-200 dark:border-gray-800">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <section className="mt-6">
+              <h2 className="flex items-center justify-between gap-2 py-3 text-sm font-medium text-muted-foreground">
                 <span>{t("today.nextUp")} · {nextDate}</span>
                 <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                   {nextBlocks.length}
                 </span>
-              </summary>
+              </h2>
               <AnimatedList className="space-y-2 px-3 pb-3">
                 {nextBlocks.map((b) => (
                   <AnimatedListItem key={b.id}>
@@ -463,107 +418,14 @@ export default async function TodayPage({
                   </AnimatedListItem>
                 ))}
               </AnimatedList>
-            </details>
+            </section>
           )}
         </div>
       )}
-          <details data-today-plan className="mx-auto mt-6 max-w-md border-t border-border pt-2">
-            <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t(status !== "protected" || overdue.overdueSessions > 0 ? "minimal.planAttention" : "minimal.plan")}</summary>
-            <div className="space-y-4 pb-3">
-      {(overdue.overdueSessions > 0 || (blocks.length === 0 && examFeasibility?.isOverloaded)) && <section className="mb-5 rounded-xl border border-border p-4" aria-label={t("today.planHealth")}>
-        <p className="font-medium">{examFeasibility?.isOverloaded ? t("today.statusDoesntFit") : t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>
-        {examFeasibility?.isOverloaded && overdue.overdueSessions > 0 && <p className="mt-1 text-sm">{t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>}
-        <form action={recoverPlan} className="mt-3"><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.recommendedAction")}</SubmitButton></form>
-      </section>}
-      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
-      {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
-      {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
-            {(checkedGoals.size > 0 || practiceNeeded.size > 0) && <p className="mb-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
-              {t("study.progressSummary", { goals: checkedGoals.size, practice: practiceNeeded.size })}
-            </p>}
-
-              <BehindSheet preview={previews} />
-              {mvd?.core && <div><p className="mb-2 text-sm font-medium">{t("today.mvdTitle")}</p><ul>{[mvd.core, mvd.retrieval, mvd.optional].filter((block): block is CockpitBlock => !!block).map((block) => <li key={block.id}><FocusLink blockId={block.id} topicId={block.topicId} kind={block.kind} className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="min-w-0 break-words">{block.topicTitle}</span><span className="shrink-0 text-muted-foreground">{fmtDuration(block.minutes)}</span></FocusLink></li>)}</ul></div>}
-            </div>
-          </details>
-          {(examChips.length > 0 || todaysLectures.length > 0 || upcomingDeadlines.length > 0) && <details data-today-schedule className="mx-auto mt-3 max-w-md">
-            <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.schedule")}</summary>
-            <div className="pb-3">
-              <ExamStrip exams={examChips} t={t} />
-          {/* Demoted secondary context: today's classes + upcoming deadlines. */}
-          {todaysLectures.length > 0 && (
-            <section className="mt-6 first:mt-0">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {t("today.classes")}
-              </h2>
-              <ul className="space-y-2">
-                {todaysLectures.map((l) => (
-                  <li
-                    key={l.id}
-                    className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
-                  >
-                    <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-gray-600 dark:text-gray-300">
-                      {fmtClock(l.startMin)}–{fmtClock(l.endMin)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{l.title}</span>
-                      {l.location && (
-                        <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
-                          {l.location}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {upcomingDeadlines.length > 0 && (
-            <section className="mt-6 first:mt-0">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {t("today.deadlines")}
-              </h2>
-              <ul className="space-y-2">
-                {upcomingDeadlines.map((a) => {
-                  const days = daysUntil(a.dueDate, today);
-                  const urgent = days <= 3;
-                  return (
-                    <li key={a.id}>
-                      <Link
-                        href={`/courses/${a.course.id}`}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-gray-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-600"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{a.title}</span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{a.course.name}</span>
-                        </span>
-                        <span
-                          className={`shrink-0 whitespace-nowrap text-xs font-medium ${
-                            urgent ? "text-amber-700 dark:text-amber-400" : "text-gray-500 dark:text-gray-400"
-                          }`}
-                        >
-                          {dueLabel(t, days)}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-            </div>
-          </details>}
       </div>
     </main>
     </>
   );
-}
-
-/** Minutes from midnight -> "10:00". */
-function fmtClock(min: number): string {
-  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
 
 /** "1h 20m" / "45m" / "0m" */

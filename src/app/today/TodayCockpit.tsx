@@ -14,18 +14,16 @@ import { useT } from "@/components/i18n/I18nProvider";
 import { useOptimisticToggle } from "@/components/useOptimisticToggle";
 import SwipeRow from "@/components/SwipeRow";
 import { toggleBlock, moveBlockToTomorrow, saveBlockNote } from "../courses/actions";
-import { fmtDuration, type CockpitBlock, type Lane } from "./cockpit";
+import { fmtDuration, type CockpitBlock } from "./cockpit";
 
 /** The next task leads. Menus belong to task headings, never the Start button. */
-export default function TodayCockpit({ blocks, lanes, hero }: {
-  blocks: CockpitBlock[]; lanes: Record<string, Lane>; hero: CockpitBlock | null;
+export default function TodayCockpit({ blocks, hero }: {
+  blocks: CockpitBlock[]; hero: CockpitBlock | null;
 }) {
   const t = useT();
   const [noteBlock, setNoteBlock] = useState<CockpitBlock | null>(null);
   const noteTrigger = useRef<HTMLButtonElement | null>(null);
   const rest = blocks.filter((block) => !block.completed && block.id !== hero?.id);
-  const next = rest.filter((block) => lanes[block.id] !== "slide").slice(0, 2);
-  const later = rest.filter((block) => !next.some((item) => item.id === block.id));
   function notes(block: CockpitBlock, trigger: HTMLButtonElement | null) {
     noteTrigger.current = trigger;
     setNoteBlock(block);
@@ -43,13 +41,9 @@ export default function TodayCockpit({ blocks, lanes, hero }: {
         <FocusLink blockId={hero.id} topicId={hero.topicId} kind={hero.kind}>{t(hero.progress ? "focus.resume" : "minimal.start")}<NavigationPending /></FocusLink>
       </Button>
     </section>}
-    {next.length > 0 && <ul className="mx-auto mt-6 max-w-md divide-y divide-border">
-      {next.map((block) => <li key={block.id}><QuietRow block={block} onNotes={(trigger) => notes(block, trigger)} /></li>)}
+    {rest.length > 0 && <ul data-today-tasks className="mx-auto mt-6 max-w-md divide-y divide-border">
+      {rest.map((block) => <li key={block.id}><QuietRow block={block} onNotes={(trigger) => notes(block, trigger)} /></li>)}
     </ul>}
-    {later.length > 0 && <details data-more-tasks className="mx-auto mt-3 max-w-md">
-      <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.moreTasks", { count: later.length })}</summary>
-      <ul className="divide-y divide-border">{later.map((block) => <li key={block.id}><QuietRow block={block} onNotes={(trigger) => notes(block, trigger)} /></li>)}</ul>
-    </details>}
     <TaskNotes block={noteBlock} onClose={() => setNoteBlock(null)} returnFocus={() => noteTrigger.current?.focus()} />
   </>;
 }

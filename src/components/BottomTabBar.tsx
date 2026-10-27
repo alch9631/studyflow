@@ -58,22 +58,10 @@ function CoursesIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function InsightsIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...iconProps(props)}>
-      <line x1="4" y1="20" x2="20" y2="20" />
-      <line x1="7" y1="20" x2="7" y2="13" />
-      <line x1="12" y1="20" x2="12" y2="8" />
-      <line x1="17" y1="20" x2="17" y2="11" />
-    </svg>
-  );
-}
-
 const TABS: Tab[] = [
   { href: "/today", labelKey: "nav.today", Icon: TodayIcon },
   { href: "/calendar", labelKey: "nav.calendar", Icon: CalendarIcon },
   { href: "/courses", labelKey: "nav.courses", Icon: CoursesIcon },
-  { href: "/insights", labelKey: "nav.insights", Icon: InsightsIcon },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -81,9 +69,9 @@ function isActive(pathname: string, href: string) {
 }
 
 /**
- * Thumb-reachable bottom navigation for the four primary destinations. Mobile
+ * Thumb-reachable bottom navigation for the three primary destinations. Mobile
  * only (`lg:hidden`) — desktop keeps the inline top-bar tabs; the drawer carries
- * the secondary items (Modules, Timetable, Settings) with no overlap.
+ * the secondary items (Insights, Modules, Timetable, Settings) with no overlap.
  * The app shell adds matching bottom padding (layout.tsx) so this never overlaps
  * content.
  */
@@ -99,7 +87,7 @@ export default function BottomTabBar() {
       aria-label={t("nav.primaryMobile")}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden dark:border-gray-800 dark:bg-gray-950/95"
     >
-      <ul className="mx-auto grid max-w-3xl grid-cols-4 items-stretch">
+      <ul className="mx-auto grid max-w-3xl grid-cols-3 items-stretch">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
           return (

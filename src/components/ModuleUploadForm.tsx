@@ -1,170 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { FileText, Paperclip } from "lucide-react";
-import { buttonClasses } from "./ui";
-import { Select } from "./ui/select";
+import { Paperclip, Plus } from "lucide-react";
+import { Button } from "./ui/button";
 import SubmitButton from "./SubmitButton";
 import { useT } from "./i18n/I18nProvider";
-import {
-  FILE_CATEGORIES,
-  categorizeByFilename,
-  type FileCategory,
-} from "@/lib/fileCategory";
+import { categorizeByFilename } from "@/lib/fileCategory";
 import { uploadMaterial } from "@/app/courses/studyActions";
 import ValidatedForm from "./ValidatedForm";
 import { UPLOAD_ACCEPT, MAX_UPLOAD_LABEL, isWithinUploadLimit } from "@/lib/fileText";
 
-/**
- * Upload box + explicit document-type picker for the course page (Feature 2).
- *
- * The user chooses the file AND its type. Picking a file auto-detects a type
- * from the filename (the same pure heuristic the server uses) and PRE-SELECTS it
- * as the default — but the user can override it. Only when the user has manually
- * changed the type do we stop tracking the filename so we don't clobber their
- * choice. The chosen type submits as `docType` and the server uses it both to
- * shape the AI topic generation and as the stored category.
- *
- * Kept as one client island wrapping the native file input + native <select> so
- * the whole thing still submits via the server action's FormData.
- *
- * `collapsible` (used inside the course page's compact "Materials" disclosure)
- * hides the full uploader behind a small "+ Add file" trigger so the box takes
- * almost no room until the user actually wants to upload.
- */
-export default function ModuleUploadForm({
-  courseId,
-  collapsible = false,
-  aiEnabled = false,
-}: {
-  courseId: string;
-  collapsible?: boolean;
-  aiEnabled?: boolean;
+/** Store a file. Task preparation is a separate, optional action on its row. */
+export default function ModuleUploadForm({ courseId, collapsible = false }: {
+  courseId: string; collapsible?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
   const [name, setName] = useState("");
-  // The currently-selected type. "" until a file is picked / user chooses.
-  const [docType, setDocType] = useState<FileCategory | "">("");
-  // Once the user manually edits the select we stop auto-overwriting it.
-  const [userPicked, setUserPicked] = useState(false);
-  // When collapsible, the form stays hidden behind a small trigger until opened.
   const [open, setOpen] = useState(false);
-  // Set when the picked file is over the upload limit (see onFile).
   const [error, setError] = useState("");
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    // Reject oversized files here, not server-side: a body past
-    // `serverActions.bodySizeLimit` never reaches our action, so there is no
-    // redirect and no banner — just a raw framework error after a long upload.
-    if (file && !isWithinUploadLimit(file.size)) {
-      setError(t("courseDetail.fileTooLarge", { size: MAX_UPLOAD_LABEL }));
-      setName("");
-      e.target.value = "";
-      return;
-    }
-    setError("");
-    setName(file?.name ?? "");
-    if (!userPicked) {
-      // Pre-select the auto-detected category (falls back to "sonstiges" so the
-      // control always has a concrete default the server can read).
-      setDocType(file ? categorizeByFilename(file.name) ?? "sonstiges" : "");
-    }
-  }
+  if (collapsible && !open) return <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(true)} aria-expanded={false}>
+    <Plus className="h-4 w-4" aria-hidden="true" />{t("courseDetail.addFile")}
+  </Button>;
 
-  if (collapsible && !open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-expanded={false}
-        className={buttonClasses("secondary", "sm")}
-      >
-        <span aria-hidden="true">＋</span> {t("courseDetail.addFile")}
-      </button>
-    );
-  }
+  return <ValidatedForm action={uploadMaterial} successMessage={t("study.materialSaved")} errorMessage={t("study.materialError")} onDone={() => {
+    setName(""); setOpen(false);
+    router.replace(`/courses/${courseId}?materials=1#materials`, { scroll: false });
+    router.refresh();
+  }} className="space-y-3">
+    <UploadFields>
+    <input type="hidden" name="courseId" value={courseId} />
+    <input type="hidden" name="docType" value={categorizeByFilename(name) ?? "sonstiges"} />
+    <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-input px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-brand">
+      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="min-w-0 break-words [overflow-wrap:anywhere]">{name || t("courseDetail.fileChoose")}</span>
+      <input type="file" required name="file" accept={UPLOAD_ACCEPT} aria-label={t("courseDetail.fileChoose")} className="sr-only" onChange={(event) => {
+        const file = event.target.files?.[0];
+        if (file && !isWithinUploadLimit(file.size)) {
+          setError(t("courseDetail.fileTooLarge", { size: MAX_UPLOAD_LABEL }));
+          setName(""); event.target.value = ""; return;
+        }
+        setError(""); setName(file?.name ?? "");
+      }} />
+    </label>
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <div className="flex flex-wrap items-center gap-3">
+      <SubmitButton variant="primary" size="sm" disabled={!name} pendingLabel={t("common.saving")}>{t("flow.uploadFile")}</SubmitButton>
+      {collapsible && <Button type="button" variant="ghost" size="sm" onClick={() => { setOpen(false); setName(""); setError(""); }}>{t("common.cancel")}</Button>}
+    </div>
+    </UploadFields>
+  </ValidatedForm>;
+}
 
-  return (
-    <ValidatedForm action={uploadMaterial} successMessage={t("study.materialSaved")} errorMessage={t("study.materialError")} onDone={(result) => {
-      setName(""); setOpen(false);
-      const id = (result as { id?: string })?.id;
-      if (id) router.push(`/courses/${courseId}?prepare=${encodeURIComponent(id)}#materials`);
-    }} className="space-y-3">
-      <input type="hidden" name="courseId" value={courseId} />
-
-      <label
-        className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 text-center transition-colors hover:border-brand ${
-          error ? "border-red-400 dark:border-red-500" : "border-gray-300 dark:border-gray-700"
-        }`}
-      >
-        <input
-          type="file"
-          required
-          name="file"
-          accept={UPLOAD_ACCEPT}
-          className="sr-only"
-          onChange={onFile}
-        />
-        <span className="flex min-w-0 max-w-full items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-          {name ? (
-            <>
-              <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
-            </>
-          ) : (
-            t("courseDetail.filePrompt")
-          )}
-        </span>
-        <span className={buttonClasses("primary", "md")}>
-          <Paperclip className="h-4 w-4" aria-hidden="true" />
-          {name ? t("courseDetail.fileChooseDifferent") : t("courseDetail.fileChoose")}
-        </span>
-      </label>
-      {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
-
-      <div className="space-y-1">
-        <label
-          htmlFor="module-doc-type"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-200"
-        >
-          {t("courseDetail.docType.label")}
-        </label>
-        <Select
-          id="module-doc-type"
-          name="docType"
-          value={docType}
-          onChange={(e) => {
-            setDocType(e.target.value as FileCategory | "");
-            setUserPicked(true);
-          }}
-        >
-          {FILE_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {t(`courseDetail.fileCategory.${c}`)}
-            </option>
-          ))}
-        </Select>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          {t("courseDetail.docType.hint")}
-        </p>
-      </div>
-
-      <SubmitButton
-        variant="primary"
-        size="md"
-        className="w-full sm:w-auto"
-        pendingLabel={t("flow.recognizingUpload")}
-      >
-          {t("flow.uploadPrepare")}
-      </SubmitButton>
-      <p className="text-xs text-muted-foreground">{t(aiEnabled ? "flow.aiUploadHint" : "flow.uploadHint")}</p>
-    </ValidatedForm>
-  );
+function UploadFields({ children }: { children: ReactNode }) {
+  const { pending } = useFormStatus();
+  return <fieldset disabled={pending} className="min-w-0 space-y-3">{children}</fieldset>;
 }

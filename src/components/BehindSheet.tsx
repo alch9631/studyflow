@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { iconButtonClass } from "./ui";
 import {
   Dialog,
   DialogContent,
@@ -18,11 +20,17 @@ export type BehindPreview = ReturnType<typeof recoveryActionPreviews>;
 export default function BehindSheet({
   trigger,
   preview,
+  iconOnly = false,
+  attention = false,
+  children,
 }: {
   /** Render-prop for the opener; receives an `open` callback. */
   trigger?: (open: () => void) => React.ReactNode;
   /** Optional before→after numbers; without it the options show hints only. */
   preview?: BehindPreview;
+  iconOnly?: boolean;
+  attention?: boolean;
+  children?: ReactNode;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -42,7 +50,10 @@ export default function BehindSheet({
 
   return (
     <>
-      {trigger ? trigger(() => setOpen(true)) : <button type="button" onClick={() => setOpen(true)} className="min-h-11 text-sm font-medium text-brand-ink">{t("behind.open")}</button>}
+      {trigger ? trigger(() => setOpen(true)) : <button type="button" onClick={() => setOpen(true)} aria-label={t("behind.open")} title={t("behind.open")}
+        className={iconOnly ? iconButtonClass("relative inline-flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent") : "min-h-11 text-sm font-medium text-brand-ink"}>
+        {iconOnly ? <><SlidersHorizontal className="h-5 w-5" aria-hidden="true" />{attention && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand" aria-hidden="true" />}</> : t("behind.open")}
+      </button>}
 
       <Dialog open={open} onOpenChange={setOpen}>
         {/* Bottom-sheet on mobile, centred card on larger screens — matching the
@@ -50,6 +61,7 @@ export default function BehindSheet({
         <DialogContent mobileSheet>
           <DialogTitle>{t("behind.title")}</DialogTitle>
           <DialogDescription>{t("behind.subtitle")}</DialogDescription>
+          {children && <div className="mt-4 space-y-3 text-sm">{children}</div>}
 
           <div className="mt-5 flex flex-col gap-3">
             <BehindOption action={recoverPlan} label={t("behind.recommendedAction")} hint={t("behind.recommendedHint")}
