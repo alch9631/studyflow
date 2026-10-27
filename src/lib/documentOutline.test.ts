@@ -89,6 +89,7 @@ async function main() {
     const plain = await prisma.topic.create({ data: { courseId: course.id, title: "Old generic outline" } });
     const completed = await prisma.topic.create({ data: { courseId: course.id, title: "Finished work", done: true } });
     const noted = await prisma.topic.create({ data: { courseId: course.id, title: "My notes", note: { create: { body: "Keep this explanation" } } } });
+    const journal = await prisma.topic.create({ data: { courseId: course.id, title: "Session notes", focusNotes: { create: { body: "Keep the journal" } } } });
     const rated = await prisma.topic.create({ data: { courseId: course.id, title: "Rated work", confidence: "struggling" } });
     const oldTask = await prisma.topic.create({ data: { courseId: course.id, title: "Chapter 1", studyTask: JSON.stringify(quickStudyTask("read", 15, "en", { sourceFileId: file.id, sourceRef: "Lines 2–3" })) } });
     const ids = prepared.units.map((unit) => unit.id);
@@ -98,6 +99,7 @@ async function main() {
     await acceptMaterialOutline(user.id, file.id, prepared.id, ids, true);
     check("replacement removes only unused generic topics", await prisma.topic.count({ where: { id: plain.id } }) === 0);
     check("completed work, notes and confidence are preserved", await prisma.topic.count({ where: { id: { in: [completed.id, noted.id, rated.id] } } }) === 3);
+    check("replacement preserves topics with session note entries", await prisma.topic.count({ where: { id: journal.id } }) === 1 && await prisma.focusNote.count({ where: { topicId: journal.id } }) === 1);
     const created = await prisma.topic.findMany({ where: { courseId: course.id }, orderBy: { order: "asc" } });
     check("existing excerpt tasks are grouped under their actual source section", created.find((topic) => topic.id === oldTask.id)?.parentTopicId === created[0].id);
     check("accepted topics follow chapter order through the end of the script", created[0].title === "1.1 Section 1" && created[8].title === "9.1 Section 9");

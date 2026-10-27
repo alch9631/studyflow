@@ -224,6 +224,7 @@ model Topic {
   course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String
   note     Note?
+  focusNotes FocusNote[]
 
   // Topics are always read scoped to a course AND ordered by `order` (course
   // detail page, planner rebuild). Leading courseId still serves plain
@@ -246,6 +247,18 @@ model Note {
   // One note per topic: the unique constraint lets the editor upsert by topic
   // and doubles as the lookup index for the course-detail read.
   topicId String @unique
+}
+
+// Separate entries keep session notes editable without replacing the topic scratchpad.
+model FocusNote {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  topicId   String
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, createdAt])
 }
 
 // Shared, read-only catalog of real university modules students can pick from

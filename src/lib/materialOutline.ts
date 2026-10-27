@@ -123,8 +123,9 @@ export async function acceptMaterialOutline(userId: string, fileId: string, outl
     const dropped = replace ? existing.filter((topic) => !kept.has(topic.id) && !topic.parentTopicId) : [];
     const droppedIds = dropped.map((topic) => topic.id);
     const notes = droppedIds.length ? await tx.note.findMany({ where: { topicId: { in: droppedIds } }, select: { topicId: true } }) : [];
+    const focusNotes = droppedIds.length ? await tx.focusNote.findMany({ where: { topicId: { in: droppedIds } }, select: { topicId: true } }) : [];
     const studied = droppedIds.length ? await tx.studyBlock.findMany({ where: { topicId: { in: droppedIds }, completed: true }, select: { topicId: true } }) : [];
-    const safe = topicIdsSafeToDelete(dropped, notes.map((n) => n.topicId), studied.map((b) => b.topicId));
+    const safe = topicIdsSafeToDelete(dropped, [...notes, ...focusNotes].map((n) => n.topicId), studied.map((b) => b.topicId));
     const newCount = planned.filter((p) => !p.previous).length;
     if (existing.length - safe.length + newCount > LIMITS.MAX_TOPICS_PER_COURSE) throw new ValidationError("This course has reached its topic limit.");
     if (safe.length) await tx.topic.deleteMany({ where: { id: { in: safe } } });

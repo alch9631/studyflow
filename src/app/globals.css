@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* Keep the timer and note composer together on a short, landscape screen. */
+@media (min-width: 480px) and (max-height: 500px) {
+  [data-focus-session] .focus-session-layout {
+    display: grid;
+    max-width: 56rem;
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto 1fr;
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  [data-focus-session] .focus-session-heading { grid-column: 1 / -1; }
+  [data-focus-session] .focus-session-clock {
+    grid-column: 1;
+    grid-row: 2;
+    position: sticky;
+    top: 0;
+    padding: 1.5rem .5rem;
+  }
+  [data-focus-session] .focus-session-clock [role="timer"] { font-size: clamp(3rem, 9vw, 5rem); }
+  [data-focus-session] .focus-session-notes { grid-column: 2; grid-row: 2; padding-top: .5rem; }
+  [data-focus-session] .focus-session-notes > label > textarea { height: 4rem; min-height: 4rem; }
+  [data-focus-session] .focus-session-check { grid-column: 2; }
+}
+
 /* Class-based dark mode: toggling `.dark` on <html> flips the theme. */
 @custom-variant dark (&:where(.dark, .dark *));
 

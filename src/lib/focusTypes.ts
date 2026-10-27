@@ -1,4 +1,5 @@
 import type { StudyTask, StudyProgress } from "@/lib/studyTask";
+import type { FocusNoteEntry } from "@/lib/focusNotes";
 
 /** The single block Focus mode works on (serializable across the boundary). */
 export type FocusBlock = {
@@ -11,6 +12,8 @@ export type FocusBlock = {
   topicId: string;
   task: StudyTask | null;
   progress?: StudyProgress | null;
+  requestedMinutes?: number;
+  notes?: FocusNoteEntry[];
   lastAttempt?: string | null;
   fileAvailable: boolean;
   /** Existing course notes remain available alongside the session draft. */

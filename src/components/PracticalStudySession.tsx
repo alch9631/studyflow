@@ -13,9 +13,8 @@ import { focusHref } from "@/lib/focusNavigation";
 import { useToast } from "./Toast";
 import { useT } from "./i18n/I18nProvider";
 import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
-import { Select } from "./ui/select";
 import { iconButtonClass } from "./ui";
+import FocusNotes, { type FocusNotesHandle } from "./FocusNotes";
 
 // The question/answer interface is only downloaded when the student asks for it.
 const StudyTaskSession = dynamic(() => import("./StudyTaskSession"));
@@ -32,14 +31,14 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
   const { toast } = useToast();
   const [response, setResponse] = useState(block.progress?.response ?? "");
   const [elapsed, setElapsed] = useState(block.progress?.elapsedSeconds ?? 0);
-  const [sessionMinutes, setSessionMinutes] = useState(block.progress?.sessionMinutes ?? block.minutes);
+  const [sessionMinutes, setSessionMinutes] = useState(block.requestedMinutes ?? block.progress?.sessionMinutes ?? block.minutes);
   const [running, setRunning] = useState(true);
   const [checkOpen, setCheckOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [status, setStatus] = useState<"saving" | "error" | "">("");
   const [leaving, setLeaving] = useState(false);
   const finished = useRef(false);
   const saving = useRef<Promise<boolean> | null>(null);
+  const notes = useRef<FocusNotesHandle>(null);
   const localKey = `sf-study-work-${block.topicId}`;
   const clockKey = `sf-study-clock-${block.id}`;
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
@@ -63,8 +62,10 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
         setElapsed(clock.elapsed); setSessionMinutes(clock.minutes); setRunning((clock.running || startRequested) && clock.elapsed < clock.minutes * 60);
       }
     } catch {}
+    if (block.requestedMinutes) { setSessionMinutes(block.requestedMinutes); setRunning(true); }
   }
   const work = useRef({ response, elapsedSeconds: elapsed, sessionMinutes });
+  function changeResponse(value: string) { work.current.response = value; setResponse(value); }
   useEffect(() => { work.current = { response, elapsedSeconds: elapsed, sessionMinutes }; }, [response, elapsed, sessionMinutes]);
 
   const persist = useCallback(() => {
@@ -99,6 +100,12 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
     if (saving.current === request) saving.current = null;
     return result;
   }, [block.id, block.topicId]);
+
+  useEffect(() => {
+    if (!restored || !block.requestedMinutes) return;
+    const timer = setTimeout(() => void save(), 0);
+    return () => clearTimeout(timer);
+  }, [restored, block.requestedMinutes, save]);
 
   useEffect(() => {
     if (!restored) return;
@@ -140,6 +147,7 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
   async function leave(complete = false) {
     if (leaving) return;
     pauseClock(); setLeaving(true);
+    if (notes.current && !await notes.current.flush()) { setLeaving(false); return; }
     if (complete) {
       finished.current = true;
       if (saving.current) await saving.current;
@@ -156,33 +164,21 @@ export default function PracticalStudySession({ block }: { block: FocusBlock }) 
 
   return <div data-focus-session className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background text-foreground">
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <main className="mx-auto flex min-h-full max-w-lg flex-col pb-4 pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] pt-[calc(.75rem+env(safe-area-inset-top))]">
-        <header className="flex items-start justify-between gap-3">
+      <main className="focus-session-layout mx-auto flex min-h-full max-w-lg flex-col pb-4 pl-[calc(1.25rem+env(safe-area-inset-left))] pr-[calc(1.25rem+env(safe-area-inset-right))] pt-[calc(.75rem+env(safe-area-inset-top))]">
+        <header className="focus-session-heading flex items-start justify-between gap-3">
           <div className="min-w-0 pt-2"><h1 className="line-clamp-2 break-words text-xl font-semibold" title={block.topicTitle}>{block.topicTitle}</h1>
             <p className="mt-1 truncate text-sm text-muted-foreground">{block.course.name}</p></div>
           <button type="button" className={iconButtonClass("inline-flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent")} aria-label={t("flow.saveLeave")} disabled={leaving} onClick={() => void leave()}><X className="h-5 w-5" aria-hidden="true" /></button>
         </header>
-        <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+        <div className="focus-session-clock flex flex-1 flex-col items-center justify-center py-8 text-center">
           <div role="timer" aria-label={t("flow.timer")} className="text-7xl font-medium tabular-nums tracking-tight sm:text-8xl">{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</div>
           <p role="status" className="mt-3 min-h-5 text-sm text-muted-foreground">{remaining === 0 ? t("focus.timeUp") : running ? t("focus.title") : t("focus.paused")}</p>
           {source && <a href={source} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
         </div>
-        <details onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
-          <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-muted-foreground">{t("focus.details")}</summary>
-          {detailsOpen && <div className="pb-3">
-            <label className="mt-2 block text-sm font-medium">{t("flow.time")}
-              <Select value={sessionMinutes} className="mt-1 w-full" disabled={leaving} onChange={(event) => setSessionMinutes(Number(event.target.value))}>
-                {[...new Set([15, 25, 30, 45, sessionMinutes])].sort((a, b) => a - b).map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}
-              </Select>
-            </label>
-            {block.task && <StudyTaskSession blockId={block.id} topicId={block.topicId} courseId={block.course.id} task={block.task} fileAvailable={block.fileAvailable}
-              actualMinutes={Math.floor(elapsed / 60)} open={checkOpen} onOpenChange={(value) => { if (value) setRunning(false); setCheckOpen(value); }}
-              response={response} onResponseChange={setResponse} onCompleted={clearDraft} />}
-            <label className="mt-4 block text-sm font-medium">{t("focus.notesLabel")}<Textarea rows={3} maxLength={4000} value={response} onChange={(event) => setResponse(event.target.value)} className="mt-2 w-full" /></label>
-            {block.lastAttempt && <details className="mt-3"><summary className="min-h-11 cursor-pointer py-3 text-sm">{t("flow.lastAttempt")}</summary><p className="whitespace-pre-wrap break-words text-sm">{block.lastAttempt}</p></details>}
-            {block.note && <p className="mt-3 whitespace-pre-wrap break-words text-sm text-muted-foreground">{block.note}</p>}
-          </div>}
-        </details>
+        <FocusNotes ref={notes} topicId={block.topicId} initialNotes={block.notes ?? []} draft={response} onDraftChange={changeResponse} disabled={leaving} />
+        {block.task && <StudyTaskSession blockId={block.id} topicId={block.topicId} courseId={block.course.id} task={block.task} fileAvailable={block.fileAvailable}
+          actualMinutes={Math.floor(elapsed / 60)} open={checkOpen} onOpenChange={(value) => { if (value) setRunning(false); setCheckOpen(value); }} compact
+          response={response} onResponseChange={changeResponse} beforeComplete={() => notes.current?.flush() ?? Promise.resolve(true)} onCompleted={clearDraft} />}
         {status === "error" && <div role="alert" className="py-2 text-sm"><p>{t("flow.saveError")}</p><div className="mt-2 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={() => void save()}>{t("common.save")}</Button><Link href="/today" className="inline-flex min-h-11 items-center underline underline-offset-4" onClick={pauseClock}>{t("flow.leaveUnsaved")}</Link></div></div>}
       </main>
     </div>

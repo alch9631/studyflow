@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import FocusLink from "@/components/FocusLink";
-import NavigationPending from "@/components/NavigationPending";
+import SessionLengthDialog, { type SessionChoice } from "@/components/SessionLengthDialog";
+import { restoreFocusClock } from "@/lib/focusClock";
 import { Check, MoreHorizontal, Undo2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -23,28 +23,42 @@ export default function TodayCockpit({ blocks, hero }: {
   const t = useT();
   const [noteBlock, setNoteBlock] = useState<CockpitBlock | null>(null);
   const noteTrigger = useRef<HTMLButtonElement | null>(null);
+  const [sessionChoice, setSessionChoice] = useState<SessionChoice | null>(null);
+  const sessionTrigger = useRef<HTMLButtonElement | null>(null);
   const rest = blocks.filter((block) => !block.completed && block.id !== hero?.id);
   function notes(block: CockpitBlock, trigger: HTMLButtonElement | null) {
     noteTrigger.current = trigger;
     setNoteBlock(block);
   }
+  function chooseLength(block: CockpitBlock, trigger: HTMLButtonElement) {
+    sessionTrigger.current = trigger;
+    let elapsed = block.progress?.elapsedSeconds ?? 0;
+    let minutes = block.progress?.sessionMinutes ?? block.minutes;
+    try {
+      const clock = restoreFocusClock(sessionStorage.getItem(`sf-study-clock-${block.id}`), Date.now());
+      if (clock) {
+        elapsed = Math.max(elapsed, clock.elapsed); minutes = clock.minutes;
+        sessionStorage.setItem(`sf-study-clock-${block.id}`, JSON.stringify({ ...clock, running: false }));
+      }
+    } catch {}
+    setSessionChoice({ id: block.id, topicId: block.topicId, kind: block.kind, title: block.topicTitle, minutes, elapsed });
+  }
   return <>
     {hero && <section data-today-task className="mx-auto max-w-md py-2">
       <div data-task-heading className="flex items-start justify-between gap-3">
         <div className="min-w-0 pt-1">
-          <h2 title={hero.topicTitle} className="line-clamp-2 break-words text-2xl font-semibold">{hero.topicTitle}</h2>
+          <h2 className="text-2xl font-semibold"><button type="button" onClick={(event) => chooseLength(hero, event.currentTarget)} title={hero.topicTitle} aria-haspopup="dialog" className="inline-flex min-h-11 items-center break-words text-left"><span className="line-clamp-2">{hero.topicTitle}</span></button></h2>
           <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><span className="truncate">{hero.course.name}</span><span className="shrink-0">· {fmtDuration(hero.minutes)}</span></p>
         </div>
         <TaskActions block={hero} onNotes={(trigger) => notes(hero, trigger)} />
       </div>
-      <Button asChild size="lg" className="relative mt-5 w-full">
-        <FocusLink blockId={hero.id} topicId={hero.topicId} kind={hero.kind}>{t(hero.progress ? "focus.resume" : "minimal.start")}<NavigationPending /></FocusLink>
-      </Button>
+      <Button type="button" size="lg" className="relative mt-5 w-full" aria-haspopup="dialog" onClick={(event) => chooseLength(hero, event.currentTarget)}>{t(hero.progress ? "focus.resume" : "minimal.start")}</Button>
     </section>}
     {rest.length > 0 && <ul data-today-tasks className="mx-auto mt-6 max-w-md divide-y divide-border">
-      {rest.map((block) => <li key={block.id}><QuietRow block={block} onNotes={(trigger) => notes(block, trigger)} /></li>)}
+      {rest.map((block) => <li key={block.id}><QuietRow block={block} onStart={(trigger) => chooseLength(block, trigger)} onNotes={(trigger) => notes(block, trigger)} /></li>)}
     </ul>}
     <TaskNotes block={noteBlock} onClose={() => setNoteBlock(null)} returnFocus={() => noteTrigger.current?.focus()} />
+    {sessionChoice && <SessionLengthDialog choice={sessionChoice} onClose={() => setSessionChoice(null)} returnFocus={() => sessionTrigger.current?.focus()} />}
   </>;
 }
 
@@ -96,7 +110,7 @@ function TaskActions({ block, onNotes }: { block: CockpitBlock; onNotes: (trigge
   </DropdownMenu>;
 }
 
-function QuietRow({ block, onNotes }: { block: CockpitBlock; onNotes: (trigger: HTMLButtonElement | null) => void }) {
+function QuietRow({ block, onStart, onNotes }: { block: CockpitBlock; onStart: (trigger: HTMLButtonElement) => void; onNotes: (trigger: HTMLButtonElement | null) => void }) {
   const t = useT(); const { done, fire } = useBlockToggle(block);
   return <SwipeRow className="rounded-xl" contentClassName="flex items-center gap-1 bg-background py-2"
     right={done ? undefined : { label: t("block.done"), icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: "success", onTrigger: () => fire(true) }}
@@ -104,10 +118,10 @@ function QuietRow({ block, onNotes }: { block: CockpitBlock; onNotes: (trigger: 
     <button type="button" onClick={() => fire(!done)} aria-pressed={done} aria-label={t(done ? "block.markNotDone" : "block.markDone")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-accent">
       <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${done ? "border-brand bg-brand text-brand-foreground" : "border-input"}`}>{done && <Check className="h-3.5 w-3.5" aria-hidden="true" />}</span>
     </button>
-    <FocusLink blockId={block.id} topicId={block.topicId} kind={block.kind} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
+    <button type="button" aria-haspopup="dialog" onClick={(event) => onStart(event.currentTarget)} className="relative min-h-11 min-w-0 flex-1 py-1 text-left">
       <span title={block.topicTitle} className={`line-clamp-2 break-words text-sm font-medium ${done ? "text-muted-foreground line-through" : ""}`}>{block.topicTitle}</span>
-      <span className="mt-1 block truncate text-xs text-muted-foreground">{block.course.name} · {fmtDuration(block.minutes)}</span><NavigationPending />
-    </FocusLink>
+      <span className="mt-1 block truncate text-xs text-muted-foreground">{block.course.name} · {fmtDuration(block.minutes)}</span>
+    </button>
     <TaskActions block={block} onNotes={onNotes} />
   </SwipeRow>;
 }

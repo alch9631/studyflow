@@ -12,10 +12,11 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dial
 import QuickStudySetup from "./QuickStudySetup";
 
 export default function StudyTaskSession({ blockId, courseId, topicId, task, fileAvailable, actualMinutes, open, onOpenChange,
-  response: controlledResponse, onResponseChange, onCompleted, hideCheckButton = false }: {
+  response: controlledResponse, onResponseChange, onCompleted, beforeComplete, compact = false, hideCheckButton = false }: {
   blockId: string; courseId: string; topicId: string; task: StudyTask | null;
   fileAvailable: boolean; actualMinutes: number; open: boolean; onOpenChange: (value: boolean) => void;
   response?: string; onResponseChange?: (value: string) => void; onCompleted?: () => void; hideCheckButton?: boolean;
+  beforeComplete?: () => Promise<boolean>; compact?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
   async function finish(outcome: "complete" | "practice") {
     if (pending) return;
     setPending(true);
+    if (beforeComplete && !await beforeComplete()) { setPending(false); return; }
     const data = new FormData();
     data.set("blockId", blockId); data.set("topicId", topicId); data.set("outcome", outcome); data.set("response", response);
     data.set("checked", outcome === "complete" ? "1" : "0"); data.set("actualMinutes", String(Math.min(600, Math.max(0, actualMinutes))));
@@ -50,7 +52,8 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
   </div>;
 
   return <>
-    <section className="mt-6 text-left">
+    <section className={compact ? "focus-session-check text-left" : "mt-6 text-left"}>
+      {!compact && <>
       <p className="whitespace-pre-wrap break-words text-lg leading-relaxed">{task.instruction}</p>
       {source ? <a href={source} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block min-h-11 max-w-full break-words py-3 text-sm font-semibold text-brand-ink underline underline-offset-4 [overflow-wrap:anywhere]">{t("study.openMaterial")}{task.sourceRef && <> · {task.sourceRef}</>}</a>
         : task.sourceRef && <p className="mt-3 break-words text-sm text-muted-foreground">{task.sourceRef}</p>}
@@ -59,7 +62,8 @@ export default function StudyTaskSession({ blockId, courseId, topicId, task, fil
         <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">{t("flow.sourceExcerpt")}</summary>
         <div className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words py-2 text-base leading-relaxed">{task.sourceExcerpt}</div>
       </details>}
-      {!hideCheckButton && <Button type="button" variant="secondary" className="mt-4 w-full" onClick={() => onOpenChange(true)}>{t("study.checkResult")}</Button>}
+      </>}
+      {!hideCheckButton && <Button type="button" variant={compact ? "ghost" : "secondary"} className={compact ? "px-0" : "mt-4 w-full"} onClick={() => onOpenChange(true)}>{t("study.checkResult")}</Button>}
     </section>
     <Dialog open={open} onOpenChange={(value) => !pending && onOpenChange(value)}>
       <DialogContent mobileSheet showCloseButton={!pending}>

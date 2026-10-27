@@ -339,6 +339,11 @@ const en = {
     mvdStart: "Start {minutes}m",
   },
   focus: {
+    minutesLabel: "Minutes", alreadyStudied: "{minutes} min studied",
+    savedNotes: "Saved notes", editNote: "Edit note",
+    noteError: "Could not save the note. Your text is kept.",
+    noteConflict: "This note changed elsewhere. Review the saved version, then save again.",
+    latestNote: "Latest saved note", noteLimit: "This task has reached its note limit. Existing notes can still be edited.",
     details: "Details & notes", resume: "Resume", finish: "Finish",
     startError: "Could not start the timer. Try again.",
     title: "Focus",
@@ -1514,6 +1519,11 @@ const de: Messages = {
     mvdStart: "{minutes} Min starten",
   },
   focus: {
+    minutesLabel: "Minuten", alreadyStudied: "{minutes} Min gelernt",
+    savedNotes: "Gespeicherte Notizen", editNote: "Notiz bearbeiten",
+    noteError: "Notiz konnte nicht gespeichert werden. Dein Text bleibt erhalten.",
+    noteConflict: "Diese Notiz wurde anderswo geändert. Prüfe die gespeicherte Fassung und speichere erneut.",
+    latestNote: "Zuletzt gespeicherte Notiz", noteLimit: "Das Notizlimit dieser Aufgabe ist erreicht. Vorhandene Notizen bleiben bearbeitbar.",
     details: "Details & Notizen", resume: "Weiter", finish: "Beenden",
     startError: "Timer konnte nicht starten. Bitte erneut versuchen.",
     title: "Fokus",

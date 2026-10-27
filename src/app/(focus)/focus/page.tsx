@@ -8,7 +8,9 @@ import { prioritizeBlocks } from "@/app/today/cockpit";
 import { todayISO } from "@/lib/planService";
 import { getT } from "@/components/i18n/server";
 import type { FocusBlock } from "@/lib/focusTypes";
-import { readStudyTask, readStudyProgress, readStudyResult } from "@/lib/studyTask";
+import { readStudyTask, readStudyProgress } from "@/lib/studyTask";
+import { focusNotesForUser } from "@/lib/focusNotes";
+import { sessionLength } from "@/lib/sessionLength";
 import PracticalStudySession from "@/components/PracticalStudySession";
 import { resolveFocusForUser } from "@/lib/focusSession";
 
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
 export default async function FocusPage({
   searchParams,
 }: {
-  searchParams: Promise<{ blockId?: string; topicId?: string; kind?: string }>;
+  searchParams: Promise<{ blockId?: string; topicId?: string; kind?: string; minutes?: string }>;
 }) {
   const [userId, t, sp] = await Promise.all([getCurrentUserId(), getT(), searchParams]);
 
@@ -97,18 +99,15 @@ export default async function FocusPage({
   // Session drafts and original course notes are kept separate.
   const topic = await prisma.topic.findFirst({
     where: { id: block.topicId, courseId: block.course.id, course: { userId } },
-    select: { studyTask: true, studyProgress: true, note: { select: { body: true } } },
+    select: { studyTask: true, studyProgress: true },
   });
   const task = readStudyTask(topic?.studyTask);
-  const [attempts, fileCount] = await Promise.all([
-    prisma.studyBlock.findMany({ where: { topicId: block.topicId, course: { userId }, completed: true, studyResult: { not: null } },
-      orderBy: { date: "desc" }, take: 20, select: { studyResult: true } }),
+  const [notes, fileCount] = await Promise.all([
+    focusNotesForUser(userId, block.topicId),
     task?.sourceFileId ? prisma.moduleFile.count({
       where: { id: task.sourceFileId, courseId: block.course.id, content: { not: null } },
     }) : 0,
   ]);
-  const lastAttempt = attempts.map((attempt) => readStudyResult(attempt.studyResult)).filter((result) => result?.recordedAt)
-    .sort((a, b) => b!.recordedAt!.localeCompare(a!.recordedAt!))[0];
   const fileAvailable = fileCount > 0;
 
   const focusBlock: FocusBlock = {
@@ -119,8 +118,8 @@ export default async function FocusPage({
     kind: block.kind,
     topicId: block.topicId,
     course: { id: block.course.id, name: block.course.name },
-    note: topic?.note?.body ?? null,
-    task, fileAvailable, progress: readStudyProgress(topic?.studyProgress), lastAttempt: lastAttempt?.outcome !== "complete" ? lastAttempt?.response : null,
+    notes, requestedMinutes: sessionLength(sp.minutes),
+    task, fileAvailable, progress: readStudyProgress(topic?.studyProgress),
   };
 
   // Keyed by block id: if the mounted /focus route ever receives a different

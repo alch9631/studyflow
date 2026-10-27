@@ -605,6 +605,7 @@ export async function analyzeModuleUpload(formData: FormData) {
               where: { topicId: { in: droppedIds } },
               select: { topicId: true },
             });
+            noted.push(...await tx.focusNote.findMany({ where: { topicId: { in: droppedIds } }, select: { topicId: true } }));
             studied = await tx.studyBlock.findMany({
               where: { topicId: { in: droppedIds }, completed: true },
               select: { topicId: true },

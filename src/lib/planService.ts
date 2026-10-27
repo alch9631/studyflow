@@ -887,7 +887,7 @@ export async function aiOptimizeCourse(courseId: string): Promise<boolean> {
   // Clear previously AI-added review topics so re-optimizing doesn't pile them
   // up — matched by our own tag, so a student's "Review: ..." topic is safe.
   await prisma.topic.deleteMany({
-    where: { courseId, questions: AI_REVIEW_TOPIC_TAG },
+    where: { courseId, questions: AI_REVIEW_TOPIC_TAG, note: null, focusNotes: { none: {} } },
   });
 
   const byTitle = new Map(realTopics.map((t) => [t.title.trim().toLowerCase(), t]));
