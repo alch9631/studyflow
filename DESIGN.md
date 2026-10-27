@@ -4,7 +4,7 @@ Mode: Operate. Keep the existing Geist type, cyan accent, neutral surfaces and d
 
 The user wants a minimal app, especially on iPhone. Default screens show the content and controls needed for the next action. Do not add introductory paragraphs, reassuring commentary, repeated status messages or instructions above the task.
 
-- Today leads with one task and one Start or Resume button. Tapping a task or Start/Resume opens one session-length field before the timer starts. Show every following task in a plain list; never hide tasks behind a disclosure.
+- Today leads with one task and one Start or Resume button. Tapping a task or Start/Resume opens session-length choices of 10, 30, 60 and 90 minutes before the timer starts, with no typing. Preserve elapsed time when resuming older sessions. Show every following task in a plain list; never hide tasks behind a disclosure.
 - Task menus sit at the right edge of their task heading or row. Never attach an overflow menu to the Start button. Menus contain short actions; editors open separately.
 - Adjust plan opens directly from an icon beside the Today heading. Keep plan health and recovery controls inside it. Today has no Schedule section.
 - Primary navigation is Today, Calendar and Courses. Insights belongs in the navigation menu on mobile and desktop.
