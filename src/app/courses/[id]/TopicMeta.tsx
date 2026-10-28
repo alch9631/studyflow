@@ -7,31 +7,18 @@ import {
   useRef,
   useState,
   useTransition,
+  type ReactNode,
 } from "react";
 import { PencilLine } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/Toast";
 import { useT } from "@/components/i18n/I18nProvider";
 import type { MessageKey } from "@/components/i18n/messages";
 import { haptics } from "@/components/haptics";
 import { saveNote, deleteNote, setTopicConfidence } from "../actions";
 
-/**
- * #1 — One compact 📝 affordance per topic that opens a small popover holding
- * BOTH the per-topic note AND the confidence/difficulty selector.
- *
- * Behaviour:
- *  • Single trigger button (📝) replaces the old inline confidence row + the
- *    separate note disclosure. A dot on the trigger flags "has a note".
- *  • Picking a confidence/difficulty level **auto-closes** the popover (the
- *    plan re-adapts server-side); the note can still be edited while open.
- *  • A small coloured badge on the topic row shows the selected level when set.
- *  • Accessible: Escape closes, focus returns to the trigger, click-outside
- *    closes, the trigger is aria-expanded, the levels are a radiogroup.
- *
- * Reuses the existing server actions (`setTopicConfidence`, `saveNote`,
- * `deleteNote`) — no duplicated persistence logic.
- */
+/** One pen opens the topic editor; notes autosave and flush before closing. */
 
 type Confidence = "solid" | "practice" | "struggling";
 
@@ -47,7 +34,7 @@ const LEVELS: {
     labelKey: "courseDetail.confidenceSolid",
     ariaKey: "courseDetail.confidenceSolidAria",
     tone:
-      "data-[on=true]:border-green-500 data-[on=true]:bg-green-500 data-[on=true]:text-white dark:data-[on=true]:border-green-500",
+      "data-[on=true]:border-green-700 data-[on=true]:bg-green-700 data-[on=true]:text-white",
     badge:
       "border-green-300 bg-green-100 text-green-700 dark:border-green-900 dark:bg-green-950/50 dark:text-green-300",
   },
@@ -56,7 +43,7 @@ const LEVELS: {
     labelKey: "courseDetail.confidencePractice",
     ariaKey: "courseDetail.confidencePracticeAria",
     tone:
-      "data-[on=true]:border-amber-500 data-[on=true]:bg-amber-500 data-[on=true]:text-white dark:data-[on=true]:border-amber-500",
+      "data-[on=true]:border-amber-400 data-[on=true]:bg-amber-200 data-[on=true]:text-amber-950",
     badge:
       "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300",
   },
@@ -65,7 +52,7 @@ const LEVELS: {
     labelKey: "courseDetail.confidenceStruggling",
     ariaKey: "courseDetail.confidenceStrugglingAria",
     tone:
-      "data-[on=true]:border-rose-500 data-[on=true]:bg-rose-500 data-[on=true]:text-white dark:data-[on=true]:border-rose-500",
+      "data-[on=true]:border-rose-700 data-[on=true]:bg-rose-700 data-[on=true]:text-white",
     badge:
       "border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300",
   },
@@ -90,6 +77,7 @@ export default function TopicMeta({
   initialConfidence,
   initialNote,
   showConfidence,
+  children,
 }: {
   topicId: string;
   topicTitle: string;
@@ -97,46 +85,17 @@ export default function TopicMeta({
   initialNote: string;
   /** Confidence is only meaningful once a topic is done (matches the old gate). */
   showConfidence: boolean;
+  children?: ReactNode;
 }) {
   const t = useT();
   const { toast } = useToast();
 
   // ── popover open/close ────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  const close = useCallback((restoreFocus = true) => {
+  function close() {
+    flushNote();
     setOpen(false);
-    if (restoreFocus) triggerRef.current?.focus();
-  }, []);
-
-  // Escape closes (returns focus); click-outside closes (no focus steal).
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        close();
-      }
-    }
-    function onPointer(e: PointerEvent) {
-      const target = e.target as Node;
-      if (
-        panelRef.current?.contains(target) ||
-        triggerRef.current?.contains(target)
-      ) {
-        return;
-      }
-      close(false);
-    }
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open, close]);
+  }
 
   // ── confidence ────────────────────────────────────────────────────────────
   const [confidence, setConfidence] = useState<Confidence | null>(initialConfidence);
@@ -244,7 +203,7 @@ export default function TopicMeta({
   const activeLevel = LEVELS.find((l) => l.value === confidence);
 
   return (
-    <>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) flushNote(); setOpen(next); }}>
       {/* Row badge: shows the selected confidence/difficulty level inline. */}
       {showConfidence && activeLevel && (
         <span
@@ -256,15 +215,14 @@ export default function TopicMeta({
 
       {/* Single 📝 affordance, top-right of the topic row. */}
       <div className="absolute right-2 top-2">
+        <DialogTrigger asChild>
         <button
-          ref={triggerRef}
           type="button"
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label={t("courseDetail.topicMetaAria", { title: topicTitle })}
-          title={t("courseDetail.topicMeta")}
-          onClick={() => setOpen((o) => !o)}
-          className="relative inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full p-2 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          aria-label={t("courseDetail.editTopic", { title: topicTitle })}
+          title={t("courseDetail.editTopic", { title: topicTitle })}
+          className="relative inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full p-2 leading-none hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           <PencilLine className="h-4 w-4" aria-hidden="true" />
           {hasNote && (
@@ -275,14 +233,13 @@ export default function TopicMeta({
             />
           )}
         </button>
+        </DialogTrigger>
+      </div>
 
-        {open && (
-          <div
-            ref={panelRef}
-            role="dialog"
-            aria-label={t("courseDetail.topicMeta")}
-            className="absolute right-0 top-8 z-20 w-[min(20rem,75vw)] space-y-3 rounded-lg border border-gray-200 bg-white p-2.5 shadow-lg dark:border-gray-800 dark:bg-gray-900"
-          >
+          <DialogContent mobileSheet data-topic-editor>
+            <DialogTitle>{topicTitle}</DialogTitle>
+            <DialogDescription className="sr-only">{t("courseDetail.topicMeta")}</DialogDescription>
+            <div className="mt-4 space-y-4">
             {/* Confidence / difficulty — picking a level auto-closes. */}
             {showConfidence && (
               <div className="space-y-1.5">
@@ -308,7 +265,7 @@ export default function TopicMeta({
                         aria-label={t(lvl.ariaKey)}
                         data-on={on}
                         onClick={() => chooseConfidence(lvl.value)}
-                        className={`rounded-full border border-gray-300 px-2.5 py-0.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-500 dark:border-gray-700 dark:text-gray-300 ${lvl.tone}`}
+                        className={`min-h-11 rounded-full border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-gray-500 dark:border-gray-700 dark:text-gray-300 ${lvl.tone}`}
                       >
                         {t(lvl.labelKey)}
                       </button>
@@ -332,7 +289,7 @@ export default function TopicMeta({
                 placeholder={t("courseDetail.notePlaceholder")}
                 onChange={(e) => onChangeNote(e.target.value)}
                 onBlur={flushNote}
-                className="w-full text-sm"
+                className="w-full"
               />
               <div className="flex items-center justify-between gap-2">
                 <p
@@ -358,7 +315,7 @@ export default function TopicMeta({
                     <button
                       type="button"
                       onClick={clearNote}
-                      className="rounded text-xs font-medium text-gray-500 transition-colors hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:text-gray-400 dark:hover:text-red-400"
+                      className="min-h-11 rounded px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       {t("courseDetail.clearNote")}
                     </button>
@@ -366,9 +323,9 @@ export default function TopicMeta({
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </>
+            {children}
+            </div>
+          </DialogContent>
+    </Dialog>
   );
 }

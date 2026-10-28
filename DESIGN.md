@@ -9,9 +9,10 @@ The user wants a minimal app, especially on iPhone. Default screens show the con
 - Adjust plan opens directly from an icon beside the Today heading. Keep it to the available adjustment actions and one short impact line per action; no repeated explanations or multi-day tables. Keep necessary plan health and undo controls inside it. Today has no Schedule section.
 - Primary navigation is Today, Calendar and Courses. Insights belongs in the navigation menu on mobile and desktop.
 - Materials is a visible, simple file list with opening, optional task planning and deletion. Add file opens the native picker directly from an inline control; show Upload beside the chosen file. No separate upload panel, focus controls, repeated metadata or upload instructions.
-- Course pages have no Start focus, topic Start or Add task controls. Topic details open from a chevron beside the topic title; keep existing task editing and notes available inside.
+- Course pages have no Start focus, topic Start or Add task controls. One pen beside each topic opens its notes and editing sheet; never expand topic rows with dropdowns. Keep existing task editing and notes available inside.
+- Material filenames wrap within their row, including long names without spaces. Keep planning and deletion as compact icons beside the filename, never below it or overlapping it.
 - Course rows show the name and exam countdown. Course settings, plan maintenance, task instructions and editing controls open on request.
-- Calendar leads with dates and the agenda. Placement tools stay compact and manual controls are collapsed.
+- Calendar leads with dates and the agenda. On phones, Arrange and the unscheduled count refer to the selected day and exclude completed work. A full window gives a short explanation and a direct link to change the window. Placement tools stay compact and manual controls are collapsed.
 - Insights leads with a chart. Explanations, history and detailed statistics are optional.
 - Focus shows the timer, Pause and Finish, a visible notes box and an editable list of saved, dated notes beneath it. No Details & notes disclosure. Preserve notes across sessions and plan changes.
 

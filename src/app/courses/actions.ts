@@ -46,7 +46,7 @@ import {
 } from "@/lib/validate";
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 import { checkBlockTimes, instantToDayMinutes, instantToDayISO, dayMinutesToInstant } from "@/lib/calendarTime";
-import { placeDayBlocks, parsePrefs } from "@/lib/timePlacer";
+import { arrangeCalendarTimes } from "@/lib/calendarArrange";
 import { confirmDailyBudget } from "@/lib/studyAvailability";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
@@ -1453,99 +1453,8 @@ export async function autoScheduleWeekTimes(
   const anchorISO = weekStartRaw && isValidISODate(weekStartRaw) ? weekStartRaw : todayISO();
   const anchor = new Date(anchorISO + "T00:00:00Z");
   const monday = new Date(anchor.getTime() - ((anchor.getUTCDay() + 6) % 7) * 86400_000);
-  const weekEnd = new Date(monday.getTime() + 7 * 86400_000);
-
-  // Prefs (study window + energy) and the user's recurring lectures (busy).
-  const [user, lectures] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } }),
-    prisma.lecture.findMany({
-      where: { userId },
-      select: { weekday: true, startMin: true, endMin: true },
-    }),
-  ]);
-  const prefs = parsePrefs(user?.preferences);
-  const window = { startMin: prefs.dayStartMin, endMin: prefs.dayEndMin };
-
-  // The week's blocks (ownership-scoped through course.userId), only the columns
-  // the placer needs. We re-place only the timeless ones (both times null) so a
-  // re-run is safe and never overwrites hand-set times.
-  const weekBlocks = await prisma.studyBlock.findMany({
-    where: { course: { userId }, date: { gte: monday, lt: weekEnd } },
-    select: { id: true, date: true, minutes: true, startTime: true, endTime: true },
-  });
-
-  let placedTotal = 0;
-  let unplacedTotal = 0;
-
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(monday.getTime() + i * 86400_000);
-    const dayISO = day.toISOString().slice(0, 10);
-    const weekday = day.getUTCDay(); // 0=Sun … 6=Sat, matching Lecture.weekday
-
-    // Blocks on this day that still have no time-of-day → candidates for placement.
-    const dayBlocks = weekBlocks.filter(
-      (b) =>
-        b.date.toISOString().slice(0, 10) === dayISO && b.startTime == null && b.endTime == null,
-    );
-    if (dayBlocks.length === 0) continue;
-
-    // Busy = this weekday's lectures PLUS blocks already pinned to a time on this
-    // day (hand-placed or previously auto-placed) — the placer must flow around
-    // both, or fresh placements would overlap what's already on the calendar. A
-    // timed block's day is derived from startTime (Europe/Berlin), matching how
-    // the calendar columns it; its end is start + duration so a rolled-past-
-    // midnight end still reads as a same-day interval.
-    const busy = [
-      ...lectures
-        .filter((l) => l.weekday === weekday)
-        .map((l) => ({ startMin: l.startMin, endMin: l.endMin })),
-      ...weekBlocks
-        .filter(
-          (b) => b.startTime != null && b.endTime != null && instantToDayISO(b.startTime) === dayISO,
-        )
-        .map((b) => {
-          const startMin = instantToDayMinutes(b.startTime!);
-          const endMin =
-            startMin + Math.round((b.endTime!.getTime() - b.startTime!.getTime()) / 60000);
-          return { startMin, endMin };
-        }),
-    ];
-
-    const { placed, unplaced } = placeDayBlocks(
-      dayBlocks.map((b) => ({ id: b.id, minutes: b.minutes })),
-      busy,
-      window,
-      prefs.energy,
-    );
-    unplacedTotal += unplaced.length;
-
-    // DST guard: converting day-minutes to instants can collapse a placement
-    // that straddles a spring-forward gap (Europe/Berlin) into start >= end;
-    // persisting start == end renders as a 24h block on the calendar. Drop any
-    // zero-or-negative-length placement into the unplaced count instead.
-    const persistable = placed
-      .map((p) => ({
-        id: p.id,
-        startTime: dayMinutesToInstant(dayISO, p.startMin),
-        endTime: dayMinutesToInstant(dayISO, p.endMin),
-      }))
-      .filter((p) => p.endTime.getTime() > p.startTime.getTime());
-    unplacedTotal += placed.length - persistable.length;
-    if (persistable.length === 0) continue;
-
-    // Persist the day's placements in one transaction: each placed block gets its
-    // start/end as a UTC instant on this local day (Europe/Berlin via calendarTime).
-    await prisma.$transaction(
-      persistable.map((p) =>
-        prisma.studyBlock.update({
-          where: { id: p.id },
-          data: { startTime: p.startTime, endTime: p.endTime },
-        }),
-      ),
-    );
-    placedTotal += persistable.length;
-  }
+  const result = await arrangeCalendarTimes(userId, monday.toISOString().slice(0, 10), str(formData.get("day")) || undefined);
 
   revalidatePath("/calendar");
-  return { placed: placedTotal, unplaced: unplacedTotal, rateLimited: false };
+  return { ...result, rateLimited: false };
 }

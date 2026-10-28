@@ -111,36 +111,37 @@ function TimedSummaryRow({ block, onPlace, onToggle }: {
 /**
  * The calm mobile overview.
  *
- * `weekUnplaced` are every day-granular (timeless) block across the whole shown
- * week — grouped here by course. `dayTimed` are the selected day's already-timed
+ * `dayUnplaced` are unfinished timeless blocks on the selected day — grouped here by course. `dayTimed` are the selected day's already-timed
  * sessions. Auto-arrange, editing, and completion use the parent's actions.
  */
 export default function MobileDayView({
-  weekUnplaced,
+  dayUnplaced,
   dayTimed,
   dayLectures,
   isArranging,
   onAutoArrange,
+  noRoom,
   onPlace,
   onToggle,
 }: {
-  weekUnplaced: CalBlock[];
+  dayUnplaced: CalBlock[];
   dayTimed: CalBlock[];
   dayLectures: CalLecture[];
   isArranging: boolean;
   onAutoArrange: () => void;
+  noRoom: boolean;
   onPlace: (target: PlacementTarget) => void;
   onToggle: (block: CalBlock) => void;
 }) {
   const t = useT();
 
-  // Group the week's unplaced sessions by course → one summary row per course.
+  // Group the selected day's unplaced sessions by course → one summary row per course.
   const courseGroups = useMemo(() => {
     const m = new Map<
       string,
       { courseId: string; courseName: string; blocks: CalBlock[]; minutes: number }
     >();
-    for (const b of weekUnplaced) {
+    for (const b of dayUnplaced) {
       const g = m.get(b.courseId) ?? {
         courseId: b.courseId,
         courseName: b.courseName,
@@ -152,9 +153,9 @@ export default function MobileDayView({
       m.set(b.courseId, g);
     }
     return [...m.values()].sort((a, b) => a.courseName.localeCompare(b.courseName));
-  }, [weekUnplaced]);
+  }, [dayUnplaced]);
 
-  const unplacedCount = weekUnplaced.length;
+  const unplacedCount = dayUnplaced.length;
   const agenda = useMemo(
     () => [
       ...dayTimed.map((block) => ({ kind: "session" as const, startMin: block.startMin!, block })),
@@ -169,6 +170,7 @@ export default function MobileDayView({
         <p className="text-sm text-muted-foreground">{t("minimal.unplaced", { count: unplacedCount })}</p>
         <Button type="button" variant="secondary" disabled={isArranging} onClick={onAutoArrange}>{t(isArranging ? "calendar.autoArrangeBuilding" : "minimal.arrange")}</Button>
       </div>}
+      {unplacedCount > 0 && noRoom && !isArranging && <p role="status" className="mb-2 text-sm text-muted-foreground">{t("calendar.noRoom")} <a href="/settings#study-window" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("calendar.changeWindow")}</a></p>}
 
       {/* ── Grouped-by-course summaries of what still needs a time ── */}
       {courseGroups.length > 0 && (

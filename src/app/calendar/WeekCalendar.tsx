@@ -429,6 +429,7 @@ export default function WeekCalendar({
     t("calendar.sun"),
   ];
   const [isArranging, startArranging] = useTransition();
+  const [arrangeNoRoom, setArrangeNoRoom] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Gate the desktop 7-column drag grid on a real desktop viewport so its
@@ -523,13 +524,16 @@ export default function WeekCalendar({
 
   // Run the week's auto-placement. `silent` suppresses the result toast — used by
   // the first-visit auto-run so a fresh week quietly builds itself without a popup.
-  function autoArrange(silent = false) {
+  function autoArrange(silent = false, dayISO?: string) {
     startArranging(async () => {
+      try {
       const fd = new FormData();
       fd.set("weekStart", weekStartISO);
+      if (dayISO) fd.set("day", dayISO);
       const { placed, unplaced, rateLimited } = await autoScheduleWeekTimes(fd);
       router.refresh();
       if (silent) return;
+      setArrangeNoRoom(null);
       if (rateLimited) {
         // Nothing was arranged because the action was rate-limited — say so
         // instead of the misleading "nothing needed a time".
@@ -537,12 +541,14 @@ export default function WeekCalendar({
       } else if (placed === 0 && unplaced === 0) {
         toast(t("calendar.autoNone"), "info");
       } else if (unplaced > 0) {
-        toast(
-          t("calendar.autoResultPartial", { placed: String(placed), unplaced: String(unplaced) }),
-          "info",
-        );
+        if (dayISO) setArrangeNoRoom(dayISO);
+        else toast(t("calendar.noRoom"), "info", { action: { label: t("settings.studyPrefsTitle"), onClick: () => router.push("/settings#study-window") } });
+        if (placed > 0) toast(t("calendar.autoResult", { placed: String(placed) }), "success");
       } else {
         toast(t("calendar.autoResult", { placed: String(placed) }), "success");
+      }
+      } catch {
+        if (!silent) toast(t("calendar.blockError"), "error");
       }
     });
   }
@@ -565,7 +571,7 @@ export default function WeekCalendar({
     if (autoRanRef.current) return;
     if (blocks.length === 0) return;
     if (anyTimed) return; // week already has placed work → never auto-run
-    if (!blocks.some((b) => b.startMin == null)) return; // nothing to place
+    if (!blocks.some((b) => !b.completed && b.startMin == null)) return; // nothing to place
     const key = `sf:cal:autoarranged:${weekStartISO}`;
     let alreadyRan = false;
     try {
@@ -943,7 +949,7 @@ export default function WeekCalendar({
   // Every timeless (day-granular) block across the whole shown week — the calm
   // mobile overview groups these by course into placement summaries.
   const weekUnplaced = useMemo(
-    () => viewBlocks.filter((b) => b.startMin == null),
+    () => viewBlocks.filter((b) => !b.completed && b.startMin == null),
     [viewBlocks],
   );
 
@@ -1069,11 +1075,12 @@ export default function WeekCalendar({
           ))}
 
           <MobileDayView
-            weekUnplaced={weekUnplaced}
+            dayUnplaced={weekUnplaced.filter((block) => block.dayISO === selectedDay)}
             dayTimed={timedFor(selectedDay)}
             dayLectures={lecturesFor(selectedDay)}
             isArranging={isArranging}
-            onAutoArrange={() => autoArrange()}
+            onAutoArrange={() => autoArrange(false, selectedDay)}
+            noRoom={arrangeNoRoom === selectedDay}
             onPlace={setPlaceTarget}
             onToggle={toggle}
           />

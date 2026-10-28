@@ -14,7 +14,7 @@ import type { StudyPrefs } from "@/lib/timePlacer";
 export default async function StudyPrefsForm({ prefs }: { prefs: StudyPrefs }) {
   const t = await getT();
   return (
-    <form action={saveStudyPrefs} className="mt-4 space-y-4">
+    <form id="study-window" aria-label={t("settings.studyPrefsTitle")} action={saveStudyPrefs} className="mt-4 scroll-mt-24 space-y-4">
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">{t("study.dailyBudget")}</span>
         <input type="number" name="dailyBudgetMin" required min={15} max={360} step={15} defaultValue={prefs.dailyBudgetMin ?? 180}

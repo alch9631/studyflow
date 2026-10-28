@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download, ChevronDown } from "lucide-react";
+import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
@@ -611,14 +612,14 @@ export default async function CoursePage({
             <ModuleUploadForm courseId={course.id} />
             {course.files.length > 0 && <ul data-material-list className="mt-3 divide-y divide-border">
               {course.files.map((file) => <li key={file.id} className="py-2">
-                <div className="flex items-start gap-2">
-                  <FileText className="mt-3 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
+                <div data-material-row className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <div className="min-w-0">
                     {originalIds.has(file.id) ? <>
-                      <a href={`/api/materials/${file.id}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center break-words py-2 text-sm font-medium underline-offset-4 hover:underline [overflow-wrap:anywhere]">{file.filename}</a>
-                      <MaterialStudyActions fileId={file.id} courseId={course.id} filename={file.filename} stored={file.studyDrafts} analysis={file.analysis} autoOpen={prepare === file.id} />
-                    </> : <><p className="break-words py-2 text-sm font-medium [overflow-wrap:anywhere]">{file.filename}</p><p className="text-xs text-muted-foreground">{t("study.originalUnavailable")}</p></>}
+                      <a href={`/api/materials/${file.id}`} target="_blank" rel="noopener noreferrer" title={file.filename} className="flex min-h-11 min-w-0 items-start gap-2 py-3 text-sm font-medium underline-offset-4 hover:underline"><FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="block min-w-0 [overflow-wrap:anywhere]">{file.filename.split(/(?<=[_-])/).map((part, index) => <Fragment key={index}>{part}<wbr /></Fragment>)}</span></a>
+                    </> : <><p className="py-3 text-sm font-medium [overflow-wrap:anywhere]">{file.filename}</p><p className="text-xs text-muted-foreground">{t("study.originalUnavailable")}</p></>}
                   </div>
+                  <div className="flex shrink-0 items-start">
+                  {originalIds.has(file.id) && <MaterialStudyActions compact fileId={file.id} courseId={course.id} filename={file.filename} stored={file.studyDrafts} analysis={file.analysis} autoOpen={prepare === file.id} />}
                   <ConfirmDialog action={deleteModuleFile} fields={{ moduleFileId: file.id }}
                     successMessage={t("courseDetail.fileRemoved")} errorMessage={t("courseDetail.fileRemoveError")}
                     className="shrink-0" triggerLabel={<Trash2 className="h-4 w-4" aria-hidden="true" />}
@@ -627,6 +628,7 @@ export default async function CoursePage({
                     title={t("courseDetail.deleteFileTitle")}
                     message={<>{t("courseDetail.deleteFileMsgPre")} <strong>{file.filename}</strong>{" "}{t("courseDetail.deleteFileMsgPost")}</>}
                     confirmLabel={t("courseDetail.deleteFileConfirm")} pendingLabel={t("courseDetail.removing")} />
+                  </div>
                 </div>
               </li>)}
             </ul>}
@@ -668,21 +670,7 @@ export default async function CoursePage({
                   title={topic.title}
                   done={topic.done}
                 />
-                </div>
-                <details className="group/topic" data-topic-details>
-                  <summary aria-label={t("courseDetail.topicDetails", { topic: topic.title })} title={t("courseDetail.topicDetails", { topic: topic.title })} className="absolute right-2 top-2 flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full text-muted-foreground hover:bg-accent [&::-webkit-details-marker]:hidden">
-                    <ChevronDown className="h-5 w-5 transition-transform group-open/topic:rotate-180" aria-hidden="true" />
-                  </summary>
-                  <div className="mt-2 border-t border-border pt-3">
-                {topic.parentTopicId && <p className="mb-2 text-xs text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
-                {task && <div className="ml-7 mt-2 space-y-1 text-sm">
-                  <p className="whitespace-pre-wrap break-words">{task.instruction}</p>
-                  {task.sourceRef && <p className="break-words text-xs text-muted-foreground">{task.sourceRef}</p>}
-                  {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
-                  <p className="whitespace-pre-wrap break-words text-muted-foreground">{t("study.criteria")} {task.successCriteria}</p>
-                </div>}
-                {task && <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />}
-                <div className="relative min-h-14"><p className="py-4 pr-12 text-sm text-muted-foreground">{t("courseDetail.topicMeta")}</p><TopicMeta
+                <TopicMeta
                   topicId={topic.id}
                   topicTitle={topic.title}
                   showConfidence={topic.done}
@@ -694,22 +682,24 @@ export default async function CoursePage({
                       : null
                   }
                   initialNote={topic.note?.body ?? ""}
-                />
-                </div>
+                >
+                {topic.parentTopicId && <p className="text-sm text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
+                {task && <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />}
+                {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
                 {questions.length > 0 && (
-                  <details className="ml-7 mt-1">
-                    <summary className="cursor-pointer text-xs text-brand-ink">
+                  <section>
+                    <p className="text-sm font-medium">
                       {t("courseDetail.selfTest", { count: questions.length })}
-                    </summary>
+                    </p>
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
                       {questions.map((q, i) => (
                         <li key={i}>{q}</li>
                       ))}
                     </ul>
-                  </details>
+                  </section>
                 )}
-                  </div>
-                </details>
+                </TopicMeta>
+                </div>
               </AnimatedListItem>
             );
           })}

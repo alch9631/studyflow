@@ -199,5 +199,12 @@ check(
     JSON.stringify({ dayStartMin: 480, dayEndMin: 1320, energy: "morning", dailyBudgetMin: 90 }),
 );
 
+for (const energy of ["any", "morning", "evening"] as const) {
+  const result = placeDayBlocks([{ id: "a", minutes: 30 }, { id: "b", minutes: 30 }], [], { startMin: 480, endMin: 540 }, energy);
+  check(`${energy}: optional breaks cannot strand a session in an exact-fit window`, result.placed.length === 2 && result.unplaced.length === 0);
+  const slots = [...result.placed].sort((a, b) => a.startMin - b.startMin);
+  check(`${energy}: compact placement still has no overlap`, slots[0].endMin <= slots[1].startMin);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

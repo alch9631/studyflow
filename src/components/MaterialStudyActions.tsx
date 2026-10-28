@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ListPlus } from "lucide-react";
 import { prepareMaterialTasks, prepareMaterialPlan, addMaterialTasks } from "@/app/courses/studyActions";
 import { readMaterialOutline, type MaterialOutline } from "@/lib/documentOutline";
 import { readStudyDrafts, type StudyDraftSet } from "@/lib/studyDraft";
@@ -11,8 +12,8 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import MaterialOutlineReview from "./MaterialOutlineReview";
 
-export default function MaterialStudyActions({ fileId, courseId, filename, stored, analysis, autoOpen = false }: {
-  fileId: string; courseId: string; filename: string; stored: string | null; analysis: string | null; autoOpen?: boolean;
+export default function MaterialStudyActions({ fileId, courseId, filename, stored, analysis, autoOpen = false, compact = false }: {
+  fileId: string; courseId: string; filename: string; stored: string | null; analysis: string | null; autoOpen?: boolean; compact?: boolean;
 }) {
   const t = useT(); const language = useLocale(); const router = useRouter(); const { toast } = useToast();
   const [open, setOpen] = useState(autoOpen);
@@ -65,7 +66,7 @@ export default function MaterialStudyActions({ fileId, courseId, filename, store
     } catch { toast(t("flow.prepareError"), "error"); } finally { setPending(false); }
   }
   return <div>
-    <Button type="button" variant="ghost" size="sm" className="px-0 text-brand-ink" onClick={() => { setError(""); setOpen(true); }}>{t("flow.filePlan")}</Button>
+    <Button type="button" variant="ghost" size="sm" className={compact ? "h-11 w-11 p-0" : "px-0 text-brand-ink"} aria-label={compact ? t("courseDetail.planFileAria", { filename }) : undefined} title={compact ? t("flow.filePlan") : undefined} onClick={() => { setError(""); setOpen(true); }}>{compact ? <ListPlus className="h-4 w-4" aria-hidden="true" /> : t("flow.filePlan")}</Button>
     <Dialog open={open} onOpenChange={(value) => !pending && setOpen(value)}><DialogContent mobileSheet className={outline && !smallTasks ? "sm:max-w-xl" : ""}>
       <DialogTitle>{t(outline && !smallTasks ? "flow.reviewOutline" : "flow.reviewDrafts")}</DialogTitle><DialogDescription>{filename}</DialogDescription>
       {/* Document work starts only after explicitly opening preparation. Running

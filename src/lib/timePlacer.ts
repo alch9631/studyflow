@@ -118,12 +118,12 @@ export function placeDayBlocks(
   });
 
   const gaps = freeGaps(window, busy);
-  if (energy === "evening") {
-    // Pack toward the end of the day: latest gaps first, and within a gap fill
-    // from its END backward so consecutive blocks hug the window's tail.
-    return placeEvening(queue, gaps, placed, unplaced);
-  }
-  return placeEarliest(queue, gaps, placed, unplaced);
+  const pack = energy === "evening" ? placeEvening : placeEarliest;
+  const preferred = pack(queue, gaps, placed, unplaced);
+  if (!preferred.unplaced.length) return preferred;
+  // Breaks are optional breathing room, not a reason to strand work that fits.
+  const compact = pack(queue, gaps, [], blocks.filter((b) => !Number.isFinite(b.minutes) || b.minutes <= 0).map((b) => b.id), 0);
+  return compact.unplaced.length < preferred.unplaced.length ? compact : preferred;
 }
 
 /** Earliest-first packing ("morning" / "any"): walk gaps front-to-back. */
@@ -132,6 +132,7 @@ function placeEarliest(
   gaps: BusyInterval[],
   placed: Placed[],
   unplaced: string[],
+  gapMinutes = STUDY_GAP_MIN,
 ): PlaceResult {
   // Per-gap cursor: the next free minute in each gap. Insert a gap between two
   // blocks that share a gap (only when the spacer itself still fits the block).
@@ -140,9 +141,9 @@ function placeEarliest(
 
   outer: for (const block of queue) {
     for (let gi = 0; gi < gaps.length; gi++) {
-      const need = block.minutes + (usedInGap[gi] ? STUDY_GAP_MIN : 0);
+      const need = block.minutes + (usedInGap[gi] ? gapMinutes : 0);
       if (cursors[gi] + need <= gaps[gi].endMin) {
-        const start = cursors[gi] + (usedInGap[gi] ? STUDY_GAP_MIN : 0);
+        const start = cursors[gi] + (usedInGap[gi] ? gapMinutes : 0);
         placed.push({ id: block.id, startMin: start, endMin: start + block.minutes });
         cursors[gi] = start + block.minutes;
         usedInGap[gi] = true;
@@ -160,6 +161,7 @@ function placeEvening(
   gaps: BusyInterval[],
   placed: Placed[],
   unplaced: string[],
+  gapMinutes = STUDY_GAP_MIN,
 ): PlaceResult {
   // Per-gap cursor: the next free minute counting DOWN from each gap's end.
   const cursors = gaps.map((g) => g.endMin);
@@ -167,9 +169,9 @@ function placeEvening(
 
   outer: for (const block of queue) {
     for (let gi = gaps.length - 1; gi >= 0; gi--) {
-      const need = block.minutes + (usedInGap[gi] ? STUDY_GAP_MIN : 0);
+      const need = block.minutes + (usedInGap[gi] ? gapMinutes : 0);
       if (cursors[gi] - need >= gaps[gi].startMin) {
-        const end = cursors[gi] - (usedInGap[gi] ? STUDY_GAP_MIN : 0);
+        const end = cursors[gi] - (usedInGap[gi] ? gapMinutes : 0);
         placed.push({ id: block.id, startMin: end - block.minutes, endMin: end });
         cursors[gi] = end - block.minutes;
         usedInGap[gi] = true;
