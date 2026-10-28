@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { CalendarDays, Layers, RotateCw, SlidersHorizontal } from "lucide-react";
 import { iconButtonClass } from "./ui";
 import {
   Dialog,
@@ -26,7 +26,7 @@ export default function BehindSheet({
 }: {
   /** Render-prop for the opener; receives an `open` callback. */
   trigger?: (open: () => void) => React.ReactNode;
-  /** Optional before→after numbers; without it the options show hints only. */
+  /** Optional impact summaries, computed without changing the plan. */
   preview?: BehindPreview;
   iconOnly?: boolean;
   attention?: boolean;
@@ -40,14 +40,6 @@ export default function BehindSheet({
   const showProtect = !preview || preview.protect.moved > 0;
   const showMove = !preview || preview.move.moved > 0;
 
-  // Only a full rebuild has a simulated exam outcome. Date shifts report their
-  // actual remaining workload without promising how the future plan will fit.
-  const examLine = preview?.lighter.examReach === "possible"
-    ? t("behind.examPossible")
-    : preview?.lighter.examReach === "notFully"
-      ? t("behind.examNotFully")
-      : null;
-
   return (
     <>
       {trigger ? trigger(() => setOpen(true)) : <button type="button" onClick={() => setOpen(true)} aria-label={t("behind.open")} title={t("behind.open")}
@@ -56,111 +48,64 @@ export default function BehindSheet({
       </button>}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        {/* Bottom-sheet on mobile, centred card on larger screens — matching the
-            other Today sheets. Generous padding makes it read as a calm room. */}
-        <DialogContent mobileSheet>
+        <DialogContent mobileSheet data-plan-adjustments>
           <DialogTitle>{t("behind.title")}</DialogTitle>
-          <DialogDescription>{t("behind.subtitle")}</DialogDescription>
+          <DialogDescription className="sr-only">{t("behind.subtitle")}</DialogDescription>
           {children && <div className="mt-4 space-y-3 text-sm">{children}</div>}
 
-          <div className="mt-5 flex flex-col gap-3">
-            <BehindOption action={recoverPlan} label={t("behind.recommendedAction")} hint={t("behind.recommendedHint")}
-              preview={preview ? t("behind.lighterPreview", { from: preview.lighter.beforeCount, remaining: preview.lighter.afterCount, pace: fmtDuration(preview.lighter.afterPaceMin) }) : null}
-              days={preview?.lighter.days} examLine={examLine} pendingLabel={t("behind.working")} recommended />
-            <details><summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">{t("behind.otherOptions")}</summary>
-            <div className="mt-3 space-y-4">
+          <div className="mt-3 divide-y divide-border">
+            <BehindOption action={recoverPlan} label={t("behind.rebalanceAction")} icon={<RotateCw className="h-5 w-5" aria-hidden="true" />}
+              preview={preview ? t.n("behind.todayImpact", preview.lighter.afterCount, { count: preview.lighter.afterCount, time: fmtDuration(preview.lighter.afterPaceMin) }) : null}
+              pendingLabel={t("behind.working")} />
             {showProtect && (
               <BehindOption
                 action={protectToday}
-                label={t("behind.protectTitle")}
-                hint={t("behind.protectHint")}
-                preview={
-                  preview
-                    ? t("behind.protectPreview", {
-                        from: preview.protect.beforeCount,
-                        remaining: preview.protect.afterCount,
-                        moved: preview.protect.moved,
-                        pace: fmtDuration(preview.protect.afterPaceMin),
-                      })
-                    : null
-                }
+                label={t("behind.reviewsAction")}
+                icon={<Layers className="h-5 w-5" aria-hidden="true" />}
+                preview={preview ? t("behind.movedImpact", { count: preview.protect.moved }) : null}
                 pendingLabel={t("behind.working")}
-                days={preview?.protect.days}
               />
             )}
             {showMove && (
               <BehindOption
                 action={moveOptionalWork}
-                label={t("behind.moveTitle")}
-                hint={t("behind.moveHint")}
-                preview={
-                  preview
-                    ? t("behind.movePreview", {
-                        from: preview.move.beforeCount,
-                        remaining: preview.move.afterCount,
-                        pace: fmtDuration(preview.move.afterPaceMin),
-                        moved: preview.move.moved,
-                      })
-                    : null
-                }
+                label={t("behind.moveAction")}
+                icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
+                preview={preview ? t("behind.movedImpact", { count: preview.move.moved }) : null}
                 pendingLabel={t("behind.working")}
-                days={preview?.move.days}
               />
             )}
-            </div></details>
           </div>
 
-          <p className="mt-5 text-center text-xs text-muted-foreground">
-            {t("behind.reassure")}
-          </p>
+          {preview?.lighter.examReach === "notFully" && <p className="mt-3 text-sm text-muted-foreground">{t("behind.examNotFully")}</p>}
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-/**
- * One calm option row: a full-width secondary button (the action's title) with a
- * one-line plain-language hint beneath it. The button is its own form so each
- * option commits its server action independently with a pending state.
- */
+/** One action and one impact line. Each row keeps its own pending state. */
 function BehindOption({
   action,
   label,
-  hint,
+  icon,
   preview,
-  examLine,
   pendingLabel,
-  days,
-  recommended = false,
 }: {
   action: () => Promise<void>;
   label: string;
-  hint: string;
-  /** Brief before→after line shown above the hint, when available. */
+  icon: ReactNode;
   preview: string | null;
-  /** Honest nearest-exam line ("still possible" / "no longer fully possible"). */
-  examLine?: string | null;
   pendingLabel: string;
-  days?: { date: string; minutes: number; capacity: number }[];
-  recommended?: boolean;
 }) {
-  const t = useT();
   return (
-    <form action={action} className="flex flex-col gap-1.5">
-      <SubmitButton variant={recommended ? "primary" : "secondary"} pendingLabel={pendingLabel} className="w-full">
-        {label}
+    <form action={action}>
+      <SubmitButton pendingLabel={pendingLabel} className="flex min-h-16 w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-accent disabled:opacity-50">
+        <span className="shrink-0 text-muted-foreground">{icon}</span>
+        <span className="min-w-0"><span className="block text-base font-medium">{label}</span>
+          {preview && <span className="mt-0.5 block text-xs text-muted-foreground">{preview}</span>}
+        </span>
       </SubmitButton>
-      {preview && (
-        <p className="px-1 text-xs font-medium text-foreground">{preview}</p>
-      )}
-      {examLine && (
-        <p className="px-1 text-xs font-medium text-muted-foreground">{examLine}</p>
-      )}
-      <p className="px-1 text-xs text-muted-foreground">{hint}</p>
-      {days && <ul className="mt-2 space-y-1 text-sm">{days.map((day) => <li key={day.date} className="flex flex-wrap justify-between gap-2">
-        <span>{day.date}</span><span>{t("behind.dayLoad", { time: fmtDuration(day.minutes), capacity: fmtDuration(day.capacity) })}{day.minutes > day.capacity ? ` · ${t("behind.overCapacity")}` : ""}</span>
-      </li>)}</ul>}
     </form>
   );
 }

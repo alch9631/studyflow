@@ -14,7 +14,7 @@ import SubmitButton from "@/components/SubmitButton";
 import TodayBlockRow from "./TodayBlockRow";
 import TodayCockpit from "./TodayCockpit";
 import { AnimatedList, AnimatedListItem } from "@/components/motion/AnimatedList";
-import { parsePrefs, availableStudyMinutes, studyCapacityByWeekday } from "@/lib/timePlacer";
+import { parsePrefs, availableStudyMinutes } from "@/lib/timePlacer";
 import { readStudyTask, readStudyProgress } from "@/lib/studyTask";
 import {
   assignLanes,
@@ -275,28 +275,6 @@ export default async function TodayPage({
     exam: examFeasibility,
   });
 
-  const horizonEnd = new Date(start.getTime() + 3 * 86400_000);
-  const [horizon, weekLectures] = await Promise.all([
-    prisma.studyBlock.findMany({ where: { date: { gte: start, lt: horizonEnd }, course: { userId } }, select: { date: true, minutes: true, completed: true, kind: true, topicId: true, course: { select: { examDate: true } } } }),
-    prisma.lecture.findMany({ where: { userId }, select: { weekday: true, startMin: true, endMin: true } }),
-  ]);
-  const capacities = studyCapacityByWeekday(prefs, weekLectures);
-  for (const kind of ["protect", "move", "lighter"] as const) {
-    previews[kind].days = Array.from({ length: 3 }, (_, index) => {
-      const date = new Date(start.getTime() + index * 86400_000).toISOString().slice(0, 10);
-      const load = kind === "lighter" ? [...proposal.values()].flatMap((course) => course.blocks).filter((block) => block.date === date).reduce((sum, block) => sum + block.minutes, 0)
-        : horizon.filter((block) => !block.completed).reduce((sum, block) => {
-          const original = block.date.toISOString().slice(0, 10);
-          const defer = original === today && canMoveBlockToTomorrow(block.date.getTime(), block.course.examDate.getTime())
-            && (kind === "move" || canDeferReview({ kind: block.kind, confidence: noteRows.find((topic) => topic.id === block.topicId)?.confidence, examDays: daysUntil(block.course.examDate, today) }));
-          const target = defer ? new Date(block.date.getTime() + 86400_000).toISOString().slice(0, 10) : original;
-          return sum + (target === date ? block.minutes : 0);
-        }, 0);
-      const finished = horizon.filter((block) => block.completed && block.date.toISOString().slice(0, 10) === date).reduce((sum, block) => sum + block.minutes, 0);
-      return { date, minutes: load, capacity: index === 0 ? availableMin : Math.max(0, capacities[new Date(date + "T00:00:00Z").getUTCDay()] - finished) };
-    });
-  }
-
   // No plan exists at all (no sessions today, none scheduled ahead, no upcoming
   // exam) → treat as a brand-new user and onboard them, rather than implying a
   // "rest day" they never set up.
@@ -323,7 +301,7 @@ export default async function TodayPage({
         <p className="font-medium">{examFeasibility?.isOverloaded ? t("today.statusDoesntFit") : t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>
         {examFeasibility?.isOverloaded && overdue.overdueSessions > 0 && <p className="mt-1 text-sm">{t("today.overdue", { count: overdue.overdueSessions, time: fmtDuration(overdue.overdueMinutes) })}</p>}
       </section>}
-      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery} className="mb-4 flex flex-wrap items-center gap-3 text-sm"><span>{t("behind.undoHint")}</span><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
+      {recoveryUndoAvailable(prefUser?.recoverySnapshot) && <form action={undoRecovery}><SubmitButton variant="secondary" pendingLabel={t("behind.working")}>{t("behind.undo")}</SubmitButton></form>}
       {sp.msg === "undo-unavailable" && <p role="status" className="mb-4 text-sm">{t("behind.undoUnavailable")}</p>}
       {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
         </BehindSheet>

@@ -4,11 +4,12 @@ Mode: Operate. Keep the existing Geist type, cyan accent, neutral surfaces and d
 
 The user wants a minimal app, especially on iPhone. Default screens show the content and controls needed for the next action. Do not add introductory paragraphs, reassuring commentary, repeated status messages or instructions above the task.
 
-- Today leads with one task and one Start or Resume button. Tapping a task or Start/Resume opens session-length choices of 10, 30, 60 and 90 minutes before the timer starts, with no typing. Preserve elapsed time when resuming older sessions. Show every following task in a plain list; never hide tasks behind a disclosure.
+- Today is one structured task list. Every row uses the same text size and controls, including the first task; there are no separate Start or Resume buttons. Tapping a task opens session-length choices of 10, 30, 60 and 90 minutes before the timer starts, with no typing. Preserve elapsed time when resuming older sessions. Never hide tasks behind a disclosure.
 - Task menus sit at the right edge of their task heading or row. Never attach an overflow menu to the Start button. Menus contain short actions; editors open separately.
-- Adjust plan opens directly from an icon beside the Today heading. Keep plan health and recovery controls inside it. Today has no Schedule section.
+- Adjust plan opens directly from an icon beside the Today heading. Keep it to the available adjustment actions and one short impact line per action; no repeated explanations or multi-day tables. Keep necessary plan health and undo controls inside it. Today has no Schedule section.
 - Primary navigation is Today, Calendar and Courses. Insights belongs in the navigation menu on mobile and desktop.
-- Materials is a simple file list with opening, optional task planning and deletion. Add file uses one compact picker and Upload action; no focus controls, repeated metadata or upload instructions.
+- Materials is a visible, simple file list with opening, optional task planning and deletion. Add file opens the native picker directly from an inline control; show Upload beside the chosen file. No separate upload panel, focus controls, repeated metadata or upload instructions.
+- Course pages have no Start focus, topic Start or Add task controls. Topic details open from a chevron beside the topic title; keep existing task editing and notes available inside.
 - Course rows show the name and exam countdown. Course settings, plan maintenance, task instructions and editing controls open on request.
 - Calendar leads with dates and the agenda. Placement tools stay compact and manual controls are collapsed.
 - Insights leads with a chart. Explanations, history and detailed statistics are optional.

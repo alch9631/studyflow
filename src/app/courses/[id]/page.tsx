@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download } from "lucide-react";
+import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download, ChevronDown } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
@@ -25,7 +25,6 @@ import StudyTaskForm from "@/components/StudyTaskForm";
 import { readStudyTask, taskSourceHref } from "@/lib/studyTask";
 import { availableMaterialIds } from "@/lib/materials";
 import MaterialStudyActions from "@/components/MaterialStudyActions";
-import QuickStudySetup from "@/components/QuickStudySetup";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
 import TopicMeta from "./TopicMeta";
@@ -145,7 +144,7 @@ export default async function CoursePage({
   searchParams: Promise<{ materials?: string; msg?: string; prepare?: string }>;
 }) {
   const { id } = await params;
-  const { msg, prepare, materials } = await searchParams;
+  const { msg, prepare } = await searchParams;
   const t = await getT();
   const userId = await getCurrentUserId();
   const banner = msg && BANNER_KEYS.has(msg) ? t(`courseDetail.banners.${msg}` as MessageKey) : undefined;
@@ -581,8 +580,6 @@ export default async function CoursePage({
 
       </div>
 
-      {!passed && <div className="mb-6"><QuickStudySetup courseId={course.id} title={course.name} /></div>}
-
       {overload.overloaded && (
         <details className="mb-6 text-sm text-muted-foreground"><summary className="min-h-11 cursor-pointer py-3">{t("minimal.planAttention")}</summary>
           <p className="flex items-start gap-2">
@@ -610,24 +607,8 @@ export default async function CoursePage({
       )}
 
       <section className="mb-8" id="materials">
-        <details open={!!prepare || materials === "1" || undefined} className="group rounded-xl border border-gray-200 dark:border-gray-800">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl p-4 text-lg font-semibold transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50">
-            <span className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="text-gray-400 transition-transform group-open:rotate-90"
-              >
-                ›
-              </span>
-              {t("courseDetail.materials")}
-            </span>
-            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-              {course.files.length}
-            </span>
-          </summary>
-
-          <div className="border-t border-border px-4 pb-3 pt-3">
-            <ModuleUploadForm courseId={course.id} collapsible />
+          <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.materials")}</h2>
+            <ModuleUploadForm courseId={course.id} />
             {course.files.length > 0 && <ul data-material-list className="mt-3 divide-y divide-border">
               {course.files.map((file) => <li key={file.id} className="py-2">
                 <div className="flex items-start gap-2">
@@ -649,8 +630,6 @@ export default async function CoursePage({
                 </div>
               </li>)}
             </ul>}
-          </div>
-        </details>
       </section>
 
       <section className="mb-8">
@@ -668,7 +647,6 @@ export default async function CoursePage({
             </Link>
           )}
         </div>
-        <div className="mb-4"><StudyTaskForm courseId={course.id} materials={taskMaterials} /></div>
         <AnimatedList className="space-y-2">
           {course.topics.map((topic) => {
             const task = readStudyTask(topic.studyTask);
@@ -683,15 +661,19 @@ export default async function CoursePage({
                 id={`topic-${topic.id}`}
                 className="relative scroll-mt-24 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
-                <div className="flex items-center gap-3"><div className="min-w-0 flex-1">
+                <div className="min-h-11 min-w-0 pr-11">
                 <TopicToggle
                   topicId={topic.id}
                   courseId={course.id}
                   title={topic.title}
                   done={topic.done}
                 />
-                </div>{!topic.done && <QuickStudySetup courseId={course.id} topicId={topic.id} title={topic.title} label={t("minimal.start")} />}</div>
-                <details className="mt-2"><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground">{t("minimal.details")}</summary>
+                </div>
+                <details className="group/topic" data-topic-details>
+                  <summary aria-label={t("courseDetail.topicDetails", { topic: topic.title })} title={t("courseDetail.topicDetails", { topic: topic.title })} className="absolute right-2 top-2 flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full text-muted-foreground hover:bg-accent [&::-webkit-details-marker]:hidden">
+                    <ChevronDown className="h-5 w-5 transition-transform group-open/topic:rotate-180" aria-hidden="true" />
+                  </summary>
+                  <div className="mt-2 border-t border-border pt-3">
                 {topic.parentTopicId && <p className="mb-2 text-xs text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
                 {task && <div className="ml-7 mt-2 space-y-1 text-sm">
                   <p className="whitespace-pre-wrap break-words">{task.instruction}</p>
@@ -699,7 +681,7 @@ export default async function CoursePage({
                   {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
                   <p className="whitespace-pre-wrap break-words text-muted-foreground">{t("study.criteria")} {task.successCriteria}</p>
                 </div>}
-                <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />
+                {task && <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />}
                 <div className="relative min-h-14"><p className="py-4 pr-12 text-sm text-muted-foreground">{t("courseDetail.topicMeta")}</p><TopicMeta
                   topicId={topic.id}
                   topicTitle={topic.title}
@@ -726,6 +708,7 @@ export default async function CoursePage({
                     </ul>
                   </details>
                 )}
+                  </div>
                 </details>
               </AnimatedListItem>
             );
