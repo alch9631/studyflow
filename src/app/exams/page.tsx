@@ -8,5 +8,5 @@ export const metadata: Metadata = { title: "Exams", description: "Your remaining
 
 export default async function ExamsPage() {
   const userId = await getCurrentUserId();
-  return <main className="mx-auto max-w-2xl p-4 sm:p-8"><ExamsList data={await getRemainingExams(userId)} /></main>;
+  return <main className="mx-auto max-w-3xl p-4 sm:p-8"><ExamsList data={await getRemainingExams(userId)} /></main>;
 }

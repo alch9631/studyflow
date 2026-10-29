@@ -1135,6 +1135,16 @@ const en = {
     noMatches: "No published exam found. Try another name.",
     refineSearch: "Search to narrow the list.",
     planPending: "Dates saved. Your study plan still needs updating.",
+    overview: {
+      title: "Exam overview",
+      timeline: "Exam timeline",
+      months: "Exam months. Swipe or use the arrow keys to browse.",
+      previousMonth: "Previous exam month",
+      nextMonth: "Next exam month",
+      summary: { one: "1 exam on {first}.", other: "{count} exams, from {first} to {last}." },
+      exams: { one: "1 exam", other: "{count} exams" },
+      days: { one: "1 day", other: "{count} days" },
+    },
     hints: {
       matched: "Refresh to check this date",
       ambiguous: "Several dates · choose your exam",
@@ -2345,6 +2355,16 @@ const de: Messages = {
     noMatches: "Keine veröffentlichte Prüfung gefunden. Anderen Namen versuchen.",
     refineSearch: "Suche eingrenzen, um weitere Prüfungen zu finden.",
     planPending: "Termine gespeichert. Dein Lernplan muss noch aktualisiert werden.",
+    overview: {
+      title: "Prüfungsübersicht",
+      timeline: "Zeitstrahl der Prüfungen",
+      months: "Prüfungsmonate. Wischen oder mit den Pfeiltasten blättern.",
+      previousMonth: "Vorheriger Prüfungsmonat",
+      nextMonth: "Nächster Prüfungsmonat",
+      summary: { one: "1 Prüfung am {first}.", other: "{count} Prüfungen vom {first} bis {last}." },
+      exams: { one: "1 Prüfung", other: "{count} Prüfungen" },
+      days: { one: "1 Tag", other: "{count} Tage" },
+    },
     hints: {
       matched: "Aktualisieren, um den Termin zu prüfen",
       ambiguous: "Mehrere Termine · Prüfung wählen",

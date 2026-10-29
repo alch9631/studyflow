@@ -29,7 +29,13 @@ import Module from "node:module";
 // a "use server"/server-component module under tsx would otherwise MODULE_NOT_FOUND.
 const STUBBED = new Set(["server-only", "client-only"]);
 type ResolveFn = (this: unknown, request: string, ...rest: unknown[]) => string;
-const moduleInternals = Module as unknown as { _resolveFilename: ResolveFn };
+const moduleInternals = Module as unknown as {
+  _resolveFilename: ResolveFn;
+  _extensions: Record<string, (module: { exports: unknown }) => void>;
+};
+// Next compiles CSS Modules; the import smoke test only checks the JS graph.
+// Rendered styling is verified in the browser rather than parsed by Node.
+moduleInternals._extensions[".css"] = (module) => { module.exports = {}; };
 const originalResolve = moduleInternals._resolveFilename;
 moduleInternals._resolveFilename = function (request, ...rest) {
   if (STUBBED.has(request)) {

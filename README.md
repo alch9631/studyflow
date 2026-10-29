@@ -85,6 +85,13 @@ TUHH’s official current-semester schedule and saves uniquely matched upcoming 
 Date changes rebuild the study plan while preserving completed sessions. Passed courses
 are excluded; unfinished courses with old dates stay available under **Dates to check**.
 
+The page starts with a proportional exam timeline and swipeable month calendars.
+Matching color keys connect dates to the complete list below. Tap an exam day to
+reach its exams; shared days show their count. Arrow buttons and keyboard navigation
+also browse months. The calendar starts at the next exam month, covers the final exam,
+and offers at least three months. Dates and gaps use calendar days, including across
+daylight-saving changes. Distant month bodies render on demand.
+
 The last successful check and published semester survive reopening. Unavailable or
 unreadable sources leave saved dates intact. Ambiguous, unpublished and individual
 appointments keep the existing date with a short status. Use a row’s pen to search for
@@ -93,6 +100,7 @@ checks. Individual appointments still need the personal date entered in course s
 The source is checked again before a selection is saved. No TUHH login is needed.
 
 Run the parser and isolated database checks with `npm run test:exam-sync` and `npm run test:exams`.
+Run calendar and timeline geometry checks with `npm run test:exam-overview`.
 
 ## The plan engine
 

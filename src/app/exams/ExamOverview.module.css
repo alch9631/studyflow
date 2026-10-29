@@ -1,0 +1,45 @@
+.rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+.month {
+  flex: 0 0 max(316px, calc(100% - 24px));
+  scroll-snap-align: start;
+}
+.table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.table th { height: 32px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.table td { height: 45px; padding: 0; border: 1px solid var(--border); text-align: center; }
+.day { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: center; font-size: 14px; }
+button.day:hover { background: var(--accent); }
+.date {
+  display: flex;
+  position: relative;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.event .date { background: var(--exam-fill); color: var(--exam-ink); outline: 1px solid var(--exam-ink); outline-offset: -1px; font-weight: 600; }
+.today .date { outline: 1px solid var(--brand-ink); outline-offset: 2px; }
+.multiple .date { background: var(--accent); color: var(--foreground); }
+.count { position: absolute; top: -2px; right: -5px; min-width: 15px; border-radius: 8px; background: var(--foreground); color: var(--background); font-size: 10px; line-height: 15px; }
+.dots { display: flex; position: absolute; bottom: 2px; gap: 2px; }
+.dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--exam-fill); }
+.key { display: inline-block; width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--exam-fill); }
+.point { fill: var(--exam-fill); stroke: var(--muted-foreground); stroke-width: 1.5; }
+.labelBackground { fill: var(--background); }
+.axis { fill: var(--muted-foreground); font-size: 12px; }
+.gap { fill: var(--muted-foreground); font-size: 12px; font-weight: 500; }
+.line { stroke: var(--muted-foreground); stroke-width: 1; opacity: .55; }
+.tick { stroke: var(--muted-foreground); stroke-width: 1; opacity: .45; }
+:global(.dark) .event .date { background: var(--exam-dark); color: var(--exam-dark-ink); }
+:global(.dark) .multiple .date { background: var(--accent); color: var(--foreground); }
+:global(.dark) .dot, :global(.dark) .key { background: var(--exam-dark); }
+:global(.dark) .point { fill: var(--exam-dark); }
+@media (min-width: 640px) { .month { flex-basis: max(316px, calc((100% - 12px) / 2)); } }

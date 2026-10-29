@@ -11,6 +11,8 @@ import { iconButtonClass } from "@/components/ui";
 import { rebuildAfterExamSync, syncExamDates } from "@/app/settings/examActions";
 import { TUHH_EXAM_URL, type ExamOptionsResult, type ExamsPageData, type ExamSyncError, type RemainingExam } from "@/lib/examSyncTypes";
 import { getExamOptions, refreshExamDates } from "./actions";
+import { examColorMap } from "@/lib/examOverview";
+import ExamOverview, { ExamColorKey } from "./ExamOverview";
 
 type ExamOption = Extract<ExamOptionsResult, { ok: true }>["exams"][number];
 const searchName = (value: string) => value.toLocaleLowerCase().normalize("NFKD").replace(/\p{M}/gu, "");
@@ -27,9 +29,18 @@ export default function ExamsList({ data }: { data: ExamsPageData }) {
   const [query, setQuery] = useState("");
   const matchTrigger = useRef<HTMLButtonElement | null>(null);
   const optionRequest = useRef(0);
+  const colors = examColorMap(data.courses);
   const dateFormatter = new Intl.DateTimeFormat(t.locale, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const formatDate = (date: string) => dateFormatter.format(new Date(`${date}T00:00:00Z`));
   const matches = options?.filter((exam) => query.trim().split(/\s+/).every((word) => searchName(exam.title).includes(searchName(word)))) ?? [];
+
+  function selectDate(date: string) {
+    const course = data.courses.find((entry) => entry.currentDate === date);
+    if (!course) return;
+    const row = document.getElementById(`exam-row-${course.id}`);
+    row?.querySelector<HTMLAnchorElement>("[data-exam-link]")?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
 
   function refresh() {
     setError(null);
@@ -94,11 +105,11 @@ export default function ExamsList({ data }: { data: ExamsPageData }) {
       {courses.map((course, index) => {
         const verified = course.published?.date === course.currentDate;
         const startsOldDates = course.currentDate < data.today && (index === 0 || courses[index - 1].currentDate >= data.today);
-        return <li key={course.id} data-exam-row className="min-w-0 py-4">
+        return <li key={course.id} id={`exam-row-${course.id}`} data-exam-row className="min-w-0 scroll-mt-24 py-4">
           {startsOldDates && <h2 key="check-heading" className="mb-3 mt-4 text-sm font-medium text-muted-foreground">{t("exams.checkDates")}</h2>}
           <div key="exam-content" className="flex min-w-0 items-start gap-2">
           <div className="min-w-0 flex-1">
-            <Link href={`/courses/${course.id}`} className="inline-flex min-h-11 max-w-full items-center py-2 text-base font-medium hover:underline [overflow-wrap:anywhere]">{course.name}</Link>
+            <Link href={`/courses/${course.id}`} data-exam-link className="inline-flex min-h-11 max-w-full items-center gap-2 py-2 text-base font-medium hover:underline [overflow-wrap:anywhere]"><ExamColorKey color={colors.get(course.id)!} /><span className="min-w-0 [overflow-wrap:anywhere]">{course.name}</span></Link>
             <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
               <time dateTime={course.currentDate} className="tabular-nums">{formatDate(course.currentDate)}</time>
               {verified && course.published?.time && <span>{course.published.time}</span>}
@@ -128,9 +139,6 @@ export default function ExamsList({ data }: { data: ExamsPageData }) {
         {busy ? t("exams.refreshing") : t("exams.refresh")}
       </Button>
     </div>
-    <p className="mt-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-      {data.checkedAt ? t("exams.checked", { date: new Intl.DateTimeFormat(t.locale, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" }).format(new Date(data.checkedAt)) }) : t("exams.savedDate")}
-    </p>
     <div role="status" aria-atomic="true" className="text-sm">
       {updated !== null && !needsRebuild && <p className="mt-3">{updated ? t.n("exams.updated", updated) : t("exams.checkedNow")}</p>}
       {needsRebuild && <div className="mt-3">
@@ -140,6 +148,8 @@ export default function ExamsList({ data }: { data: ExamsPageData }) {
     </div>
     {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-400">{t(`exams.errors.${error}`)}</p>}
 
+    <ExamOverview courses={data.courses} today={data.today} colors={colors} onSelectDate={selectDate} />
+
     {data.courses.length === 0 ? <div className="py-14 text-center">
       <p className="text-muted-foreground">{t("exams.empty")}</p>
       <Button asChild variant="secondary" className="mt-4"><Link href="/courses">{t("nav.courses")}</Link></Button>
@@ -148,6 +158,7 @@ export default function ExamsList({ data }: { data: ExamsPageData }) {
     </div>}
 
     <footer className="mt-6 border-t border-border pt-3 text-sm text-muted-foreground">
+      <p className="mb-1 [overflow-wrap:anywhere]">{data.checkedAt ? t("exams.checked", { date: new Intl.DateTimeFormat(t.locale, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" }).format(new Date(data.checkedAt)) }) : t("exams.savedDate")}</p>
       {data.semester && <p className="mb-1">{data.semester}</p>}
       <a href={TUHH_EXAM_URL} target="_blank" rel="noopener noreferrer" aria-label={t("examSync.source")}
         className="inline-flex min-h-11 items-center gap-1.5 py-2 underline underline-offset-4">

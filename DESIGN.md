@@ -13,6 +13,7 @@ The user wants a minimal app, especially on iPhone. Default screens show the con
 - Material filenames wrap within their row, including long names without spaces. Keep planning and deletion as compact icons beside the filename, never below it or overlapping it.
 - Course rows show the name and exam countdown. Course settings, plan maintenance, task instructions and editing controls open on request.
 - Calendar leads with dates and the agenda. On phones, Arrange and the unscheduled count refer to the selected day and exclude completed work. A full window gives a short explanation and a direct link to change the window. Placement tools stay compact and manual controls are collapsed.
+- Exams lives in the navigation menu. Show a proportional timeline, horizontally scrollable months and the full exam list. Use consistent course colors across all three views, count exams sharing a day, and keep date controls at least 44 px. Calendar arrows and keyboard navigation supplement swiping. Gaps represent calendar days, never learning readiness. Official-date refresh and source status remain available.
 - Insights leads with a chart. Explanations, history and detailed statistics are optional.
 - Focus shows the timer, Pause and Finish, a visible notes box and an editable list of saved, dated notes beneath it. No Details & notes disclosure. Preserve notes across sessions and plan changes.
 
