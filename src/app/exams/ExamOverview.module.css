@@ -1,14 +1,19 @@
 .rail {
   display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+  flex-direction: column;
+  gap: 16px;
+  max-height: min(65svh, 38rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-inline: 4px;
+  scroll-snap-type: y proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
 }
-.rail::-webkit-scrollbar { display: none; }
 .month {
-  flex: 0 0 max(316px, calc(100% - 24px));
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
   scroll-snap-align: start;
 }
 .table { width: 100%; table-layout: fixed; border-collapse: collapse; }
@@ -42,4 +47,18 @@ button.day:hover { background: var(--accent); }
 :global(.dark) .multiple .date { background: var(--accent); color: var(--foreground); }
 :global(.dark) .dot, :global(.dark) .key { background: var(--exam-dark); }
 :global(.dark) .point { fill: var(--exam-dark); }
-@media (min-width: 640px) { .month { flex-basis: max(316px, calc((100% - 12px) / 2)); } }
+@media (min-width: 640px) {
+  .rail {
+    flex-direction: row;
+    gap: 12px;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-inline: 0;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar { display: none; }
+  .month { flex-basis: max(316px, calc((100% - 12px) / 2)); width: auto; }
+}

@@ -17,6 +17,8 @@ import { useT } from "@/components/i18n/I18nProvider";
 import type { MessageKey } from "@/components/i18n/messages";
 import { haptics } from "@/components/haptics";
 import { saveNote, deleteNote, setTopicConfidence } from "../actions";
+import { useTopicDelete } from "./TopicRow";
+import { Button } from "@/components/ui/button";
 
 /** One pen opens the topic editor; notes autosave and flush before closing. */
 
@@ -89,6 +91,8 @@ export default function TopicMeta({
 }) {
   const t = useT();
   const { toast } = useToast();
+  const askDelete = useTopicDelete();
+  const deleteAfterClose = useRef(false);
 
   // ── popover open/close ────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
@@ -236,7 +240,11 @@ export default function TopicMeta({
         </DialogTrigger>
       </div>
 
-          <DialogContent mobileSheet data-topic-editor>
+          <DialogContent mobileSheet data-topic-editor onCloseAutoFocus={(event) => {
+            if (deleteAfterClose.current) {
+              event.preventDefault(); deleteAfterClose.current = false; askDelete?.();
+            }
+          }}>
             <DialogTitle>{topicTitle}</DialogTitle>
             <DialogDescription className="sr-only">{t("courseDetail.topicMeta")}</DialogDescription>
             <div className="mt-4 space-y-4">
@@ -324,6 +332,7 @@ export default function TopicMeta({
               </div>
             </div>
             {children}
+            {askDelete && <Button type="button" variant="danger" onClick={() => { deleteAfterClose.current = true; close(); }}>{t("courseDetail.deleteTopic")}</Button>}
             </div>
           </DialogContent>
     </Dialog>

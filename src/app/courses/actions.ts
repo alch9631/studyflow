@@ -47,6 +47,7 @@ import {
 import { LIMITS, guardCount, guardCountBy } from "@/lib/limits";
 import { checkBlockTimes, instantToDayMinutes, instantToDayISO, dayMinutesToInstant } from "@/lib/calendarTime";
 import { arrangeCalendarTimes } from "@/lib/calendarArrange";
+import { deleteTopicForUser } from "@/lib/topicDeletion";
 import { confirmDailyBudget } from "@/lib/studyAvailability";
 import { logActionError, aiFailureBanner } from "@/lib/actionErrors";
 import {
@@ -1262,18 +1263,19 @@ export async function toggleCoursePassed(formData: FormData): Promise<ActionOutc
 /** Toggle a topic done/undone, then rebuild the plan so it reflects reality. */
 export async function toggleTopic(formData: FormData) {
   const userId = await getCurrentUserId();
-  if (!rateLimitOK("MUTATION", userId)) return;
+  if (!rateLimitOK("MUTATION", userId)) throw new Error("RATE_LIMITED");
   let id: string;
   try {
     id = requireId(formData.get("topicId"), "Topic");
     requireId(formData.get("courseId"), "Course");
   } catch {
-    return;
+    throw new Error("INVALID_TOPIC");
   }
   // Scoped: only a topic whose course the current user owns can be toggled. The
   // owning courseId is derived from the row (not trusted from the form), so the
   // replan + revalidate always target the topic's real course.
   const topic = await findOwnedTopic(userId, id);
+  if (!topic) throw new Error("TOPIC_NOT_FOUND");
   if (topic) {
     await prisma.topic.update({
       where: { id },
@@ -1282,6 +1284,19 @@ export async function toggleTopic(formData: FormData) {
     await regeneratePlan(topic.courseId);
     revalidatePath(`/courses/${topic.courseId}`);
   }
+}
+
+export async function deleteTopic(data: FormData): Promise<ActionOutcome> {
+  const userId = await getCurrentUserId();
+  if (!rateLimitOK("MUTATION", userId)) return { ok: false, reason: "rate-limited" };
+  let id: string;
+  try { id = requireId(data.get("topicId"), "Topic"); }
+  catch { return { ok: false, reason: "invalid" }; }
+  const courseId = await deleteTopicForUser(userId, id);
+  if (!courseId) return { ok: false, reason: "not-found" };
+  for (const path of [`/courses/${courseId}`, "/courses", "/today", "/calendar", "/insights", "/focus", "/search"])
+    revalidatePath(path);
+  return { ok: true };
 }
 
 /**

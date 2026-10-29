@@ -97,7 +97,7 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
   return (
     <Card
       asChild
-      className="group block p-4 transition-colors hover:bg-accent focus-visible:bg-accent"
+      className="group flex min-h-28 flex-col justify-between gap-2 p-4 transition-colors hover:bg-accent focus-visible:bg-accent"
     >
       <Link
         href={`/courses/${course.id}`}
@@ -108,11 +108,10 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
             3. ONE calm status sentence.
             No progress bar, no topic-count badge — nothing that turns the
             shelf into a scoreboard. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="min-w-0 truncate text-base font-semibold group-hover:underline">
+          <span title={course.name} className="line-clamp-2 min-h-12 min-w-0 break-words text-base font-semibold leading-6 [overflow-wrap:anywhere] group-hover:underline">
             {course.name}
           </span>
-          <span className="shrink-0 text-right">
+          <span className="shrink-0 pr-11">
             <span
               className={`block text-xs font-medium ${
                 actionNeeded
@@ -124,7 +123,6 @@ export default function CourseCard({ course, t }: { course: CardCourse; t: Trans
             </span>
 
           </span>
-        </div>
 
       </Link>
     </Card>

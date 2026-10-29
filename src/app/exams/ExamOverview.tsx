@@ -100,19 +100,30 @@ function MonthRail({ months, days, today, colors, onSelectDate }: {
   const weekdays = Array.from({ length: 7 }, (_, index) => weekdayFormat.format(new Date(`2024-01-0${index + 1}T00:00:00Z`)));
   const monthName = (month: string) => monthFormat.format(new Date(`${month}-01T00:00:00Z`));
   function goTo(index: number) {
-    const element = rail.current?.children[Math.max(0, Math.min(months.length - 1, index))] as HTMLElement | undefined;
-    if (!element || !rail.current) return;
-    rail.current.scrollTo({ left: element.offsetLeft - (rail.current.children[0] as HTMLElement).offsetLeft, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    const container = rail.current;
+    const element = container?.children[Math.max(0, Math.min(months.length - 1, index))] as HTMLElement | undefined;
+    if (!element || !container) return;
+    const first = container.children[0] as HTMLElement;
+    const vertical = getComputedStyle(container).flexDirection === "column";
+    container.scrollTo({
+      top: vertical ? element.offsetTop - first.offsetTop : 0,
+      left: vertical ? 0 : element.offsetLeft - first.offsetLeft,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    });
   }
   const onScroll = useCallback(() => {
     const container = rail.current;
-    if (!container || container.children.length < 2) return;
-    const step = (container.children[1] as HTMLElement).offsetLeft - (container.children[0] as HTMLElement).offsetLeft;
-    if (step) setActive(Math.max(0, Math.min(months.length - 1, Math.round(container.scrollLeft / step))));
-    const start = container.scrollLeft < 2;
-    const end = container.scrollLeft + container.clientWidth >= container.scrollWidth - 2;
+    if (!container || !container.children.length) return;
+    const vertical = getComputedStyle(container).flexDirection === "column";
+    const position = vertical ? container.scrollTop : container.scrollLeft;
+    const first = container.children[0] as HTMLElement;
+    const origin = vertical ? first.offsetTop : first.offsetLeft;
+    const distances = Array.from(container.children, (child) => Math.abs(position - ((vertical ? (child as HTMLElement).offsetTop : (child as HTMLElement).offsetLeft) - origin)));
+    setActive(distances.indexOf(Math.min(...distances)));
+    const start = position < 2;
+    const end = position + (vertical ? container.clientHeight : container.clientWidth) >= (vertical ? container.scrollHeight : container.scrollWidth) - 2;
     setBounds((previous) => previous.start === start && previous.end === end ? previous : { start, end });
-  }, [months.length]);
+  }, []);
   useEffect(() => {
     if (!rail.current) return;
     const observer = new ResizeObserver(onScroll);
@@ -121,21 +132,22 @@ function MonthRail({ months, days, today, colors, onSelectDate }: {
   }, [onScroll]);
   function keyboard(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
-    const next = event.key === "ArrowRight" ? active + 1 : event.key === "ArrowLeft" ? active - 1 : event.key === "Home" ? 0 : event.key === "End" ? months.length - 1 : null;
+    const vertical = getComputedStyle(event.currentTarget).flexDirection === "column";
+    const next = event.key === (vertical ? "ArrowDown" : "ArrowRight") ? active + 1 : event.key === (vertical ? "ArrowUp" : "ArrowLeft") ? active - 1 : event.key === "Home" ? 0 : event.key === "End" ? months.length - 1 : null;
     if (next === null) return;
     event.preventDefault();
     goTo(next);
   }
   return <div className="relative border-t border-border pt-3" data-exam-calendar data-active-month={months[active]}>
-    <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-between gap-2">
+    <div className="pointer-events-none absolute inset-x-0 top-3 z-10 hidden justify-between gap-2 sm:flex">
       <button type="button" disabled={bounds.start} onClick={() => goTo(active - 1)} aria-label={t("exams.overview.previousMonth")} className={iconButtonClass("pointer-events-auto inline-flex items-center justify-center bg-background disabled:opacity-30")}><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
       <button type="button" disabled={bounds.end} onClick={() => goTo(active + 1)} aria-label={t("exams.overview.nextMonth")} className={iconButtonClass("pointer-events-auto inline-flex items-center justify-center bg-background disabled:opacity-30")}><ChevronRight className="h-5 w-5" aria-hidden="true" /></button>
     </div>
     <p className="sr-only" aria-live="polite" aria-atomic="true">{monthName(months[active])}</p>
     <div ref={rail} className={`${styles.rail} -mx-4 relative`} onScroll={onScroll} onKeyDown={keyboard} tabIndex={0} role="region" aria-label={t("exams.overview.months")}>
-      {months.map((month, index) => <div key={month} className={styles.month} data-exam-month={month}>
-        <h2 className="flex min-h-11 items-center justify-center px-11 text-center text-lg font-semibold">{monthName(month)}</h2>
-        {Math.abs(index - active) <= 1 ? <table className={styles.table}>
+      {months.map((month) => <div key={month} className={styles.month} data-exam-month={month}>
+        <h2 className="flex min-h-11 items-center justify-center px-2 text-center text-lg font-semibold sm:px-11">{monthName(month)}</h2>
+        <table className={styles.table}>
           <caption className="sr-only">{monthName(month)}</caption>
           <thead><tr>{weekdays.map((weekday, day) => <th key={day} scope="col">{weekday}</th>)}</tr></thead>
           <tbody>{Array.from({ length: 6 }, (_, week) => <tr key={week}>{calendarMonthDays(month).slice(week * 7, week * 7 + 7).map((date, column) => {
@@ -151,7 +163,7 @@ function MonthRail({ months, days, today, colors, onSelectDate }: {
               aria-label={`${fullDate.format(new Date(`${date}T00:00:00Z`))}: ${exams.map((exam) => exam.name).join(", ")}`} aria-current={date === today ? "date" : undefined}>{content}</button>
               : <span className={cls} aria-current={date === today ? "date" : undefined}>{content}</span>}</td>;
           })}</tr>)}</tbody>
-        </table> : <div className="h-[302px]" aria-hidden="true" />}
+        </table>
       </div>)}
     </div>
   </div>;

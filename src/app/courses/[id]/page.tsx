@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download } from "lucide-react";
+import { X, Trash2, Check, AlertTriangle, Hourglass, FileText, ArrowLeft, Sparkles, Download, ChevronDown } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { courseOverloadInfo, todayISO } from "@/lib/planService";
@@ -28,6 +28,7 @@ import { availableMaterialIds } from "@/lib/materials";
 import MaterialStudyActions from "@/components/MaterialStudyActions";
 import ToastForm from "@/components/ToastForm";
 import TopicToggle from "./TopicToggle";
+import TopicRow from "./TopicRow";
 import TopicMeta from "./TopicMeta";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -145,7 +146,7 @@ export default async function CoursePage({
   searchParams: Promise<{ materials?: string; msg?: string; prepare?: string }>;
 }) {
   const { id } = await params;
-  const { msg, prepare } = await searchParams;
+  const { msg, prepare, materials } = await searchParams;
   const t = await getT();
   const userId = await getCurrentUserId();
   const banner = msg && BANNER_KEYS.has(msg) ? t(`courseDetail.banners.${msg}` as MessageKey) : undefined;
@@ -610,7 +611,13 @@ export default async function CoursePage({
       <section className="mb-8" id="materials">
           <h2 className="mb-3 text-lg font-semibold">{t("courseDetail.materials")}</h2>
             <ModuleUploadForm courseId={course.id} />
-            {course.files.length > 0 && <ul data-material-list className="mt-3 divide-y divide-border">
+            {course.files.length > 0 && <details data-uploaded-materials className="group mt-3" open={materials === "1" || Boolean(prepare)}>
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl border border-input px-3 py-2 text-sm font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0 flex-1">{t("courseDetail.uploadedMaterials")}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">{course.files.length}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <ul data-material-list className="mt-2 divide-y divide-border">
               {course.files.map((file) => <li key={file.id} className="py-2">
                 <div data-material-row className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <div className="min-w-0">
@@ -631,12 +638,13 @@ export default async function CoursePage({
                   </div>
                 </div>
               </li>)}
-            </ul>}
+              </ul>
+            </details>}
       </section>
 
       <section className="mb-8">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">{t("courseDetail.topics")}</h2>
+          <h2 id="topics-heading" tabIndex={-1} className="text-lg font-semibold">{t("courseDetail.topics")}</h2>
           {/* Practice entry point: a calm link into active-recall mode, shown only
               when at least one topic actually has AI-generated self-test questions
               (so it never leads to an empty state). Course-scoped via courseId. */}
@@ -661,8 +669,9 @@ export default async function CoursePage({
               <AnimatedListItem
                 key={topic.id}
                 id={`topic-${topic.id}`}
-                className="relative scroll-mt-24 rounded-xl border border-gray-200 p-3 dark:border-gray-800 [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
+                className="relative scroll-mt-24 rounded-xl [&:target]:ring-2 [&:target]:ring-brand [&:target]:ring-offset-2 [&:target]:ring-offset-white dark:[&:target]:ring-offset-gray-950"
               >
+                <TopicRow topicId={topic.id} title={topic.title} done={topic.done}>
                 <div className="min-h-11 min-w-0 pr-11">
                 <TopicToggle
                   topicId={topic.id}
@@ -700,6 +709,7 @@ export default async function CoursePage({
                 )}
                 </TopicMeta>
                 </div>
+                </TopicRow>
               </AnimatedListItem>
             );
           })}

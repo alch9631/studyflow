@@ -34,7 +34,7 @@ export default function TopicToggle({
       doneMessage={t("courseDetail.topicDone")}
       undoneMessage={t("courseDetail.topicReopened")}
       errorMessage={t("courseDetail.topicError")}
-      swipe={{ completeLabel: t("block.done"), reopenLabel: t("block.reopen") }}
+      data-topic-toggle
       className="flex items-start gap-2 rounded-lg bg-background py-0.5"
     >
       {(done) => (

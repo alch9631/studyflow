@@ -238,7 +238,6 @@ export function useOptimisticToggle({
           return; // not a real failure — don't roll back / rethrow
         }
         toast(errorMessage ?? t("common.genericError"), "error"); // optimistic value rolls back automatically
-        throw err;
       } finally {
         inFlight.current = false;
       }

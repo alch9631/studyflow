@@ -35,6 +35,8 @@ export default function ModuleUploadForm({ courseId }: { courseId: string }) {
       if (input.current) input.current.value = "";
       if (result.saved) {
         toast(result.saved === 1 ? t("courseDetail.fileSaved") : t("courseDetail.filesSaved", { count: result.saved }));
+        const uploaded = document.querySelector<HTMLDetailsElement>("[data-uploaded-materials]");
+        if (uploaded) uploaded.open = true;
         router.replace(`/courses/${courseId}?materials=1#materials`, { scroll: false });
         router.refresh();
       }

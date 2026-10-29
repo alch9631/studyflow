@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
 import { haptics } from "./haptics";
 
@@ -35,7 +35,7 @@ export type SwipeAction = {
  */
 
 const TONE: Record<SwipeAction["tone"], string> = {
-  success: "bg-green-500 text-white",
+  success: "bg-green-700 text-white",
   danger: "bg-red-600 text-white",
   neutral: "bg-gray-500 text-white dark:bg-gray-600",
 };
@@ -50,6 +50,7 @@ export default function SwipeRow({
   children,
   className,
   contentClassName,
+  disabled = false,
 }: {
   /** Action revealed when swiping LEFT (panel on the right edge). */
   left?: SwipeAction;
@@ -60,27 +61,50 @@ export default function SwipeRow({
   className?: string;
   /** Classes for the moving content — MUST include an opaque background. */
   contentClassName?: string;
+  disabled?: boolean;
 }) {
   const reduce = useReducedMotion();
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const start = useRef<{ x: number; y: number } | null>(null);
+  const start = useRef<{ x: number; y: number; pointerId: number; node: Element } | null>(null);
   const engaged = useRef(false);
   const dxRef = useRef(0);
   const suppressClick = useRef(false);
 
-  const enabled = Boolean(left || right);
+  const enabled = !disabled && Boolean(left || right);
 
-  function reset() {
+  const reset = useCallback(() => {
+    const active = start.current;
+    if (engaged.current) suppressClick.current = true;
     start.current = null;
     engaged.current = false;
     dxRef.current = 0;
     setDragging(false);
     setDx(0);
-  }
+    try {
+      if (active?.node.hasPointerCapture(active.pointerId)) active.node.releasePointerCapture(active.pointerId);
+    } catch { /* Already released by the browser. */ }
+  }, []);
+
+  useEffect(() => {
+    const end = (event: PointerEvent) => { if (event.pointerId === start.current?.pointerId) reset(); };
+    window.addEventListener("blur", reset);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("blur", reset);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, [reset]);
 
   function onPointerDown(e: ReactPointerEvent) {
-    if (!enabled) return;
+    if (!enabled || start.current || !e.isPrimary) return;
+    const target = e.target as HTMLElement | null;
+    // React portal events bubble through the row, but editors live outside it.
+    if (!target || !e.currentTarget.contains(target)) return;
+    // A fresh press must work after a swipe, including mouse and text inputs.
+    suppressClick.current = false;
     // Touch / pen only — desktop keeps its buttons; a mouse drag never toggles.
     if (e.pointerType === "mouse") return;
     // Never hijack a drag that starts in a text-entry control — a horizontal
@@ -88,15 +112,14 @@ export default function SwipeRow({
     // the Passed page), not a swipe. Buttons and links stay swipeable: the
     // whole card being a link is the normal case, and plain taps never engage
     // the gesture anyway (the SLOP guard below).
-    const target = e.target as HTMLElement | null;
     if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
-    suppressClick.current = false;
-    start.current = { x: e.clientX, y: e.clientY };
+    start.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId, node: e.currentTarget };
     engaged.current = false;
   }
 
   function onPointerMove(e: ReactPointerEvent) {
-    if (!start.current) return;
+    if (!start.current || e.pointerId !== start.current.pointerId) return;
+    if (!enabled) { reset(); return; }
     const ddx = e.clientX - start.current.x;
     const ddy = e.clientY - start.current.y;
 
@@ -130,17 +153,15 @@ export default function SwipeRow({
   }
 
   function onPointerUp(e: ReactPointerEvent) {
+    if (e.pointerId !== start.current?.pointerId) return;
+    if (!enabled) { reset(); return; }
     if (!engaged.current) {
       reset();
       return;
     }
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
     const committed = Math.abs(dxRef.current) >= THRESHOLD;
     const action = dxRef.current > 0 ? right : left;
+    reset();
     if (committed && action) {
       // The gesture replaced the tap — don't let the trailing click fire too.
       suppressClick.current = true;
@@ -148,11 +169,6 @@ export default function SwipeRow({
       else haptics.commit();
       action.onTrigger();
     }
-    reset();
-  }
-
-  if (!enabled) {
-    return <div className={className}>{children}</div>;
   }
 
   return (
@@ -185,14 +201,19 @@ export default function SwipeRow({
         style={{
           transform: `translateX(${dx}px)`,
           transition: dragging || reduce ? "none" : "transform 200ms ease-out",
-          touchAction: "pan-y pinch-zoom",
+          touchAction: enabled ? "pan-y pinch-zoom" : "auto",
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={reset}
+        onPointerCancel={(event) => { if (event.pointerId === start.current?.pointerId) reset(); }}
+        onLostPointerCapture={(event) => {
+          // Implicit touch capture transfers from a child to this row; only
+          // losing the row's own capture cancels its gesture.
+          if (event.target === event.currentTarget && event.pointerId === start.current?.pointerId) reset();
+        }}
         onClickCapture={(e) => {
-          if (suppressClick.current) {
+          if (e.currentTarget.contains(e.target as Node) && suppressClick.current && e.detail !== 0) {
             e.preventDefault();
             e.stopPropagation();
             suppressClick.current = false;
