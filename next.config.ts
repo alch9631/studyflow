@@ -38,6 +38,8 @@ const nextConfig: NextConfig = {
     staleTimes: { static: 30 },
     // Allow uploading lecture scripts / study materials via server actions.
     serverActions: { bodySizeLimit: "22mb" },
+    // Proxy buffering must also fit one 20 MB file plus multipart overhead.
+    proxyClientMaxBodySize: "22mb",
   },
 };
 

@@ -19,7 +19,9 @@ do not automatically finish a task with a defined goal.
 
 Original uploads are stored privately in the database (20 MB per file, 100 files
 per course, 200 MB per user). Older analysis-only uploads need uploading again to
-open the original. The schema additions are nullable and preserve existing plans,
+open the original. The course picker accepts multiple files with one Upload;
+files upload sequentially with progress, and Retry sends only failed files.
+The schema additions are nullable and preserve existing plans,
 topics, and completed sessions. Run the isolated study-loop checks with
 `npm run test:study-tasks`.
 
