@@ -35,6 +35,7 @@ model User {
   // things like preferred study window / focus settings. null = unset.
   preferences   String?
   recoverySnapshot String? // Expiring undo of the last plan adjustment.
+  examSchedule String? // Last successfully checked public TUHH schedule (JSON).
 }
 
 // --- Auth.js (NextAuth) models ---
@@ -140,6 +141,7 @@ model Course {
   // Set when the course was created from a catalog module (e.g. TUHH "M0850").
   ects          Int?
   sourceCode    String?
+  examSourceTitle String? // Explicitly chosen TUHH title, retained when dates change.
   aiOptimized   Boolean      @default(false) // AI tuned topic difficulty/order/review
   intense       Boolean      @default(false) // global scheduler couldn't fit all work before the exam
   // German final grade once the exam is taken (1.0 best … 5.0 fail). null = not graded yet.

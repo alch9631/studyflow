@@ -22,6 +22,7 @@ export type ExamSyncCourse = {
   name: string;
   currentDate: string;
   suggestedKey: string;
+  matchedKey: string;
   hint: "matched" | "ambiguous" | "individual" | "unpublished" | "unmatched";
 };
 
@@ -46,4 +47,19 @@ export type ExamPreviewResult =
 
 export type ExamApplyResult =
   | { ok: true; updated: number; planRebuilt: boolean; checkedAt: string }
+  | { ok: false; reason: ExamSyncError };
+
+export type RemainingExam = ExamSyncCourse & {
+  published: Pick<PublishedExam, "title" | "date" | "time" | "location"> | null;
+};
+
+export type ExamsPageData = {
+  semester: string | null;
+  checkedAt: string | null;
+  today: string;
+  courses: RemainingExam[];
+};
+
+export type ExamOptionsResult =
+  | { ok: true; exams: Pick<PublishedExam, "key" | "title" | "date" | "time">[] }
   | { ok: false; reason: ExamSyncError };

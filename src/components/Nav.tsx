@@ -13,6 +13,7 @@ import {
   BarChart3,
   GraduationCap,
   Calendar,
+  CalendarCheck,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ const CORE_TABS: Tab[] = [
 
 // Secondary destinations live in the menu on both mobile and desktop.
 const SECONDARY_TABS: Tab[] = [
+  { href: "/exams", labelKey: "nav.exams", Icon: CalendarCheck },
   { href: "/insights", labelKey: "nav.insights", Icon: BarChart3 },
   { href: "/catalog", labelKey: "nav.modules", Icon: GraduationCap },
   { href: "/timetable", labelKey: "nav.timetable", Icon: Calendar },

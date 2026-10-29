@@ -9,7 +9,7 @@ import { rebuildSchedule } from "@/lib/planService";
 import type { ExamApplyResult, ExamPreviewResult } from "@/lib/examSyncTypes";
 
 function refreshPlanPages() {
-  for (const path of ["/settings", "/today", "/courses", "/calendar", "/insights", "/search"]) revalidatePath(path);
+  for (const path of ["/exams", "/settings", "/today", "/courses", "/calendar", "/insights", "/search"]) revalidatePath(path);
   revalidatePath("/courses/[id]", "page");
 }
 

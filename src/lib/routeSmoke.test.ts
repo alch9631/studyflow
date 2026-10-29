@@ -46,6 +46,7 @@ const ROUTES: ReadonlyArray<readonly [label: string, spec: string]> = [
   ["start", "@/app/start/page"],
   ["focus", "@/app/(focus)/focus/page"],
   ["calendar", "@/app/calendar/page"],
+  ["exams", "@/app/exams/page"],
   ["courses", "@/app/courses/page"],
   ["insights", "@/app/insights/page"],
   ["settings", "@/app/settings/page"],

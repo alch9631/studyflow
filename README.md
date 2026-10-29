@@ -78,19 +78,21 @@ The additive schema changes preserve existing tasks and histories. Run
 `npm run test:experience` for integration checks and follow
 [`docs/USABILITY_CHECK.md`](docs/USABILITY_CHECK.md) with five classmates.
 
-## TUHH exam date sync
+## Exams and official TUHH dates
 
-In **Settings → Calendar sync → TUHH exam dates**, refresh the official current-semester
-exam schedule, review the suggested course matches, and apply selected date changes.
-You can choose an exam manually when course names differ. Applying dates rebuilds the
-study plan and preserves completed sessions. Passed courses are excluded.
+Open **Menu → Exams** (`/exams`) for remaining exams ordered by date. **Refresh** reads
+TUHH’s official current-semester schedule and saves uniquely matched upcoming dates.
+Date changes rebuild the study plan while preserving completed sessions. Passed courses
+are excluded; unfinished courses with old dates stay available under **Dates to check**.
 
-This is an on-demand check, with the last check time shown in the preview. Individual
-appointments and multi-day exam windows need your personal date entered in the course
-settings. The source is checked again before saving, and changed courses or exam entries
-require a refreshed preview. No TUHH login or extra configuration is needed.
+The last successful check and published semester survive reopening. Unavailable or
+unreadable sources leave saved dates intact. Ambiguous, unpublished and individual
+appointments keep the existing date with a short status. Use a row’s pen to search for
+the correct published exam when names differ; the selected title is retained for future
+checks. Individual appointments still need the personal date entered in course settings.
+The source is checked again before a selection is saved. No TUHH login is needed.
 
-Run the parser and isolated database checks with `npm run test:exam-sync`.
+Run the parser and isolated database checks with `npm run test:exam-sync` and `npm run test:exams`.
 
 ## The plan engine
 
