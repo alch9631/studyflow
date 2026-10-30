@@ -19,3 +19,5 @@ Dockerfile
 README*
 *.md
 tsconfig.tsbuildinfo
+
+apps/mobile

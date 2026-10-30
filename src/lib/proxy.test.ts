@@ -59,6 +59,10 @@ try {
   check("app page /today still redirects without a session", isRedirectToLogin(hit("/today")));
   check("push API /api/push/subscribe still redirects without a session", isRedirectToLogin(hit("/api/push/subscribe")));
 
+  check("native API reaches its own bearer auth without a browser cookie", passesThrough(hit("/api/mobile/today")));
+  const nativeLogin = hit("/mobile/connect?challenge=test");
+  check("native browser sign-in preserves its internal return path", new URL(nativeLogin.headers.get("location")!).searchParams.get("callbackUrl") === "/mobile/connect?challenge=test");
+
   // Existing public surface + session behaviour unchanged.
   check("landing / stays public", passesThrough(hit("/")));
   check("/login stays public", passesThrough(hit("/login")));

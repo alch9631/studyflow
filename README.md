@@ -116,7 +116,16 @@ npx tsx src/lib/planner.test.ts   # run the engine tests
 
 ## Stack
 
-Next.js (App Router, TS) · Tailwind · Supabase (Postgres + auth) · Prisma · OpenAI API · Vercel.
+**Primary product:** Expo / React Native for iPhone (`apps/mobile`).
+
+**Backend and web planner:** Next.js (App Router, TypeScript), Prisma, Auth.js / Google sign-in, and server-side AI processing.
+
+The first native flow is Today → Focus → saved result. See **[the iPhone development guide](apps/mobile/README.md)** for setup, authentication, verification and remaining native features.
+
+```sh
+npm --prefix apps/mobile ci
+npm run mobile
+```
 
 ## Local setup
 
@@ -142,7 +151,7 @@ Run the full verification suite (what CI runs) with:
 npm run ci   # prisma generate + db push → lint → tsc --noEmit → tests → build
 ```
 
-For production (Postgres + auth + deploy), see **[PRODUCTION.md](PRODUCTION.md)**.
+For backend production deployment, see **[DEPLOY.md](DEPLOY.md)**.
 
 The live Pi instance automatically deploys CI-green pushes to `main`. Installation,
 status, logs, and rollback behavior are documented in **[ops/AUTO_DEPLOY.md](ops/AUTO_DEPLOY.md)**.
@@ -170,7 +179,7 @@ the header from the project's `CRON_SECRET` env var.
 
 ## Status
 
-🚧 Day 1 — foundation. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
+The iPhone app is being developed in `apps/mobile` alongside the working web planner. Native course management, calendar, reminders and release preparation follow the first Today / Focus slice.
 
 ---
 

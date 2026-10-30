@@ -30,6 +30,8 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
   // Auth.js endpoints (sign-in/callback/sign-out) must stay reachable.
   if (pathname.startsWith("/api/auth/")) return true;
+  // Native endpoints authenticate every request with their own bearer session.
+  if (pathname.startsWith("/api/mobile/")) return true;
   // Token/secret-authed endpoints hit by cookie-less clients — each does its own
   // auth, and a 307 to /login would break it:
   //  - /api/calendar/<token>: webcal feed polled by calendar apps; the secret
@@ -55,6 +57,7 @@ export function proxy(req: NextRequest) {
   if (hasSessionCookie(req)) return NextResponse.next();
 
   const loginUrl = new URL("/login", req.nextUrl);
+  if (pathname === "/mobile/connect") loginUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
   return NextResponse.redirect(loginUrl);
 }
 

@@ -68,3 +68,13 @@ prisma/*.db.bak-*
 # Deploy run logs written by the ops scripts — machine-local, never reviewed in
 # a diff. `ops/*.md` runbooks stay tracked; only the timestamped logs are noise.
 ops/*.log
+
+# Native app dependencies and generated Expo projects
+/apps/mobile/node_modules/
+/apps/mobile/.expo/
+/apps/mobile/dist/
+/apps/mobile/ios/
+/apps/mobile/android/
+/apps/mobile/expo-env.d.ts
+/apps/mobile/.env*
+!/apps/mobile/.env.example

@@ -14,16 +14,19 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
+  const callback = (await searchParams).callbackUrl;
+  // Only this internal return path may survive the browser OAuth round trip.
+  const redirectTo = callback?.startsWith("/mobile/connect?") ? callback : "/today";
   // Server action: kick off the Google OAuth flow and return to /today after.
   async function signInWithGoogle() {
     "use server";
-    await signIn("google", { redirectTo: "/today" });
+    await signIn("google", { redirectTo });
   }
 
   // When the app runs without auth (local dev / the Pi), there is no real
   // sign-in to do — send the user straight to the app.
-  if (process.env.ALLOW_DEV_USER === "1") redirect("/today");
+  if (process.env.ALLOW_DEV_USER === "1") redirect(redirectTo);
 
   // Sign-in is the FIRST screen a signed-out visitor sees, so it has to follow
   // the same locale as the rest of the app. It used to be hardcoded English
