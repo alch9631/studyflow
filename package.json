@@ -71,7 +71,13 @@
     "test:focus": "tsx src/lib/focusSession.test.ts",
     "test:focus-clock": "tsx src/lib/focusClock.test.ts",
     "test:focus-notes": "tsx src/lib/focusNotes.test.ts",
-    "test:calendar-arrange": "tsx src/lib/calendarArrange.test.ts"
+    "test:calendar-arrange": "tsx src/lib/calendarArrange.test.ts",
+    "mobile": "npm --prefix apps/mobile start",
+    "mobile:ios": "npm --prefix apps/mobile run ios",
+    "mobile:check": "npm --prefix apps/mobile run check",
+    "test:mobile": "tsx src/lib/mobile.test.ts",
+    "test:proxy": "tsx src/lib/proxy.test.ts",
+    "test:rate-limit-core": "tsx src/lib/rateLimit.test.ts"
   },
   "engines": {
     "node": ">=24"
