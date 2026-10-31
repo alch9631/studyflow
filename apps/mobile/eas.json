@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 27.2.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -8,18 +9,27 @@
       "distribution": "internal",
       "env": {
         "STUDYFLOW_DEV_NETWORK": "1"
+      },
+      "ios": {
+        "image": "sdk-58"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://avi-pi.tail76033e.ts.net:8443"
+      },
+      "ios": {
+        "image": "sdk-58"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://avi-pi.tail76033e.ts.net:8443"
+      },
+      "ios": {
+        "image": "sdk-58"
       }
     }
   }
