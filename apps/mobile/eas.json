@@ -32,5 +32,14 @@
         "image": "sdk-58"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleTeamId": "4K5P6S4BXZ",
+        "language": "en-US",
+        "sku": "app.studyflow.mobile"
+      }
+    }
   }
 }
