@@ -1,9 +1,11 @@
 import { prisma } from "./db";
+import { authenticatedMobileUser } from "./mobileUserContext";
 
 /**
  * Resolves the current user's id for every userId-scoped read/write.
  *
- * There are exactly three auth modes, branched on FIRST so we never call auth()
+ * Bearer-authenticated mobile actions use a request-local identity supplied only
+ * by the API adapter. All other callers have three auth modes, branched on before auth()
  * (and so never hit an *expected* "headers outside request scope" throw or an
  * expected missing-session error) in a path where the dev user is the intended
  * answer:
@@ -57,6 +59,8 @@ async function getDevUserId(): Promise<string> {
 }
 
 export async function getCurrentUserId(): Promise<string> {
+  const mobileUser = authenticatedMobileUser();
+  if (mobileUser) return mobileUser;
   // Branch on the mode FIRST. test/dev resolve the seeded dev user without ever
   // calling auth() — so an *expected* "headers outside request scope" throw (in
   // tests) or a missing session (in dev) is never part of the control flow.

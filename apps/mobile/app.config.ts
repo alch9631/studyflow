@@ -5,7 +5,7 @@ const config: ExpoConfig = {
   name: "Studyflow",
   slug: "studyflow-mobile",
   owner: "mohaboss",
-  version: "0.1.0",
+  version: "0.2.0",
   icon: "../../public/icon-512.png",
   scheme: "studyflow",
   orientation: "portrait",
@@ -21,7 +21,7 @@ const config: ExpoConfig = {
       NSAppTransportSecurity: { NSAllowsArbitraryLoads: true },
     } : {},
   },
-  plugins: ["expo-router", "expo-secure-store", "expo-web-browser"],
+  plugins: ["expo-router", "expo-secure-store", "expo-web-browser", "@react-native-community/datetimepicker", "expo-sharing", ["expo-notifications", { enableRemoteNotifications: false }]],
   extra: { eas: { projectId: "a5b0620f-c271-4d13-9e82-fe559bd8a374" } },
 };
 export default config;

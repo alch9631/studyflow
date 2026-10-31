@@ -8,6 +8,7 @@ import { ApiError, finishSession, getFocus, saveProgress } from "../../src/api";
 import { clearDraft, draftKey, readDraft, writeDraft } from "../../src/drafts";
 import { useSession } from "../../src/session";
 import { Action, AppText, Card, ErrorMessage, styles, useTheme } from "../../src/ui";
+import { openMaterial } from "../../src/materials";
 
 export default function Focus() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -124,7 +125,10 @@ export default function Focus() {
       <View style={{ gap: 6 }}><AppText size={14} weight="600" muted>{block.course.name}</AppText><AppText size={28} weight="800">{block.title}</AppText></View>
       <Card style={{ alignItems: "center", backgroundColor: theme.tint, gap: 16 }}><AppText size={13} weight="600" muted>A LITTLE TIME, JUST FOR THIS</AppText><AppText size={60} weight="500" style={{ fontVariant: ["tabular-nums"] }}>{formatTimer(elapsed)}</AppText><AppText size={14} muted>{block.minutes} min planned · timer is optional</AppText><View style={{ alignSelf: "stretch" }}><Action secondary onPress={toggleTimer}>{startedAt === null ? elapsed > 0 ? "Resume timer" : "Start timer" : "Pause timer"}</Action></View></Card>
       <View style={{ gap: 10 }}><AppText size={19} weight="700">Your focus</AppText><AppText>{block.task?.instruction ?? `Work through ${block.title}. Make a note of what you understand and what needs another look.`}</AppText></View>
-      {block.task && <Card><AppText size={14} weight="700" muted>{block.task.sourceRef || "YOUR MATERIAL"}</AppText>{block.task.sourceExcerpt ? <AppText size={15}>{block.task.sourceExcerpt}</AppText> : <AppText size={14} muted>Keep your course material nearby while you work.</AppText>}{block.task.sourceUrl && <Action secondary onPress={() => { void Linking.openURL(block.task!.sourceUrl!).catch(() => setError("Couldn't open this source.")); }}>Open source</Action>}</Card>}
+      {block.task && <Card><AppText size={14} weight="700" muted>{block.task.sourceRef || "YOUR MATERIAL"}</AppText>{block.task.sourceExcerpt ? <AppText size={15}>{block.task.sourceExcerpt}</AppText> : <AppText size={14} muted>Keep your course material nearby while you work.</AppText>}{(block.task.sourceFileId || block.task.sourceUrl) && <Action secondary onPress={() => {
+        if (block.task?.sourceFileId) void openMaterial(session, block.task.sourceFileId, block.task.sourceRef || "source.pdf").catch(() => setError("Couldn't open this source."));
+        else if (block.task?.sourceUrl && /^https?:\/\//.test(block.task.sourceUrl)) void Linking.openURL(block.task.sourceUrl).catch(() => setError("Couldn't open this source."));
+      }}>Open source</Action>}</Card>}
       <View style={{ gap: 10 }}><AppText size={19} weight="700">{block.task?.checkQuestion ? "Recall check" : "Your working notes"}</AppText>{block.task?.checkQuestion && <AppText>{block.task.checkQuestion}</AppText>}<TextInput accessibilityLabel={block.task?.checkQuestion ? "Your answer" : "Your working notes"} multiline maxLength={4000} value={response} onChangeText={(value) => { setResponse(value); setSaved(null); }} placeholder="Think on the page. What did you learn?" placeholderTextColor={theme.muted} textAlignVertical="top" style={[styles.input, { minHeight: 160, color: theme.text, borderColor: theme.line, backgroundColor: theme.surface, lineHeight: 24 }]} />
         {block.task?.answerKey && <><Action secondary onPress={() => setShowAnswer(!showAnswer)}>{showAnswer ? "Hide answer key" : "Compare with the source"}</Action>{showAnswer && <Card><AppText>{block.task.answerKey}</AppText></Card>}</>}
       </View>

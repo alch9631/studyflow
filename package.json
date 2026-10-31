@@ -76,6 +76,7 @@
     "mobile:ios": "npm --prefix apps/mobile run ios",
     "mobile:check": "npm --prefix apps/mobile run check",
     "test:mobile": "tsx src/lib/mobile.test.ts",
+    "test:mobile-workspace": "tsx src/lib/mobileWorkspace.test.ts",
     "test:proxy": "tsx src/lib/proxy.test.ts",
     "test:rate-limit-core": "tsx src/lib/rateLimit.test.ts"
   },

@@ -80,8 +80,38 @@ included when `STUDYFLOW_DEV_NETWORK=1` is explicitly set.
 
 Local drafts survive a network error and can be retried by reopening the session.
 There is no complete offline plan cache or automatic queue for finished results yet.
-Course setup is available through **Settings → Open course planner** while native
-course management, original-file preview, calendar and reminders are being ported.
+## Native workspace (0.2)
+
+Five tabs expose Today, Calendar, Courses, Exams and More. They use the same account
+and database as the web app:
+
+- Exams: remaining exams, month calendar, published university dates and manual
+  matching, date edits, final grades, manual pass status and passed modules.
+- Progress: root-topic coverage, confidence and notes; focus time, weekly activity,
+  study heatmap, weighted grade average, earned ECTS and checked learning evidence.
+- Courses: manual creation, university catalog selection, syllabus text import,
+  study days/difficulty, plan repair and progress interpretation.
+- Materials: native Files/iCloud selection, authenticated original-file access,
+  document-derived study plans with a selection/review step, and removal.
+- Planning: a native day/week agenda, time assignment, automatic arrangement,
+  recurring class timetable, deadlines and plan recovery/undo.
+- More: active recall via course progress, study-window/daily-budget preferences,
+  Apple Calendar subscription, and opt-in daily local reminders.
+
+Calendar placement uses forms rather than the web's drag interaction. File opening
+uses the iOS share/preview sheet. Reminders are scheduled locally on this iPhone;
+web push remains a separate browser subscription. Full offline planning and a
+background submission queue are still pending.
+
+The native mutation adapter invokes an explicit allowlist of existing web actions.
+Only after bearer authentication, AsyncLocalStorage carries that identity into
+`getCurrentUserId()` for the duration of the action. It never accepts a user ID
+from client fields or headers. Ownership, exam concurrency checks, validation,
+rate limits, AI budgets, scheduling and cache invalidation stay in the existing
+web/domain implementation. Unknown actions and stale/foreign IDs fail explicitly.
+
+New code should continue to put shared behavior in domain services; the adapter
+keeps the current web action workflows consistent while the native client grows.
 
 ## Authentication and API
 
@@ -104,12 +134,21 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 | `/api/mobile/blocks/:id/progress` | PUT | Save response and elapsed seconds |
 | `/api/mobile/blocks/:id/result` | POST | Submit checked completion or practice outcome |
 | `/api/mobile/materials/:id` | GET | Retrieve an owned original with bearer authentication |
+| `/api/mobile/courses` | GET | Owned course summaries and progress |
+| `/api/mobile/courses/:id` | GET | Owned topics, notes, materials and deadlines |
+| `/api/mobile/exams` | GET | Remaining exams, results and grades |
+| `/api/mobile/insights` | GET | Shared analytics and learning evidence |
+| `/api/mobile/calendar?week=YYYY-MM-DD` | GET | Week agenda and recurring classes |
+| `/api/mobile/catalog?q=…` | GET | Bounded university module search |
+| `/api/mobile/preferences` | GET | Study preferences and private calendar subscription token |
+| `/api/mobile/actions/:name` | POST | Allowlisted web workflows; JSON fields or bounded file upload |
 
 ## Verify
 
 ```sh
 # From the repository root
 npm run test:mobile
+npm run test:mobile-workspace
 npm run test:proxy
 npm run mobile:check
 

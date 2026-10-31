@@ -31,18 +31,22 @@ export async function mobileToday(userId: string): Promise<MobileToday> {
   const date = todayISO();
   const start = new Date(`${date}T00:00:00Z`);
   const end = new Date(start.getTime() + 86400_000);
-  const [user, blocks, exam] = await Promise.all([
+  const [user, blocks, exam, assignments, lectures] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, email: true } }),
     prisma.studyBlock.findMany({ where: { date: { gte: start, lt: end }, course: { userId } },
       select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, course: { select: { id: true, name: true } } },
       orderBy: [{ kind: "desc" }, { minutes: "desc" }, { id: "asc" }], take: 500 }),
     prisma.course.findFirst({ where: { userId, passed: false, OR: [{ grade: null }, { grade: { gt: 4 } }], examDate: { gte: start } },
       orderBy: { examDate: "asc" }, select: { name: true, examDate: true } }),
+    prisma.assignment.findMany({ where: { course: { userId }, done: false, dueDate: { lt: new Date(start.getTime() + 7 * 86400_000) } }, orderBy: { dueDate: "asc" }, take: 100,
+      select: { id: true, title: true, dueDate: true, done: true, course: { select: { id: true, name: true } } } }),
+    prisma.lecture.findMany({ where: { userId, weekday: start.getUTCDay() }, orderBy: { startMin: "asc" }, select: { id: true, title: true, startMin: true, endMin: true, location: true } }),
   ]);
   return { date, user, blocks: await presentBlocks(userId, blocks),
     summary: { plannedMinutes: blocks.reduce((sum, b) => sum + b.minutes, 0), completedMinutes: blocks.filter((b) => b.completed).reduce((sum, b) => sum + b.minutes, 0),
       completedCount: blocks.filter((b) => b.completed).length, totalCount: blocks.length },
-    nextExam: exam ? { name: exam.name, date: exam.examDate.toISOString().slice(0, 10) } : null };
+    nextExam: exam ? { name: exam.name, date: exam.examDate.toISOString().slice(0, 10) } : null,
+    assignments: assignments.map(a => ({ ...a, dueDate: a.dueDate.toISOString().slice(0, 10) })), lectures };
 }
 
 export async function mobileFocus(userId: string, blockId: string) {
