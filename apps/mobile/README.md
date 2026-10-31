@@ -38,7 +38,9 @@ OAuth client secrets in this app.
 
 ### iOS development build
 
-Install full Xcode and select it as the developer directory to use the iOS Simulator.
+Expo SDK 58 requires **Xcode 26.4 or newer**. Xcode 26.3 cannot compile its Swift
+modules. Check Apple’s macOS requirements before installing a newer Xcode.
+If this Mac cannot run a compatible Xcode, use the cloud build below.
 Apple's command-line tools alone do not include the simulator.
 
 ```sh
@@ -49,7 +51,7 @@ STUDYFLOW_DEV_NETWORK=1 npm run ios
 This generates the native `ios/` project. Generated native projects are ignored;
 configuration lives in `app.config.ts`. A physical device build also needs signing.
 `eas.json` includes development, preview and production profiles for later EAS setup.
-An EAS project/account has not been created or linked automatically.
+An EAS project must be linked to an authenticated Expo account before the first cloud build.
 
 For a quick development-account preview in a compatible Expo Go version:
 
@@ -123,3 +125,22 @@ Before an App Store release: add the appropriate additional login option alongsi
 Google, full account deletion, a privacy policy, production icons, and device-tested
 notification/permission flows. Confirm the bundle identifier before creating signing
 credentials. None of those release steps are silently handled by a JavaScript export.
+
+## Cloud build and TestFlight
+
+The EAS profiles use the `sdk-58` build image and remote build numbers. Preview and
+production builds connect to the existing Pi HTTPS backend, which is publicly
+reachable through Tailscale Funnel. The new mobile API must be deployed before
+using an iPhone build.
+
+```sh
+cd apps/mobile
+npx eas-cli@latest login --browser
+npx eas-cli@latest init
+npx eas-cli@latest build --platform ios --profile production --auto-submit
+```
+
+Complete account and Apple signing prompts locally in the browser or terminal.
+The first submission also needs the app’s App Store Connect record and a paid
+Apple Developer membership. A successful upload still needs Apple’s processing
+before the build appears in TestFlight. A JavaScript export alone is not an upload.
