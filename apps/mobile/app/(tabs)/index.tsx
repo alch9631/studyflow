@@ -7,6 +7,8 @@ import type { MobileToday } from "../../../../shared/mobile";
 import { ApiError, getToday } from "../../src/api";
 import { useSession } from "../../src/session";
 import { Action, AppText, Card, ErrorMessage, styles, useTheme } from "../../src/ui";
+import { api } from "../../src/api";
+import { dateLabel, edit, LinkButton, timeLabel } from "../../src/workspace";
 
 export default function Today() {
   const { session, signOut } = useSession();
@@ -15,6 +17,12 @@ export default function Today() {
   const [data, setData] = useState<MobileToday | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [adjusting, setAdjusting] = useState(false);
+  async function adjust(name: string) {
+    if (!session || adjusting) return; setAdjusting(true); setError(null);
+    try { await api(session.server, session.token, `actions/${name}`, { method: "POST", body: { fields: {} }, timeout: 120_000 }); await load(); }
+    catch (e) { setError((e as Error).message); } finally { setAdjusting(false); }
+  }
   const load = useCallback(async () => {
     if (!session) return;
     setRefreshing(true); setError(null);
@@ -51,7 +59,11 @@ export default function Today() {
         {data.blocks.length > 0 && <View style={{ gap: 12 }}><AppText size={20} weight="700">Your sessions</AppText>{data.blocks.map((block) => <Pressable key={block.id} accessibilityRole="button" accessibilityLabel={`${block.title}, ${block.minutes} minutes${block.completed ? ", complete" : ""}`} disabled={block.completed} onPress={() => focus(block.id)}>
           <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}><Ionicons name={block.completed ? "checkmark-circle" : "ellipse-outline"} size={25} color={block.completed ? theme.brand : theme.muted} /><View style={{ flex: 1, gap: 4 }}><AppText weight="600" style={{ opacity: block.completed ? 0.6 : 1 }}>{block.title}</AppText><AppText size={13} muted>{block.course.name} · {block.minutes} min</AppText></View>{!block.completed && <Ionicons name="chevron-forward" size={18} color={theme.muted} />}</Card>
         </Pressable>)}</View>}
-        {data.nextExam && <View style={[styles.row, { padding: 4 }]}><Ionicons name="calendar-outline" size={21} color={theme.muted} /><View style={{ flex: 1 }}><AppText size={14} weight="600">Next exam · {data.nextExam.name}</AppText><AppText size={13} muted>{new Date(`${data.nextExam.date}T12:00:00Z`).toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" })}</AppText></View></View>}
+        {data.nextExam && <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/exams")} style={[styles.row, { padding: 4, minHeight: 48 }]}><Ionicons name="calendar-outline" size={21} color={theme.muted} /><View style={{ flex: 1 }}><AppText size={14} weight="600">Next exam · {data.nextExam.name}</AppText><AppText size={13} muted>{dateLabel(data.nextExam.date)}</AppText></View></Pressable>}
+        {!!data.assignments?.length && <Card><AppText size={19} weight="700">Upcoming deadlines</AppText>{data.assignments.map(a => <View key={a.id}><AppText weight="600">{a.title}</AppText><AppText size={13} muted>{a.course.name} · {dateLabel(a.dueDate)}</AppText><LinkButton label="Open course deadlines" onPress={() => router.push(`/course/${a.course.id}`)} /></View>)}</Card>}
+        {!!data.lectures?.length && <Card><AppText size={19} weight="700">Classes today</AppText>{data.lectures.map(l => <View key={l.id}><AppText weight="600">{l.title}</AppText><AppText size={13} muted>{timeLabel(l.startMin)}–{timeLabel(l.endMin)}{l.location ? ` · ${l.location}` : ""}</AppText></View>)}</Card>}
+        <Card><AppText size={19} weight="700">Make the plan fit today</AppText><Action secondary busy={adjusting} onPress={() => { void adjust("protectToday"); }}>Defer optional reviews</Action><Action secondary busy={adjusting} onPress={() => { void adjust("recoverPlan"); }}>Rebalance remaining work</Action><LinkButton label="Undo last plan adjustment" onPress={() => { void adjust("undoRecovery"); }} /></Card>
+        {!data.blocks.length && <Action secondary onPress={() => edit("createCourse")}>Add a course</Action>}
       </>}
     </ScrollView>
   </SafeAreaView>;

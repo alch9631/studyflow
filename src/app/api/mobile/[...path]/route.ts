@@ -4,10 +4,13 @@ import { createDevelopmentMobileSession, exchangeMobileGrant, mobileHash, mobile
 import { mobileFinish, mobileFocus, mobileSaveProgress, mobileToday } from "@/lib/mobileStudy";
 import { checkRateLimit } from "@/lib/rateLimitPolicy";
 import { materialResponse, readMaterial } from "@/lib/materials";
+import { mobileCalendar, mobileCatalog, mobileCourse, mobileCourses, mobileExams, mobileInsights, mobilePreferences } from "@/lib/mobileWorkspace";
+import { mobileAction, mobileForm } from "@/lib/mobileActions";
+import { MAX_UPLOAD_BYTES } from "@/lib/fileText";
 
 export const dynamic = "force-dynamic";
 
-async function body(request: Request): Promise<Record<string, unknown>> {
+async function body(request: Request, maxBytes = 32_768): Promise<Record<string, unknown>> {
   if (!request.headers.get("content-type")?.includes("application/json")) throw new ApiError("BAD_REQUEST", "Send a JSON request.");
   const reader = request.body?.getReader();
   if (!reader) throw new ApiError("BAD_REQUEST", "Missing request body.");
@@ -19,7 +22,7 @@ async function body(request: Request): Promise<Record<string, unknown>> {
       const part = await reader.read();
       if (part.done) break;
       size += part.value.byteLength;
-      if (size > 32_768) { await reader.cancel(); throw new ApiError("BAD_REQUEST", "Request is too large."); }
+      if (size > maxBytes) { await reader.cancel(); throw new ApiError("BAD_REQUEST", "Request is too large."); }
       text += decoder.decode(part.value, { stream: true });
     }
     text += decoder.decode();
@@ -56,6 +59,34 @@ async function dispatch(request: Request, segments: string[]) {
     return Response.json({ ok: true });
   }
   if (path === "today" && request.method === "GET") return Response.json(await mobileToday(userId));
+  if (request.method === "GET") {
+    const url = new URL(request.url);
+    if (path === "courses") return Response.json(await mobileCourses(userId));
+    if (segments[0] === "courses" && segments.length === 2) return Response.json(await mobileCourse(userId, segments[1]));
+    if (path === "exams") return Response.json(await mobileExams(userId));
+    if (path === "insights") return Response.json(await mobileInsights(userId));
+    if (path === "calendar") return Response.json(await mobileCalendar(userId, url.searchParams.get("week") ?? undefined));
+    if (path === "catalog") return Response.json(await mobileCatalog(url.searchParams.get("q") ?? ""));
+    if (path === "preferences") return Response.json(await mobilePreferences(userId));
+  }
+  if (segments[0] === "actions" && segments.length === 2 && request.method === "POST") {
+    if (!checkRateLimit("MUTATION", userId)) throw new ApiError("RATE_LIMITED", "Please try again in a minute.");
+    let form: FormData;
+    if (request.headers.get("content-type")?.startsWith("multipart/form-data")) {
+      if (!["uploadMaterial", "analyzeMaterial", "importSyllabus"].includes(segments[1])) throw new ApiError("BAD_REQUEST", "This action does not accept files.");
+      const reader = request.body?.getReader();
+      if (!reader) throw new ApiError("BAD_REQUEST", "Missing upload.");
+      const parts: Uint8Array[] = []; let size = 0;
+      try { while (true) { const part = await reader.read(); if (part.done) break; size += part.value.byteLength;
+        if (size > MAX_UPLOAD_BYTES + 65_536) { await reader.cancel(); throw new ApiError("BAD_REQUEST", "Files must be 20 MB or smaller."); } parts.push(part.value); }
+      } finally { reader.releaseLock(); }
+      const payload = new Uint8Array(size); let offset = 0; for (const part of parts) { payload.set(part, offset); offset += part.length; }
+      try { form = await new Request(request.url, { method: "POST", headers: { "Content-Type": request.headers.get("content-type")! }, body: payload }).formData(); }
+      catch { throw new ApiError("BAD_REQUEST", "The upload could not be read. Choose the file again."); }
+      if ([...form.keys()].length > 40) throw new ApiError("BAD_REQUEST", "Too many fields.");
+    } else form = mobileForm((await body(request, 262_144)).fields ?? {});
+    return Response.json(await mobileAction(userId, segments[1], form));
+  }
   if (segments[0] === "materials" && segments.length === 2 && request.method === "GET") return materialResponse(await readMaterial(userId, segments[1]));
   if (segments[0] !== "blocks" || !segments[1] || segments[1].length > 200) throw new ApiError("NOT_FOUND", "Endpoint not found.");
   const blockId = segments[1];

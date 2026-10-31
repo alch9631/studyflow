@@ -14,9 +14,9 @@ export function serverUrl(input: string, development: boolean): string {
   return url.origin;
 }
 
-export async function api<T>(base: string, token: string | null, path: string, options?: { method?: string; body?: unknown }): Promise<T> {
+export async function api<T>(base: string, token: string | null, path: string, options?: { method?: string; body?: unknown; timeout?: number }): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), options?.timeout ?? 20_000);
   try {
     const response = await fetch(`${base}/api/mobile/${path}`, {
       method: options?.method ?? "GET",

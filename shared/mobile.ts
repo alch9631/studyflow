@@ -28,6 +28,8 @@ export type MobileToday = {
   blocks: MobileBlock[];
   summary: { plannedMinutes: number; completedMinutes: number; completedCount: number; totalCount: number };
   nextExam: { name: string; date: string } | null;
+  assignments?: { id: string; title: string; dueDate: string; done: boolean; course: { id: string; name: string } }[];
+  lectures?: { id: string; title: string; startMin: number; endMin: number; location: string | null }[];
 };
 
 export type MobileSession = { token: string; expiresAt: string; userId: string };
