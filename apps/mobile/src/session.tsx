@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import * as Linking from "expo-linking";
@@ -33,6 +33,8 @@ async function challenge(value: string) {
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<StoredSession | null>(null);
+  const currentSession = useRef(session);
+  currentSession.current = session;
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
@@ -69,6 +71,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // A late unauthorized response from an old account cannot sign out a newer one.
+    if (!session || currentSession.current?.token !== session.token) return;
     if (session?.server === DEMO_SERVER) {
       endDemoSession(session.token);
       setSession(current => current?.token === session.token ? null : current);
@@ -76,7 +80,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     await SecureStore.deleteItemAsync(STORAGE_KEY);
-    setSession(null);
+    setSession(current => current?.token === session.token ? null : current);
     // Local sign-out must work even if a development server moved or is offline.
     // Revoke this device's server token whenever the server is reachable.
     if (session) void api(session.server, session.token, "session", { method: "DELETE" }).catch(() => {});

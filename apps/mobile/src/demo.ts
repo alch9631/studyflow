@@ -195,12 +195,20 @@ export class DemoWorkspace {
       return { ok: true, note };
     }
     if (name === "startFocus") {
-      const course = this.course(value("courseId")); let topic = value("topicId") ? this.topic(value("topicId")) : course.topics.find(item => !item.done);
+      const course = this.course(value("courseId"));
+      if (!value("topicId")) {
+        const unfinished = new Set(course.topics.filter(topic => !topic.done).map(topic => topic.id));
+        const candidates = state.blocks.filter(block => block.course.id === course.id && !block.completed && unfinished.has(block.topicId))
+          .sort((a, b) => a.date.localeCompare(b.date) || b.kind.localeCompare(a.kind) || a.id.localeCompare(b.id));
+        const next = candidates.find(block => state.progress[block.topicId]) ?? candidates[0];
+        if (next) return { ok: true, blockId: next.id, topicId: next.topicId, kind: next.kind };
+      }
+      let topic = value("topicId") ? this.topic(value("topicId")) : course.topics.find(item => !item.done);
       if (!topic && !value("topicId") && !passed(course)) {
         topic = { id: this.id(), title: course.name, done: false, confidence: null, parentTopicId: null, note: "", questions: [], task: null };
         course.topics.push(topic);
       }
-      if (!topic || !course.topics.includes(topic)) throw new DemoError("Choose an unfinished topic to study.");
+      if (!topic || topic.done || !course.topics.includes(topic)) throw new DemoError("Choose an unfinished topic to study.");
       const block = state.blocks.find(item => item.topicId === topic.id && !item.completed) ?? this.createBlock(course, topic);
       return { ok: true, blockId: block.id, topicId: topic.id, kind: block.kind };
     }

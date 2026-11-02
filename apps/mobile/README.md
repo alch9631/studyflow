@@ -254,6 +254,14 @@ Google, full account deletion, a privacy policy, production icons, and device-te
 notification/permission flows. Confirm the bundle identifier before creating signing
 credentials. None of those release steps are silently handled by a JavaScript export.
 
+## Native experience review
+
+The [2 November 2026 review](../../docs/IOS_UX_REVIEW.md) records the native walkthrough,
+confirmed fixes, screenshots, regression checks, and physical-device verification limits.
+Course and topic actions can start a sitting directly, and Pause/Resume stays beside
+the countdown. Forms protect unsaved edits. Exams and Settings open with Back links
+outside the three-tab navigator.
+
 ## Cloud build and TestFlight
 
 The EAS profiles use the `sdk-58` build image and remote build numbers. Preview and

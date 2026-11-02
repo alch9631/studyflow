@@ -101,7 +101,7 @@ export default function Today() {
           <Ionicons name={data.planHealth?.overdueSessions || data.planHealth?.overloaded ? "alert-circle-outline" : "checkmark-circle-outline"} size={24} color={theme.brand} />
           <AppText size={14} muted style={{ flex: 1 }}>{data.planHealth?.overdueSessions || data.planHealth?.overloaded ? "Missed work? Adjust your plan above." : data.blocks.length ? "All done for today." : "No sessions today."}</AppText>
         </View> : null}
-        {data.nextExam ? <Pressable accessibilityRole="button" accessibilityLabel={`Next exam: ${data.nextExam.name}, ${dateLabel(data.nextExam.date)}`} onPress={() => router.push("/(tabs)/exams")} style={[styles.row, { minHeight: 48 }]}>
+        {data.nextExam ? <Pressable accessibilityRole="button" accessibilityLabel={`Next exam: ${data.nextExam.name}, ${dateLabel(data.nextExam.date)}`} onPress={() => router.push("/exams")} style={[styles.row, { minHeight: 48 }]}>
           <Ionicons name="school-outline" size={20} color={theme.muted} /><View style={{ flex: 1 }}><AppText size={14} weight="600">{data.nextExam.name}</AppText><AppText size={13} muted>{dateLabel(data.nextExam.date)}</AppText></View><Ionicons name="chevron-forward" size={16} color={theme.muted} />
         </Pressable> : null}
         {data.assignments?.length ? <View style={{ gap: 4 }}><AppText size={14} weight="700">Deadlines</AppText>{data.assignments.map(a => <Pressable key={a.id} accessibilityRole="button" accessibilityLabel={`Deadline: ${a.title}, ${dateLabel(a.dueDate)}`} onPress={() => router.push({ pathname: "/course/[id]", params: { id: a.course.id, section: "deadlines" } })} style={[styles.row, { minHeight: 52, paddingVertical: 8 }]}>

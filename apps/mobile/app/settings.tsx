@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Alert, Linking } from "react-native";
 import { router } from "expo-router";
 import Constants from "expo-constants";
-import type { PreferencesData } from "../../../../shared/mobileWorkspace";
-import { useSession } from "../../src/session";
-import { Action, AppText, Card, ErrorMessage } from "../../src/ui";
-import { edit, LinkButton, Page, timeLabel, useMobileData } from "../../src/workspace";
-import { reminderEnabled, setReminder } from "../../src/reminders";
-import AppearanceSetting from "../../src/appearance-setting";
+import type { PreferencesData } from "../../../shared/mobileWorkspace";
+import { useSession } from "../src/session";
+import { Action, AppText, Card, ErrorMessage } from "../src/ui";
+import { edit, LinkButton, Page, timeLabel, useMobileData } from "../src/workspace";
+import { reminderEnabled, setReminder } from "../src/reminders";
+import AppearanceSetting from "../src/appearance-setting";
 
 export default function Settings() {
   const { session, signOut, isDemo, startDemo } = useSession();
@@ -15,13 +15,13 @@ export default function Settings() {
   const [reminder, setEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (session && !isDemo) void reminderEnabled(session.userId).then(setEnabled); }, [session, isDemo]);
+  useEffect(() => { if (session && !isDemo) void reminderEnabled(session.userId).then(setEnabled).catch(() => setError("Couldn't read reminder settings. Try again.")); }, [session, isDemo]);
   async function disconnect() {
     setBusy(true); setError(null);
     try { if (session && !isDemo) await setReminder(session.userId, false, 0).catch(() => {}); await signOut(); if (isDemo) router.replace("/"); } catch (e) { setError(e instanceof Error ? e.message : "Couldn't sign out. Please try again."); }
     finally { setBusy(false); }
   }
-  return <Page title="Settings" subtitle={query.data?.user.email ?? "Your Studyflow account"} query={query}>
+  return <Page back title="Settings" subtitle={query.data?.user.email ?? "Your Studyflow account"} query={query}>
     {isDemo && <Card><AppText weight="700">Explore at your own pace</AppText><AppText muted>These are sample courses and study sessions. Your changes stay in this demo and are never sent to an account.</AppText>
       <Action secondary disabled={busy} onPress={() => { startDemo(); router.replace("/"); }}>Restart demo</Action>
       <Action busy={busy} onPress={() => { void disconnect(); }}>Exit demo</Action>

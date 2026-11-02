@@ -153,6 +153,12 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   const remaining = Math.max(0, displayClock.minutes * 60 - displayClock.elapsed);
   const canFinishTask = checked && (!block.task?.checkQuestion || response.trim().length > 0);
   const disabled = busy || notesBusy;
+  function toggleTimer() {
+    const current = latest.current.clock;
+    if (!current || disabled || remaining === 0) return;
+    if (current.running) { pauseClock(); void persist().catch(() => {}); }
+    else { const next = { ...current, running: true, at: Date.now() }; latest.current.clock = next; setClock(next); }
+  }
   return <View style={styles.screen}>
     <ScrollView contentInsetAdjustmentBehavior="automatic" automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.content, { paddingBottom: Math.max(40, insets.bottom) }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
       <DemoNotice />
@@ -161,6 +167,7 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
         <AppText size={60} weight="500" style={{ fontVariant: ["tabular-nums"] }}>{formatTimer(remaining)}</AppText>
         <AppText size={14} muted>{remaining === 0 ? "Time is up. Save your progress when you're ready." : displayClock.running ? "Focus time" : "Paused"}</AppText>
         <AppText size={13} muted>{Math.floor(displayClock.elapsed / 60)} minutes studied · {clock.minutes} minute session</AppText>
+        <Action disabled={disabled || remaining === 0} onPress={toggleTimer}>{displayClock.running ? "Pause" : "Resume"}</Action>
       </Card>
       {block.task && <Card><AppText>{block.task.instruction}</AppText><AppText size={14} muted>{block.task.sourceRef || "Your material"}</AppText>
         {!!block.task.sourceExcerpt && <AppText size={15}>{block.task.sourceExcerpt}</AppText>}
@@ -190,10 +197,6 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
       </>}
       <ErrorMessage message={error} />{saved && <AppText size={13} muted>{saved}</AppText>}
       <Action secondary disabled={disabled} onPress={() => { void leave(); }}>Save and close</Action>
-      <Action disabled={disabled || remaining === 0} onPress={() => {
-        if (clock.running) { pauseClock(); void persist().catch(() => {}); }
-        else { const next = { ...clock, running: true, at: Date.now() }; latest.current.clock = next; setClock(next); }
-      }}>{displayClock.running ? "Pause" : "Resume"}</Action>
       <Action secondary busy={busy} disabled={disabled} onPress={() => { void finish("session"); }}>Finish session</Action>
     </ScrollView>
   </View>;

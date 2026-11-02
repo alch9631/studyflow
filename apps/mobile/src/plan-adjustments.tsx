@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
-import { BottomSheet, Host } from "@expo/ui";
+import { ActivityIndicator, Modal, Pressable, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { MobileToday } from "../../../shared/mobile";
@@ -22,8 +22,8 @@ export function PlanAdjustments({ health, disabled, busy, error, onAdjust }: {
   async function adjust(name: string) { if (await onAdjust(name)) setOpen(false); }
   return <>
     <IconButton label="Adjust plan" icon="options-outline" disabled={disabled} onPress={() => setOpen(true)} />
-    <Host matchContents>
-      <BottomSheet isPresented={open} onDismiss={() => setOpen(false)} snapPoints={["full"]} containerColor={theme.background} contentPadding={0}>
+    <Modal visible={open} onRequestClose={() => setOpen(false)} presentationStyle="pageSheet" animationType="slide">
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><AppText size={24} weight="700" style={{ flex: 1 }}>Adjust plan</AppText><IconButton label="Close plan adjustments" icon="close-outline" onPress={() => setOpen(false)} /></View>
           <AppText size={14} muted>{health?.availableMinutes ?? 0} min available{health?.overdueSessions ? ` · ${health.overdueSessions} missed (${health.overdueMinutes}m)` : ""}{health?.overloaded ? " · Work exceeds study time" : ""}</AppText>
@@ -31,16 +31,16 @@ export function PlanAdjustments({ health, disabled, busy, error, onAdjust }: {
           {busy ? <ActivityIndicator color={theme.brand} /> : null}
           <View>{choices.map(choice => {
             const preview = health?.previews[choice.key];
-            return <Pressable key={choice.name} accessibilityRole="button" disabled={busy} onPress={() => { void adjust(choice.name); }}
+            return <Pressable key={choice.name} accessibilityRole="button" accessibilityLabel={choice.label} accessibilityHint={preview ? `${preview.afterCount} sessions, ${preview.afterPaceMin} minutes per day, ${preview.moved} moved` : undefined} accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => { void adjust(choice.name); }}
               style={({ pressed }) => ({ minHeight: 76, paddingVertical: 14, flexDirection: "row", gap: 12, alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, opacity: busy ? 0.5 : pressed ? 0.65 : 1 })}>
               <Ionicons name={choice.icon} size={22} color={theme.brand} />
               <View style={{ flex: 1, gap: 3 }}><AppText weight="600">{choice.label}</AppText>{preview ? <AppText size={13} muted>{preview.afterCount} sessions · {preview.afterPaceMin}m/day · {preview.moved} moved</AppText> : null}</View>
             </Pressable>;
           })}</View>
           {health?.undoAvailable ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void adjust("undoRecovery"); }} style={{ minHeight: 44, justifyContent: "center", opacity: busy ? 0.5 : 1 }}><AppText weight="600" style={{ color: theme.brand }}>Undo adjustment</AppText></Pressable> : null}
-          <LinkButton label="Study window & budget" onPress={() => { setOpen(false); router.push("/(tabs)/settings"); }} />
+          <LinkButton label="Study window & budget" onPress={() => { setOpen(false); router.push("/settings"); }} />
         </ScrollView>
-      </BottomSheet>
-    </Host>
+      </SafeAreaView>
+    </Modal>
   </>;
 }

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
 import { router } from "expo-router";
-import type { ExamCourse, ExamData, PublishedExamOption } from "../../../../shared/mobileWorkspace";
-import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../../src/ui";
-import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
-import { useSession } from "../../src/session";
-import { ActionMenu } from "../../src/action-menu";
-import { Disclosure } from "../../src/disclosure";
+import type { ExamCourse, ExamData, PublishedExamOption } from "../../../shared/mobileWorkspace";
+import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../src/ui";
+import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../src/workspace";
+import { useSession } from "../src/session";
+import { ActionMenu } from "../src/action-menu";
+import { Disclosure } from "../src/disclosure";
 
 export default function Exams() {
   const { isDemo } = useSession();
@@ -44,7 +44,7 @@ export default function Exams() {
   const offset = (first.getUTCDay() + 6) % 7;
   const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
   const exams = query.data?.courses ?? [];
-  return <Page title="Exams" query={query} actions={!isDemo ? <IconButton label="Refresh university exam dates" icon="refresh-outline" busy={busy} onPress={() => { void refresh(); }} /> : undefined}>
+  return <Page back title="Exams" query={query} actions={!isDemo ? <IconButton label="Refresh university exam dates" icon="refresh-outline" busy={busy} onPress={() => { void refresh(); }} /> : undefined}>
     <Chips options={[{ label: `Remaining (${exams.length})`, value: "remaining" }, { label: "Results & grades", value: "results" }]} value={tab} onChange={setTab} />
     {!!notice && <AppText muted>{notice}</AppText>}
     {rebuild && <Card><AppText>Your dates saved. The study plan needs another rebuild.</AppText><Action busy={busy} onPress={() => { setBusy(true); void query.action("rebuildAfterExamSync").then(() => { setRebuild(false); return query.reload(); }).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }}>Rebuild study plan</Action></Card>}
@@ -61,7 +61,7 @@ export default function Exams() {
           })}</View>
       </Card>
       {!isDemo ? <Disclosure label="University date status"><AppText size={13} muted>{query.data?.checkedAt ? `${query.data.semester ?? "University dates"} · Checked ${new Date(query.data.checkedAt).toLocaleString()}` : "Dates have not been checked yet. Use Refresh above."}</AppText></Disclosure> : null}
-      {!query.loading && !exams.length && <Card><AppText weight="600">No remaining exams.</AppText><LinkButton label="Add a course" onPress={() => edit("createCourse")} /></Card>}
+      {!query.loading && !query.error && !exams.length && <Card><AppText weight="600">No remaining exams.</AppText><LinkButton label="Add a course" onPress={() => edit("createCourse")} /></Card>}
       {exams.map(exam => {
         const c = query.data!.allCourses.find(c => c.id === exam.id)!;
         if (!c) return null;

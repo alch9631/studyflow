@@ -29,8 +29,9 @@ export function useMobileData<T>(path: string) {
   useFocusEffect(useCallback(() => { void reload(); return () => { generation.current++; }; }, [reload]));
   const action = useCallback(async <R = ActionResult,>(name: string, fields: FormFields = {}): Promise<R> => {
     if (!session) throw new Error("Sign in to continue.");
-    return api<R>(session.server, session.token, `actions/${encodeURIComponent(name)}`, { method: "POST", body: { fields }, timeout: 120_000 });
-  }, [session]);
+    try { return await api<R>(session.server, session.token, `actions/${encodeURIComponent(name)}`, { method: "POST", body: { fields }, timeout: 120_000 }); }
+    catch (error) { if (error instanceof ApiError && error.status === 401) await signOut(); throw error; }
+  }, [session, signOut]);
   return { data, error, loading, reload, action, setError };
 }
 
@@ -69,9 +70,9 @@ export function ProgressBar({ value, label }: { value: number; label?: string })
     <View style={{ height: 8, width: `${Math.max(0, Math.min(100, value))}%`, borderRadius: 4, backgroundColor: theme.brand }} />
   </View></View>;
 }
-export function Chips({ options, value, onChange }: { options: { label: string; value: string }[]; value: string; onChange: (value: string) => void }) {
+export function Chips({ options, value, onChange, disabled = false }: { options: { label: string; value: string }[]; value: string; onChange: (value: string) => void; disabled?: boolean }) {
   const theme = useTheme();
-  return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{options.map(o => <Pressable key={o.value} accessibilityRole="button" accessibilityState={{ selected: o.value === value }} onPress={() => onChange(o.value)} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: o.value === value ? theme.brand : theme.tint }}>
+  return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{options.map(o => <Pressable key={o.value} accessibilityRole="button" accessibilityState={{ selected: o.value === value, disabled }} disabled={disabled} onPress={() => onChange(o.value)} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: o.value === value ? theme.brand : theme.tint, opacity: disabled ? 0.5 : 1 }}>
     <AppText size={14} weight="600" style={{ color: o.value === value ? theme.dark ? "#10241F" : "white" : theme.brand }}>{o.label}</AppText>
   </Pressable>)}</View>;
 }

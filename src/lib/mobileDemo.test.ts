@@ -43,6 +43,17 @@ async function main() {
     assert.ok(action("startFocus", { courseId: emptyId }).blockId, "even a new course without material can start a timer");
     action("deleteCourse", { courseId: emptyId });
   });
+  await check("course study entry resumes saved work, respects dates and rejects covered or foreign topics", () => {
+    const workspace = new DemoWorkspace("2026-11-02");
+    const change = (name: string, fields: FormFields) => workspace.request(`actions/${name}`, { method: "POST", body: { fields } }) as ActionResult;
+    assert.equal(change("startFocus", { courseId: "demo-algorithms" }).blockId, "demo-missed", "study follows the earliest unfinished sitting");
+    workspace.request("blocks/demo-study/progress", { method: "PUT", body: { topicId: "demo-matrices", response: "Resume this draft", elapsedSeconds: 120, sessionMinutes: 30, updatedAt: "2026-11-02T12:00:00.000Z" } });
+    assert.equal(change("startFocus", { courseId: "demo-maths" }).blockId, "demo-study", "saved work takes priority over the first topic");
+    assert.equal(change("startFocus", { courseId: "demo-maths" }).blockId, "demo-study", "repeated starts reuse the same sitting");
+    change("toggleTopic", { courseId: "demo-maths", topicId: "demo-matrices", done: "true" });
+    assert.throws(() => change("startFocus", { courseId: "demo-maths", topicId: "demo-matrices" }), DemoError);
+    assert.throws(() => change("startFocus", { courseId: "demo-maths", topicId: "demo-search" }), DemoError);
+  });
   await check("demo notes support idempotent save and reject a stale edit without losing the newer text", () => {
     const fields = { topicId: "demo-matrices", id: "demo-new-note", body: "My working note" };
     const first = action<{ note: MobileFocusNote }>("addFocusNote", fields).note;

@@ -50,7 +50,7 @@ export default function Calendar() {
   }
   return <Page title="Calendar" query={query} actions={<ActionMenu label="Calendar options" items={[
     { id: "timetable", title: "Class timetable", image: "calendar", onPress: () => router.push("/timetable") },
-    { id: "window", title: "Study window & budget", image: "clock", onPress: () => router.push("/(tabs)/settings") },
+    { id: "window", title: "Study window & budget", image: "clock", onPress: () => router.push("/settings") },
   ]} />}>
     {d ? <>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -75,9 +75,9 @@ export default function Calendar() {
         <IconButton label="Arrange selected day" icon="sparkles-outline" busy={busy} disabled={!unscheduled} onPress={() => { void arrange(); }} />
       </View>
       {notice ? <AppText size={14} muted>{notice}</AppText> : null}
-      {unplaced ? <LinkButton label="Change study window" onPress={() => router.push("/(tabs)/settings")} /> : null}
+      {unplaced ? <LinkButton label="Change study window" onPress={() => router.push("/settings")} /> : null}
       <View>
-        {exams.map(exam => <ContentRow key={exam.id} title={exam.name} subtitle="Exam" icon="school-outline" onPress={() => router.push("/(tabs)/exams")} />)}
+        {exams.map(exam => <ContentRow key={exam.id} title={exam.name} subtitle="Exam" icon="school-outline" onPress={() => router.push("/exams")} />)}
         {lectures.map(lecture => <View key={lecture.id} style={{ paddingVertical: 14, gap: 3, borderBottomWidth: 1, borderBottomColor: theme.line }}>
           <AppText weight="600">{lecture.title}</AppText><AppText size={13} muted>{timeLabel(lecture.startMin)}–{timeLabel(lecture.endMin)}{lecture.location ? ` · ${lecture.location}` : ""}</AppText>
         </View>)}

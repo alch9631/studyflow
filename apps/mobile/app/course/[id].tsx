@@ -4,7 +4,7 @@ import { Collapsible, Host, RNHostView } from "@expo/ui";
 import { router, useLocalSearchParams } from "expo-router";
 import type { CourseDetail, FormFields } from "../../../../shared/mobileWorkspace";
 import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../../src/ui";
-import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
+import { Chips, chooseSession, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
 import { ActionMenu } from "../../src/action-menu";
 import { SwipeRow } from "../../src/swipe-row";
 import { Disclosure } from "../../src/disclosure";
@@ -13,7 +13,12 @@ import { openMaterial, pickAndUpload, uploadMaterials, type MaterialUploadFailur
 
 type Plan = { fileId: string; id: string; outline: boolean; items: { id: string; title: string; reference?: string; instruction?: string }[] };
 export default function Course() {
-  const { id, section } = useLocalSearchParams<{ id: string; section?: string }>(); const query = useMobileData<CourseDetail>(`courses/${encodeURIComponent(id)}`);
+  const { id, section } = useLocalSearchParams<{ id: string; section?: string }>();
+  return <CourseWorkspace key={id} id={id} section={section} />;
+}
+
+function CourseWorkspace({ id, section }: { id: string; section?: string }) {
+  const query = useMobileData<CourseDetail>(`courses/${encodeURIComponent(id)}`);
   const { session, isDemo } = useSession(); const theme = useTheme(); const course = query.data;
   const sections = { progress: "Topics", materials: "Materials", deadlines: "Deadlines", manage: "Settings" };
   const initialTab = section && Object.hasOwn(sections, section) ? section : "progress";
@@ -42,6 +47,16 @@ export default function Course() {
       }
     }
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
+  }
+  async function startStudy(topicId?: string) {
+    if (busy) return;
+    setBusy(true); query.setError(null);
+    try {
+      const result = await query.action<{ blockId: string; topicId: string; kind: string }>("startFocus", { courseId: id, ...(topicId ? { topicId } : {}) });
+      if (!result.blockId || !result.topicId) throw new Error("Couldn't start this session. Refresh the course and try again.");
+      setExpanded("");
+      chooseSession({ id: result.blockId, topicId: result.topicId, kind: result.kind });
+    } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
   async function prepare(fileId: string) {
     setBusy(true); query.setError(null);
@@ -80,6 +95,7 @@ export default function Course() {
         <Chips options={Object.entries(sections).filter(([key]) => key !== "manage").map(([value, label]) => ({ value, label }))} value={tab} onChange={setTab} />
       </View>
       {tab === "progress" && <>
+        {!course.isPassed && <Action busy={busy} onPress={() => { void startStudy(); }}>Start studying</Action>}
         <LinkButton label="Practice recall" onPress={() => router.push({ pathname: "/practice", params: { courseId: id } })} />
         <Field label="Find a topic" value={search} onChange={setSearch} />
         <View>{topics.slice(0, limit).map(t => <SwipeRow key={t.id} disabled={busy}
@@ -91,7 +107,7 @@ export default function Course() {
           <IconButton label={`Notes & details: ${t.title}`} icon="create-outline" onPress={() => setExpanded(t.id)} />
         </View></SwipeRow>)}</View>
         {topics.length > limit && <LinkButton label="Show more topics" onPress={() => setLimit(n => n + 40)} />}
-        {!topics.length && <AppText muted>{search.trim() ? "No matching topics." : "Add material to build your topic list."}</AppText>}
+        {!topics.length && <><AppText muted>{search.trim() ? "No matching topics." : "Start a session now, or add a study task to plan what to work on."}</AppText>{!search.trim() && <LinkButton label="Add study task" onPress={() => edit("saveStudyTask", { courseId: id })} />}</>}
       </>}
       {tab === "materials" && <>
         {isDemo ? <AppText size={14} muted>Sample notes are included. Sign in to add files.</AppText> : <>
@@ -154,6 +170,7 @@ export default function Course() {
       <ScrollView keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: theme.background }} contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><AppText size={20} weight="700" style={{ flex: 1 }}>{selectedTopic?.title}</AppText><IconButton label="Close topic details" icon="close-outline" onPress={() => setExpanded("")} /></View>
         {selectedTopic && <>
+          {!selectedTopic.done && !course?.isPassed && <Action busy={busy} onPress={() => { void startStudy(selectedTopic.id); }}>Study this topic</Action>}
           {selectedTopic.task ? <><AppText>{selectedTopic.task.instruction}</AppText><AppText size={14} muted>{selectedTopic.task.successCriteria}</AppText></> : null}
           <Chips options={[{ label: "Solid", value: "solid" }, { label: "Practice", value: "practice" }, { label: "Struggling", value: "struggling" }]} value={selectedTopic.confidence ?? ""} onChange={v => { void run("setConfidence", { topicId: selectedTopic.id, confidence: v === selectedTopic.confidence ? "" : v }); }} />
           {selectedTopic.note ? <AppText>{selectedTopic.note}</AppText> : <AppText muted>No notes yet.</AppText>}
