@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { useT } from "./i18n/I18nProvider";
 import { sessionLength } from "@/lib/sessionLength";
 import { focusHref } from "@/lib/focusNavigation";
+import { sessionDurationChoices } from "../../shared/session-duration";
 
 export type SessionChoice = { id: string; topicId?: string; kind: string; title: string; minutes: number; elapsed: number };
 
@@ -14,10 +15,8 @@ export type SessionChoice = { id: string; topicId?: string; kind: string; title:
 export default function SessionLengthDialog({ choice, onClose, returnFocus }: { choice: SessionChoice; onClose: () => void; returnFocus: () => void }) {
   const t = useT(); const router = useRouter(); const groupName = useId();
   const selectedOption = useRef<HTMLInputElement>(null);
-  const minimum = Math.min(600, Math.floor(choice.elapsed / 60) + 1);
-  // Older sessions can already exceed the presets; keep those resumable.
-  const options = minimum > 90 ? [10, 30, 60, 90, Math.max(minimum, choice.minutes)] : [10, 30, 60, 90];
-  const [minutes, setMinutes] = useState(() => options.find((value) => value >= Math.max(minimum, choice.minutes)) ?? options[options.length - 1]);
+  const { minimum, options, selected } = sessionDurationChoices(choice.minutes, choice.elapsed);
+  const [minutes, setMinutes] = useState(selected);
   const [pending, setPending] = useState(false);
   const valid = sessionLength(String(minutes));
   useEffect(() => {

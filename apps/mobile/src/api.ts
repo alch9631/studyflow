@@ -1,4 +1,4 @@
-import type { MobileBlock, MobileProgressInput, MobileResultInput, MobileSession, MobileToday } from "../../../shared/mobile";
+import type { MobileBlock, MobileFinishInput, MobileProgressInput, MobileResultInput, MobileSession, MobileToday } from "../../../shared/mobile";
 
 export class ApiError extends Error {
   constructor(message: string, public status = 0) { super(message); }
@@ -37,7 +37,13 @@ export async function api<T>(base: string, token: string | null, path: string, o
 }
 
 export const getToday = (base: string, token: string) => api<MobileToday>(base, token, "today");
-export const getFocus = (base: string, token: string, id: string) => api<MobileBlock>(base, token, `blocks/${encodeURIComponent(id)}`);
+export const getFocus = (base: string, token: string, id: string, identity: { topicId?: string; kind?: string } = {}) => {
+  const query = new URLSearchParams();
+  if (identity.topicId) query.set("topicId", identity.topicId);
+  if (identity.kind) query.set("kind", identity.kind);
+  return api<MobileBlock>(base, token, `blocks/${encodeURIComponent(id)}${query.size ? `?${query}` : ""}`);
+};
 export const saveProgress = (base: string, token: string, id: string, body: MobileProgressInput) => api<{ ok: true }>(base, token, `blocks/${encodeURIComponent(id)}/progress`, { method: "PUT", body });
 export const finishSession = (base: string, token: string, id: string, body: MobileResultInput) => api<{ ok: true }>(base, token, `blocks/${encodeURIComponent(id)}/result`, { method: "POST", body });
+export const finishFocus = (base: string, token: string, id: string, body: MobileFinishInput) => api<{ ok: true }>(base, token, `blocks/${encodeURIComponent(id)}/finish`, { method: "POST", body });
 export const exchangeSession = (base: string, body: unknown) => api<MobileSession>(base, null, "session", { method: "POST", body });

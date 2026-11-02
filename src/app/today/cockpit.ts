@@ -158,7 +158,7 @@ export function priorityReason(block: CockpitBlock): "resume" | "weakReview" | "
   return block.kind === "review" ? "review" : "foundation";
 }
 
-export function prioritizeBlocks(blocks: CockpitBlock[]): CockpitBlock[] {
+export function prioritizeBlocks<T extends CockpitBlock>(blocks: T[]): T[] {
   const score = (b: CockpitBlock) => {
     const days = Math.max(0, b.examDays ?? 365);
     return (days <= 3 ? 100 : days <= 7 ? 65 : days <= 14 ? 30 : 0)

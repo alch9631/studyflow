@@ -19,8 +19,13 @@ export type MobileBlock = {
   kind: string;
   course: { id: string; name: string };
   task: MobileTask | null;
-  progress: { response: string; elapsedSeconds: number; updatedAt: string } | null;
+  progress: { response: string; elapsedSeconds: number; updatedAt: string; sessionMinutes?: number } | null;
+  note?: string;
+  notes?: MobileFocusNote[];
+  fileAvailable?: boolean;
 };
+
+export type MobileFocusNote = { id: string; body: string; createdAt: string; updatedAt: string };
 
 export type MobileToday = {
   date: string;
@@ -28,17 +33,30 @@ export type MobileToday = {
   blocks: MobileBlock[];
   summary: { plannedMinutes: number; completedMinutes: number; completedCount: number; totalCount: number };
   nextExam: { name: string; date: string } | null;
+  nextBlockId?: string;
+  resumeBlock?: MobileBlock | null;
+  planHealth?: {
+    overdueSessions: number; overdueMinutes: number; availableMinutes: number; overloaded: boolean; undoAvailable: boolean;
+    previews: Record<"protect" | "move" | "lighter", { beforeCount: number; afterCount: number; moved: number; afterPaceMin: number; examReach: string }>;
+    nextDays: { date: string; minutes: number; count: number }[];
+  };
   assignments?: { id: string; title: string; dueDate: string; done: boolean; course: { id: string; name: string } }[];
   lectures?: { id: string; title: string; startMin: number; endMin: number; location: string | null }[];
 };
 
 export type MobileSession = { token: string; expiresAt: string; userId: string };
+/** A device checkpoint also holds pause/check state absent from the server copy. */
+export function preferredProgress<L extends { updatedAt: string }, R extends { updatedAt: string }>(local: L | null, remote: R | null | undefined): L | R | null {
+  return local && (!remote || local.updatedAt >= remote.updatedAt) ? local : remote ?? null;
+}
 export type MobileProgressInput = {
   topicId: string;
   response: string;
   elapsedSeconds: number;
   updatedAt: string;
+  sessionMinutes?: number;
 };
+export type MobileFinishInput = { topicId: string; kind?: string; response: string; elapsedSeconds: number };
 export type MobileResultInput = {
   topicId: string;
   response: string;

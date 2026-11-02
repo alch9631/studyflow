@@ -10,7 +10,7 @@ export function AppText({ children, size = 16, weight = "400", muted = false, st
   children: React.ReactNode; size?: number; weight?: "400" | "500" | "600" | "700" | "800"; muted?: boolean; style?: StyleProp<import("react-native").TextStyle>;
 }) {
   const theme = useTheme();
-  return <Text style={[{ color: muted ? theme.muted : theme.text, fontSize: size, fontWeight: weight, lineHeight: size * 1.4 }, style]}>{children}</Text>;
+  return <Text selectable style={[{ color: muted ? theme.muted : theme.text, fontSize: size, fontWeight: weight, lineHeight: size * 1.4 }, style]}>{children}</Text>;
 }
 
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -30,7 +30,7 @@ export function Action({ children, onPress, secondary = false, busy = false, dis
 
 export function ErrorMessage({ message }: { message: string | null }) {
   const theme = useTheme();
-  return message ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 15, lineHeight: 22 }}>{message}</Text> : null;
+  return message ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger, fontSize: 15, lineHeight: 22 }}>{message}</Text> : null;
 }
 
 export const styles = StyleSheet.create({

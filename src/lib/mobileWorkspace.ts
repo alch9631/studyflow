@@ -10,6 +10,7 @@ import { parsePrefs } from "./timePlacer";
 import { isValidISODate } from "./validate";
 import { instantToDayMinutes, instantToDayISO } from "./calendarTime";
 import { buildHeatmap } from "../app/insights/heatmapData";
+import { parseExamQuestions } from "./practice";
 
 export async function mobileCourses(userId: string) {
   const courses = await prisma.course.findMany({ where: { userId }, orderBy: [{ examDate: "asc" }, { id: "asc" }],
@@ -34,7 +35,7 @@ export async function mobileCourse(userId: string, id: string) {
   return { ...course, isPassed: coursePassed(course), examDate: course.examDate.toISOString().slice(0, 10),
     topics: course.topics.map(({ questions, studyTask, note, ...topic }) => ({ ...topic, task: readStudyTask(studyTask), note: note?.body ?? "",
       questions: parseStringArray(questions) })),
-    files: course.files.map(({ analysis, ...file }) => ({ ...file, summary: parseSummary(analysis) })),
+    files: course.files.map(({ analysis, ...file }) => ({ ...file, summary: parseSummary(analysis), mockExamQuestions: parseExamQuestions(analysis).length })),
     assignments: course.assignments.map(a => ({ ...a, dueDate: a.dueDate.toISOString().slice(0, 10) })) };
 }
 

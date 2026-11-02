@@ -68,13 +68,23 @@ included when `STUDYFLOW_DEV_NETWORK=1` is explicitly set.
 - Sign in through the system browser, approve the iPhone connection, and return to
   the app. Existing Google/Auth.js configuration is reused on the backend.
 - Today loads real owned study blocks, totals and the nearest active exam.
+- Today uses the web's priority, resume, daily-capacity and recovery-preview rules.
+  Sessions can be checked off, reopened, moved to tomorrow or annotated from Today.
+  Missed work stays visible even when today has no sessions.
+- Starting from Today or Calendar offers the same 10/30/60/90-minute choices as
+  the web. Longer saved sessions remain resumable, and the chosen duration syncs.
 - Focus displays the instruction, source excerpt, recall check and completion goal.
-- The optional timer uses wall-clock anchors so it includes time while iOS suspends JS.
+- The countdown starts on entry, uses the shared web clock, includes time while
+  iOS suspends JS, and stops at the chosen target. Leaving pauses the saved clock.
 - Answers are retained in device-local drafts (separated by server, account and topic),
   and checkpoints sync every 15 seconds, on backgrounding, or on **Save and close**.
-- **Finish session** requires checking the goal. **I need more practice** uses the
-  existing result service to schedule another attempt. Repeated submissions do not
-  toggle a completed session off or count time twice.
+- **Finish session** uses the web's session service: it records the time studied,
+  keeps the unfinished workload scheduled and does not assert topic mastery.
+  **Check learning goal** separately offers checked completion and **I need more
+  practice**. Repeated submissions never complete the next sitting or credit time twice.
+- Saved notes and note edits share the web's history and stale-edit protection.
+  Working notes remain a separate resumable draft. Stable topic links continue
+  opening the same logical session after a plan rebuild changes block IDs.
 - Sign-out removes Keychain credentials immediately and requests revocation of the
   device's server session. If the server is offline, the server token expires normally.
 
@@ -92,11 +102,17 @@ and database as the web app:
 - Courses: manual creation, university catalog selection, syllabus text import,
   study days/difficulty, plan repair and progress interpretation.
 - Materials: native Files/iCloud selection, authenticated original-file access,
-  document-derived study plans with a selection/review step, and removal.
+  multiple originals per selection, sequential upload progress, retry for failed
+  files, document-derived study plans with a selection/review step, and removal.
 - Planning: a native day/week agenda, time assignment, automatic arrangement,
   recurring class timetable, deadlines and plan recovery/undo.
 - More: active recall via course progress, study-window/daily-budget preferences,
   Apple Calendar subscription, and opt-in daily local reminders.
+
+Active recall and past-paper practice load the same owned question queue as the
+web. Answer keys, original sources and topic mappings agree across clients.
+The student writes an answer before revealing it, can skip a question, and can
+restart a finished practice run.
 
 Calendar placement uses forms rather than the web's drag interaction. File opening
 uses the iOS share/preview sheet. Reminders are scheduled locally on this iPhone;
@@ -132,6 +148,7 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 | `/api/mobile/today` | GET | Today's plan and current account |
 | `/api/mobile/blocks/:id` | GET | Owned focus-session details |
 | `/api/mobile/blocks/:id/progress` | PUT | Save response and elapsed seconds |
+| `/api/mobile/blocks/:id/finish` | POST | Finish a sitting using the web session service |
 | `/api/mobile/blocks/:id/result` | POST | Submit checked completion or practice outcome |
 | `/api/mobile/materials/:id` | GET | Retrieve an owned original with bearer authentication |
 | `/api/mobile/courses` | GET | Owned course summaries and progress |
@@ -141,6 +158,7 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 | `/api/mobile/calendar?week=YYYY-MM-DD` | GET | Week agenda and recurring classes |
 | `/api/mobile/catalog?q=…` | GET | Bounded university module search |
 | `/api/mobile/preferences` | GET | Study preferences and private calendar subscription token |
+| `/api/mobile/practice?courseId=…&examFile=…` | GET | Shared recall or optional past-paper queue |
 | `/api/mobile/actions/:name` | POST | Allowlisted web workflows; JSON fields or bounded file upload |
 
 ## Verify
@@ -159,6 +177,32 @@ npm run export:ios
 
 An exported iOS JavaScript/Hermes bundle validates the native module graph. It is not
 a signed `.ipa` or proof of simulator/device behavior.
+
+On Linux ARM64, the bundled Hermes compiler currently targets x86-64. Use
+`npm run export:ios -- --no-bytecode` for a JavaScript graph check there; keep the
+normal bytecode export in CI and signed iOS builds.
+
+The session-length picker uses `@expo/ui`. Rebuild an existing development client
+after pulling this native dependency (`STUDYFLOW_DEV_NETWORK=1 npm run ios` on a
+supported Mac, or the EAS development profile). Existing TestFlight builds do not
+include local changes; deploy the updated backend before using a new native build.
+
+### Web/native workflow regression checklist
+
+Use the same account and course in both clients:
+
+- Resume a draft after a replan, including one no longer scheduled today; confirm
+  its response, duration and elapsed time survive.
+- Start a 30-minute sitting, pause/background/resume it, and finish early. Confirm
+  only studied minutes are credited and the unfinished work remains on both plans.
+- Save a note, edit it on the other client, and attempt an outdated edit. Confirm
+  the newer note survives and the failed editor retains its text.
+- Select multiple originals, interrupt one upload, then retry. Confirm successful
+  originals are not uploaded twice and past-paper practice opens the right source.
+- Preview and apply a plan adjustment; confirm missed work, completed sessions and
+  the available undo agree. Delete a deadline and confirm it disappears on the web.
+- Fail a data request, then retry it. Confirm an error is not presented as an empty
+  course list, and changing courses never briefly shows the previous course's data.
 
 Before an App Store release: add the appropriate additional login option alongside
 Google, full account deletion, a privacy policy, production icons, and device-tested

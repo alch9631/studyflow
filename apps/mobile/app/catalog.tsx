@@ -14,7 +14,7 @@ export default function Catalog() {
     <Field label="Daily study budget (minutes)" value={budget} onChange={setBudget} numeric />
     {!!selected.length && <Action busy={busy} onPress={() => { void add(); }}>{`Add ${selected.length} selected module${selected.length === 1 ? "" : "s"}`}</Action>}
     {query.data?.map(m => <Pressable key={m.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected.includes(m.id) }} onPress={() => setSelected(ids => ids.includes(m.id) ? ids.filter(id => id !== m.id) : [...ids, m.id])}><Card><AppText size={17} weight="700">{selected.includes(m.id) ? "✓ " : "○ "}{m.name}</AppText><AppText size={13} muted>{m.code} · {m.ects} ECTS · {m.section}</AppText><AppText size={13} muted>{m.content.slice(0, 260)}{m.content.length > 260 ? "…" : ""}</AppText></Card></Pressable>)}
-    {!query.loading && !query.data?.length && <AppText muted>No matching modules found.</AppText>}
+    {!query.loading && !query.error && !query.data?.length && <AppText muted>No matching modules found.</AppText>}
     {!!selected.length && <Action busy={busy} onPress={() => { void add(); }}>{`Add ${selected.length} selected`}</Action>}
   </Page>;
 }

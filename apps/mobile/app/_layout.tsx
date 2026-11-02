@@ -8,6 +8,7 @@ export default function RootLayout() {
   return <SessionProvider><StatusBar style={theme.dark ? "light" : "dark"} /><Stack screenOptions={{ headerStyle: { backgroundColor: theme.background }, headerTintColor: theme.text, contentStyle: { backgroundColor: theme.background }, headerShadowVisible: false }}>
     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     <Stack.Screen name="focus/[id]" options={{ title: "Focus", presentation: "modal" }} />
+    <Stack.Screen name="session/[id]" options={{ title: "Session length", presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.75, 1] }} />
     <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
     <Stack.Screen name="course/[id]" options={{ headerShown: false }} />
     <Stack.Screen name="edit/[action]" options={{ headerShown: false }} />

@@ -5,7 +5,7 @@ import type { CourseDetail, FormFields } from "../../../../shared/mobileWorkspac
 import { Action, AppText, Card, ErrorMessage, useTheme } from "../../src/ui";
 import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
 import { useSession } from "../../src/session";
-import { openMaterial, pickAndUpload } from "../../src/materials";
+import { openMaterial, pickAndUpload, uploadMaterials, type MaterialUploadFailure } from "../../src/materials";
 
 type Plan = { fileId: string; id: string; outline: boolean; items: { id: string; title: string; reference?: string; instruction?: string }[] };
 export default function Course() {
@@ -14,14 +14,24 @@ export default function Course() {
   const [tab, setTab] = useState("progress"); const [busy, setBusy] = useState(false); const [expanded, setExpanded] = useState(""); const [search, setSearch] = useState(""); const [limit, setLimit] = useState(40);
   const [plan, setPlan] = useState<Plan | null>(null); const [selected, setSelected] = useState<string[]>([]);
   const [category, setCategory] = useState("");
+  const [failedUploads, setFailedUploads] = useState<MaterialUploadFailure[]>([]);
+  const [uploadStatus, setUploadStatus] = useState("");
   async function run(name: string, fields: FormFields = {}, navigate = false) {
     if (busy) return; setBusy(true); query.setError(null);
-    try { const result = await query.action(name, fields); if (navigate && result.blockId) router.push(`/focus/${result.blockId}`); else await query.reload(); }
+    try { const result = await query.action(name, fields); if (navigate && result.blockId) router.push({ pathname: "/focus/[id]", params: { id: result.blockId, topicId: result.topicId, kind: result.kind } }); else await query.reload(); }
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  async function upload() {
+  async function upload(retry = false) {
     if (!session || busy) return; setBusy(true); query.setError(null);
-    try { if (await pickAndUpload(session, id, category)) await query.reload(); }
+    try {
+      const progress = (current: number, total: number) => setUploadStatus(`Uploading ${current} of ${total} files…`);
+      const result = retry ? await uploadMaterials(session, id, failedUploads.map(failure => failure.item), progress) : await pickAndUpload(session, id, category, progress);
+      if (result) {
+        setFailedUploads(result.failed);
+        setUploadStatus(`${result.saved} file${result.saved === 1 ? "" : "s"} uploaded${result.failed.length ? ` · ${result.failed.length} need retrying` : ""}.`);
+        if (result.saved) await query.reload();
+      }
+    }
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
   async function prepare(fileId: string) {
@@ -70,16 +80,20 @@ export default function Course() {
       {tab === "materials" && <>
         <AppText muted>Add scripts, exercises, slides, past papers or notes from Files or iCloud Drive.</AppText>
         <Chips value={category} onChange={setCategory} options={[{ label: "Auto detect", value: "" }, { label: "Script", value: "skript" }, { label: "Exercises", value: "uebung" }, { label: "Past paper", value: "altklausur" }, { label: "Slides", value: "slides" }, { label: "Other", value: "sonstiges" }]} />
-        <Action busy={busy} onPress={() => { void upload(); }}>Upload a file</Action>
+        <Action busy={busy} onPress={() => { void upload(); }}>Upload files</Action>
+        {!!uploadStatus && <AppText muted>{uploadStatus}</AppText>}
+        {failedUploads.map(failure => <ErrorMessage key={failure.item.asset.uri} message={`${failure.item.asset.name}: ${failure.message}`} />)}
+        {!!failedUploads.length && <Action secondary busy={busy} onPress={() => { void upload(true); }}>Retry failed files</Action>}
         {course.files.map(file => <Card key={file.id}><AppText weight="700">{file.filename}</AppText><AppText size={12} muted>{file.category ?? "Material"} · {(file.sizeBytes / 1024).toFixed(0)} KB</AppText>{!!file.summary && <AppText size={14}>{file.summary}</AppText>}
           <LinkButton label="Open original" onPress={() => { if (!session || busy) return; setBusy(true); void openMaterial(session, file.id, file.filename).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }} />
           <Action secondary busy={busy} onPress={() => { void prepare(file.id); }}>Build study plan from material</Action>
+          {!!file.mockExamQuestions && <LinkButton label={`Practice past paper (${file.mockExamQuestions} questions)`} onPress={() => router.push({ pathname: "/practice", params: { courseId: id, examFile: file.id } })} />}
           <LinkButton label="Delete file" danger onPress={() => Alert.alert("Delete this material?", file.filename, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteMaterial", { moduleFileId: file.id }); } }])} />
         </Card>)}
       </>}
       {tab === "deadlines" && <>
         <Action secondary onPress={() => edit("addAssignment", { courseId: id })}>Add a deadline</Action>
-        {course.assignments.map(a => <Card key={a.id}><AppText weight="600">{a.done ? "✓ " : ""}{a.title}</AppText><AppText muted>Due {dateLabel(a.dueDate)}</AppText><LinkButton label={a.done ? "Reopen" : "Mark complete"} onPress={() => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); }} /><LinkButton label="Delete deadline" danger onPress={() => Alert.alert("Delete deadline?", a.title, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteAssignment", { assignmentId: a.id }); } }])} /></Card>)}
+        {course.assignments.map(a => <Card key={a.id}><AppText weight="600">{a.done ? "✓ " : ""}{a.title}</AppText><AppText muted>Due {dateLabel(a.dueDate)}</AppText><LinkButton label={a.done ? "Reopen" : "Mark complete"} onPress={() => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); }} /><LinkButton label="Delete deadline" danger onPress={() => Alert.alert("Delete deadline?", a.title, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteAssignment", { assignmentId: a.id, courseId: id }); } }])} /></Card>)}
       </>}
       {tab === "manage" && <>
         <Action secondary onPress={() => edit("updateCourse", { courseId: id, examDate: course.examDate, studyDays: course.studyDays.split(","), difficulty: String(course.difficulty) })}>Edit exam & study days</Action>

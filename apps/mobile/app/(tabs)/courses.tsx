@@ -13,7 +13,7 @@ export default function Courses() {
     {list.map(c => <Card key={c.id}><AppText size={21} weight="700">{c.name}</AppText><AppText muted>{c.isPassed ? c.grade !== null ? `Passed · Grade ${c.grade.toFixed(1)}` : "Passed without grade" : `Exam ${dateLabel(c.examDate)}`}{c.ects ? ` · ${c.ects} ECTS` : ""}</AppText>
       <ProgressBar value={c.topicsTotal ? c.topicsDone / c.topicsTotal * 100 : 0} label={`${c.topicsDone} of ${c.topicsTotal} topics covered`} /><AppText size={13} muted>{minutesLabel(c.loggedMinutes)} focus time · {minutesLabel(c.remainingMinutes)} remaining</AppText><LinkButton label="Open course" onPress={() => router.push(`/course/${c.id}`)} />
     </Card>)}
-    {!query.loading && !list.length && <AppText muted>{tab === "passed" ? "Passed modules will appear here." : "Add your courses to build a study plan."}</AppText>}
+    {!query.loading && !query.error && !list.length && <AppText muted>{search.trim() ? "No courses match your search." : tab === "passed" ? "Passed modules will appear here." : "Add your courses to build a study plan."}</AppText>}
     <Action onPress={() => edit("createCourse")}>Add a course</Action><Action secondary onPress={() => router.push("/catalog")}>Browse university modules</Action><LinkButton label="Import a syllabus" onPress={() => edit("importSyllabus")} />
   </Page>;
 }

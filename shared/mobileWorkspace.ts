@@ -7,7 +7,7 @@ export type CourseSummary = {
 };
 export type CourseDetail = Pick<CourseSummary, "id" | "name" | "examDate" | "grade" | "passed" | "isPassed" | "ects" | "difficulty" | "studyDays"> & {
   topics: { id: string; title: string; done: boolean; confidence: string | null; parentTopicId: string | null; task: MobileTask | null; note: string; questions: string[] }[];
-  files: { id: string; filename: string; category: string | null; sizeBytes: number; summary: string; createdAt: string }[];
+  files: { id: string; filename: string; category: string | null; sizeBytes: number; summary: string; createdAt: string; mockExamQuestions?: number }[];
   assignments: { id: string; title: string; dueDate: string; done: boolean }[];
 };
 export type PublishedExamOption = { key: string; title: string; date: string | null; time: string };
@@ -36,4 +36,9 @@ export type CalendarData = {
 export type PreferencesData = { user: { name: string | null; email: string }; preferences: { dayStartMin: number; dayEndMin: number; energy: string; dailyBudgetMin: number }; calendarToken: string };
 export type CatalogItem = { id: string; name: string; code: string; section: string; ects: number; university: string; program: string; examDate: string | null; content: string };
 export type FormFields = Record<string, string | string[]>;
-export type ActionResult = { ok?: boolean; redirect?: string; message?: string | null; blockId?: string; updated?: number; planRebuilt?: boolean };
+export type ActionResult = { ok?: boolean; redirect?: string; message?: string | null; blockId?: string; topicId?: string; kind?: string; updated?: number; planRebuilt?: boolean };
+export type PracticeCard = {
+  topicId: string; topicTitle: string; question: string; confidence: "solid" | "practice" | "struggling" | null;
+  answerKey?: string | null; sourceHref?: string | null; sourceFileId?: string | null; sourceUrl?: string | null;
+};
+export type PracticeData = { courseId: string; courseName: string; cards: PracticeCard[] };

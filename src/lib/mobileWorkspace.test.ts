@@ -7,6 +7,9 @@ import { authenticatedMobileUser, withAuthenticatedMobileUser } from "./mobileUs
 import { getCurrentUserId } from "./devUser";
 import { todayISO } from "./planService";
 import { mobileForm } from "./mobileActions";
+import { practiceForUser } from "./practice";
+import { quickStudyTask } from "./studyTask";
+import { uploadBatch } from "../../shared/upload-batch";
 
 let passed = 0;
 async function check(name: string, run: () => Promise<void> | void) { await run(); console.log(`  ✓ ${name}`); passed++; }
@@ -31,7 +34,7 @@ async function main() {
   const file = await prisma.moduleFile.create({ data: { courseId: course.id, filename: "notes.txt", content: Buffer.from("Never include original bytes in a list") } });
   const verifier = "x".repeat(64); const token = (await exchangeMobileGrant(await createMobileGrant(owner.id, mobileHash(verifier)), verifier)).token;
   await check("every workspace endpoint requires a bearer session", async () => {
-    for (const path of ["courses", `courses/${course.id}`, "exams", "insights", "calendar", "catalog", "preferences"]) assert.equal((await request(path)).status, 401);
+    for (const path of ["courses", `courses/${course.id}`, "exams", "insights", "calendar", "catalog", "preferences", `practice?courseId=${course.id}`]) assert.equal((await request(path)).status, 401);
     assert.equal((await request("actions/saveGrade", undefined, { courseId: course.id, grade: "1.0" })).status, 401);
   });
   await check("course progress counts root topics without counting child tasks twice", async () => {
@@ -74,6 +77,41 @@ async function main() {
     assert.deepEqual(users, [owner.id, other.id]); assert.equal(authenticatedMobileUser(), undefined);
     await assert.rejects(withAuthenticatedMobileUser(owner.id, async () => { throw new Error("failed action"); }));
     assert.equal(authenticatedMobileUser(), undefined);
+  });
+  await check("web and native recall use the same answer keys, order and owned originals", async () => {
+    const task = quickStudyTask("recall", 15, "en", { sourceFileId: file.id, sourceRef: "Notes" });
+    task.checkQuestion = "What is a vector?"; task.answerKey = "An element of a vector space.";
+    await prisma.topic.update({ where: { id: course.topics[0].id }, data: { studyTask: JSON.stringify(task), questions: JSON.stringify([null, "", "How do vectors add?"]) } });
+    const response = await request(`practice?courseId=${course.id}`, token); assert.equal(response.status, 200);
+    const native = await response.json();
+    const web = await practiceForUser(owner.id, course.id); assert.ok(web);
+    assert.deepEqual(native, web);
+    assert.equal(native.cards[0].question, task.checkQuestion); assert.equal(native.cards[0].answerKey, task.answerKey);
+    assert.equal(native.cards[0].sourceFileId, file.id); assert.equal(native.cards[1].question, "How do vectors add?");
+    assert.equal((await request(`practice?courseId=${privateCourse.id}`, token)).status, 404);
+  });
+  await check("native past-paper practice matches topics and never reads another course's file", async () => {
+    const paper = await prisma.moduleFile.create({ data: { courseId: course.id, filename: "Past paper.txt", content: Buffer.from("Past paper"), analysis: JSON.stringify({ examQuestions: [null, { question: "State a vector property", topic: "Vectors" }, { question: "Describe a matrix", topic: "Matrices" }] }) } });
+    const native = await (await request(`practice?courseId=${course.id}&examFile=${paper.id}`, token)).json();
+    assert.equal(native.cards.length, 2); assert.equal(native.courseName, "Past paper.txt");
+    assert.equal(native.cards[0].topicId, course.topics[0].id); assert.equal(native.cards[1].topicId, course.topics[1].id);
+    assert.equal(native.cards[0].sourceFileId, paper.id);
+    const foreign = await prisma.moduleFile.create({ data: { courseId: privateCourse.id, filename: "Secret exam", analysis: JSON.stringify({ examQuestions: [{ question: "Private question", topic: "Private topic" }] }) } });
+    const result = await (await request(`practice?courseId=${course.id}&examFile=${foreign.id}`, token)).json();
+    assert.deepEqual(result.cards, []); assert.equal(JSON.stringify(result).includes("Private question"), false);
+    const detail = await (await request(`courses/${course.id}`, token)).json();
+    assert.equal(detail.files.find((f: { id: string }) => f.id === paper.id).mockExamQuestions, 2);
+  });
+  await check("native upload batches continue after a failed original and retry only failures", async () => {
+    const originals = [{ name: "one.pdf" }, { name: "two.pdf" }, { name: "three.pdf" }];
+    const sent: string[] = []; const progress: number[] = []; let active = 0;
+    const first = await uploadBatch(originals, async original => {
+      assert.equal(++active, 1, "uploads stay sequential"); await Promise.resolve(); sent.push(original.name); active--;
+      if (original.name === "two.pdf") throw new Error("Connection lost");
+    }, current => progress.push(current));
+    assert.equal(first.saved, 2); assert.deepEqual(sent, originals.map(item => item.name)); assert.deepEqual(progress, [1, 2, 3]);
+    const retry = await uploadBatch(first.failed.map(failure => failure.item), async original => { sent.push(original.name); }, () => {});
+    assert.equal(retry.saved, 1); assert.deepEqual(retry.failed, []); assert.deepEqual(sent, ["one.pdf", "two.pdf", "three.pdf", "two.pdf"]);
   });
   console.log(`\n${passed} native workspace checks passed`);
 }

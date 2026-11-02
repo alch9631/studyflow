@@ -1,12 +1,13 @@
 import { ApiError, handleApiError } from "@/lib/apiError";
 import { prisma } from "@/lib/db";
 import { createDevelopmentMobileSession, exchangeMobileGrant, mobileHash, mobileIdentity } from "@/lib/mobileAuth";
-import { mobileFinish, mobileFocus, mobileSaveProgress, mobileToday } from "@/lib/mobileStudy";
+import { mobileFinish, mobileFinishSession, mobileFocus, mobileSaveProgress, mobileToday } from "@/lib/mobileStudy";
 import { checkRateLimit } from "@/lib/rateLimitPolicy";
 import { materialResponse, readMaterial } from "@/lib/materials";
 import { mobileCalendar, mobileCatalog, mobileCourse, mobileCourses, mobileExams, mobileInsights, mobilePreferences } from "@/lib/mobileWorkspace";
 import { mobileAction, mobileForm } from "@/lib/mobileActions";
 import { MAX_UPLOAD_BYTES } from "@/lib/fileText";
+import { practiceForUser } from "@/lib/practice";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,11 @@ async function dispatch(request: Request, segments: string[]) {
     if (path === "calendar") return Response.json(await mobileCalendar(userId, url.searchParams.get("week") ?? undefined));
     if (path === "catalog") return Response.json(await mobileCatalog(url.searchParams.get("q") ?? ""));
     if (path === "preferences") return Response.json(await mobilePreferences(userId));
+    if (path === "practice") {
+      const practice = await practiceForUser(userId, (url.searchParams.get("courseId") ?? "").slice(0, 200), (url.searchParams.get("examFile") ?? "").slice(0, 200));
+      if (!practice) throw new ApiError("NOT_FOUND", "Course not found.");
+      return Response.json(practice);
+    }
   }
   if (segments[0] === "actions" && segments.length === 2 && request.method === "POST") {
     if (!checkRateLimit("MUTATION", userId)) throw new ApiError("RATE_LIMITED", "Please try again in a minute.");
@@ -90,13 +96,22 @@ async function dispatch(request: Request, segments: string[]) {
   if (segments[0] === "materials" && segments.length === 2 && request.method === "GET") return materialResponse(await readMaterial(userId, segments[1]));
   if (segments[0] !== "blocks" || !segments[1] || segments[1].length > 200) throw new ApiError("NOT_FOUND", "Endpoint not found.");
   const blockId = segments[1];
-  if (segments.length === 2 && request.method === "GET") return Response.json(await mobileFocus(userId, blockId));
+  if (segments.length === 2 && request.method === "GET") {
+    const query = new URL(request.url).searchParams;
+    return Response.json(await mobileFocus(userId, blockId, { topicId: query.get("topicId") ?? undefined, kind: query.get("kind") ?? undefined }));
+  }
   if (!checkRateLimit("MUTATION", userId)) throw new ApiError("RATE_LIMITED", "Please try again in a minute.");
   const input = await body(request);
   const topicId = string(input.topicId);
   const response = string(input.response, 4000);
   if (segments.length === 3 && segments[2] === "progress" && request.method === "PUT") {
-    return Response.json(await mobileSaveProgress(userId, blockId, { topicId, response, elapsedSeconds: integer(input.elapsedSeconds, 36000), updatedAt: string(input.updatedAt) }));
+    const sessionMinutes = input.sessionMinutes === undefined ? undefined : integer(input.sessionMinutes, 600);
+    if (sessionMinutes === 0) throw new ApiError("BAD_REQUEST", "Choose at least one minute.");
+    return Response.json(await mobileSaveProgress(userId, blockId, { topicId, response, elapsedSeconds: integer(input.elapsedSeconds, 36000), updatedAt: string(input.updatedAt), sessionMinutes }));
+  }
+  if (segments.length === 3 && segments[2] === "finish" && request.method === "POST") {
+    if (input.kind !== undefined && !["study", "review"].includes(String(input.kind))) throw new ApiError("BAD_REQUEST", "Invalid session kind.");
+    return Response.json(await mobileFinishSession(userId, blockId, { topicId, response, kind: input.kind as string | undefined, elapsedSeconds: integer(input.elapsedSeconds, 36000) }));
   }
   if (segments.length === 3 && segments[2] === "result" && request.method === "POST") {
     if (typeof input.checked !== "boolean" || !["complete", "practice"].includes(String(input.outcome))) throw new ApiError("BAD_REQUEST", "Check your session outcome.");

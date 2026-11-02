@@ -12,6 +12,7 @@ import { withAuthenticatedMobileUser } from "./mobileUserContext";
 import { prisma } from "./db";
 import { dayMinutesToInstant, hhmmToMinutes } from "./calendarTime";
 import { isValidISODate } from "./validate";
+import { addFocusNoteForUser, updateFocusNoteForUser } from "./focusNotes";
 
 const forms: Record<string, (data: FormData) => Promise<unknown>> = {
   createCourse: courses.createCourse, updateCourse: courses.updateCourse, deleteCourse: courses.deleteCourse,
@@ -49,6 +50,8 @@ const messages: Record<string, string> = {
   "exam-too-far": "Choose an exam within the next two years.", "source-unavailable": "The university exam schedule is unavailable. Your saved dates are unchanged.",
   conflict: "The exam schedule changed. Refresh before applying dates.", "exam-day": "Study sessions must be before the exam.",
   "save-error": "Couldn't save the exam dates. Please try again.",
+  "note-conflict": "This note changed on another device. Reopen it before saving again.",
+  "undo-unavailable": "The last adjustment can no longer be undone because the plan changed or the undo period ended.",
 };
 
 function failure(reason: string): never {
@@ -84,6 +87,11 @@ export async function mobileAction(userId: string, name: string, form: FormData)
     try {
       let result: unknown;
       if (Object.hasOwn(forms, name)) result = await forms[name](form);
+      else if (name === "addFocusNote" || name === "updateFocusNote") {
+        const input = { topicId: value("topicId"), id: value("id"), body: String(form.get("body") ?? "") };
+        result = name === "addFocusNote" ? await addFocusNoteForUser(userId, input) : await updateFocusNoteForUser(userId, { ...input, updatedAt: value("updatedAt") });
+        if (result && typeof result === "object" && "reason" in result && result.reason === "conflict") failure("note-conflict");
+      }
       else if (name === "refreshExams") result = await refreshExamDates();
       else if (name === "previewExams") result = await previewExamDates();
       else if (name === "examOptions") result = await getExamOptions(value("courseId"));

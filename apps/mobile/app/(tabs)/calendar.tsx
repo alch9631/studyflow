@@ -2,7 +2,7 @@ import { useState } from "react";
 import { router } from "expo-router";
 import type { CalendarData } from "../../../../shared/mobileWorkspace";
 import { Action, AppText, Card } from "../../src/ui";
-import { Chips, dateLabel, edit, LinkButton, minutesLabel, Page, timeLabel, useMobileData } from "../../src/workspace";
+import { Chips, chooseSession, dateLabel, edit, LinkButton, minutesLabel, Page, timeLabel, useMobileData } from "../../src/workspace";
 
 export default function Calendar() {
   const [week, setWeek] = useState(""); const [selected, setSelected] = useState("");
@@ -19,7 +19,7 @@ export default function Calendar() {
       {d.exams.filter(e => e.date === day).map(e => <Card key={e.id}><AppText weight="700">Exam · {e.name}</AppText><LinkButton label="Open exam details" onPress={() => router.push("/(tabs)/exams")} /></Card>)}
       {d.lectures.filter(l => l.weekday === new Date(day + "T12:00:00Z").getUTCDay()).map(l => <Card key={l.id}><AppText weight="600">{l.title}</AppText><AppText muted>{timeLabel(l.startMin)}–{timeLabel(l.endMin)}{l.location ? ` · ${l.location}` : ""}</AppText></Card>)}
       {d.blocks.filter(b => b.date === day).map(b => <Card key={b.id}><AppText size={17} weight="700">{b.completed ? "✓ " : ""}{b.topicTitle}</AppText><AppText size={14} muted>{b.course.name} · {minutesLabel(b.minutes)} · {b.start !== null && b.end !== null ? `${timeLabel(b.start)}–${timeLabel(b.end)}` : "No time assigned"}</AppText>
-        <LinkButton label={b.completed ? "View session" : "Start session"} onPress={() => router.push(`/focus/${b.id}`)} />
+        <LinkButton label={b.completed ? "View session" : "Start session"} onPress={() => b.completed ? router.push({ pathname: "/focus/[id]", params: { id: b.id, topicId: b.topicId, kind: b.kind } }) : chooseSession(b)} />
         {!b.completed && <><LinkButton label="Change day or time" onPress={() => edit("updateBlockTime", { blockId: b.id, date: b.date, startHHmm: timeLabel(b.start ?? 540), endHHmm: timeLabel(b.end ?? Math.min(1439, (b.start ?? 540) + b.minutes)) })} />
           {b.start !== null && <LinkButton label="Remove assigned time" onPress={() => { void query.action("updateBlockTime", { blockId: b.id, clear: "1" }).then(query.reload).catch(e => query.setError(e.message)); }} />}</>}
       </Card>)}
