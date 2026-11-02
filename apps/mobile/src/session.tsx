@@ -6,14 +6,17 @@ import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import type { MobileSession } from "../../../shared/mobile";
 import { api, exchangeSession, serverUrl } from "./api";
+import { DEMO_SERVER, endDemoSession, startDemoSession } from "./demo";
+import { clearSessionDrafts } from "./drafts";
 
 WebBrowser.maybeCompleteAuthSession();
 const STORAGE_KEY = "studyflow.mobile.session.v1";
 type StoredSession = MobileSession & { server: string };
 type SessionContext = {
-  session: StoredSession | null; loading: boolean; defaultServer: string;
+  session: StoredSession | null; loading: boolean; defaultServer: string; isDemo: boolean;
   connect: (server: string, development?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
+  startDemo: () => void;
 };
 const Context = createContext<SessionContext | null>(null);
 
@@ -66,13 +69,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (session?.server === DEMO_SERVER) {
+      endDemoSession(session.token);
+      setSession(current => current?.token === session.token ? null : current);
+      await clearSessionDrafts(session.server, session.userId).catch(() => {});
+      return;
+    }
     await SecureStore.deleteItemAsync(STORAGE_KEY);
     setSession(null);
     // Local sign-out must work even if a development server moved or is offline.
     // Revoke this device's server token whenever the server is reachable.
     if (session) void api(session.server, session.token, "session", { method: "DELETE" }).catch(() => {});
   }, [session]);
-  const value = useMemo(() => ({ session, loading, connect, signOut, defaultServer: defaultServer() }), [session, loading, connect, signOut]);
+  const startDemo = useCallback(() => {
+    if (session?.server === DEMO_SERVER) void clearSessionDrafts(session.server, session.userId).catch(() => {});
+    setSession(startDemoSession());
+  }, [session]);
+  const value = useMemo(() => ({ session, loading, connect, signOut, startDemo, isDemo: session?.server === DEMO_SERVER, defaultServer: defaultServer() }), [session, loading, connect, signOut, startDemo]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

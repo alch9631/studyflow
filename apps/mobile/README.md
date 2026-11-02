@@ -4,6 +4,38 @@ The primary Studyflow client is an Expo / React Native app. The existing Next.js
 project remains the backend and web planner. They share JSON contracts in
 `shared/mobile.ts`; database access, AI keys and planning services stay on the server.
 
+## Try the demo in Expo Go
+
+From the mobile app directory:
+
+```sh
+cd ~/studyflow/iphone/apps/mobile
+npm run start:go
+```
+
+Open the app in Expo Go and tap **Try demo without signing in**. No account,
+Google sign-in, development server address or running backend is required.
+The demo uses the normal app screens with local sample courses, exams, classes,
+study sessions and notes. You can run the timer, save notes, check learning goals,
+practice recall, edit courses and deadlines, and try plan adjustments.
+
+**App menu → Settings & account → Restart demo** restores the samples. **Exit demo** returns to sign-in.
+Demo changes reset on exit or app reload and never sync to an account. Demo
+sessions have separate draft keys and are never stored as Keychain credentials.
+Uploads, AI preparation, live university dates, reminders and Apple Calendar
+subscriptions require signing in; the demo labels those features accordingly.
+
+## Compact navigation
+
+Today shows one session list with progress above it. Tap a session to choose its
+length; the row menu keeps completion, moving, notes and course access available.
+The sliders icon opens plan adjustments with their impact and the available undo.
+
+In Courses, **Open** shows shortcuts to topics, materials, deadlines, recall and
+settings. **+** offers course creation, the catalog and syllabus import. Within a
+course, use the section menu to switch views and the pen to open topic details.
+Materials stay in a counted disclosure, with file actions in each row menu.
+
 ## Run locally
 
 Use **Node 24** (`.nvmrc` in the repository root). The Expo SDK does not support Node 25.
@@ -23,7 +55,7 @@ npm ci
 npm start
 ```
 
-The backend must already have its normal `.env` and database. For a new checkout,
+For a real account, the backend must already have its normal `.env` and database. For a new checkout,
 follow the root setup guide first. There are no new schema migrations for this slice.
 
 On an iPhone, set the development server field to your Mac's LAN address, such as
@@ -92,7 +124,7 @@ Local drafts survive a network error and can be retried by reopening the session
 There is no complete offline plan cache or automatic queue for finished results yet.
 ## Native workspace (0.2)
 
-Five tabs expose Today, Calendar, Courses, Exams and More. They use the same account
+Three tabs expose Today, Calendar and Courses. The app menu opens Exams, Insights, Timetable and Settings & account. They use the same account
 and database as the web app:
 
 - Exams: remaining exams, month calendar, published university dates and manual
@@ -106,7 +138,7 @@ and database as the web app:
   files, document-derived study plans with a selection/review step, and removal.
 - Planning: a native day/week agenda, time assignment, automatic arrangement,
   recurring class timetable, deadlines and plan recovery/undo.
-- More: active recall via course progress, study-window/daily-budget preferences,
+- Settings & account: active recall via course progress, study-window/daily-budget preferences,
   Apple Calendar subscription, and opt-in daily local reminders.
 
 Active recall and past-paper practice load the same owned question queue as the
@@ -167,6 +199,7 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 # From the repository root
 npm run test:mobile
 npm run test:mobile-workspace
+npm run test:mobile-demo
 npm run test:proxy
 npm run mobile:check
 

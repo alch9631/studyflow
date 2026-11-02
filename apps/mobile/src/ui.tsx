@@ -1,10 +1,8 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, useColorScheme, View, type StyleProp, type ViewStyle } from "react-native";
-
-export function useTheme() {
-  const dark = useColorScheme() === "dark";
-  return { dark, background: dark ? "#101A1C" : "#F5F7F7", surface: dark ? "#1B292C" : "#FFFFFF", text: dark ? "#F0F7F7" : "#162E32",
-    muted: dark ? "#A4B8BB" : "#60777B", line: dark ? "#314347" : "#DFE8E9", brand: dark ? "#67D7C4" : "#126C60", tint: dark ? "#203D38" : "#E4F3EE", danger: dark ? "#FFB4AB" : "#A6312D" };
-}
+import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "./theme";
+import { GlassSurface } from "./glass-surface";
+export { useTheme } from "./theme";
 
 export function AppText({ children, size = 16, weight = "400", muted = false, style }: {
   children: React.ReactNode; size?: number; weight?: "400" | "500" | "600" | "700" | "800"; muted?: boolean; style?: StyleProp<import("react-native").TextStyle>;
@@ -14,8 +12,7 @@ export function AppText({ children, size = 16, weight = "400", muted = false, st
 }
 
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  const theme = useTheme();
-  return <View style={[styles.card, { backgroundColor: theme.surface }, style]}>{children}</View>;
+  return <GlassSurface style={[styles.card, style]}>{children}</GlassSurface>;
 }
 
 export function Action({ children, onPress, secondary = false, busy = false, disabled = false }: {
@@ -33,10 +30,20 @@ export function ErrorMessage({ message }: { message: string | null }) {
   return message ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger, fontSize: 15, lineHeight: 22 }}>{message}</Text> : null;
 }
 
+export function IconButton({ label, icon, onPress, disabled = false, busy = false }: {
+  label: string; icon: React.ComponentProps<typeof Ionicons>["name"]; onPress: () => void; disabled?: boolean; busy?: boolean;
+}) {
+  const theme = useTheme();
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
+    style={({ pressed }) => ({ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: disabled || pressed ? 0.5 : 1 })}>
+    {busy ? <ActivityIndicator color={theme.brand} /> : <Ionicons name={icon} size={22} color={theme.brand} />}
+  </Pressable>;
+}
+
 export const styles = StyleSheet.create({
-  screen: { flex: 1 }, content: { padding: 24, gap: 24, paddingBottom: 40 },
-  card: { padding: 20, borderRadius: 22, gap: 12 },
-  action: { minHeight: 54, paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  screen: { flex: 1 }, content: { padding: 20, gap: 18, paddingBottom: 32 },
+  card: { padding: 16, borderRadius: 16, borderCurve: "continuous", gap: 8 },
+  action: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderCurve: "continuous", alignItems: "center", justifyContent: "center" },
   input: { borderWidth: 1, borderRadius: 14, padding: 16, fontSize: 16, minHeight: 52 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
 });

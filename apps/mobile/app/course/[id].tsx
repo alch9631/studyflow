@@ -1,17 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
+import { Collapsible, Host, RNHostView } from "@expo/ui";
 import { router, useLocalSearchParams } from "expo-router";
 import type { CourseDetail, FormFields } from "../../../../shared/mobileWorkspace";
-import { Action, AppText, Card, ErrorMessage, useTheme } from "../../src/ui";
+import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../../src/ui";
 import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
+import { ActionMenu } from "../../src/action-menu";
 import { useSession } from "../../src/session";
 import { openMaterial, pickAndUpload, uploadMaterials, type MaterialUploadFailure } from "../../src/materials";
 
 type Plan = { fileId: string; id: string; outline: boolean; items: { id: string; title: string; reference?: string; instruction?: string }[] };
 export default function Course() {
-  const { id } = useLocalSearchParams<{ id: string }>(); const query = useMobileData<CourseDetail>(`courses/${encodeURIComponent(id)}`);
-  const { session } = useSession(); const theme = useTheme(); const course = query.data;
-  const [tab, setTab] = useState("progress"); const [busy, setBusy] = useState(false); const [expanded, setExpanded] = useState(""); const [search, setSearch] = useState(""); const [limit, setLimit] = useState(40);
+  const { id, section } = useLocalSearchParams<{ id: string; section?: string }>(); const query = useMobileData<CourseDetail>(`courses/${encodeURIComponent(id)}`);
+  const { session, isDemo } = useSession(); const theme = useTheme(); const course = query.data;
+  const sections = { progress: "Topics", materials: "Materials", deadlines: "Deadlines", manage: "Settings" };
+  const initialTab = section && Object.hasOwn(sections, section) ? section : "progress";
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => { setTab(initialTab); setExpanded(""); }, [id, initialTab]);
+  const [filesOpen, setFilesOpen] = useState(section === "materials"); const [busy, setBusy] = useState(false); const [expanded, setExpanded] = useState(""); const [search, setSearch] = useState(""); const [limit, setLimit] = useState(40);
   const [plan, setPlan] = useState<Plan | null>(null); const [selected, setSelected] = useState<string[]>([]);
   const [category, setCategory] = useState("");
   const [failedUploads, setFailedUploads] = useState<MaterialUploadFailure[]>([]);
@@ -29,7 +35,7 @@ export default function Course() {
       if (result) {
         setFailedUploads(result.failed);
         setUploadStatus(`${result.saved} file${result.saved === 1 ? "" : "s"} uploaded${result.failed.length ? ` · ${result.failed.length} need retrying` : ""}.`);
-        if (result.saved) await query.reload();
+        if (result.saved) { setFilesOpen(true); await query.reload(); }
       }
     }
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
@@ -50,50 +56,70 @@ export default function Course() {
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
   const roots = course?.topics.filter(t => !t.parentTopicId) ?? [];
+  const selectedTopic = course?.topics.find(t => t.id === expanded);
   const topics = course?.topics.filter(t => t.title.toLowerCase().includes(search.toLowerCase())) ?? [];
   return <Page back title={course?.name ?? "Course"} subtitle={course ? `Exam ${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}>
     {course && <>
-      <Card><ProgressBar value={roots.length ? roots.filter(t => t.done).length / roots.length * 100 : 0} label={`${roots.filter(t => t.done).length} of ${roots.length} topics covered`} />
-        <AppText muted>{course.isPassed ? course.grade !== null ? `Passed · Grade ${course.grade.toFixed(1)}` : "Passed without a grade" : "Active module"}</AppText>
-        {!course.isPassed && <Action busy={busy} onPress={() => { void run("startFocus", { courseId: id, language: "en" }, true); }}>Start studying</Action>}
-      </Card>
-      <Chips options={[{ label: "Progress", value: "progress" }, { label: "Materials", value: "materials" }, { label: "Deadlines", value: "deadlines" }, { label: "Manage", value: "manage" }]} value={tab} onChange={setTab} />
+      <View style={{ gap: 10 }}><ProgressBar value={roots.length ? roots.filter(t => t.done).length / roots.length * 100 : 0} label={`${roots.filter(t => t.done).length}/${roots.length} topics covered${course.isPassed ? " · Passed" : ""}`} />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <ActionMenu label="Course sections" text={sections[tab as keyof typeof sections]} icon="chevron-down" items={Object.entries(sections).map(([key, title]) => ({ id: key, title, state: tab === key ? "on" : "off", onPress: () => setTab(key) }))} />
+          <ActionMenu label="Course actions" disabled={busy} items={[
+            { id: "recall", title: "Practice recall", image: "brain.head.profile", onPress: () => router.push({ pathname: "/practice", params: { courseId: id } }) },
+            ...(!course.isPassed ? [{ id: "study", title: "Study next topic", image: "play" as const, onPress: () => { void run("startFocus", { courseId: id, language: "en" }, true); } }] : []),
+            ...(!isDemo ? [{ id: "progress", title: "Update progress", image: "chart.bar" as const, onPress: () => edit("applyProgress", { courseId: id }) }] : []),
+            { id: "task", title: "Add study task", image: "plus", onPress: () => edit("saveStudyTask", { courseId: id }) },
+            { id: "settings", title: "Course settings", image: "gearshape", onPress: () => setTab("manage") },
+          ]} />
+        </View>
+      </View>
       {tab === "progress" && <>
-        <View style={{ flexDirection: "row", gap: 20 }}><LinkButton label="Update progress" onPress={() => edit("applyProgress", { courseId: id })} /><LinkButton label="Practice recall" onPress={() => router.push({ pathname: "/practice", params: { courseId: id } })} /></View>
         <Field label="Find a topic" value={search} onChange={setSearch} />
-        {topics.slice(0, limit).map(t => <Card key={t.id}>
-          <Pressable onPress={() => setExpanded(expanded === t.id ? "" : t.id)} accessibilityRole="button" accessibilityState={{ expanded: expanded === t.id }}><AppText size={17} weight="600">{t.done ? "✓ " : ""}{t.title}</AppText><AppText size={12} muted>{t.parentTopicId ? "Study task" : "Topic"}{t.confidence ? ` · ${t.confidence}` : ""}</AppText></Pressable>
-          <LinkButton label={t.done ? "Mark as not covered" : "Mark as covered"} onPress={() => { void run("toggleTopic", { courseId: id, topicId: t.id, done: t.done ? "false" : "true" }); }} />
-          {expanded === t.id && <>
-            {t.task && <><AppText>{t.task.instruction}</AppText><AppText size={14} muted>Goal: {t.task.successCriteria}</AppText></>}
-            <Chips options={[{ label: "Solid", value: "solid" }, { label: "More practice", value: "practice" }, { label: "Struggling", value: "struggling" }]} value={t.confidence ?? ""} onChange={v => { void run("setConfidence", { topicId: t.id, confidence: v === t.confidence ? "" : v }); }} />
-            {!!t.note && <AppText size={14}>{t.note}</AppText>}
-            <LinkButton label={t.note ? "Edit notes" : "Add notes"} onPress={() => edit("saveNote", { topicId: t.id, body: t.note })} />
-            {!course.isPassed && <LinkButton label="Study this topic" onPress={() => { void run("startFocus", { courseId: id, topicId: t.id, language: "en" }, true); }} />}
-            <LinkButton label="Delete topic" danger onPress={() => Alert.alert("Delete this topic?", "Its unfinished sessions will be removed from the plan.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteTopic", { topicId: t.id, courseId: id }); } }])} />
-          </>}
-        </Card>)}
+        <View>{topics.slice(0, limit).map(t => <View key={t.id} style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, paddingVertical: 8, gap: 4 }}>
+          <IconButton label={`${t.done ? "Mark not covered" : "Mark covered"}: ${t.title}`} icon={t.done ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void run("toggleTopic", { courseId: id, topicId: t.id, done: t.done ? "false" : "true" }); }} />
+          <View style={{ flex: 1 }}><AppText weight="600">{t.title}</AppText>{t.confidence ? <AppText size={13} muted>{t.confidence}</AppText> : null}</View>
+          <IconButton label={`Notes & details: ${t.title}`} icon="create-outline" onPress={() => setExpanded(t.id)} />
+        </View>)}</View>
         {topics.length > limit && <LinkButton label="Show more topics" onPress={() => setLimit(n => n + 40)} />}
         {!topics.length && <AppText muted>Upload material or add a study task to get started.</AppText>}
-        <Action secondary onPress={() => edit("saveStudyTask", { courseId: id })}>Add a study task</Action>
       </>}
       {tab === "materials" && <>
-        <AppText muted>Add scripts, exercises, slides, past papers or notes from Files or iCloud Drive.</AppText>
-        <Chips value={category} onChange={setCategory} options={[{ label: "Auto detect", value: "" }, { label: "Script", value: "skript" }, { label: "Exercises", value: "uebung" }, { label: "Past paper", value: "altklausur" }, { label: "Slides", value: "slides" }, { label: "Other", value: "sonstiges" }]} />
-        <Action busy={busy} onPress={() => { void upload(); }}>Upload files</Action>
-        {!!uploadStatus && <AppText muted>{uploadStatus}</AppText>}
-        {failedUploads.map(failure => <ErrorMessage key={failure.item.asset.uri} message={`${failure.item.asset.name}: ${failure.message}`} />)}
-        {!!failedUploads.length && <Action secondary busy={busy} onPress={() => { void upload(true); }}>Retry failed files</Action>}
-        {course.files.map(file => <Card key={file.id}><AppText weight="700">{file.filename}</AppText><AppText size={12} muted>{file.category ?? "Material"} · {(file.sizeBytes / 1024).toFixed(0)} KB</AppText>{!!file.summary && <AppText size={14}>{file.summary}</AppText>}
-          <LinkButton label="Open original" onPress={() => { if (!session || busy) return; setBusy(true); void openMaterial(session, file.id, file.filename).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }} />
-          <Action secondary busy={busy} onPress={() => { void prepare(file.id); }}>Build study plan from material</Action>
-          {!!file.mockExamQuestions && <LinkButton label={`Practice past paper (${file.mockExamQuestions} questions)`} onPress={() => router.push({ pathname: "/practice", params: { courseId: id, examFile: file.id } })} />}
-          <LinkButton label="Delete file" danger onPress={() => Alert.alert("Delete this material?", file.filename, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteMaterial", { moduleFileId: file.id }); } }])} />
-        </Card>)}
+        {isDemo ? <AppText size={14} muted>Sample notes are included. Sign in to add files.</AppText> : <>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+            <LinkButton label="+ Add files" onPress={() => { void upload(); }} />
+            <ActionMenu label="File category" text={({ "": "Auto detect", skript: "Script", uebung: "Exercises", altklausur: "Past paper", slides: "Slides", sonstiges: "Other" } as Record<string, string>)[category]} icon="chevron-down" disabled={busy} items={[
+              { id: "", title: "Auto detect" }, { id: "skript", title: "Script" }, { id: "uebung", title: "Exercises" }, { id: "altklausur", title: "Past paper" }, { id: "slides", title: "Slides" }, { id: "sonstiges", title: "Other" },
+            ].map(item => ({ ...item, state: category === item.id ? "on" : "off", onPress: () => setCategory(item.id) }))} />
+          </View>
+          {uploadStatus ? <AppText size={13} muted>{uploadStatus}</AppText> : null}
+          {failedUploads.map(failure => <ErrorMessage key={failure.item.asset.uri} message={`${failure.item.asset.name}: ${failure.message}`} />)}
+          {failedUploads.length ? <Action secondary busy={busy} onPress={() => { void upload(true); }}>Retry failed files</Action> : null}
+        </>}
+        <Host matchContents={{ vertical: true }} seedColor={theme.brand}>
+          <Collapsible label={`Uploaded materials · ${course.files.length}`} isOpen={filesOpen} onOpenChange={setFilesOpen} labelStyle={{ fontSize: 15, color: theme.text, lineHeight: 44 }}>
+            <RNHostView matchContents={{ vertical: true }}><View>{course.files.map(file => <View key={file.id} style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, gap: 4 }}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Open ${file.filename}`} disabled={busy} onPress={() => { if (!session || busy) return; setBusy(true); void openMaterial(session, file.id, file.filename).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }} style={{ flex: 1, minHeight: 52, paddingVertical: 12 }}>
+                <AppText size={14} weight="600">{file.filename}</AppText><AppText size={12} muted>{(file.sizeBytes / 1024).toFixed(0)} KB</AppText>
+              </Pressable>
+              <ActionMenu label={`Material actions: ${file.filename}`} disabled={busy} items={[
+                { id: "plan", title: "Build study plan", image: "list.bullet.clipboard", onPress: () => { void prepare(file.id); } },
+                ...(file.mockExamQuestions ? [{ id: "paper", title: `Practice · ${file.mockExamQuestions} questions`, image: "brain.head.profile" as const, onPress: () => router.push({ pathname: "/practice", params: { courseId: id, examFile: file.id } }) }] : []),
+                ...(file.summary ? [{ id: "summary", title: "Summary", image: "doc.text" as const, onPress: () => Alert.alert(file.filename, file.summary) }] : []),
+                { id: "delete", title: "Delete file", image: "trash", attributes: { destructive: true }, onPress: () => Alert.alert("Delete material?", file.filename, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteMaterial", { moduleFileId: file.id }); } }]) },
+              ]} />
+            </View>)}{!course.files.length ? <AppText size={14} muted>No files yet.</AppText> : null}</View></RNHostView>
+          </Collapsible>
+        </Host>
       </>}
       {tab === "deadlines" && <>
-        <Action secondary onPress={() => edit("addAssignment", { courseId: id })}>Add a deadline</Action>
-        {course.assignments.map(a => <Card key={a.id}><AppText weight="600">{a.done ? "✓ " : ""}{a.title}</AppText><AppText muted>Due {dateLabel(a.dueDate)}</AppText><LinkButton label={a.done ? "Reopen" : "Mark complete"} onPress={() => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); }} /><LinkButton label="Delete deadline" danger onPress={() => Alert.alert("Delete deadline?", a.title, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteAssignment", { assignmentId: a.id, courseId: id }); } }])} /></Card>)}
+        <LinkButton label="+ Add deadline" onPress={() => edit("addAssignment", { courseId: id })} />
+        <View>{course.assignments.map(a => <View key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.line }}>
+          <IconButton label={`${a.done ? "Reopen" : "Complete"}: ${a.title}`} icon={a.done ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); }} />
+          <View style={{ flex: 1 }}><AppText weight="600">{a.title}</AppText><AppText size={13} muted>{dateLabel(a.dueDate)}</AppText></View>
+          <ActionMenu label={`Deadline actions: ${a.title}`} disabled={busy} items={[
+            { id: "delete", title: "Delete deadline", image: "trash", attributes: { destructive: true }, onPress: () => Alert.alert("Delete deadline?", a.title, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteAssignment", { assignmentId: a.id, courseId: id }); } }]) },
+          ]} />
+        </View>)}</View>
+        {!course.assignments.length ? <AppText size={14} muted>No deadlines.</AppText> : null}
       </>}
       {tab === "manage" && <>
         <Action secondary onPress={() => edit("updateCourse", { courseId: id, examDate: course.examDate, studyDays: course.studyDays.split(","), difficulty: String(course.difficulty) })}>Edit exam & study days</Action>
@@ -104,6 +130,20 @@ export default function Course() {
         <LinkButton label="Delete course" danger onPress={() => Alert.alert("Delete this course?", "This removes its topics, files, sessions and notes.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { if (busy) return; setBusy(true); void query.action("deleteCourse", { courseId: id }).then(() => router.replace("/(tabs)/courses")).catch(e => query.setError(e.message)).finally(() => setBusy(false)); } }])} />
       </>}
     </>}
+    <Modal visible={!!selectedTopic} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setExpanded("")}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: theme.background }} contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><AppText size={20} weight="700" style={{ flex: 1 }}>{selectedTopic?.title}</AppText><IconButton label="Close topic details" icon="close-outline" onPress={() => setExpanded("")} /></View>
+        {selectedTopic && <>
+          {selectedTopic.task ? <><AppText>{selectedTopic.task.instruction}</AppText><AppText size={14} muted>{selectedTopic.task.successCriteria}</AppText></> : null}
+          <Chips options={[{ label: "Solid", value: "solid" }, { label: "Practice", value: "practice" }, { label: "Struggling", value: "struggling" }]} value={selectedTopic.confidence ?? ""} onChange={v => { void run("setConfidence", { topicId: selectedTopic.id, confidence: v === selectedTopic.confidence ? "" : v }); }} />
+          {selectedTopic.note ? <AppText>{selectedTopic.note}</AppText> : <AppText muted>No notes yet.</AppText>}
+          <LinkButton label={selectedTopic.note ? "Edit notes" : "Add notes"} onPress={() => { setExpanded(""); edit("saveNote", { topicId: selectedTopic.id, body: selectedTopic.note }); }} />
+          {!course?.isPassed ? <LinkButton label="Study topic" onPress={() => { setExpanded(""); void run("startFocus", { courseId: id, topicId: selectedTopic.id, language: "en" }, true); }} /> : null}
+          <LinkButton label="Delete topic" danger onPress={() => Alert.alert("Delete topic?", "Unfinished sessions and notes will be removed.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteTopic", { topicId: selectedTopic.id, courseId: id }); } }])} />
+          <ErrorMessage message={query.error} />
+        </>}
+      </ScrollView>
+    </Modal>
     <Modal visible={!!plan} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPlan(null)}><ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={{ padding: 24, gap: 16 }}>
       <LinkButton label="Close" onPress={() => setPlan(null)} /><AppText size={25} weight="700">Review study plan</AppText><AppText muted>Select the units to add. Existing topics are kept.</AppText>
       {plan?.items.map(item => <Pressable key={item.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected.includes(item.id) }} onPress={() => setSelected(ids => ids.includes(item.id) ? ids.filter(id => id !== item.id) : [...ids, item.id])}><Card><AppText weight="600">{selected.includes(item.id) ? "✓ " : "○ "}{item.title}</AppText><AppText size={13} muted>{item.reference ?? item.instruction}</AppText></Card></Pressable>)}

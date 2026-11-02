@@ -8,6 +8,7 @@ import { draftKey, readDraft, writeDraft, type Draft } from "./drafts";
 import { useSession } from "./session";
 import { Action, AppText, ErrorMessage, styles, useTheme } from "./ui";
 import { LinkButton, useMobileData } from "./workspace";
+import DemoNotice from "./demo-notice";
 
 export default function SessionChoice({ id, topicId, kind }: { id: string; topicId?: string; kind?: string }) {
   const { session } = useSession();
@@ -38,6 +39,7 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
   const choices = sessionDurationChoices(progress?.sessionMinutes ?? block?.minutes ?? 30, elapsed);
   const minutes = chosen ?? choices.selected;
   return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+    <DemoNotice />
     <AppText size={23} weight="700">{block?.title ?? "Choose your study time"}</AppText>
     <ErrorMessage message={query.error} />
     {query.error && <Action secondary onPress={() => { void query.reload(); }}>Try again</Action>}

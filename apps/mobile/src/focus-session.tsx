@@ -12,6 +12,7 @@ import { useSession } from "./session";
 import { Action, AppText, Card, ErrorMessage, styles, useTheme } from "./ui";
 import { openMaterial } from "./materials";
 import FocusNotes from "./focus-notes";
+import DemoNotice from "./demo-notice";
 
 export default function FocusSession({ id, topicId, kind, minutes }: { id: string; topicId?: string; kind?: string; minutes?: string }) {
   const { session, signOut } = useSession();
@@ -154,6 +155,7 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   const disabled = busy || notesBusy;
   return <View style={styles.screen}>
     <ScrollView contentInsetAdjustmentBehavior="automatic" automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.content, { paddingBottom: Math.max(40, insets.bottom) }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+      <DemoNotice />
       <View style={{ gap: 6 }}><AppText size={14} weight="600" muted>{block.course.name}</AppText><AppText size={28} weight="800">{block.title}</AppText></View>
       <Card style={{ alignItems: "center", backgroundColor: theme.tint, gap: 16 }}>
         <AppText size={60} weight="500" style={{ fontVariant: ["tabular-nums"] }}>{formatTimer(remaining)}</AppText>

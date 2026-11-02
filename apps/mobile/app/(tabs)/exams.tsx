@@ -4,8 +4,10 @@ import { router } from "expo-router";
 import type { ExamCourse, ExamData, PublishedExamOption } from "../../../../shared/mobileWorkspace";
 import { Action, AppText, Card, ErrorMessage, useTheme } from "../../src/ui";
 import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
+import { useSession } from "../../src/session";
 
 export default function Exams() {
+  const { isDemo } = useSession();
   const query = useMobileData<ExamData>("exams");
   const theme = useTheme();
   const [tab, setTab] = useState("remaining");
@@ -56,7 +58,7 @@ export default function Exams() {
             </Pressable>;
           })}</View>
       </Card>
-      <Action secondary busy={busy} onPress={() => { void refresh(); }}>Refresh university exam dates</Action>
+      {isDemo ? <AppText muted>These are sample exam dates. You can edit them and try recording a grade. Sign in to check published university dates.</AppText> : <Action secondary busy={busy} onPress={() => { void refresh(); }}>Refresh university exam dates</Action>}
       {query.data?.checkedAt && <AppText size={12} muted>{query.data.semester} · Checked {new Date(query.data.checkedAt).toLocaleString()}</AppText>}
       {!query.loading && !exams.length && <Card><AppText weight="600">No remaining exams.</AppText><LinkButton label="Add a course" onPress={() => edit("createCourse")} /></Card>}
       {exams.map(exam => {
@@ -67,7 +69,7 @@ export default function Exams() {
           {exam.published && <AppText size={14} muted>{[exam.published.time, exam.published.location].filter(Boolean).join(" · ") || "Published university date"}</AppText>}
           <ProgressBar value={c?.topicsTotal ? c.topicsDone / c.topicsTotal * 100 : 0} label={`${c?.topicsDone ?? 0} of ${c?.topicsTotal ?? 0} topics covered`} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18 }}><LinkButton label="Preparation" onPress={() => router.push(`/course/${exam.id}`)} /><LinkButton label="Edit date" onPress={() => edit("updateCourse", { courseId: c.id, examDate: c.examDate, studyDays: c.studyDays.split(","), difficulty: String(c.difficulty) })} /><LinkButton label="Record result" onPress={() => edit("saveGrade", { courseId: c.id, grade: c.grade === null ? "" : String(c.grade) })} /></View>
-          <LinkButton label="Match a published exam" onPress={() => { if (!busy) void loadOptions(exam); }} />
+          {!isDemo && <LinkButton label="Match a published exam" onPress={() => { if (!busy) void loadOptions(exam); }} />}
         </Card>;
       })}
     </> : <>

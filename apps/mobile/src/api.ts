@@ -1,4 +1,5 @@
 import type { MobileBlock, MobileFinishInput, MobileProgressInput, MobileResultInput, MobileSession, MobileToday } from "../../../shared/mobile";
+import { DEMO_SERVER, DemoError, demoRequest } from "./demo";
 
 export class ApiError extends Error {
   constructor(message: string, public status = 0) { super(message); }
@@ -15,6 +16,10 @@ export function serverUrl(input: string, development: boolean): string {
 }
 
 export async function api<T>(base: string, token: string | null, path: string, options?: { method?: string; body?: unknown; timeout?: number }): Promise<T> {
+  if (base === DEMO_SERVER) {
+    try { return demoRequest(token, path, options) as T; }
+    catch (error) { throw new ApiError(error instanceof Error ? error.message : "Couldn't update the demo.", error instanceof DemoError ? error.status : 400); }
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options?.timeout ?? 20_000);
   try {

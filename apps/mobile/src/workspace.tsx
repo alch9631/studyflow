@@ -6,6 +6,8 @@ import { api, ApiError } from "./api";
 import { useSession } from "./session";
 import { Action, AppText, ErrorMessage, styles, useTheme } from "./ui";
 import type { ActionResult, FormFields } from "../../../shared/mobileWorkspace";
+import DemoNotice from "./demo-notice";
+import NavigationMenu from "./navigation-menu";
 
 export function useMobileData<T>(path: string) {
   const { session, signOut } = useSession();
@@ -31,15 +33,17 @@ export function useMobileData<T>(path: string) {
   return { data, error, loading, reload, action, setError };
 }
 
-export function Page({ title, subtitle, children, query, back = false }: {
-  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean;
+export function Page({ title, subtitle, children, query, back = false, actions }: {
+  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; actions?: React.ReactNode;
 }) {
   const theme = useTheme();
   return <SafeAreaView edges={["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
     <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentContainerStyle={styles.content}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.loading} onRefresh={() => { void query.reload(); }} /> : undefined}>
-      <View style={{ gap: 6 }}>{back && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
-        <AppText size={32} weight="800">{title}</AppText>{subtitle && <AppText muted>{subtitle}</AppText>}</View>
+      <View style={{ gap: 4 }}>{back && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
+        <View style={[styles.row, { gap: 4 }]}><AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <NavigationMenu />}</View>
+        {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>
+      <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}
       {query?.loading && <ActivityIndicator color={theme.brand} />}{children}
     </ScrollView>

@@ -2,16 +2,19 @@ import * as DocumentPicker from "expo-document-picker";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { uploadBatch } from "../../../shared/upload-batch";
+import { DEMO_SERVER } from "./demo-data";
 
 type Session = { server: string; token: string };
 export type MaterialSelection = { asset: DocumentPicker.DocumentPickerAsset; category: string };
 export type MaterialUploadFailure = { item: MaterialSelection; message: string };
 export async function pickAndUpload(session: Session, courseId: string, category = "", onProgress = (_current: number, _total: number) => {}) {
+  if (session.server === DEMO_SERVER) throw new Error("Sign in to upload your own materials.");
   const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: true });
   if (picked.canceled) return null;
   return uploadMaterials(session, courseId, picked.assets.map(asset => ({ asset, category })), onProgress);
 }
 export function uploadMaterials(session: Session, courseId: string, items: readonly MaterialSelection[], onProgress: (current: number, total: number) => void) {
+  if (session.server === DEMO_SERVER) throw new Error("Sign in to upload your own materials.");
   return uploadBatch(items, item => uploadOriginal(session, courseId, item), onProgress);
 }
 async function uploadOriginal(session: Session, courseId: string, { asset, category }: MaterialSelection) {
@@ -28,6 +31,7 @@ async function uploadOriginal(session: Session, courseId: string, { asset, categ
   } finally { clearTimeout(timeout); }
 }
 export async function openMaterial(session: Session, id: string, filename: string) {
+  if (session.server === DEMO_SERVER) throw new Error("Sample notes are available inside the demo session.");
   // Keep the original extension from Content-Disposition so iOS opens the right viewer.
   const destination = new Directory(Paths.cache, `studyflow-${id}`);
   destination.create({ idempotent: true });

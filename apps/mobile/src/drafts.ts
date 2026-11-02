@@ -14,3 +14,8 @@ export async function readDraft(key: string): Promise<Draft | null> {
 }
 export const writeDraft = (key: string, draft: Draft) => AsyncStorage.setItem(key, JSON.stringify(draft));
 export const clearDraft = (key: string) => AsyncStorage.removeItem(key);
+export async function clearSessionDrafts(server: string, userId: string) {
+  const prefix = `studyflow:draft:${server}:${userId}:`;
+  const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(prefix));
+  if (keys.length) await AsyncStorage.multiRemove(keys);
+}
