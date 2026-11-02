@@ -940,6 +940,13 @@ const en = {
     title: "Welcome to StudyFlow",
     subtitle: "The study plan that builds itself. Sign in to get started.",
     google: "Sign in with Google",
+    invitationRequired: "This account isn’t invited. Try your invited Google account or ask for access.",
+    failed: "Sign-in didn’t finish. Please try again.",
+  },
+  updates: {
+    available: "An update is ready.",
+    refresh: "Refresh",
+    syncFirst: "Connect and sync your changes before updating.",
   },
   landing: {
     brand: "TUHH",
@@ -2176,6 +2183,13 @@ const de: Messages = {
     title: "Willkommen bei StudyFlow",
     subtitle: "Der Lernplan, der sich selbst erstellt. Melde dich an, um loszulegen.",
     google: "Mit Google anmelden",
+    invitationRequired: "Dieses Konto ist nicht eingeladen. Nutze dein eingeladenes Google-Konto oder frage nach Zugang.",
+    failed: "Die Anmeldung wurde nicht abgeschlossen. Bitte versuche es erneut.",
+  },
+  updates: {
+    available: "Ein Update ist bereit.",
+    refresh: "Aktualisieren",
+    syncFirst: "Verbinde dich und synchronisiere deine Änderungen vor dem Update.",
   },
   landing: {
     brand: "TUHH",

@@ -42,6 +42,7 @@ function isPublic(pathname: string): boolean {
   if (pathname.startsWith("/api/calendar/")) return true;
   if (pathname === "/api/reminders/run") return true;
   if (pathname === "/api/health") return true;
+  if (pathname === "/api/version") return true;
   // PWA + static assets.
   if (pathname === "/manifest.webmanifest" || pathname === "/sw.js") return true;
   return false;

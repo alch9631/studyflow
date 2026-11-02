@@ -83,6 +83,7 @@ module catalog if wanted: `DATABASE_URL=... npx tsx prisma/seedCatalog.ts`.
 | `AUTH_SECRET`        | yes      | `npx auth secret` or `openssl rand -base64 33`.              |
 | `AUTH_GOOGLE_ID`     | yes      | Google OAuth Web client ID (step 1).                         |
 | `AUTH_GOOGLE_SECRET` | yes      | Google OAuth Web client secret (step 1).                     |
+| `AUTH_ALLOWED_EMAILS` | no      | Empty allows any verified Google account. Optionally restrict to comma-separated exact emails. |
 | `ALLOW_DEV_USER`     | no       | Do **not** set in production — leaving it unset enforces real sign-in. Setting it to `1` disables auth and treats every request as the shared seeded dev user (fine for the private Pi, a security hole on a public URL). |
 | `AUTH_URL`           | yes\*    | `https://<your-domain>`. Auth.js v5 only auto-trusts the request host on known platforms (e.g. Vercel); behind Railway's proxy it must be told the canonical URL or OAuth callbacks fail with `UntrustedHost`. \*Alternatively set `AUTH_TRUST_HOST=true`. |
 

@@ -1,5 +1,7 @@
 import { prisma } from "./db";
 import { authenticatedMobileUser } from "./mobileUserContext";
+import { isAllowedEmail } from "./authPolicy";
+import { ApiError } from "./apiError";
 
 /**
  * Resolves the current user's id for every userId-scoped read/write.
@@ -71,8 +73,10 @@ export async function getCurrentUserId(): Promise<string> {
   // expected dev/test path — so it must propagate.
   const { auth } = await import("@/auth");
   const session = await auth();
-  if (session?.user?.id) return session.user.id;
-  throw new Error("Not authenticated");
+  if (!session?.user?.id) throw new ApiError("UNAUTHORIZED", "Not authenticated");
+  // Recheck existing sessions too: removing an invitation revokes server access.
+  if (!isAllowedEmail(session.user.email)) throw new ApiError("FORBIDDEN", "This account is not invited");
+  return session.user.id;
 }
 
 /**
@@ -96,7 +100,9 @@ export async function getUiSession(): Promise<UiSession> {
   const { auth } = await import("@/auth");
   const session = await auth();
   // Normalize to the narrow UiSession shape (Auth.js types `user` as optional).
-  return session?.user ? { user: { email: session.user.email } } : null;
+  return session?.user && isAllowedEmail(session.user.email)
+    ? { user: { email: session.user.email } }
+    : null;
 }
 
 /**

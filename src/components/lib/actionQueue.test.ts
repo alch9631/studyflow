@@ -7,6 +7,7 @@ import {
   toggleKey,
   queueToggle,
   pendingCount,
+  unsyncedCount,
   hasPending,
   clearQueue,
   flushQueue,
@@ -288,6 +289,7 @@ async function main() {
   });
   const inflightFlush = flushQueue(); // starts replaying, awaits the gate
   check("an in-flight replay is no longer pending", pendingCount() === 0);
+  check("an in-flight replay still prevents an update reload", unsyncedCount() === 1);
   check(
     "an in-flight replay stays in persisted storage (a reload can't lose it)",
     (inflightStore.getItem(STORAGE_KEY) ?? "").includes("if1"),

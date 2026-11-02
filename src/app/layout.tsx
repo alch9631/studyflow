@@ -8,6 +8,8 @@ import Nav from "@/components/Nav";
 import BottomTabBar from "@/components/BottomTabBar";
 import QuickAddFab from "@/components/QuickAddFab";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import UpdateNotice from "@/components/UpdateNotice";
+import { readBuildId } from "@/lib/appVersion";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import OfflineQueueSync from "@/components/OfflineQueueSync";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -89,6 +91,7 @@ export default async function RootLayout({
           {/* Sits below the sticky header; appears only when the browser is
               offline to flag that pages are rendering last-synced content. */}
           <OfflineIndicator />
+          <UpdateNotice buildId={await readBuildId()} />
           {/* Bottom padding clears the mobile tab bar (its shared height + the
               safe-area inset); desktop has no bottom bar, so reset to 0. The
               left/right insets keep content off a landscape notch (0 in

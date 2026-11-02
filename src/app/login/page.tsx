@@ -14,8 +14,10 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
-  const callback = (await searchParams).callbackUrl;
+export default async function LoginPage({ searchParams }: {
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+}) {
+  const { callbackUrl: callback, error } = await searchParams;
   // Only this internal return path may survive the browser OAuth round trip.
   const redirectTo = callback?.startsWith("/mobile/connect?") ? callback : "/today";
   // Server action: kick off the Google OAuth flow and return to /today after.
@@ -46,6 +48,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </div>
 
       <Card className="w-full p-6">
+        {error && (
+          <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-300">
+            {t(error === "AccessDenied" ? "login.invitationRequired" : "login.failed")}
+          </p>
+        )}
         <form action={signInWithGoogle}>
           <Button type="submit" variant="secondary" size="lg" className="w-full">
             <LogIn className="h-4 w-4" aria-hidden="true" />

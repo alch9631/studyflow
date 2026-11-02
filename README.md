@@ -156,6 +156,10 @@ For backend production deployment, see **[DEPLOY.md](DEPLOY.md)**.
 The live Pi instance automatically deploys CI-green pushes to `main`. Installation,
 status, logs, and rollback behavior are documented in **[ops/AUTO_DEPLOY.md](ops/AUTO_DEPLOY.md)**.
 
+To invite friends on the Pi, use **[ops/SHARING.md](ops/SHARING.md)** for Google
+accounts, HTTPS, transferring your existing study data, and daily
+backups. Keep SQLite for this single-server setup; each account owns its data.
+
 ## Daily study reminders (cron)
 
 `POST /api/reminders/run` sends each user with a push subscription a notification

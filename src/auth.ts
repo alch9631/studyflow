@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import { prisma } from "@/lib/db";
+import { canSignInWithGoogle } from "@/lib/authPolicy";
 
 /**
  * Auth.js (NextAuth v5) configuration. Google is the only provider; it's wired
@@ -45,8 +46,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
+    signIn({ account, profile }) {
+      return canSignInWithGoogle(account?.provider, profile);
+    },
     // Expose the database user id on the session so server code can scope reads.
     session({ session, user }) {
       if (session.user) session.user.id = user.id;

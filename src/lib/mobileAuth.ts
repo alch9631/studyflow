@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "./db";
 import { ApiError } from "./apiError";
+import { isAllowedEmail } from "./authPolicy";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const VERIFIER_PATTERN = /^[A-Za-z0-9._~-]{43,128}$/;
@@ -68,7 +69,8 @@ export async function mobileIdentity(request: Request) {
   const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.get("authorization") ?? "")?.[1];
   if (!token) throw new ApiError("UNAUTHORIZED", "Sign in to continue.");
   const sessionToken = `mobile:${mobileHash(token)}`;
-  const session = await prisma.session.findUnique({ where: { sessionToken }, select: { userId: true, expires: true } });
+  const session = await prisma.session.findUnique({ where: { sessionToken }, select: { userId: true, expires: true, user: { select: { email: true } } } });
   if (!session || session.expires.getTime() <= Date.now()) throw new ApiError("UNAUTHORIZED", "Your session expired. Please sign in again.");
+  if (process.env.NODE_ENV === "production" && !isAllowedEmail(session.user.email)) throw new ApiError("UNAUTHORIZED", "This account is no longer invited. Contact the server owner.");
   return { userId: session.userId, sessionToken };
 }

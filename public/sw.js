@@ -14,6 +14,8 @@
 const CACHE = "studyflow-v2";
 const DATA_CACHE = "studyflow-data-v1";
 const OFFLINE_URL = "/offline";
+// In-flight responses from a previous account must not repopulate its cache.
+let sessionGeneration = 0;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -89,14 +91,16 @@ async function trimDataCache() {
 
 // Network-first for page content, falling back to the last-synced copy offline.
 async function networkFirstContent(req) {
+  const generation = sessionGeneration;
   const key = contentCacheKey(req);
   try {
     const res = await fetch(req);
-    if (res && res.ok) {
+    if (res && res.ok && generation === sessionGeneration &&
+        (!res.url || new URL(res.url).pathname !== "/login")) {
       const copy = res.clone();
       caches
         .open(DATA_CACHE)
-        .then((c) => c.put(key, copy))
+        .then((c) => generation === sessionGeneration ? c.put(key, copy) : undefined)
         .then(() => trimDataCache())
         .catch(() => {});
     }
@@ -122,6 +126,8 @@ self.addEventListener("fetch", (event) => {
   // This also covers a full-page navigation to something like /api/export, which
   // would otherwise be stored as "page content" below.
   if (isApiRequest(req)) return;
+  // Sign-in pages and callbacks must always reach the server.
+  if (new URL(req.url).pathname === "/login") return;
 
   // Page content (navigations + RSC) → dedicated last-synced data cache.
   if (isNavigation(req) || isRSC(req)) {
@@ -159,6 +165,7 @@ self.addEventListener("fetch", (event) => {
 // session ends (see components/PurgeOfflineCache, mounted on the sign-in screen).
 self.addEventListener("message", (event) => {
   if (!event.data || event.data.type !== "purge-caches") return;
+  sessionGeneration++;
   const done = caches
     .keys()
     .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))

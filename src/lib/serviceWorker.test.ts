@@ -36,7 +36,7 @@ const ORIGIN = "https://studyflow.example";
 type Listener = (event: unknown) => unknown;
 
 /** Load public/sw.js into a fake worker scope and hand back its hooks. */
-function loadServiceWorker() {
+function loadServiceWorker(beforeResponse?: () => Promise<void>) {
   const listeners: Record<string, Listener[]> = {};
   /** name -> (key -> body). Mirrors Cache Storage closely enough to assert on. */
   const store = new Map<string, Map<string, string>>();
@@ -74,6 +74,7 @@ function loadServiceWorker() {
   const networked: string[] = [];
   const fetchStub = async (req: { url: string }) => {
     networked.push(req.url);
+    await beforeResponse?.();
     return {
       ok: true,
       status: 200,
@@ -158,6 +159,12 @@ async function main() {
       mode: "navigate",
     });
     check("a navigation to /api/export is not intercepted", exportHandled === false);
+    check("version checks always reach the server", await dispatchFetch(sw, {
+      url: `${ORIGIN}/api/version`, mode: "navigate",
+    }) === false);
+    check("sign-in pages are never cached", await dispatchFetch(sw, {
+      url: `${ORIGIN}/login`, mode: "navigate",
+    }) === false);
 
     const cached = [...sw.store.values()].flatMap((m) => [...m.keys()]);
     check(
@@ -214,6 +221,23 @@ async function main() {
       after === 0 && sw.store.size === 0,
       `caches=${sw.store.size} entries=${after}`,
     );
+  }
+
+  // ── An unrelated message must not wipe the caches ──────────────────────────
+  {
+    let release!: () => void;
+    const delayed = new Promise<void>((resolve) => { release = resolve; });
+    const sw = loadServiceWorker(() => delayed);
+    const pending = dispatchFetch(sw, { url: `${ORIGIN}/courses`, mode: "navigate" });
+    const waits: unknown[] = [];
+    for (const fn of sw.listeners.message ?? []) {
+      fn({ data: { type: "purge-caches" }, waitUntil: (p: unknown) => waits.push(p) });
+    }
+    await Promise.all(waits);
+    release();
+    await pending;
+    check("a response from the old account cannot repopulate a purged cache",
+      [...sw.store.values()].every((entries) => entries.size === 0));
   }
 
   // ── An unrelated message must not wipe the caches ──────────────────────────

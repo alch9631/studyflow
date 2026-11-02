@@ -254,6 +254,11 @@ export function pendingCount(): number {
   return queue.length;
 }
 
+/** Includes a write currently being replayed; unsafe to reload until zero. */
+export function unsyncedCount(): number {
+  return queue.length + held.length;
+}
+
 export function hasPending(key: string): boolean {
   return queue.some((t) => t.key === key);
 }
@@ -342,7 +347,7 @@ export async function flushQueue(): Promise<void> {
       try {
         await item.replay();
         held = held.filter((t) => t !== item);
-        persist(); // replay landed — now safe to drop it from storage
+        notify(); // replay landed — release update notices waiting for sync
         for (const fn of successListeners) fn(item.key);
       } catch (error) {
         held = held.filter((t) => t !== item);
@@ -351,7 +356,7 @@ export async function flushQueue(): Promise<void> {
           notify();
           return;
         }
-        persist(); // genuinely failed — dropped (listeners roll the UI back)
+        notify(); // genuinely failed — dropped (listeners roll the UI back)
         onReplayError?.(item.key, error);
         for (const fn of failureListeners) fn(item.key, error);
       }

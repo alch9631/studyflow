@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { clearQueue } from "./lib/actionQueue";
 
 /**
  * Drops every offline cache the service worker has built up.
@@ -20,6 +21,13 @@ import { useEffect } from "react";
  */
 export default function PurgeOfflineCache() {
   useEffect(() => {
+    clearQueue();
+    // Focus drafts belong to the previous student; keep theme/install choices.
+    try {
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.startsWith("sf-")) sessionStorage.removeItem(key);
+      }
+    } catch {}
     // Purge directly: this works even when no service worker controls the page
     // yet (first load after install, or a hard refresh).
     if ("caches" in window) {
