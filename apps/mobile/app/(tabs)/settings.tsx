@@ -21,8 +21,7 @@ export default function Settings() {
     try { if (session && !isDemo) await setReminder(session.userId, false, 0).catch(() => {}); await signOut(); if (isDemo) router.replace("/"); } catch (e) { setError(e instanceof Error ? e.message : "Couldn't sign out. Please try again."); }
     finally { setBusy(false); }
   }
-  return <Page title="More" subtitle={query.data?.user.email ?? "Your Studyflow account"} query={query}>
-    <Card><AppText size={18} weight="700">Study tools</AppText><LinkButton label="Progress & insights" onPress={() => router.push("/insights")} /><LinkButton label="Class timetable" onPress={() => router.push("/timetable")} /><LinkButton label="University module catalog" onPress={() => router.push("/catalog")} /></Card>
+  return <Page title="Settings" subtitle={query.data?.user.email ?? "Your Studyflow account"} query={query}>
     {isDemo && <Card><AppText weight="700">Explore at your own pace</AppText><AppText muted>These are sample courses and study sessions. Your changes stay in this demo and are never sent to an account.</AppText>
       <Action secondary disabled={busy} onPress={() => { startDemo(); router.replace("/"); }}>Restart demo</Action>
       <Action busy={busy} onPress={() => { void disconnect(); }}>Exit demo</Action>

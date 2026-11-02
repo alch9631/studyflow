@@ -19,7 +19,7 @@ The demo uses the normal app screens with local sample courses, exams, classes,
 study sessions and notes. You can run the timer, save notes, check learning goals,
 practice recall, edit courses and deadlines, and try plan adjustments.
 
-**App menu → Settings & account → Restart demo** restores the samples. **Exit demo** returns to sign-in.
+**App menu → Settings → Restart demo** restores the samples. **Exit demo** returns to sign-in.
 Demo changes reset on exit or app reload and never sync to an account. Demo
 sessions have separate draft keys and are never stored as Keychain credentials.
 Uploads, AI preparation, live university dates, reminders and Apple Calendar
@@ -28,13 +28,24 @@ subscriptions require signing in; the demo labels those features accordingly.
 ## Compact navigation
 
 Today shows one session list with progress above it. Tap a session to choose its
-length; the row menu keeps completion, moving, notes and course access available.
-The sliders icon opens plan adjustments with their impact and the available undo.
+length; the three-action row menu keeps completion, moving and notes available.
+Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. Swiping
+reveals a button; it never changes data on its own. The sliders icon opens a
+plan-adjustment sheet with a short impact for each choice and the available undo.
 
-In Courses, **Open** shows shortcuts to topics, materials, deadlines, recall and
-settings. **+** offers course creation, the catalog and syllabus import. Within a
-course, use the section menu to switch views and the pen to open topic details.
-Materials stay in a counted disclosure, with file actions in each row menu.
+Tap a course row to open it directly. **+** offers course creation, the catalog
+and syllabus import. Within a course, Topics, Materials and Deadlines are visible
+section controls; the gear opens course settings. Use the pen for topic notes.
+Topics and deadlines swipe right for completion and left for deletion. Materials
+stay in a counted disclosure and swipe left for deletion. Deletion always asks
+for confirmation, and all swipe actions have a visible button or menu alternative.
+
+Calendar leads with a swipeable date strip and compact agenda rows. Tap a session
+to study; swipe left or use its menu to change its time. Arrange applies only to
+the selected day and leaves manual times and completed work alone. Class timetable
+lives in Calendar options. The app menu contains Exams, Insights and Settings.
+Exam rows open course preparation and keep date/result edits in a short menu.
+Insights leads with the weekly chart, with history and detailed statistics optional.
 
 ## Run locally
 
@@ -124,7 +135,7 @@ Local drafts survive a network error and can be retried by reopening the session
 There is no complete offline plan cache or automatic queue for finished results yet.
 ## Native workspace (0.2)
 
-Three tabs expose Today, Calendar and Courses. The app menu opens Exams, Insights, Timetable and Settings & account. They use the same account
+Three tabs expose Today, Calendar and Courses. The app menu opens Exams, Insights and Settings. They use the same account
 and database as the web app:
 
 - Exams: remaining exams, month calendar, published university dates and manual
@@ -215,8 +226,9 @@ On Linux ARM64, the bundled Hermes compiler currently targets x86-64. Use
 `npm run export:ios -- --no-bytecode` for a JavaScript graph check there; keep the
 normal bytecode export in CI and signed iOS builds.
 
-The session-length picker uses `@expo/ui`. Rebuild an existing development client
-after pulling this native dependency (`STUDYFLOW_DEV_NETWORK=1 npm run ios` on a
+The session-length picker uses `@expo/ui`; row swipes use Gesture Handler,
+Reanimated and Worklets. Rebuild an existing development client
+after pulling these native dependencies (`STUDYFLOW_DEV_NETWORK=1 npm run ios` on a
 supported Mac, or the EAS development profile). Existing TestFlight builds do not
 include local changes; deploy the updated backend before using a new native build.
 

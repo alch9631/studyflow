@@ -273,10 +273,14 @@ export class DemoWorkspace {
       state.preferences.preferences = { dayStartMin, dayEndMin, dailyBudgetMin, energy: value("energy") };
     } else if (name === "autoSchedule") {
       let placed = 0; let unplaced = 0;
-      for (const date of this.calendar(value("weekStart") || undefined).days) {
+      for (const date of this.calendar(value("weekStart") || undefined).days.filter(date => !value("day") || date === value("day"))) {
         let cursor = state.preferences.preferences.dayStartMin;
-        for (const block of state.blocks.filter(item => item.date === date && !item.completed)) {
-          for (const lecture of state.lectures.filter(item => item.weekday === new Date(`${date}T12:00:00Z`).getUTCDay())) if (cursor < lecture.endMin && cursor + block.minutes > lecture.startMin) cursor = lecture.endMin;
+        const occupied = [
+          ...state.lectures.filter(item => item.weekday === new Date(`${date}T12:00:00Z`).getUTCDay()).map(item => ({ start: item.startMin, end: item.endMin })),
+          ...state.blocks.filter(item => item.date === date && item.start !== null && item.end !== null).map(item => ({ start: item.start!, end: item.end! })),
+        ].sort((a, b) => a.start - b.start);
+        for (const block of state.blocks.filter(item => item.date === date && !item.completed && item.start === null && item.end === null)) {
+          for (const interval of occupied) if (cursor < interval.end && cursor + block.minutes > interval.start) cursor = interval.end;
           if (cursor + block.minutes > state.preferences.preferences.dayEndMin) { unplaced++; continue; }
           block.start = cursor; block.end = cursor + block.minutes; cursor = block.end + 10; placed++;
         }

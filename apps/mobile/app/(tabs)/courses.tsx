@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Alert, View, TextInput } from "react-native";
+import { View, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import type { CourseSummary } from "../../../../shared/mobileWorkspace";
 import { AppText, useTheme } from "../../src/ui";
 import { ActionMenu } from "../../src/action-menu";
-import { Chips, dateLabel, edit, minutesLabel, Page, useMobileData } from "../../src/workspace";
+import { Chips, dateLabel, edit, Page, useMobileData } from "../../src/workspace";
 import { useSession } from "../../src/session";
+import { ContentRow } from "../../src/content-row";
 
 export default function Courses() {
   const { isDemo } = useSession();
@@ -26,17 +27,8 @@ export default function Courses() {
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, backgroundColor: theme.surface, borderRadius: 12, borderCurve: "continuous" }}>
       <Ionicons name="search-outline" size={18} color={theme.muted} /><TextInput accessibilityLabel="Search courses" placeholder="Search" placeholderTextColor={theme.muted} value={search} onChangeText={setSearch} autoCorrect={false} returnKeyType="search" style={{ flex: 1, minHeight: 44, color: theme.text, fontSize: 16 }} />
     </View>
-    <View>{list.map(c => <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.line }}>
-      <View style={{ flex: 1, gap: 4 }}><AppText weight="600">{c.name}</AppText><AppText size={13} muted>{c.isPassed ? c.grade !== null ? `Passed · ${c.grade.toFixed(1)}` : "Passed" : `Exam ${dateLabel(c.examDate)}`}</AppText></View>
-      <ActionMenu label={`Open course: ${c.name}`} text="Open" icon="chevron-down" items={[
-        { id: "topics", title: `Topics · ${c.topicsDone}/${c.topicsTotal}`, image: "checklist", onPress: () => open(c.id) },
-        { id: "materials", title: "Materials", image: "doc.on.doc", onPress: () => open(c.id, "materials") },
-        { id: "deadlines", title: "Deadlines", image: "flag", onPress: () => open(c.id, "deadlines") },
-        { id: "practice", title: "Practice recall", image: "brain.head.profile", onPress: () => router.push({ pathname: "/practice", params: { courseId: c.id } }) },
-        { id: "stats", title: "Progress & time", image: "chart.bar", onPress: () => Alert.alert(c.name, `${c.topicsDone}/${c.topicsTotal} topics covered · ${minutesLabel(c.loggedMinutes)} studied · ${minutesLabel(c.remainingMinutes)} remaining${c.ects ? ` · ${c.ects} ECTS` : ""}`) },
-        { id: "manage", title: "Course settings", image: "gearshape", onPress: () => open(c.id, "manage") },
-      ]} />
-    </View>)}</View>
+    <View>{list.map(c => <ContentRow key={c.id} title={c.name} icon={c.isPassed ? "checkmark-circle-outline" : "book-outline"}
+      subtitle={c.isPassed ? c.grade !== null ? `Passed · ${c.grade.toFixed(1)}` : "Passed" : `Exam ${dateLabel(c.examDate)}`} onPress={() => open(c.id)} />)}</View>
     {!query.loading && !query.error && !list.length ? <AppText muted>{search.trim() ? "No matching courses." : tab === "passed" ? "No passed courses yet." : "Add a course with +."}</AppText> : null}
   </Page>;
 }

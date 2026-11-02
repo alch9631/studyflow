@@ -77,6 +77,23 @@ async function main() {
     assert.equal(read<PreferencesData>("preferences").preferences.dayStartMin, 600);
     assert.throws(() => action("prepareMaterial", { fileId: "real-file" }), DemoError);
   });
+  await check("arranging a selected demo day preserves manual times, other days and completed work", () => {
+    const calendar = new DemoWorkspace("2026-11-02");
+    const change = (name: string, fields: FormFields) => calendar.request(`actions/${name}`, { method: "POST", body: { fields } });
+    const blocks = () => (calendar.request("calendar") as CalendarData).blocks;
+    change("updateBlockTime", { blockId: "demo-study", date: "2026-11-02", startHHmm: "11:00", endHHmm: "11:30" });
+    const before = blocks();
+    const result = change("autoSchedule", { weekStart: "2026-11-02", day: "2026-11-02" }) as { placed: number; unplaced: number };
+    assert.deepEqual(result, { ok: true, placed: 1, unplaced: 0 });
+    for (const id of ["demo-study", "demo-tomorrow", "demo-done"]) assert.deepEqual(blocks().find(block => block.id === id), before.find(block => block.id === id));
+    const placed = blocks().find(block => block.id === "demo-review")!;
+    assert.ok(placed.start! >= 630, "the recurring lecture stays free");
+    assert.ok(placed.end! <= 660 || placed.start! >= 690, "manual times stay free");
+    assert.deepEqual(change("autoSchedule", { weekStart: "2026-11-02", day: "2026-11-02" }), { ok: true, placed: 0, unplaced: 0 });
+    change("savePreferences", { dayStart: "09:00", dayEnd: "09:15", dailyBudgetMin: "30", energy: "morning" });
+    assert.deepEqual(change("autoSchedule", { weekStart: "2026-11-02", day: "2026-11-03" }), { ok: true, placed: 0, unplaced: 1 });
+    assert.equal(blocks().find(block => block.id === "demo-tomorrow")!.start, null, "a full window leaves work unscheduled");
+  });
   await check("resetting the demo restores sample data and returned objects cannot mutate it", () => {
     const fresh = new DemoWorkspace("2026-11-02");
     const courses = fresh.request("courses") as CourseSummary[];

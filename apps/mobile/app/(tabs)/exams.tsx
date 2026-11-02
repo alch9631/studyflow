@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
 import { router } from "expo-router";
 import type { ExamCourse, ExamData, PublishedExamOption } from "../../../../shared/mobileWorkspace";
-import { Action, AppText, Card, ErrorMessage, useTheme } from "../../src/ui";
+import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../../src/ui";
 import { Chips, dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
 import { useSession } from "../../src/session";
+import { ActionMenu } from "../../src/action-menu";
+import { Disclosure } from "../../src/disclosure";
 
 export default function Exams() {
   const { isDemo } = useSession();
@@ -42,13 +44,13 @@ export default function Exams() {
   const offset = (first.getUTCDay() + 6) % 7;
   const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
   const exams = query.data?.courses ?? [];
-  return <Page title="Exams" subtitle="Your dates, preparation and results." query={query}>
+  return <Page title="Exams" query={query} actions={!isDemo ? <IconButton label="Refresh university exam dates" icon="refresh-outline" busy={busy} onPress={() => { void refresh(); }} /> : undefined}>
     <Chips options={[{ label: `Remaining (${exams.length})`, value: "remaining" }, { label: "Results & grades", value: "results" }]} value={tab} onChange={setTab} />
     {!!notice && <AppText muted>{notice}</AppText>}
     {rebuild && <Card><AppText>Your dates saved. The study plan needs another rebuild.</AppText><Action busy={busy} onPress={() => { setBusy(true); void query.action("rebuildAfterExamSync").then(() => { setRebuild(false); return query.reload(); }).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }}>Rebuild study plan</Action></Card>}
     {tab === "remaining" ? <>
       <Card><View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <LinkButton label="‹" onPress={() => shiftMonth(-1)} /><AppText weight="700">{first.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}</AppText><LinkButton label="›" onPress={() => shiftMonth(1)} /></View>
+        <IconButton label="Previous month" icon="chevron-back-outline" onPress={() => shiftMonth(-1)} /><AppText weight="700" style={{ flex: 1, textAlign: "center" }}>{first.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}</AppText><IconButton label="Next month" icon="chevron-forward-outline" onPress={() => shiftMonth(1)} /></View>
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <View key={i} style={{ width: "14.28%", alignItems: "center", paddingVertical: 5 }}><AppText size={12} muted>{d}</AppText></View>)}
           {Array.from({ length: 42 }, (_, i) => {
             const day = i - offset + 1; const valid = day > 0 && day <= last;
@@ -58,22 +60,28 @@ export default function Exams() {
             </Pressable>;
           })}</View>
       </Card>
-      {isDemo ? <AppText muted>These are sample exam dates. You can edit them and try recording a grade. Sign in to check published university dates.</AppText> : <Action secondary busy={busy} onPress={() => { void refresh(); }}>Refresh university exam dates</Action>}
-      {query.data?.checkedAt && <AppText size={12} muted>{query.data.semester} · Checked {new Date(query.data.checkedAt).toLocaleString()}</AppText>}
+      {!isDemo ? <Disclosure label="University date status"><AppText size={13} muted>{query.data?.checkedAt ? `${query.data.semester ?? "University dates"} · Checked ${new Date(query.data.checkedAt).toLocaleString()}` : "Dates have not been checked yet. Use Refresh above."}</AppText></Disclosure> : null}
       {!query.loading && !exams.length && <Card><AppText weight="600">No remaining exams.</AppText><LinkButton label="Add a course" onPress={() => edit("createCourse")} /></Card>}
       {exams.map(exam => {
         const c = query.data!.allCourses.find(c => c.id === exam.id)!;
         if (!c) return null;
         const days = Math.round((Date.parse(exam.currentDate) - Date.parse(query.data!.today)) / 86400_000);
-        return <Card key={exam.id}><AppText size={20} weight="700">{exam.name}</AppText><AppText weight="600">{dateLabel(exam.currentDate)} · {days < 0 ? "Date passed" : days === 0 ? "Today" : `${days} days left`}</AppText>
+        return <Card key={exam.id}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Preparation: ${exam.name}`} onPress={() => router.push(`/course/${exam.id}`)} style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: "center" }}><AppText size={18} weight="700">{exam.name}</AppText></Pressable>
+            <ActionMenu label={`Exam actions: ${exam.name}`} disabled={busy} items={[
+              { id: "date", title: "Edit date", image: "calendar", onPress: () => edit("updateCourse", { courseId: c.id, examDate: c.examDate, studyDays: c.studyDays.split(","), difficulty: String(c.difficulty) }) },
+              { id: "grade", title: "Record result", image: "graduationcap", onPress: () => edit("saveGrade", { courseId: c.id, grade: c.grade === null ? "" : String(c.grade) }) },
+              ...(!isDemo ? [{ id: "match", title: "Match published exam", image: "link" as const, onPress: () => { void loadOptions(exam); } }] : []),
+            ]} />
+          </View>
+          <AppText weight="600">{dateLabel(exam.currentDate)} · {days < 0 ? "Date passed" : days === 0 ? "Today" : `${days} days left`}</AppText>
           {exam.published && <AppText size={14} muted>{[exam.published.time, exam.published.location].filter(Boolean).join(" · ") || "Published university date"}</AppText>}
           <ProgressBar value={c?.topicsTotal ? c.topicsDone / c.topicsTotal * 100 : 0} label={`${c?.topicsDone ?? 0} of ${c?.topicsTotal ?? 0} topics covered`} />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 18 }}><LinkButton label="Preparation" onPress={() => router.push(`/course/${exam.id}`)} /><LinkButton label="Edit date" onPress={() => edit("updateCourse", { courseId: c.id, examDate: c.examDate, studyDays: c.studyDays.split(","), difficulty: String(c.difficulty) })} /><LinkButton label="Record result" onPress={() => edit("saveGrade", { courseId: c.id, grade: c.grade === null ? "" : String(c.grade) })} /></View>
-          {!isDemo && <LinkButton label="Match a published exam" onPress={() => { if (!busy) void loadOptions(exam); }} />}
         </Card>;
       })}
     </> : <>
-      <AppText muted>German grades: 1.0 is best; 4.0 or better passes. You can also record an ungraded pass.</AppText>
+      <Disclosure label="About grades"><AppText muted>German grades: 1.0 is best; 4.0 or better passes. You can also record an ungraded pass.</AppText></Disclosure>
       {query.data?.allCourses.map(c => <Card key={c.id}><AppText size={18} weight="700">{c.name}</AppText><AppText muted>{c.grade !== null ? `Grade ${c.grade.toFixed(1)}` : "No grade recorded"}{c.isPassed ? " · Passed" : " · Remaining"}{c.ects ? ` · ${c.ects} ECTS` : ""}</AppText>
         <LinkButton label="Edit grade" onPress={() => edit("saveGrade", { courseId: c.id, grade: c.grade === null ? "" : String(c.grade) })} />
         <LinkButton label={c.passed ? "Remove manual pass" : "Mark course passed"} onPress={() => Alert.alert(c.passed ? "Remove manual pass?" : "Mark this course passed?", "Your study schedule will update automatically. Any recorded grade is kept.", [{ text: "Cancel", style: "cancel" }, { text: "Save", onPress: () => { void query.action("setPassed", { courseId: c.id, passed: c.passed ? "0" : "1" }).then(query.reload).catch(e => query.setError(e.message)); } }])} />

@@ -17,6 +17,6 @@ export default function TabLayout() {
     <Tabs.Screen name="courses" options={{ title: "Courses", tabBarIcon: ({ color, size }) => <Ionicons name="book-outline" size={size} color={typeof color === "string" ? color : theme.brand} /> }} />
     {/* SDK 58 redirects href:null routes; hide only the buttons to keep menu links working. */}
     <Tabs.Screen name="exams" options={{ title: "Exams", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
-    <Tabs.Screen name="settings" options={{ title: "More", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
+    <Tabs.Screen name="settings" options={{ title: "Settings", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
   </Tabs>;
 }

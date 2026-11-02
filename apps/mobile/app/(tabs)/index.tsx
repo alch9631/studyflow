@@ -13,11 +13,14 @@ import { chooseSession, dateLabel, edit, timeLabel } from "../../src/workspace";
 import DemoNotice from "../../src/demo-notice";
 import { ActionMenu } from "../../src/action-menu";
 import NavigationMenu from "../../src/navigation-menu";
+import { SwipeRow, useCloseSwipeRow } from "../../src/swipe-row";
+import { PlanAdjustments } from "../../src/plan-adjustments";
 
 export default function Today() {
   const { session, signOut } = useSession();
   const router = useRouter();
   const theme = useTheme();
+  const closeSwipeRow = useCloseSwipeRow();
   const [data, setData] = useState<MobileToday | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +36,9 @@ export default function Today() {
     finally { setChanging(null); }
   }
   async function adjust(name: string) {
-    if (!session || adjusting) return; setAdjusting(true); setError(null);
-    try { await api(session.server, session.token, `actions/${name}`, { method: "POST", body: { fields: {} }, timeout: 120_000 }); setNotice(name === "undoRecovery" ? "Adjustment undone." : "Plan updated."); await load(); }
-    catch (e) { setError((e as Error).message); } finally { setAdjusting(false); }
+    if (!session || adjusting) return false; setAdjusting(true); setError(null);
+    try { await api(session.server, session.token, `actions/${name}`, { method: "POST", body: { fields: {} }, timeout: 120_000 }); setNotice(name === "undoRecovery" ? "Adjustment undone." : "Plan updated."); await load(); return true; }
+    catch (e) { setError((e as Error).message); return false; } finally { setAdjusting(false); }
   }
   const load = useCallback(async () => {
     if (!session) return;
@@ -56,20 +59,10 @@ export default function Today() {
   const date = data ? new Date(`${data.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }) : "";
 
   return <SafeAreaView edges={["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
-    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load(); }} tintColor={theme.brand} />}>
+    <ScrollView onScrollBeginDrag={closeSwipeRow} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load(); }} tintColor={theme.brand} />}>
       <View style={[styles.row, { gap: 4 }]}>
         <View style={{ flex: 1 }}><AppText size={28} weight="700">Today</AppText><AppText size={13} muted>{date}</AppText></View>
-        <ActionMenu label="Adjust plan" icon="options-outline" disabled={!data || adjusting || changing !== null} items={[
-          { id: "capacity", title: `${data?.planHealth?.availableMinutes ?? 0} min available`, attributes: { disabled: true } },
-          ...(data?.planHealth?.overdueSessions ? [{ id: "missed", title: `${data.planHealth.overdueSessions} missed · ${data.planHealth.overdueMinutes} min`, attributes: { disabled: true } }] : []),
-          ...(data?.planHealth?.overloaded ? [{ id: "overloaded", title: "Work exceeds study time", attributes: { disabled: true } }] : []),
-          ...([{ name: "protectToday", key: "protect", label: "Defer reviews", image: "shield" }, { name: "moveOptional", key: "move", label: "Move unfinished work", image: "arrow.right" }, { name: "recoverPlan", key: "lighter", label: "Rebalance plan", image: "arrow.triangle.2.circlepath" }] as const).map(option => {
-            const preview = data?.planHealth?.previews[option.key];
-            return { id: option.name, title: preview ? `${option.label} · ${preview.afterCount} sessions / ${preview.afterPaceMin}m` : option.label, image: option.image, onPress: () => { void adjust(option.name); } };
-          }),
-          { id: "preferences", title: "Study window & budget", image: "clock", onPress: () => router.push("/(tabs)/settings") },
-          ...(data?.planHealth?.undoAvailable ? [{ id: "undo", title: "Undo adjustment", image: "arrow.uturn.backward" as const, onPress: () => { void adjust("undoRecovery"); } }] : []),
-        ]} />
+        <PlanAdjustments health={data?.planHealth} disabled={!data || adjusting || changing !== null} busy={adjusting} error={error} onAdjust={adjust} />
         <NavigationMenu />
       </View>
       <DemoNotice />
@@ -86,7 +79,10 @@ export default function Today() {
             <View style={{ width: `${data.summary.totalCount ? data.summary.completedCount / data.summary.totalCount * 100 : 0}%`, height: 4, backgroundColor: theme.brand }} />
           </View>
         </View>
-        <View>{blocks.map(block => <View key={block.id} style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, gap: 4 }}>
+        <View>{blocks.map(block => <SwipeRow key={block.id} disabled={changing !== null || adjusting}
+          leading={{ label: block.completed ? "Reopen" : "Complete", icon: block.completed ? "arrow-undo-outline" : "checkmark-outline", onPress: () => { void changeBlock(block, "toggleBlock", { done: block.completed ? "false" : "true" }); } }}
+          trailing={!block.completed ? { label: "Tomorrow", icon: "arrow-forward-outline", onPress: () => { void changeBlock(block, "moveBlock"); } } : undefined}>
+          <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, gap: 4 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${block.title}, ${block.course.name}, ${block.minutes} minutes${block.completed ? ", complete" : block.progress ? ", resume" : ""}`} disabled={block.completed || changing !== null || adjusting} onPress={() => focus(block)}
             style={({ pressed }) => ({ flex: 1, minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, opacity: pressed ? 0.6 : 1 })}>
             <Ionicons name={block.completed ? "checkmark-circle" : block.progress ? "pause-circle-outline" : "ellipse-outline"} size={22} color={block.completed || block.id === next?.id ? theme.brand : theme.muted} />
@@ -99,9 +95,8 @@ export default function Today() {
             { id: "toggle", title: block.completed ? "Mark unfinished" : "Mark done", image: "checkmark.circle", onPress: () => { void changeBlock(block, "toggleBlock", { done: block.completed ? "false" : "true" }); } },
             ...(!block.completed ? [{ id: "move", title: "Move to tomorrow", image: "arrow.right" as const, onPress: () => { void changeBlock(block, "moveBlock"); } }] : []),
             { id: "notes", title: "Edit notes", image: "square.and.pencil", onPress: () => edit("saveBlockNote", { blockId: block.id, body: block.note ?? "" }) },
-            { id: "course", title: "Open course", image: "book", onPress: () => router.push(`/course/${block.course.id}`) },
           ]} />}
-        </View>)}</View>
+        </View></SwipeRow>)}</View>
         {!next ? <View style={[styles.row, { paddingVertical: 8 }]}>
           <Ionicons name={data.planHealth?.overdueSessions || data.planHealth?.overloaded ? "alert-circle-outline" : "checkmark-circle-outline"} size={24} color={theme.brand} />
           <AppText size={14} muted style={{ flex: 1 }}>{data.planHealth?.overdueSessions || data.planHealth?.overloaded ? "Missed work? Adjust your plan above." : data.blocks.length ? "All done for today." : "No sessions today."}</AppText>

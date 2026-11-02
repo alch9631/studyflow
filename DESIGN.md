@@ -19,3 +19,10 @@ The user wants a minimal app, especially on iPhone. Default screens show the con
 - Focus shows the timer, Pause and Finish, a visible notes box and an editable list of saved, dated notes beneath it. No Details & notes disclosure. Preserve notes across sessions and plan changes.
 
 Use short labels, clear error recovery and at least 44 px touch targets. Preserve readable text sizes and accessible names. Verify English and German, portrait and landscape, light and dark, and the rendered result at iPhone widths.
+
+Native app structure:
+
+- Course rows open directly. Topics, Materials and Deadlines are visible section controls; the gear opens settings. Recall belongs with Topics; plan maintenance belongs inside course settings.
+- Use swipe-to-reveal for common row actions: right for Complete/Reopen; left for Tomorrow on Today, Reschedule on Calendar, and Delete on topics/materials/deadlines. Every action has an equivalent tap control. Swiping alone never mutates data; deletion requires confirmation. Close revealed actions when scrolling, changing pages, opening another row or backgrounding.
+- The app menu contains Exams, Insights and Settings. Timetable belongs in Calendar options; catalog belongs in Add course. Avoid duplicating these destinations in Settings.
+- Plan adjustments use a sheet with status as text and one impact line per choice. Exam preparation opens by tapping the exam name, with edits in a short row menu. Insights leads with its weekly chart; history and detailed statistics start collapsed.

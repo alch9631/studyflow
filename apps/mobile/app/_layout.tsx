@@ -3,9 +3,11 @@ import { StatusBar } from "expo-status-bar";
 import { SessionProvider } from "../src/session";
 import { useTheme } from "../src/ui";
 import { AppThemeProvider } from "../src/theme";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SwipeRowsProvider } from "../src/swipe-row";
 
 export default function RootLayout() {
-  return <AppThemeProvider><ThemedNavigation /></AppThemeProvider>;
+  return <GestureHandlerRootView style={{ flex: 1 }}><AppThemeProvider><SwipeRowsProvider><ThemedNavigation /></SwipeRowsProvider></AppThemeProvider></GestureHandlerRootView>;
 }
 
 function ThemedNavigation() {

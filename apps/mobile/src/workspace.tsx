@@ -8,6 +8,7 @@ import { Action, AppText, ErrorMessage, styles, useTheme } from "./ui";
 import type { ActionResult, FormFields } from "../../../shared/mobileWorkspace";
 import DemoNotice from "./demo-notice";
 import NavigationMenu from "./navigation-menu";
+import { useCloseSwipeRow } from "./swipe-row";
 
 export function useMobileData<T>(path: string) {
   const { session, signOut } = useSession();
@@ -37,8 +38,9 @@ export function Page({ title, subtitle, children, query, back = false, actions }
   title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; actions?: React.ReactNode;
 }) {
   const theme = useTheme();
+  const closeSwipeRow = useCloseSwipeRow();
   return <SafeAreaView edges={["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
-    <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentContainerStyle={styles.content}
+    <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentContainerStyle={styles.content}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.loading} onRefresh={() => { void query.reload(); }} /> : undefined}>
       <View style={{ gap: 4 }}>{back && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
         <View style={[styles.row, { gap: 4 }]}><AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <NavigationMenu />}</View>
