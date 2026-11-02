@@ -81,9 +81,10 @@ OAuth client secrets in this app.
 
 ### iOS development build
 
-Expo SDK 58 requires **Xcode 26.4 or newer**. Xcode 26.3 cannot compile its Swift
-modules. Check Apple’s macOS requirements before installing a newer Xcode.
-If this Mac cannot run a compatible Xcode, use the cloud build below.
+Use **Xcode 26.4 or newer** for the default precompiled Expo modules. Xcode 26.3
+needs modules built from source and the Swift 6.2 compatibility patch applied by
+`npm ci`; see the local release workflow below. Check Apple’s macOS requirements
+before installing a newer Xcode.
 Apple's command-line tools alone do not include the simulator.
 
 ```sh
@@ -261,6 +262,45 @@ confirmed fixes, screenshots, regression checks, and physical-device verificatio
 Course and topic actions can start a sitting directly, and Pause/Resume stays beside
 the countdown. Forms protect unsaved edits. Exams and Settings open with Back links
 outside the three-tab navigator.
+
+## Local Xcode build and TestFlight
+
+Expo's cloud build service is optional. Node 24, local Xcode and the existing
+Apple Developer account can produce and upload the signed app directly.
+
+From `apps/mobile`, select Node 24 and configure the release before generating
+the native project:
+
+```sh
+# This Mac keeps Xcode in Downloads. Adjust for a different installation.
+export DEVELOPER_DIR="$HOME/Downloads/Xcode.app/Contents/Developer"
+export EXPO_PUBLIC_API_URL=https://avi-pi.tail76033e.ts.net:8443
+export IOS_BUILD_NUMBER=8 # Choose a number greater than the latest TestFlight build.
+export EXPO_USE_PRECOMPILED_MODULES=0
+npm ci
+npx expo prebuild --platform ios
+
+xcodebuild -workspace ios/Studyflow.xcworkspace -scheme Studyflow \
+  -configuration Release -destination 'generic/platform=iOS' \
+  -archivePath dist/Studyflow.xcarchive -allowProvisioningUpdates archive
+
+xcodebuild -exportArchive -archivePath dist/Studyflow.xcarchive \
+  -exportOptionsPlist ExportOptions.plist -exportPath dist/testflight \
+  -allowProvisioningUpdates
+```
+
+`ExportOptions.plist` uploads to App Store Connect; Apple then processes the build
+for TestFlight. It keeps the explicitly selected build number. The generated
+`ios/` project and release output remain ignored. Alternatively, open
+`ios/Studyflow.xcworkspace` in Xcode, choose an iOS device destination, then use
+**Product → Archive → Distribute App → App Store Connect**.
+
+The versioned `expo-modules-jsi@58.0.21` patch uses Expo's existing synchronous
+pointer-capture helper at a call affected by a [Swift 6.2 compiler compatibility
+issue](https://github.com/expo/expo/issues/52754). It follows the helper already
+used in [Expo's Xcode 26 compatibility fix](https://github.com/expo/expo/pull/51040).
+The 75 native JavaScript object tests passed on Xcode 26.3 with this patch.
+Remove it when upgrading to an Expo version that includes the fix.
 
 ## Cloud build and TestFlight
 

@@ -136,6 +136,38 @@ No backend implementation changed in this release. Course starts use the existin
 
 ## Release
 
-TestFlight is deferred. The production build request on 2 November was rejected before a build job was created because the Expo account had exhausted its monthly free iOS build quota. No new binary was uploaded. This changeset contains the validated fixes and review evidence; a new TestFlight release requires additional build capacity.
+Version **0.2.0 (7)** was archived locally with Xcode 26.3 and uploaded directly to
+App Store Connect on 2 November 2026 at 23:31 CET. Apple accepted the package and
+reported that it was processing for TestFlight. No Expo cloud build was required.
 
-Reviewed release source SHA-256: `11f79d1c791bb2176b3c42243ff5e3236005d1572231a5f20e11796bbde7295f`. This fingerprint covers the mobile build inputs and shared contracts, excluding this report and README documentation.
+The release uses `6f7eb8f` plus the versioned Swift 6.2 compatibility patch in
+`apps/mobile/patches/`. All 75 native JavaScript object/property tests passed on
+the iPhone 17 Pro simulator, and the final mobile type check passed. The
+[local build workflow](../apps/mobile/README.md#local-xcode-build-and-testflight)
+documents source-module builds and direct Xcode upload.
+
+The signed archive, native test results, build log and accepted upload receipt are
+retained locally in the ignored `build/ios/0.2.0-7/` directory. Apple emitted
+non-blocking missing debug-symbol warnings for the prebuilt `React.framework`,
+`ReactNativeDependencies.framework` and `hermesvm.framework`; crashes inside
+those vendor frameworks may not fully symbolicate. The upload itself succeeded.
+
+Original UX-review source SHA-256: `11f79d1c791bb2176b3c42243ff5e3236005d1572231a5f20e11796bbde7295f`. This fingerprint covers the reviewed mobile build inputs and shared contracts, excluding this report and README documentation. The local release record separately identifies the compiler patch and build configuration used for build 7.
+
+## Layout and appearance follow-up
+
+Today now uses the shared page layout from Calendar and Courses, including the
+same title row, subtitle, page insets, refresh controls and error recovery. The
+dark tab bar blends into the page without its former glass outline or top
+separator. Light mode uses a soft warm-white background with quieter dividers
+and neutral control fills.
+
+Verified Today, Calendar and Courses in the iPhone 17 Pro simulator, including
+both appearance modes, tab navigation, Today refresh and the plan-adjustment
+sheet. The mobile TypeScript check, root lint, all 11 mobile demo checks and
+production iOS Hermes export passed.
+
+Build **0.2.0 (8)** is prepared but has not been uploaded. Native dependency
+installation stopped with `No space left on device`; the Mac had less than
+400 MB available. The previous signed build 7 and its upload receipt remain
+preserved. Build 8 logs are in the ignored `build/ios/0.2.0-8/` directory.

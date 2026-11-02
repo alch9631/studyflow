@@ -1,26 +1,22 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { MobileBlock, MobileToday } from "../../../../shared/mobile";
 import type { FormFields } from "../../../../shared/mobileWorkspace";
 import { ApiError, getToday } from "../../src/api";
 import { useSession } from "../../src/session";
-import { Action, AppText, ErrorMessage, styles, useTheme } from "../../src/ui";
+import { Action, AppText, styles, useTheme } from "../../src/ui";
 import { api } from "../../src/api";
-import { chooseSession, dateLabel, edit, timeLabel } from "../../src/workspace";
-import DemoNotice from "../../src/demo-notice";
+import { chooseSession, dateLabel, edit, Page, timeLabel } from "../../src/workspace";
 import { ActionMenu } from "../../src/action-menu";
-import NavigationMenu from "../../src/navigation-menu";
-import { SwipeRow, useCloseSwipeRow } from "../../src/swipe-row";
+import { SwipeRow } from "../../src/swipe-row";
 import { PlanAdjustments } from "../../src/plan-adjustments";
 
 export default function Today() {
   const { session, signOut } = useSession();
   const router = useRouter();
   const theme = useTheme();
-  const closeSwipeRow = useCloseSwipeRow();
   const [data, setData] = useState<MobileToday | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,18 +54,9 @@ export default function Today() {
   const blocks = data?.resumeBlock && !data.blocks.some(block => block.id === data.resumeBlock!.id) ? [data.resumeBlock, ...data.blocks] : data?.blocks ?? [];
   const date = data ? new Date(`${data.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }) : "";
 
-  return <SafeAreaView edges={["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
-    <ScrollView onScrollBeginDrag={closeSwipeRow} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void load(); }} tintColor={theme.brand} />}>
-      <View style={[styles.row, { gap: 4 }]}>
-        <View style={{ flex: 1 }}><AppText size={28} weight="700">Today</AppText><AppText size={13} muted>{date}</AppText></View>
-        <PlanAdjustments health={data?.planHealth} disabled={!data || adjusting || changing !== null} busy={adjusting} error={error} onAdjust={adjust} />
-        <NavigationMenu />
-      </View>
-      <DemoNotice />
-      <ErrorMessage message={error} />
+  return <Page title="Today" subtitle={date} query={{ loading: refreshing, error, reload: load }}
+    actions={<PlanAdjustments health={data?.planHealth} disabled={!data || adjusting || changing !== null} busy={adjusting} error={error} onAdjust={adjust} />}>
       {notice ? <AppText size={13} muted>{notice}</AppText> : null}
-      {error ? <Action secondary onPress={() => { void load(); }}>Try again</Action> : null}
-      {!data && !error ? <ActivityIndicator color={theme.brand} style={{ margin: 24 }} /> : null}
       {data && <>
         <View style={{ gap: 8 }}>
           <View style={[styles.row, { justifyContent: "space-between", flexWrap: "wrap", gap: 4 }]}>
@@ -112,6 +99,5 @@ export default function Today() {
         </View>)}</View> : null}
         {!data.blocks.length ? <Action secondary onPress={() => edit("createCourse")}>Add course</Action> : null}
       </>}
-    </ScrollView>
-  </SafeAreaView>;
+  </Page>;
 }

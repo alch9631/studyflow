@@ -9,8 +9,8 @@ export const APPEARANCE_KEY = "studyflow.mobile.appearance.v1";
 // Keep surface colours neutral; the existing accent still identifies actions.
 const palettes = {
   light: {
-    dark: false, background: "#F4F4F5", surface: "#FFFFFF", text: "#18181B",
-    muted: "#606068", line: "#D4D4D8", brand: "#126C60", tint: "#EDEDEF", danger: "#A6312D",
+    dark: false, background: "#FAFAF8", surface: "#FFFFFF", text: "#18181B",
+    muted: "#606068", line: "#E2E2DE", brand: "#126C60", tint: "#F0F0ED", danger: "#A6312D",
   },
   dark: {
     dark: true, background: "#000000", surface: "#151517", text: "#F5F5F7",

@@ -1,6 +1,7 @@
-import { StyleSheet } from "react-native";
-import { GlassSurface } from "./glass-surface";
+import { StyleSheet, View } from "react-native";
+import { useTheme } from "./theme";
 
 export default function ThemeTabBar() {
-  return <GlassSurface style={[StyleSheet.absoluteFill, { borderRadius: 0, borderWidth: 0 }]} />;
+  const theme = useTheme();
+  return <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? theme.background : theme.surface }]} />;
 }

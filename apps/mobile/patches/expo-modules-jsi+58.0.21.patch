@@ -1,0 +1,25 @@
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptObject.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptObject.swift
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptObject.swift
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptObject.swift
+@@ -933,8 +933,10 @@
+   _ body: (borrowing facebook.jsi.Value) -> Void
+ ) rethrows {
+   try withUnsafeTemporaryAllocation(of: facebook.jsi.Value.self, capacity: 1) { buffer in
+-    // The isolated closure below runs synchronously on this thread.
+-    nonisolated(unsafe) let slot = buffer.baseAddress!
++    let slot = buffer.baseAddress!
++    // The isolated closure runs synchronously on this thread, so this call-scoped pointer is safe to capture.
++    // Use the same wrapper as the runtime callbacks to support Swift 6.2's isolation checker.
++    let encodedSlot = UncheckedSendable(slot)
+     expo.emplaceUndefined(slot)
+     defer {
+       expo.destroyValues(slot, 1)
+@@ -943,7 +945,7 @@
+     // a retain.
+     try runtime._withUnsafeGuaranteedRef { runtime in
+       try JavaScriptActor.assumeIsolated {
+-        try encode(JavaScriptValue.Slot(slot), runtime)
++        try encode(JavaScriptValue.Slot(encodedSlot.value), runtime)
+       }
+     }
+     body(slot.pointee)
