@@ -275,7 +275,7 @@ the native project:
 # This Mac keeps Xcode in Downloads. Adjust for a different installation.
 export DEVELOPER_DIR="$HOME/Downloads/Xcode.app/Contents/Developer"
 export EXPO_PUBLIC_API_URL=https://avi-pi.tail76033e.ts.net:8443
-export IOS_BUILD_NUMBER=8 # Choose a number greater than the latest TestFlight build.
+export IOS_BUILD_NUMBER=9 # Choose a number greater than the latest TestFlight build.
 export EXPO_USE_PRECOMPILED_MODULES=0
 npm ci
 npx expo prebuild --platform ios
@@ -301,6 +301,20 @@ issue](https://github.com/expo/expo/issues/52754). It follows the helper already
 used in [Expo's Xcode 26 compatibility fix](https://github.com/expo/expo/pull/51040).
 The 75 native JavaScript object tests passed on Xcode 26.3 with this patch.
 Remove it when upgrading to an Expo version that includes the fix.
+
+### Build on an external SSD
+
+When internal storage is limited, use a separate release copy on an APFS SSD,
+including the root and mobile `node_modules` directories. Keep shared sources
+under the same repository layout so Metro and native autolinking resolve them.
+
+Before installing pods, point `TMPDIR` at an existing temporary directory on the
+SSD and `CP_CACHE_DIR` at an SSD CocoaPods cache directory. Run `pod install`
+from that copy's `apps/mobile/ios` directory. Pass SSD paths to Xcode's
+`-derivedDataPath`, `-archivePath`, `-resultBundlePath` and `-exportPath` options.
+Keep the same Node 24, backend URL, build number and source-module settings as
+the local workflow above. This puts dependency extraction and native build
+output on the SSD without relocating the normal development checkout.
 
 ## Cloud build and TestFlight
 

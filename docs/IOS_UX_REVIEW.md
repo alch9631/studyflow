@@ -167,7 +167,17 @@ both appearance modes, tab navigation, Today refresh and the plan-adjustment
 sheet. The mobile TypeScript check, root lint, all 11 mobile demo checks and
 production iOS Hermes export passed.
 
-Build **0.2.0 (8)** is prepared but has not been uploaded. Native dependency
-installation stopped with `No space left on device`; the Mac had less than
-400 MB available. The previous signed build 7 and its upload receipt remain
-preserved. Build 8 logs are in the ignored `build/ios/0.2.0-8/` directory.
+Build **0.2.0 (8)** was archived from `d5327f0` using a separate build copy on an
+APFS external SSD. Apple accepted the upload on **3 November 2026 at 00:50 CET**
+and reported that the package was processing for TestFlight. All 58 recorded
+build inputs matched the verified source before and after archiving. GitHub CI
+passed for the release source; the signed archive's version, bundle identifier,
+production backend and code signature were verified, and the production
+backend health check passed.
+
+The build copy, native dependencies, caches, archive and full logs are retained
+at `/Volumes/Ubuntu_VM/StudyflowBuilds/0.2.0-8-d5327f0/`. The upload receipt and
+source manifest are also saved in the ignored `build/ios/0.2.0-8/` directory.
+The upload had the same three non-blocking vendor debug-symbol warnings listed
+for build 7. The [external SSD workflow](../apps/mobile/README.md#build-on-an-external-ssd)
+documents the storage setup used for this release.
