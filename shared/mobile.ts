@@ -45,6 +45,12 @@ export type MobileToday = {
   lectures?: { id: string; title: string; startMin: number; endMin: number; location: string | null }[];
 };
 
+export function nextStudyBlock(today: MobileToday) {
+  if (today.resumeBlock && !today.resumeBlock.completed) return today.resumeBlock;
+  return today.blocks.find(block => !block.completed && block.id === today.nextBlockId)
+    ?? today.blocks.find(block => !block.completed);
+}
+
 export type MobileSession = { token: string; expiresAt: string; userId: string };
 /** A device checkpoint also holds pause/check state absent from the server copy. */
 export function preferredProgress<L extends { updatedAt: string }, R extends { updatedAt: string }>(local: L | null, remote: R | null | undefined): L | R | null {

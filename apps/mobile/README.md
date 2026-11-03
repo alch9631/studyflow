@@ -19,7 +19,7 @@ The demo uses the normal app screens with local sample courses, exams, classes,
 study sessions and notes. You can run the timer, save notes, check learning goals,
 practice recall, edit courses and deadlines, and try plan adjustments.
 
-**App menu → Settings → Restart demo** restores the samples. **Exit demo** returns to sign-in.
+**Settings → Restart demo** restores the samples. **Exit demo** returns to sign-in.
 Demo changes reset on exit or app reload and never sync to an account. Demo
 sessions have separate draft keys and are never stored as Keychain credentials.
 Uploads, AI preparation, live university dates, reminders and Apple Calendar
@@ -27,9 +27,11 @@ subscriptions require signing in; the demo labels those features accordingly.
 
 ## Compact navigation
 
+Home opens with a daily summary. **Start work** or **Resume focus** opens the session-length picker, and **Lock in** starts the timer.
+
 Today shows one session list with progress above it. Tap a session to choose its
-length, the status circle to toggle completion, or the pen to edit notes.
-Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. A short
+length or the status circle to toggle completion. Swipe left for notes and right
+for Complete or Reopen. Hold a row for notes or Move to tomorrow. A short
 swipe reveals a button; releasing a full swipe across at least 65% of the row
 (and at least 160 points) runs that action. The sliders icon opens a
 plan-adjustment sheet with a short impact for each choice and the available undo.
@@ -51,17 +53,15 @@ title/date row in the course sheet. Deletion always asks
 for confirmation, and all swipe actions have a visible button or menu alternative.
 
 Calendar leads with a swipeable date strip and compact agenda rows. Tap a session
-to study; swipe right to mark done and right again to undo. The calendar icon edits
-the time; swipe left to clear an assigned time or schedule an unassigned session. Arrange applies only to
-the selected day and leaves manual times and completed work alone. Class timetable
-lives behind the header calendar icon. The app menu contains Exams, Insights and Settings.
+to study or swipe right to mark done or undone. Hold a session to set its time,
+or tap an assigned start time to edit it. Swipe left to clear or assign a time. Arrange applies only to
+the selected day and leaves manual times and completed work alone. The Timetable link opens recurring classes. Courses opens Exams.
 Exam cards use clear Liquid Glass with an accessible solid fallback. Tap a module
 to edit its synced exam note; long press for date, grade and pass options.
 Swipe right to mark done and left to edit the
 date. In Results & grades, swipe right to edit a grade and left to unmark a pass.
 Unmarking a graded pass confirms clearing its passing grade, so the module really
-returns to Remaining. The three main tabs reserve an opaque area below their scrolling
-content for the system tab bar.
+returns to Remaining. Courses lists active courses first and keeps passed courses searchable.
 Insights leads with the weekly chart, with history and detailed statistics optional.
 Focus keeps the timer and notes visible; source excerpts, saved notes and the
 learning check expand when needed.
@@ -160,7 +160,7 @@ Local drafts survive a network error and can be retried by reopening the session
 There is no complete offline plan cache or automatic queue for finished results yet.
 ## Native workspace (0.2)
 
-Three native iOS tabs expose Today, Calendar and Courses. The app menu opens Exams, Insights and Settings. They use the same account
+The iPhone tabs open Home, Today, Calendar, Courses and Insights. Exams is inside Courses, and the gear opens Settings. They use the same account
 and database as the web app:
 
 - Exams: remaining exams, month calendar, published university dates and manual
@@ -233,7 +233,7 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 
 Today, Calendar, Courses and workspace detail screens share a session-scoped,
 memory-only cache. Revisiting a fresh screen reuses its data for 60 seconds.
-Native tabs start their reads together on mount, so switching tabs can use data
+Home and Today share one request. Calendar and Courses also start reading on mount, so switching tabs can use data
 already loaded in the background. Courses also prefetch the first four displayed
 course details on focus and begin any other course read on touch-down.
 Stale data stays visible while it refreshes on focus or return from the background.
@@ -248,11 +248,10 @@ cached reads. A response started before an edit cannot replace newer data. Sign-
 and demo restart clear the previous session's cache; server and session identities
 never share cached data. Cached workspace data is not persisted across app launches.
 
-iOS uses [Expo Router native tabs](https://docs.expo.dev/router/advanced/native-tabs/)
-with system tab materials, SF Symbols and automatic bottom content insets. Tab
-identity stays stable across appearance changes, and tapping a tab again retains
-its scroll position. Calendar week/day selection and Courses filters/search remain
-in screen state when switching tabs. Android and web retain their existing tabs.
+The 48-point icon-only tab bar floats over scrolling content. On supported iPhones
+it uses dark Liquid Glass. Reduce Transparency gives it a solid background.
+Tab buttons retain their accessibility labels, and scroll padding keeps the last
+row reachable. Calendar selection and course search persist when switching tabs.
 
 Liquid Glass is used for navigation menus, plan adjustment, course creation,
 calendar week/date controls and section chips. Content cards, lists and forms use solid surfaces.
@@ -265,7 +264,7 @@ persists on this device across app launches and appearance changes. Reset restor
 the appearance's default accent. Text on colored controls adjusts for contrast;
 very light/dark choices are adjusted only for standalone text and icons. Completed
 calendar sessions no longer open a completion page, and stale completed-session
-links return to Today.
+links return to Home.
 
 ## Verify
 

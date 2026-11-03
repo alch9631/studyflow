@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { ActivityIndicator, AppState, Platform, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, ApiError } from "./api";
 import { useSession } from "./session";
@@ -8,7 +8,7 @@ import { Action, AppText, ErrorMessage, IconButton, styles, useTheme } from "./u
 import { GlassSurface } from "./glass-surface";
 import type { ActionResult, FormFields } from "../../../shared/mobileWorkspace";
 import DemoNotice from "./demo-notice";
-import NavigationMenu from "./navigation-menu";
+import { TAB_BAR_HEIGHT, tabBarBottom } from "./theme-tab-bar";
 import { useCloseSwipeRow } from "./swipe-row";
 import { MobileQueryCache, sessionCache } from "./query-cache";
 
@@ -29,8 +29,7 @@ export function useMobileData<T>(path: string) {
     try { await load(true); } finally { setRefreshing(false); }
   }, [load]);
   const setError = useCallback((message: string | null) => cache.setError(path, message), [cache, path]);
-  // Native tabs mount together. Fetch on mount so the first tab switch has data
-  // ready; the focus read below shares the same request and freshness window.
+  // The mount and focus reads share the same request and freshness window.
   useEffect(() => { void load(); }, [load]);
   // Focus/foreground refreshes are quiet when cached content is already visible.
   // Requests finish into the cache even when a tab loses focus.
@@ -62,23 +61,21 @@ export function Page({ title, subtitle, children, query, back = false, sheet = f
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const dockedTabs = tabPage && Platform.OS === "ios";
+  const tabContent = tabPage && { flexGrow: 1, paddingBottom: TAB_BAR_HEIGHT + tabBarBottom(insets.bottom) + 16 };
   const closeSwipeRow = useCloseSwipeRow();
   return <SafeAreaView edges={sheet ? [] : ["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
-    <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior={dockedTabs ? "never" : "automatic"} contentContainerStyle={styles.content}
+    <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior={tabPage ? "never" : "automatic"} contentContainerStyle={[styles.content, tabContent]}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.refreshing ?? false} onRefresh={() => { void query.reload(); }} /> : undefined}>
       <View style={{ gap: 4 }}>
         {sheet ? <>
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>{actions}<IconButton glass label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /></View>
           <AppText size={22} weight="700" style={{ flexShrink: 1 }}>{title}</AppText>
-        </> : <View style={[styles.row, { gap: 8 }]}>{back && <IconButton glass label="Back" icon="arrow-back-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <NavigationMenu />}</View>}
+        </> : <View style={[styles.row, { gap: 8 }]}>{back && <IconButton glass label="Back" icon="arrow-back-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <IconButton glass label="Settings" icon="settings-outline" onPress={() => router.push("/settings")} />}</View>}
         {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>
       <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}
       {query?.loading && <ActivityIndicator color={theme.brand} />}{children}
     </ScrollView>
-    {/* Keep list content above the floating system tab bar, including during scroll. */}
-    {dockedTabs && <View pointerEvents="none" style={{ height: Math.max(88, insets.bottom + 56), backgroundColor: theme.background }} />}
   </SafeAreaView>;
 }
 

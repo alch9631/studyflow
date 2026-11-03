@@ -61,7 +61,7 @@ export default function Calendar() {
       await query.reload();
     } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  return <Page tabPage title="Calendar" query={query} actions={<IconButton glass label="Class timetable" icon="calendar-outline" onPress={() => router.push("/timetable")} />}>
+  return <Page tabPage title="Calendar" query={query} actions={<LinkButton label="Timetable" onPress={() => router.push("/timetable")} />}>
     {d ? <>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <IconButton glass label="Previous week" icon="chevron-back-outline" onPress={() => shift(-1)} />
@@ -89,26 +89,34 @@ export default function Calendar() {
       {notice ? <AppText size={14} muted>{notice}</AppText> : null}
       {unplaced ? <LinkButton label="Change study window" onPress={() => router.push("/settings")} /> : null}
       <View>
-        {exams.map(exam => <ContentRow key={exam.id} title={exam.name} subtitle="Exam" icon="school-outline" onPress={() => router.push("/exams")} />)}
+        {exams.map(exam => <ContentRow key={exam.id} title={exam.name} subtitle="Exam" onPress={() => router.navigate("/courses/exams")} />)}
         {lectures.map(lecture => <View key={lecture.id} style={{ paddingVertical: 14, gap: 3, borderBottomWidth: 1, borderBottomColor: theme.line }}>
           <AppText weight="600">{lecture.title}</AppText><AppText size={13} muted>{timeLabel(lecture.startMin)}–{timeLabel(lecture.endMin)}{lecture.location ? ` · ${lecture.location}` : ""}</AppText>
         </View>)}
         {sessions.map(block => {
           const label = compactSessionLabel(block.topicTitle, block.kind);
-          const time = block.start !== null ? timeLabel(block.start) : `${block.minutes}m`;
+          const time = block.start !== null ? timeLabel(block.start) : null;
+          const editTime = () => changeTime(block);
           return <SwipeRow key={block.id} disabled={busy}
             leading={{ label: block.completed ? "Mark undone" : "Mark done", icon: block.completed ? "arrow-undo-outline" : "checkmark-outline", onPress: () => { void toggleBlock(block); } }}
             trailing={!block.completed ? block.start !== null
               ? { label: "Remove time", icon: "time-outline", onPress: () => { void clearTime(block.id); } }
-              : { label: "Schedule", icon: "calendar-outline", onPress: () => changeTime(block) } : undefined}>
+              : { label: "Schedule", icon: "time-outline", onPress: editTime } : undefined}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4, borderBottomWidth: 1, borderBottomColor: theme.line }}>
               <IconButton label={`${block.completed ? "Mark undone" : "Mark done"}: ${label.title}`} icon={block.completed ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void toggleBlock(block); }} />
-              <Pressable accessibilityRole="button" accessibilityLabel={`${block.topicTitle}, ${block.course.name}, ${block.minutes} minutes${block.start !== null ? `, ${time}` : ""}${block.completed ? ", complete" : ""}`} disabled={busy || block.completed} onPress={() => chooseSession(block)}
+              <Pressable accessibilityRole="button" accessibilityLabel={`${block.topicTitle}, ${block.course.name}${time ? `, ${time}` : ""}${block.completed ? ", complete" : ""}`}
+                accessibilityHint="Opens session length. Hold to schedule."
+                accessibilityActions={[{ name: "schedule", label: "Edit time" }]}
+                onAccessibilityAction={({ nativeEvent }) => { if (nativeEvent.actionName === "schedule") editTime(); }}
+                disabled={busy || block.completed} onPress={() => chooseSession(block)} onLongPress={editTime}
                 style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 72, justifyContent: "center", gap: 3, paddingVertical: 12, opacity: block.completed ? 0.55 : pressed ? 0.6 : 1 })}>
                 <AppText selectable={false} numberOfLines={2} weight="600">{label.title}</AppText>
                 {!block.completed && <AppText selectable={false} numberOfLines={1} size={12} muted>{[label.activity, block.course.name].filter(Boolean).join(" · ")}</AppText>}
               </Pressable>
-              {!block.completed && <><AppText selectable={false} size={12} muted>{time}</AppText><IconButton label={`Change time: ${label.title}`} icon="calendar-outline" disabled={busy} onPress={() => changeTime(block)} /></>}
+              {!block.completed && time && <Pressable accessibilityRole="button" accessibilityLabel={`Change time for ${label.title}, ${time}`} disabled={busy} onPress={editTime}
+                style={{ minWidth: 44, minHeight: 44, alignItems: "flex-end", justifyContent: "center" }}>
+                <AppText selectable={false} size={13} muted>{time}</AppText>
+              </Pressable>}
             </View>
           </SwipeRow>;
         })}

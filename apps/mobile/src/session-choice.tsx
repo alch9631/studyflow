@@ -55,7 +55,7 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
       {elapsed > 0 && <AppText muted>{Math.floor(elapsed / 60)} minutes already studied. Your saved work will resume.</AppText>}
       <Action busy={!ready && !query.error} disabled={!ready || !block || minutes < choices.minimum} onPress={() => {
         if (block) router.replace({ pathname: "/focus/[id]", params: { id, topicId: block.topicId, kind: block.kind, minutes: String(minutes) } });
-      }}>Start focusing</Action>
+      }}>Lock in</Action>
     </>
   </ScrollView>;
 }

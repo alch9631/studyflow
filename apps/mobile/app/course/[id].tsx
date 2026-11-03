@@ -216,7 +216,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
             <ContentRow title="Add study task" icon="add-circle-outline" disabled={busy} onPress={() => edit("saveStudyTask", { courseId: id })} />
             {!isDemo && <ContentRow title="Update progress" icon="checkmark-circle-outline" disabled={busy} onPress={() => edit("applyProgress", { courseId: id })} />}
             <ContentRow title="Repair study plan" icon="refresh-outline" disabled={busy} onPress={() => { void run("refreshPlan", { courseId: id }); }} />
-            <ContentRow title="Progress insights" icon="stats-chart-outline" disabled={busy} onPress={() => router.push("/insights")} />
+            <ContentRow title="Progress insights" icon="stats-chart-outline" disabled={busy} onPress={() => router.dismissTo("/insights")} />
           </Card>
         </View>
         <View style={{ gap: 8 }}><AppText size={14} muted>Course status</AppText>

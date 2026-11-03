@@ -1,14 +1,14 @@
 import { View } from "react-native";
 import { router } from "expo-router";
-import type { InsightsData } from "../../../shared/mobileWorkspace";
-import { AppText, Card, useTheme } from "../src/ui";
-import { dateLabel, LinkButton, minutesLabel, Page, ProgressBar, useMobileData } from "../src/workspace";
-import { Disclosure } from "../src/disclosure";
+import type { InsightsData } from "../../../../shared/mobileWorkspace";
+import { AppText, Card, useTheme } from "../../src/ui";
+import { dateLabel, LinkButton, minutesLabel, Page, ProgressBar, useMobileData } from "../../src/workspace";
+import { Disclosure } from "../../src/disclosure";
 
 export default function Insights() {
   const query = useMobileData<InsightsData>("insights"); const theme = useTheme(); const d = query.data;
   const max = Math.max(1, ...(d?.dailyLoad.map(v => v.min) ?? []));
-  return <Page back title="Insights" query={query}>
+  return <Page tabPage title="Insights" query={query}>
     {d && <>
       <Card><AppText size={19} weight="700">This week</AppText><ProgressBar value={d.weekPct} label={`${minutesLabel(d.weekDone)} of ${minutesLabel(d.weekPlanned)} completed`} />
         <View style={{ flexDirection: "row", alignItems: "flex-end", height: 145, gap: 10 }}>{d.dailyLoad.map(v => <View key={v.key} style={{ flex: 1, gap: 5, alignItems: "center" }}><AppText size={10} muted>{v.min ? `${v.min}m` : ""}</AppText><View accessibilityLabel={`${dateLabel(v.key)}: ${v.min} minutes`} style={{ width: "85%", height: Math.max(4, v.min / max * 100), borderRadius: 5, backgroundColor: v.min ? theme.brand : theme.line }} /><AppText size={11} muted>{v.label}</AppText></View>)}</View>

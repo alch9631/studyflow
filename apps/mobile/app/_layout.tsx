@@ -30,7 +30,6 @@ function SessionNavigation() {
     <Stack.Screen name="edit/[action]" options={{ headerShown: false }} />
     <Stack.Screen name="exams" options={{ headerShown: false }} />
     <Stack.Screen name="settings" options={{ headerShown: false }} />
-    <Stack.Screen name="insights" options={{ headerShown: false }} />
     <Stack.Screen name="catalog" options={{ headerShown: false }} />
     <Stack.Screen name="practice" options={{ headerShown: false }} />
     <Stack.Screen name="timetable" options={{ headerShown: false }} />

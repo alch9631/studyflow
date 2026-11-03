@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { api, ApiError, getFocus, getToday, finishFocus, finishSession, saveProgress, serverUrl } from "../../apps/mobile/src/api";
 import { DemoError, DemoWorkspace, startDemoSession, endDemoSession, DEMO_SERVER } from "../../apps/mobile/src/demo";
 import { shiftDay } from "../../apps/mobile/src/demo-data";
-import type { MobileBlock, MobileFocusNote, MobileToday } from "../../shared/mobile";
+import { nextStudyBlock, type MobileBlock, type MobileFocusNote, type MobileToday } from "../../shared/mobile";
 import type { ActionResult, CalendarData, CourseDetail, CourseSummary, ExamData, FormFields, InsightsData, PracticeData, PreferencesData } from "../../shared/mobileWorkspace";
 import { compactSessionLabel } from "../../apps/mobile/src/session-label";
 
@@ -30,6 +30,16 @@ async function main() {
     assert.equal(read<InsightsData>("insights").grades.lpEarned, 6);
     assert.equal(read<PracticeData>("practice?courseId=demo-maths").cards.length, 2);
     assert.ok(read<MobileBlock>("blocks/demo-study").task?.sourceExcerpt);
+  });
+  await check("Home starts the recommended session, resumes work from another day, and skips completed work", () => {
+    const today = read<MobileToday>("today");
+    const [first, second] = today.blocks.filter(block => !block.completed);
+    assert.equal(nextStudyBlock({ ...today, nextBlockId: second.id })?.id, second.id);
+    const resumeBlock = { ...first, id: "earlier-session" };
+    assert.equal(nextStudyBlock({ ...today, blocks: [], resumeBlock })?.id, resumeBlock.id);
+    assert.equal(nextStudyBlock({ ...today, nextBlockId: "stale-id" })?.id, first.id);
+    assert.equal(nextStudyBlock({ ...today, blocks: [], resumeBlock: { ...resumeBlock, completed: true } }), undefined);
+    assert.equal(nextStudyBlock({ ...today, blocks: today.blocks.map(block => ({ ...block, completed: true })) }), undefined);
   });
   await check("demo course edits, topic coverage and deadline changes affect only the sample workspace", () => {
     const created = action("createCourse", { name: "My demo course", examDate: "2026-12-01", topics: "First topic\nSecond topic", difficulty: "3", dailyBudgetMin: "60", studyDays: ["1", "3", "5"] });
