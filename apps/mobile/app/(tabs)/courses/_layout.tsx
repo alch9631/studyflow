@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import { useTheme } from "../../../src/ui";
 
-export const unstable_settings = { initialRouteName: "index" };
+export const unstable_settings = { anchor: "index" };
 
 export default function CoursesLayout() {
   const theme = useTheme();
