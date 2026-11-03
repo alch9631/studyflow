@@ -26,7 +26,7 @@ function SessionNavigation() {
     <Stack.Protected guard={!!session}>
     <Stack.Screen name="focus/[id]" options={{ title: "Focus", presentation: "modal" }} />
     <Stack.Screen name="session/[id]" options={{ title: "Session length", presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.75, 1] }} />
-    <Stack.Screen name="course/[id]" options={{ headerShown: false }} />
+    <Stack.Screen name="course/[id]" options={{ headerShown: false, presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.75, 1] }} />
     <Stack.Screen name="edit/[action]" options={{ headerShown: false }} />
     <Stack.Screen name="exams" options={{ headerShown: false }} />
     <Stack.Screen name="settings" options={{ headerShown: false }} />

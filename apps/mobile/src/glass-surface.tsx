@@ -5,10 +5,10 @@ import { useAppearance, useTheme } from "./theme";
 const nativeGlass = Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
 
 /** Shared material; callers retain their existing layout and corner radius. */
-export function GlassSurface({ children, style, interactive = false }: { children?: React.ReactNode; style?: StyleProp<ViewStyle>; interactive?: boolean }) {
+export function GlassSurface({ children, style, interactive = false, solid = false }: { children?: React.ReactNode; style?: StyleProp<ViewStyle>; interactive?: boolean; solid?: boolean }) {
   const theme = useTheme();
   const { reduceTransparency } = useAppearance();
-  const glass = !reduceTransparency && nativeGlass;
+  const glass = !solid && !reduceTransparency && nativeGlass;
   const corners = { borderRadius: StyleSheet.flatten(style)?.borderRadius ?? 16, borderCurve: "continuous" as const };
   const surface = [
     corners,

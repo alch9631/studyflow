@@ -88,7 +88,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
     if (busy) return;
     Alert.alert("Delete material?", file.filename, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteMaterial", { moduleFileId: file.id }); } }]);
   }
-  return <Page back title={course?.name ?? "Course"} subtitle={course ? `Exam ${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}
+  return <Page back sheet title={course?.name ?? "Course"} subtitle={course ? `Exam ${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}
     actions={course ? <IconButton label="Course settings" icon="settings-outline" onPress={() => setTab("manage")} /> : undefined}>
     {course && <>
       <View style={{ gap: 10 }}><ProgressBar value={roots.length ? roots.filter(t => t.done).length / roots.length * 100 : 0} label={`${roots.filter(t => t.done).length}/${roots.length} topics covered${course.isPassed ? " · Passed" : ""}`} />

@@ -31,6 +31,7 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   const [checkOpen, setCheckOpen] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  useEffect(() => { if (block?.completed) router.dismissTo("/"); }, [block?.completed, router]);
   const finished = useRef(false);
   const saving = useRef<Promise<void> | null>(null);
   const latest = useRef({ block, response, checked, clock });
@@ -123,9 +124,9 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   async function leave() {
     if (busy || notesBusy) return;
     pauseClock(); setBusy(true); setError(null);
-    try { await persist(); router.replace("/"); }
+    try { await persist(); router.dismissTo("/"); }
     catch (e) {
-      if (e instanceof ApiError) Alert.alert("Draft saved on this iPhone", "Your progress couldn't sync yet. Reopen this session when you're connected to try again.", [{ text: "Keep studying", style: "cancel" }, { text: "Close", onPress: () => router.replace("/") }]);
+      if (e instanceof ApiError) Alert.alert("Draft saved on this iPhone", "Your progress couldn't sync yet. Reopen this session when you're connected to try again.", [{ text: "Keep studying", style: "cancel" }, { text: "Close", onPress: () => router.dismissTo("/") }]);
       else setError("Couldn't save the draft. Please try again before closing.");
     } finally { setBusy(false); }
   }
@@ -141,14 +142,14 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
       else await finishSession(session.server, session.token, block.id, { topicId: block.topicId, response: latest.current.response, checked, outcome, actualMinutes: Math.floor(elapsed / 60) });
       await clearDraft(draftKey(session.server, session.userId, block.topicId)).catch(() => {});
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.replace("/");
+      router.dismissTo("/");
     } catch (e) { finished.current = false; setError(e instanceof Error ? e.message : "Couldn't save your result. Your draft is still here."); }
     finally { setBusy(false); }
   }
 
   if (!session) return <Redirect href="/" />;
-  if (!block || !clock) return <View style={[styles.content, { flex: 1, justifyContent: "center" }]}>{error ? <><ErrorMessage message={error} /><Action secondary onPress={() => setLoadAttempt(value => value + 1)}>Try again</Action><Action secondary onPress={() => router.replace("/")}>Back to Today</Action></> : <ActivityIndicator color={theme.brand} />}</View>;
-  if (block.completed) return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}><AppText size={28} weight="700">This session is complete.</AppText><Action onPress={() => router.replace("/")}>Back to Today</Action></ScrollView>;
+  if (!block || !clock) return <View style={[styles.content, { flex: 1, justifyContent: "center" }]}>{error ? <><ErrorMessage message={error} /><Action secondary onPress={() => setLoadAttempt(value => value + 1)}>Try again</Action><Action secondary onPress={() => router.dismissTo("/")}>Back to Today</Action></> : <ActivityIndicator color={theme.brand} />}</View>;
+  if (block.completed) return null;
   const displayClock = advanceFocusClock(clock, now);
   const remaining = Math.max(0, displayClock.minutes * 60 - displayClock.elapsed);
   const canFinishTask = checked && (!block.task?.checkQuestion || response.trim().length > 0);

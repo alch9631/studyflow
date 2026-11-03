@@ -4,7 +4,8 @@ import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, Tex
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, ApiError } from "./api";
 import { useSession } from "./session";
-import { Action, AppText, ErrorMessage, styles, useTheme } from "./ui";
+import { Action, AppText, ErrorMessage, IconButton, styles, useTheme } from "./ui";
+import { GlassSurface } from "./glass-surface";
 import type { ActionResult, FormFields } from "../../../shared/mobileWorkspace";
 import DemoNotice from "./demo-notice";
 import NavigationMenu from "./navigation-menu";
@@ -43,16 +44,16 @@ export function useMobileData<T>(path: string) {
   return { data: state.data, error: state.error?.message ?? null, loading: !!session && state.data === null && state.loading, refreshing, reload, action, setError };
 }
 
-export function Page({ title, subtitle, children, query, back = false, actions }: {
-  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; actions?: React.ReactNode;
+export function Page({ title, subtitle, children, query, back = false, sheet = false, actions }: {
+  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; sheet?: boolean; actions?: React.ReactNode;
 }) {
   const theme = useTheme();
   const closeSwipeRow = useCloseSwipeRow();
-  return <SafeAreaView edges={["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
+  return <SafeAreaView edges={sheet ? [] : ["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
     <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentContainerStyle={styles.content}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.refreshing ?? false} onRefresh={() => { void query.reload(); }} /> : undefined}>
-      <View style={{ gap: 4 }}>{back && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
-        <View style={[styles.row, { gap: 4 }]}><AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <NavigationMenu />}</View>
+      <View style={{ gap: 4 }}>{back && !sheet && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
+        <View style={[styles.row, { gap: 4 }]}><AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{sheet ? <IconButton label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /> : !back && <NavigationMenu />}</View>
         {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>
       <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}
@@ -80,8 +81,10 @@ export function ProgressBar({ value, label }: { value: number; label?: string })
 }
 export function Chips({ options, value, onChange, disabled = false }: { options: { label: string; value: string }[]; value: string; onChange: (value: string) => void; disabled?: boolean }) {
   const theme = useTheme();
-  return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{options.map(o => <Pressable key={o.value} accessibilityRole="button" accessibilityState={{ selected: o.value === value, disabled }} disabled={disabled} onPress={() => onChange(o.value)} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: o.value === value ? theme.brand : theme.tint, opacity: disabled ? 0.5 : 1 }}>
-    <AppText size={14} weight="600" style={{ color: o.value === value ? theme.dark ? "#10241F" : "white" : theme.brand }}>{o.label}</AppText>
+  return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{options.map(o => <Pressable key={o.value} accessibilityRole="button" accessibilityState={{ selected: o.value === value, disabled }} disabled={disabled} onPress={() => onChange(o.value)} style={{ opacity: disabled ? 0.5 : 1 }}>
+    <GlassSurface interactive solid={o.value === value} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, ...(o.value === value ? { backgroundColor: theme.accent } : {}) }}>
+      <AppText size={14} weight="600" style={{ color: o.value === value ? theme.onAccent : theme.brand }}>{o.label}</AppText>
+    </GlassSurface>
   </Pressable>)}</View>;
 }
 export function edit(action: string, fields: FormFields = {}, returnTo?: string) {

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { router } from "expo-router";
 import type { CalendarData } from "../../../../shared/mobileWorkspace";
 import { AppText, IconButton, useTheme } from "../../src/ui";
+import { GlassSurface } from "../../src/glass-surface";
 import { chooseSession, dateLabel, edit, LinkButton, minutesLabel, Page, timeLabel, useMobileData } from "../../src/workspace";
 import { ActionMenu } from "../../src/action-menu";
 import { ContentRow } from "../../src/content-row";
@@ -63,9 +64,11 @@ export default function Calendar() {
           const date = new Date(`${iso}T12:00:00Z`);
           const active = iso === day;
           return <Pressable key={iso} accessibilityRole="button" accessibilityLabel={dateLabel(iso)} accessibilityState={{ selected: active }}
-            onPress={() => { setSelected(iso); resetNotice(); }} style={{ minWidth: 48, minHeight: 64, alignItems: "center", justifyContent: "center", gap: 3, padding: 8, borderRadius: 12, backgroundColor: active ? theme.brand : theme.tint }}>
-            <AppText size={12} style={{ color: active ? theme.background : theme.muted }}>{date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })}</AppText>
-            <AppText size={17} weight="700" style={{ color: active ? theme.background : theme.text }}>{date.getUTCDate()}</AppText>
+            onPress={() => { setSelected(iso); resetNotice(); }}>
+            <GlassSurface interactive solid={active} style={{ minWidth: 48, minHeight: 64, alignItems: "center", justifyContent: "center", gap: 3, padding: 8, borderRadius: 12, ...(active ? { backgroundColor: theme.accent } : {}) }}>
+              <AppText size={12} style={{ color: active ? theme.onAccent : theme.muted }}>{date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })}</AppText>
+              <AppText size={17} weight="700" style={{ color: active ? theme.onAccent : theme.text }}>{date.getUTCDate()}</AppText>
+            </GlassSurface>
           </Pressable>;
         })}
       </ScrollView>
@@ -83,8 +86,8 @@ export default function Calendar() {
         </View>)}
         {sessions.map(block => <SwipeRow key={block.id} disabled={busy || block.completed} trailing={!block.completed ? { label: "Reschedule", icon: "calendar-outline", onPress: () => changeTime(block) } : undefined}>
           <ContentRow title={block.topicTitle} subtitle={`${block.course.name} · ${minutesLabel(block.minutes)} · ${block.start !== null && block.end !== null ? `${timeLabel(block.start)}–${timeLabel(block.end)}` : "No time assigned"}`}
-            icon={block.completed ? "checkmark-circle" : "ellipse-outline"} dimmed={block.completed} disabled={busy}
-            onPress={() => block.completed ? router.push({ pathname: "/focus/[id]", params: { id: block.id, topicId: block.topicId, kind: block.kind } }) : chooseSession(block)}
+            icon={block.completed ? "checkmark-circle" : "ellipse-outline"} dimmed={block.completed} disabled={busy || block.completed}
+            onPress={() => chooseSession(block)}
             trailing={!block.completed ? <ActionMenu label={`Session actions: ${block.topicTitle}`} disabled={busy} items={[
               { id: "reschedule", title: "Change day or time", image: "calendar", onPress: () => changeTime(block) },
               ...(block.start !== null ? [{ id: "clear", title: "Remove assigned time", image: "clock" as const, onPress: () => { void clearTime(block.id); } }] : []),

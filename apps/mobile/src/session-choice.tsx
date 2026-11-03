@@ -19,7 +19,7 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
   const [ready, setReady] = useState(false);
   const [chosen, setChosen] = useState<number>();
   useEffect(() => {
-    if (!session || !query.data) return;
+    if (!session || !query.data || query.data.completed) return;
     let active = true;
     const key = draftKey(session.server, session.userId, query.data.topicId);
     void readDraft(key).then(async draft => {
@@ -32,7 +32,9 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
     }).catch(() => { if (active) query.setError("Couldn't save the paused session. Try again before starting."); });
     return () => { active = false; };
   }, [session, query.data, query.setError]);
+  useEffect(() => { if (query.data?.completed) router.dismissTo("/"); }, [query.data?.completed]);
   if (!session) return <Redirect href="/" />;
+  if (query.data?.completed) return null;
   const block = query.data;
   const progress = preferredProgress(local, block?.progress);
   const elapsed = Math.max(progress?.elapsedSeconds ?? 0, progress === local ? local?.clock?.elapsed ?? 0 : 0);
@@ -43,7 +45,7 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
     <AppText size={23} weight="700">{block?.title ?? "Choose your study time"}</AppText>
     <ErrorMessage message={query.error} />
     {query.error && <Action secondary onPress={() => { void query.reload(); }}>Try again</Action>}
-    {block?.completed ? <AppText>This session is complete.</AppText> : <>
+    <>
       <AppText muted>How many minutes do you want to focus? The timer starts when you continue.</AppText>
       {ready && <Host matchContents seedColor={theme.brand}>
         <Picker selectedValue={minutes} onValueChange={setChosen} appearance="wheel" testID="session-duration">
@@ -54,7 +56,7 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
       <Action busy={!ready && !query.error} disabled={!ready || !block || minutes < choices.minimum} onPress={() => {
         if (block) router.replace({ pathname: "/focus/[id]", params: { id, topicId: block.topicId, kind: block.kind, minutes: String(minutes) } });
       }}>Start focusing</Action>
-    </>}
+    </>
     <LinkButton label="Cancel" onPress={() => router.back()} />
   </ScrollView>;
 }

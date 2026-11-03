@@ -224,3 +224,43 @@ warnings as builds 7 and 8.
 The source copy, dependencies, archive and full build/upload logs are retained at
 `/Volumes/Ubuntu_VM/StudyflowBuilds/0.2.0-9/`. The source manifest and accepted upload
 receipt are also saved locally in the ignored `build/ios/0.2.0-9/` directory.
+
+## Course sheets, calendar glass and custom accent — 3 November 2026
+
+Removed the completed-session destination. Completed Calendar rows stay in the
+agenda without a navigation chevron, and stale completed-session links return to
+Today. Course details now use the same resizable native sheet presentation as
+Session length, with a grabber and close button. Leaving or finishing Focus
+dismisses the sheet stack back to Today.
+
+Calendar's unselected date cards and section controls use the shared Liquid Glass
+material, including the existing Reduce Transparency and unsupported-device
+fallbacks. Selected controls retain a solid accent fill for reliable contrast.
+
+Settings now has the system iOS color picker, including its grid, spectrum and
+sliders. Selection updates the app immediately and saves the custom accent on the
+device; Reset restores the current appearance's default. Black/white button labels
+and readable standalone text/icon colors keep extreme choices usable. No native
+dependencies, backend changes or database migrations were needed.
+
+The iPhone 17 Pro simulator on iOS 26.3 showed the course sheet, its nested session
+length/focus flow, dark and light glass date controls, and live purple accent
+updates while the system color picker remained open. The final source passed
+root lint, root/mobile TypeScript checks, the iOS Hermes export, color validation
+and contrast checks, 11 demo tests, 10 cache tests, 18 mobile API tests and 11
+workspace tests. Physical-device and full VoiceOver checks remain unverified.
+
+Build **0.2.0 (10)** was archived on the external APFS SSD. Apple accepted the
+upload on **3 November 2026 at 10:30 CET** and reported that the package was
+processing for TestFlight. The archive's version, bundle identifier, production
+backend, code signature, new accent-picker bundle and completion-page removal
+passed verification. All 78 recorded source inputs matched the development and
+release copies, and the production health check returned `{"ok":true}`. Upload
+retained the same three non-blocking vendor debug-symbol warnings as builds 7–9.
+
+An additional cold-launch recheck was interrupted by simulator accessibility and
+runtime failures after reboot; the earlier native UI walkthrough completed.
+Build sources, dependencies, archive and logs are retained at
+`/Volumes/Ubuntu_VM/StudyflowBuilds/0.2.0-10/`. The source manifest, archive
+verification and accepted upload receipt are also saved locally in the ignored
+`build/ios/0.2.0-10/` directory.

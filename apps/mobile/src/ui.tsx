@@ -21,8 +21,8 @@ export function Action({ children, onPress, secondary = false, busy = false, dis
 }) {
   const theme = useTheme();
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
-    style={({ pressed }) => [styles.action, { backgroundColor: secondary ? theme.tint : theme.brand, opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1 }]}>
-    {busy ? <ActivityIndicator color={secondary ? theme.brand : theme.background} /> : <Text style={{ color: secondary ? theme.brand : theme.dark ? "#10241F" : "#FFFFFF", fontWeight: "700", fontSize: 16 }}>{children}</Text>}
+    style={({ pressed }) => [styles.action, { backgroundColor: secondary ? theme.tint : theme.accent, opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1 }]}>
+    {busy ? <ActivityIndicator color={secondary ? theme.brand : theme.onAccent} /> : <Text style={{ color: secondary ? theme.brand : theme.onAccent, fontWeight: "700", fontSize: 16 }}>{children}</Text>}
   </Pressable>;
 }
 

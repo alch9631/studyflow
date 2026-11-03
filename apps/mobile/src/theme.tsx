@@ -1,7 +1,8 @@
-import { createContext, use, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Appearance, Platform, useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from "expo-router/react-navigation";
+import { ACCENT_KEY, normalizeAccent, readableAccent, textOnAccent } from "./theme-colors";
 
 export type AppearanceMode = "light" | "dark";
 export const APPEARANCE_KEY = "studyflow.mobile.appearance.v1";
@@ -18,14 +19,16 @@ const palettes = {
   },
 } as const;
 
-type AppTheme = (typeof palettes)[AppearanceMode];
+type AppTheme = { dark: boolean; background: string; surface: string; text: string; muted: string; line: string; brand: string; accent: string; onAccent: string; tint: string; danger: string };
 type AppearanceState = {
   mode: AppearanceMode;
+  accent: string | null;
   reduceTransparency: boolean;
   setMode: (mode: AppearanceMode) => Promise<void>;
+  setAccent: (color: string | null) => Promise<void>;
 };
 
-const ThemeContext = createContext<AppTheme>(palettes.light);
+const ThemeContext = createContext<AppTheme>({ ...palettes.light, accent: palettes.light.brand, onAccent: "#FFFFFF" });
 const AppearanceContext = createContext<AppearanceState | null>(null);
 
 function applyNativeMode(mode: AppearanceMode) {
@@ -36,18 +39,26 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const systemMode = useColorScheme();
   // Until a choice is saved, use the device's appearance.
   const [savedMode, setSavedMode] = useState<AppearanceMode | null>(null);
+  const [accent, setSavedAccent] = useState<string | null>(null);
+  const accentWrite = useRef(Promise.resolve());
   const [ready, setReady] = useState(false);
   const [reduceTransparency, setReduceTransparency] = useState(Platform.OS === "ios");
   const mode = savedMode ?? (systemMode === "dark" ? "dark" : "light");
-  const theme = palettes[mode];
+  const theme = useMemo(() => {
+    const palette = palettes[mode];
+    const fill = accent ?? palette.brand;
+    return { ...palette, accent: fill, onAccent: textOnAccent(fill), brand: readableAccent(fill, palette.background) };
+  }, [mode, accent]);
 
   useEffect(() => {
     let active = true;
-    void AsyncStorage.getItem(APPEARANCE_KEY).then(value => {
-      if (active && (value === "light" || value === "dark")) {
-        applyNativeMode(value);
-        setSavedMode(value);
+    void AsyncStorage.multiGet([APPEARANCE_KEY, ACCENT_KEY]).then(values => {
+      if (!active) return;
+      const value = values[0][1];
+      if (value === "light" || value === "dark") {
+        applyNativeMode(value); setSavedMode(value);
       }
+      setSavedAccent(normalizeAccent(values[1][1]));
     }).catch(() => {}).finally(() => { if (active) setReady(true); });
     return () => { active = false; };
   }, []);
@@ -79,7 +90,18 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     setSavedMode(next);
   }, []);
 
-  const appearance = useMemo(() => ({ mode, reduceTransparency, setMode }), [mode, reduceTransparency, setMode]);
+  const setAccent = useCallback((value: string | null) => {
+    const next = normalizeAccent(value);
+    if (value !== null && !next) return Promise.reject(new Error("Choose a valid color."));
+    setSavedAccent(next);
+    // Update immediately and serialize saves so the final picker event wins.
+    const write = accentWrite.current.catch(() => {}).then(() => next
+      ? AsyncStorage.setItem(ACCENT_KEY, next) : AsyncStorage.removeItem(ACCENT_KEY));
+    accentWrite.current = write;
+    return write;
+  }, []);
+
+  const appearance = useMemo(() => ({ mode, accent, reduceTransparency, setMode, setAccent }), [mode, accent, reduceTransparency, setMode, setAccent]);
   const navigationTheme = useMemo(() => ({
     ...(theme.dark ? DarkTheme : DefaultTheme),
     colors: {

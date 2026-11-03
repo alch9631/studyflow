@@ -33,7 +33,7 @@ Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. Swiping
 reveals a button; it never changes data on its own. The sliders icon opens a
 plan-adjustment sheet with a short impact for each choice and the available undo.
 
-Tap a course row to open it directly. **+** offers course creation, the catalog
+Tap a course row to open a resizable sheet with a grabber and close control. **+** offers course creation, the catalog
 and syllabus import. Within a course, Topics, Materials and Deadlines are visible
 section controls; the gear opens course settings. Use the pen for topic notes.
 Topics and deadlines swipe right for completion and left for deletion. Materials
@@ -227,10 +227,18 @@ identity stays stable across appearance changes, and tapping a tab again retains
 its scroll position. Calendar week/day selection and Courses filters/search remain
 in screen state when switching tabs. Android and web retain their existing tabs.
 
-Liquid Glass is limited to navigation menus, plan adjustment, course creation and
-calendar week controls. Cards, lists, forms and date selections use solid surfaces.
+Liquid Glass is used for navigation menus, plan adjustment, course creation,
+calendar week/date controls and section chips. Content cards, lists and forms use solid surfaces.
 Custom glass supports both appearances and uses an opaque fallback when Reduce
 Transparency is enabled or the native glass APIs are unavailable.
+
+Settings includes the native iOS color picker for a custom app accent. Selection
+updates buttons, selected dates, sections, icons and navigation immediately and
+persists on this device across app launches and appearance changes. Reset restores
+the appearance's default accent. Text on colored controls adjusts for contrast;
+very light/dark choices are adjusted only for standalone text and icons. Completed
+calendar sessions no longer open a completion page, and stale completed-session
+links return to Today.
 
 ## Verify
 
