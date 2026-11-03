@@ -28,7 +28,7 @@ subscriptions require signing in; the demo labels those features accordingly.
 ## Compact navigation
 
 Today shows one session list with progress above it. Tap a session to choose its
-length; the three-action row menu keeps completion, moving and notes available.
+length, the status circle to toggle completion, or the pen to edit notes.
 Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. A short
 swipe reveals a button; releasing a full swipe across at least 65% of the row
 (and at least 160 points) runs that action. The sliders icon opens a
@@ -40,27 +40,36 @@ length has a top-right X, and back navigation uses a circular glass arrow.
 
 Tap a course row to open a resizable sheet with a grabber and close control. **+** offers course creation, the catalog
 and syllabus import. Within a course, Topics, Materials and Deadlines are visible
-sections in one equal-width bar; the header gear opens grouped course settings. Use
+sections in one equal-width bar; the gear beside Deadlines opens course settings. Use
 the search icon to find topics and the pen for topic notes. Start a sitting from
 Today, Calendar or a topic's details. Visited course sections retain their rows
 when switching sections, and hidden sections stay out of accessibility navigation.
 Topics and deadlines swipe right for completion and left for deletion. Materials
-appear directly below a counted heading, with Add files and a file-category menu
-above the list, and swipe left for deletion. Deletion always asks
+appear below a counted heading; Add material offers the file kind and then opens
+Files. Materials swipe left for deletion. Adding a deadline inserts an editable
+title/date row in the course sheet. Deletion always asks
 for confirmation, and all swipe actions have a visible button or menu alternative.
 
 Calendar leads with a swipeable date strip and compact agenda rows. Tap a session
-to study; swipe left or use its menu to change its time. Arrange applies only to
+to study; swipe right to mark done and right again to undo. The calendar icon edits
+the time; swipe left to clear an assigned time or schedule an unassigned session. Arrange applies only to
 the selected day and leaves manual times and completed work alone. Class timetable
-lives in Calendar options. The app menu contains Exams, Insights and Settings.
-Exam rows open course preparation. Swipe right to mark done and left to edit the
+lives behind the header calendar icon. The app menu contains Exams, Insights and Settings.
+Exam cards use clear Liquid Glass with an accessible solid fallback. Tap a module
+to edit its synced exam note; long press for date, grade and pass options.
+Swipe right to mark done and left to edit the
 date. In Results & grades, swipe right to edit a grade and left to unmark a pass.
 Unmarking a graded pass confirms clearing its passing grade, so the module really
-returns to Remaining. Small info buttons reveal details and equivalent tap
-actions; exams have no three-dot menu. Other optional information uses the same
-info control. The three main tabs reserve an opaque area below their scrolling
+returns to Remaining. The three main tabs reserve an opaque area below their scrolling
 content for the system tab bar.
 Insights leads with the weekly chart, with history and detailed statistics optional.
+Focus keeps the timer and notes visible; source excerpts, saved notes and the
+learning check expand when needed.
+
+Module notes require the backend schema update in
+`prisma/migrations/20261103120000_course_exam_notes/` before shipping the new iOS
+bundle. Notes are scoped to the signed-in account, and stale edits retain their
+text instead of overwriting a newer revision. Demo notes remain in memory.
 
 ## Run locally
 

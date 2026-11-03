@@ -47,7 +47,9 @@ export class DemoWorkspace {
   private summary(course: CourseDetail): CourseSummary {
     const roots = course.topics.filter(topic => !topic.parentTopicId);
     const blocks = this.state.blocks.filter(block => block.course.id === course.id);
+    const note = this.state.examNotes[course.id];
     return { id: course.id, name: course.name, examDate: course.examDate, ects: course.ects, grade: course.grade, passed: course.passed, isPassed: passed(course), difficulty: course.difficulty, studyDays: course.studyDays,
+      examNote: note?.body ?? "", examNoteUpdatedAt: note?.updatedAt ?? null,
       topicsDone: roots.filter(topic => topic.done).length, topicsTotal: roots.length,
       remainingMinutes: blocks.filter(block => !block.completed && block.kind === "study").reduce((sum, block) => sum + block.minutes, 0),
       completedMinutes: blocks.filter(block => block.completed).reduce((sum, block) => sum + block.minutes, 0), loggedMinutes: blocks.reduce((sum, block) => sum + block.actualMinutes, 0) };
@@ -169,6 +171,16 @@ export class DemoWorkspace {
   }
   private action(name: string, fields: FormFields): unknown {
     const value = (key: string) => String(fields[key] ?? ""); const state = this.state;
+    if (name === "saveExamNote") {
+      const course = this.course(value("courseId"));
+      const body = value("body");
+      if (body.length > 4000) throw new DemoError("Keep your note under 4000 characters.");
+      const existing = state.examNotes[course.id];
+      if (value("updatedAt") !== (existing?.updatedAt ?? "")) throw new DemoError("This note changed on another device. Reopen it before saving again.");
+      const note = { body: body.trim(), updatedAt: this.stamp(existing?.updatedAt ?? undefined) };
+      state.examNotes[course.id] = note;
+      return { ok: true, note };
+    }
     if (name === "undoRecovery") {
       if (!state.undo) throw new DemoError("There is no demo adjustment to undo.");
       state.blocks = state.undo; state.undo = null; return { ok: true, message: "undo-done" };
@@ -229,7 +241,7 @@ export class DemoWorkspace {
     }
     if (["updateCourse", "saveGrade", "setPassed", "refreshPlan", "deleteCourse"].includes(name)) {
       const course = this.course(value("courseId"));
-      if (name === "deleteCourse") { state.courses = state.courses.filter(item => item !== course); state.blocks = state.blocks.filter(block => block.course.id !== course.id); }
+      if (name === "deleteCourse") { state.courses = state.courses.filter(item => item !== course); state.blocks = state.blocks.filter(block => block.course.id !== course.id); delete state.examNotes[course.id]; }
       else if (name === "updateCourse") { const examDate = day(value("examDate")); const difficulty = number(value("difficulty"), 1, 5); course.examDate = examDate; course.difficulty = difficulty; course.studyDays = Array.isArray(fields.studyDays) ? fields.studyDays.join(",") : value("studyDays"); }
       else if (name === "saveGrade") course.grade = value("grade").trim() ? number(value("grade").replace(",", "."), 1, 5) : null;
       else if (name === "setPassed") {

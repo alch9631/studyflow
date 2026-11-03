@@ -4,6 +4,7 @@ export type CourseSummary = {
   id: string; name: string; examDate: string; grade: number | null; passed: boolean; isPassed: boolean;
   ects: number | null; difficulty: number; studyDays: string; topicsDone: number; topicsTotal: number;
   remainingMinutes: number; completedMinutes: number; loggedMinutes: number;
+  examNote?: string; examNoteUpdatedAt?: string | null;
 };
 export type CourseDetail = Pick<CourseSummary, "id" | "name" | "examDate" | "grade" | "passed" | "isPassed" | "ects" | "difficulty" | "studyDays"> & {
   topics: { id: string; title: string; done: boolean; confidence: string | null; parentTopicId: string | null; task: MobileTask | null; note: string; questions: string[] }[];

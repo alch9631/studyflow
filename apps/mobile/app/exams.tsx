@@ -5,9 +5,9 @@ import type { CourseSummary, ExamCourse, ExamData, PublishedExamOption } from ".
 import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../src/ui";
 import { dateLabel, edit, Field, LinkButton, Page, ProgressBar, useMobileData } from "../src/workspace";
 import { useSession } from "../src/session";
-import { Disclosure } from "../src/disclosure";
 import { SwipeRow, useCloseSwipeRow } from "../src/swipe-row";
 import { SectionTabs } from "../src/section-tabs";
+import { ExamNote, type SavedExamNote } from "../src/exam-note";
 
 export default function Exams() {
   const { isDemo } = useSession();
@@ -22,7 +22,15 @@ export default function Exams() {
   const [search, setSearch] = useState("");
   const [rebuild, setRebuild] = useState(false);
   const [details, setDetails] = useState<{ course: CourseSummary; exam?: ExamCourse } | null>(null);
+  const [noteCourse, setNoteCourse] = useState<CourseSummary | null>(null);
+  const [savedNotes, setSavedNotes] = useState<Record<string, SavedExamNote>>({});
   const closeSwipeRow = useCloseSwipeRow();
+  function openNote(course: CourseSummary) {
+    closeSwipeRow();
+    const saved = savedNotes[course.id];
+    setNoteCourse(saved && (!course.examNoteUpdatedAt || (saved.updatedAt && saved.updatedAt > course.examNoteUpdatedAt))
+      ? { ...course, examNote: saved.body, examNoteUpdatedAt: saved.updatedAt } : course);
+  }
   function editDate(course: CourseSummary) {
     closeSwipeRow(); setDetails(null);
     edit("updateCourse", { courseId: course.id, examDate: course.examDate, studyDays: course.studyDays.split(","), difficulty: String(course.difficulty) });
@@ -75,10 +83,10 @@ export default function Exams() {
     {!!notice && <AppText muted>{notice}</AppText>}
     {rebuild && <Card><AppText>Your dates saved. The study plan needs another rebuild.</AppText><Action busy={busy} onPress={() => { setBusy(true); void query.action("rebuildAfterExamSync").then(() => { setRebuild(false); return query.reload(); }).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }}>Rebuild study plan</Action></Card>}
     {tab === "remaining" ? <>
-      <Card><View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <Card glass><View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <IconButton label="Previous month" icon="chevron-back-outline" onPress={() => shiftMonth(-1)} /><AppText weight="700" style={{ flex: 1, textAlign: "center" }}>{first.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}</AppText><IconButton label="Next month" icon="chevron-forward-outline" onPress={() => shiftMonth(1)} /></View>
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <View key={i} style={{ width: "14.28%", alignItems: "center", paddingVertical: 5 }}><AppText size={12} muted>{d}</AppText></View>)}
-          {Array.from({ length: 42 }, (_, i) => {
+          {Array.from({ length: Math.ceil((offset + last) / 7) * 7 }, (_, i) => {
             const day = i - offset + 1; const valid = day > 0 && day <= last;
             const iso = `${month}-${String(day).padStart(2, "0")}`; const matches = exams.filter(e => e.currentDate === iso);
             return <Pressable key={i} disabled={!matches.length} accessibilityLabel={matches.length ? `${dateLabel(iso)}: ${matches.map(e => e.name).join(", ")}` : undefined} onPress={() => Alert.alert(dateLabel(iso), matches.map(e => e.name).join("\n"))} style={{ width: "14.28%", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: matches.length ? theme.tint : "transparent" }}>
@@ -86,36 +94,44 @@ export default function Exams() {
             </Pressable>;
           })}</View>
       </Card>
-      {!isDemo ? <Disclosure label="University date status"><AppText size={13} muted>{query.data?.checkedAt ? `${query.data.semester ?? "University dates"} · Checked ${new Date(query.data.checkedAt).toLocaleString()}` : "Dates have not been checked yet. Use Refresh above."}</AppText></Disclosure> : null}
       {!query.loading && !query.error && !exams.length && <Card><AppText weight="600">No remaining exams.</AppText><LinkButton label="Add a course" onPress={() => edit("createCourse")} /></Card>}
       {exams.map(exam => {
         const c = query.data!.allCourses.find(c => c.id === exam.id)!;
         if (!c) return null;
         const days = Math.round((Date.parse(exam.currentDate) - Date.parse(query.data!.today)) / 86400_000);
-        return <View key={exam.id} style={{ borderRadius: 16, overflow: "hidden" }}><SwipeRow disabled={busy}
+        return <SwipeRow key={exam.id} disabled={busy}
           leading={{ label: "Mark done", icon: "checkmark-outline", onPress: () => { void setPassed(c, true); } }}
-          trailing={{ label: "Edit date", icon: "calendar-outline", onPress: () => editDate(c) }}><Card>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Preparation: ${exam.name}`} disabled={busy} onPress={() => router.push(`/course/${exam.id}`)} style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: "center" }}><AppText selectable={false} size={18} weight="700">{exam.name}</AppText></Pressable>
-            <IconButton label={`Exam information: ${exam.name}`} icon="information-circle-outline" size={19} disabled={busy} onPress={() => { closeSwipeRow(); setDetails({ course: c, exam }); }} />
-          </View>
+          trailing={{ label: "Edit date", icon: "calendar-outline", onPress: () => editDate(c) }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Edit exam note: ${exam.name}`} accessibilityHint="Long press for exam options" disabled={busy} onPress={() => openNote(c)} onLongPress={() => { closeSwipeRow(); setDetails({ course: c, exam }); }}>
+          <Card glass>
+          <AppText selectable={false} size={18} weight="700">{exam.name}</AppText>
           <AppText selectable={false} weight="600">{dateLabel(exam.currentDate)} · {days < 0 ? "Date passed" : days === 0 ? "Today" : `${days} days left`}</AppText>
-          <ProgressBar value={c?.topicsTotal ? c.topicsDone / c.topicsTotal * 100 : 0} label={`${c?.topicsDone ?? 0} of ${c?.topicsTotal ?? 0} topics covered`} />
-        </Card></SwipeRow></View>;
+          <ProgressBar value={c.topicsTotal ? c.topicsDone / c.topicsTotal * 100 : 0} label={`${c.topicsDone}/${c.topicsTotal} covered`} />
+        </Card></Pressable></SwipeRow>;
       })}
     </> : <>
-      <Disclosure label="About grades"><AppText muted>German grades: 1.0 is best; 4.0 or better passes. You can also record an ungraded pass.</AppText></Disclosure>
       {!query.loading && !query.error && !query.data?.results.length && <AppText muted>No results yet.</AppText>}
-      {query.data?.results.map(c => <View key={c.id} style={{ borderRadius: 16, overflow: "hidden" }}><SwipeRow disabled={busy}
+      {query.data?.results.map(c => <SwipeRow key={c.id} disabled={busy}
         leading={{ label: "Edit grade", icon: "create-outline", onPress: () => editGrade(c) }}
         trailing={c.isPassed ? { label: "Unmark passed", icon: "arrow-undo-outline", destructive: true, onPress: () => unmark(c) } : undefined}>
-        <Card><View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Edit grade: ${c.name}`} disabled={busy} onPress={() => editGrade(c)} style={{ flex: 1, minHeight: 44, justifyContent: "center" }}><AppText selectable={false} size={18} weight="700">{c.name}</AppText></Pressable>
-          <IconButton label={`Result information: ${c.name}`} icon="information-circle-outline" size={19} disabled={busy} onPress={() => { closeSwipeRow(); setDetails({ course: c }); }} />
-        </View><AppText selectable={false} size={14}>{c.grade !== null ? `Grade ${c.grade.toFixed(1)}` : "Passed"}{!c.isPassed ? " · Not passed" : ""}{c.ects ? ` · ${c.ects} ECTS` : ""}</AppText></Card>
-      </SwipeRow></View>)}
+        <Pressable accessibilityRole="button" accessibilityLabel={`Edit exam note: ${c.name}`} accessibilityHint="Long press for result options" disabled={busy} onPress={() => openNote(c)} onLongPress={() => { closeSwipeRow(); setDetails({ course: c }); }}>
+        <Card glass><AppText selectable={false} size={18} weight="700">{c.name}</AppText>
+        <AppText selectable={false} size={14}>{c.grade !== null ? `Grade ${c.grade.toFixed(1)}` : "Passed"}{!c.isPassed ? " · Not passed" : ""}{c.ects ? ` · ${c.ects} ECTS` : ""}</AppText></Card>
+      </Pressable></SwipeRow>)}
       <Action secondary onPress={() => router.push("/insights")}>Open progress insights</Action>
     </>}
+    {noteCourse && <ExamNote key={noteCourse.id} course={noteCourse} onClose={() => setNoteCourse(null)} onSave={async (body, updatedAt) => {
+      try {
+        const { note } = await query.action<{ note: SavedExamNote }>("saveExamNote", { courseId: noteCourse.id, body, updatedAt });
+        setSavedNotes(current => ({ ...current, [noteCourse.id]: note }));
+        await query.reload();
+        return note;
+      } catch (e) {
+        // Keep this editor's draft/revision, but let reopening load the latest note.
+        await query.reload();
+        throw e;
+      }
+    }} />}
     <Modal visible={!!details} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setDetails(null)}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }} style={{ backgroundColor: theme.background }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><AppText size={22} weight="700" style={{ flex: 1 }}>{details?.course.name}</AppText><IconButton glass label="Close exam information" icon="close-outline" onPress={() => setDetails(null)} /></View>

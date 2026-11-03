@@ -13,6 +13,7 @@ import { prisma } from "./db";
 import { dayMinutesToInstant, hhmmToMinutes } from "./calendarTime";
 import { isValidISODate } from "./validate";
 import { addFocusNoteForUser, updateFocusNoteForUser } from "./focusNotes";
+import { saveExamNoteForUser } from "./mobileExamNote";
 
 const forms: Record<string, (data: FormData) => Promise<unknown>> = {
   createCourse: courses.createCourse, updateCourse: courses.updateCourse, deleteCourse: courses.deleteCourse,
@@ -87,6 +88,7 @@ export async function mobileAction(userId: string, name: string, form: FormData)
     try {
       let result: unknown;
       if (Object.hasOwn(forms, name)) result = await forms[name](form);
+      else if (name === "saveExamNote") result = await saveExamNoteForUser(userId, { courseId: value("courseId"), body: String(form.get("body") ?? ""), updatedAt: value("updatedAt") });
       else if (name === "addFocusNote" || name === "updateFocusNote") {
         const input = { topicId: value("topicId"), id: value("id"), body: String(form.get("body") ?? "") };
         result = name === "addFocusNote" ? await addFocusNoteForUser(userId, input) : await updateFocusNoteForUser(userId, { ...input, updatedAt: value("updatedAt") });

@@ -14,11 +14,12 @@ import { parseExamQuestions } from "./practice";
 
 export async function mobileCourses(userId: string) {
   const courses = await prisma.course.findMany({ where: { userId }, orderBy: [{ examDate: "asc" }, { id: "asc" }],
-    select: { id: true, name: true, examDate: true, grade: true, passed: true, ects: true, difficulty: true, studyDays: true,
+    select: { id: true, name: true, examDate: true, grade: true, passed: true, ects: true, difficulty: true, studyDays: true, examNote: true, examNoteUpdatedAt: true,
       topics: { where: { parentTopicId: null }, select: { done: true } },
       blocks: { select: { completed: true, minutes: true, actualMinutes: true, kind: true } } } });
   const proposal = await previewSchedule(userId);
   return courses.map(({ topics, blocks, ...course }) => ({ ...course, examDate: course.examDate.toISOString().slice(0, 10),
+    examNote: course.examNote ?? "", examNoteUpdatedAt: course.examNoteUpdatedAt?.toISOString() ?? null,
     isPassed: coursePassed(course), topicsDone: topics.filter(t => t.done).length, topicsTotal: topics.length,
     remainingMinutes: (proposal.get(course.id)?.blocks.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0) +
       (proposal.get(course.id)?.unscheduled.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0),

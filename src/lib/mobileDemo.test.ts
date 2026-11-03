@@ -4,6 +4,7 @@ import { DemoError, DemoWorkspace, startDemoSession, endDemoSession, DEMO_SERVER
 import { shiftDay } from "../../apps/mobile/src/demo-data";
 import type { MobileBlock, MobileFocusNote, MobileToday } from "../../shared/mobile";
 import type { ActionResult, CalendarData, CourseDetail, CourseSummary, ExamData, FormFields, InsightsData, PracticeData, PreferencesData } from "../../shared/mobileWorkspace";
+import { compactSessionLabel } from "../../apps/mobile/src/session-label";
 
 let passed = 0;
 async function check(name: string, run: () => void | Promise<void>) { await run(); console.log(`  ✓ ${name}`); passed++; }
@@ -11,6 +12,14 @@ async function main() {
   const demo = new DemoWorkspace("2026-11-02");
   const read = <T,>(path: string) => demo.request(path) as T;
   const action = <T = ActionResult,>(name: string, fields: FormFields = {}) => demo.request(`actions/${name}`, { method: "POST", body: { fields } }) as T;
+  await check("compact session labels separate activity and page references without altering topic names", () => {
+    assert.deepEqual(compactSessionLabel("Read: 2.2 Condition of a problem and stability of an algorithm · PDF p. 10"), {
+      title: "2.2 Condition of a problem and stability of an algorithm", activity: "Read", reference: "PDF p. 10",
+    });
+    assert.deepEqual(compactSessionLabel("Recall: Matrices · PDF pp. 10–12"), { title: "Matrices", activity: "Recall", reference: "PDF pp. 10–12" });
+    assert.deepEqual(compactSessionLabel("Design: APIs · trade-offs", "review"), { title: "Design: APIs · trade-offs", activity: "Review", reference: "" });
+    assert.equal(compactSessionLabel("Recall:").title, "Recall:", "a short title cannot become empty");
+  });
   await check("sample data loads every workspace screen without an account", () => {
     const today = read<MobileToday>("today"); assert.equal(today.blocks.length, 3); assert.ok(today.blocks.some(block => !block.completed));
     assert.equal(read<CourseSummary[]>("courses").length, 3);
@@ -63,6 +72,36 @@ async function main() {
     assert.throws(() => action("updateFocusNote", { ...fields, body: "Stale overwrite", updatedAt: first.updatedAt }), DemoError);
     assert.equal(read<MobileBlock>("blocks/demo-study").notes!.find(note => note.id === first.id)!.body, "Edited note");
   });
+  await check("exam module notes reload across remaining and results while stale edits and clears stay protected", () => {
+    const workspace = new DemoWorkspace("2026-11-02");
+    const change = (name: string, fields: FormFields) => workspace.request(`actions/${name}`, { method: "POST", body: { fields } });
+    const save = (body: string, updatedAt = "") => change("saveExamNote", { courseId: "demo-maths", body, updatedAt }) as { note: { body: string; updatedAt: string } };
+    const course = () => (workspace.request("exams") as ExamData).allCourses.find(item => item.id === "demo-maths")!;
+    const before = course();
+    assert.equal(before.examNote, ""); assert.equal(before.examNoteUpdatedAt, null);
+    const first = save("  Bring calculator  ").note;
+    assert.equal(first.body, "Bring calculator"); assert.equal(course().examNote, first.body); assert.equal(course().examNoteUpdatedAt, first.updatedAt);
+    const edited = save("Bring calculator and ID", first.updatedAt).note;
+    assert.ok(edited.updatedAt > first.updatedAt, "rapid saves advance the note version");
+    assert.throws(() => save("Stale edit", first.updatedAt), /This note changed/);
+    assert.equal(course().examNote, edited.body);
+    change("setPassed", { courseId: "demo-maths", passed: "1" });
+    assert.equal((workspace.request("exams") as ExamData).results.find(item => item.id === "demo-maths")!.examNote, edited.body);
+    const cleared = save("  ", edited.updatedAt).note;
+    assert.equal(cleared.body, ""); assert.ok(cleared.updatedAt > edited.updatedAt);
+    assert.equal(course().examNoteUpdatedAt, cleared.updatedAt, "clearing a note keeps its concurrency version");
+    assert.throws(() => save("Stale restore", edited.updatedAt), /This note changed/);
+    assert.throws(() => save("x".repeat(4001), cleared.updatedAt), DemoError);
+    assert.equal(course().examNote, ""); assert.equal(course().examDate, before.examDate); assert.equal(course().grade, before.grade);
+    assert.equal((workspace.request("courses/demo-maths") as CourseDetail).topics[0].note, "A linear combination scales vectors and adds the results.");
+  });
+  await check("exam notes reject missing courses and stay isolated between demo workspaces", () => {
+    const workspace = new DemoWorkspace("2026-11-02");
+    assert.throws(() => workspace.request("actions/saveExamNote", { method: "POST", body: { fields: { courseId: "foreign-course", body: "Private note", updatedAt: "" } } }), (error: unknown) => error instanceof DemoError && error.status === 404);
+    workspace.request("actions/saveExamNote", { method: "POST", body: { fields: { courseId: "demo-maths", body: "This demo only", updatedAt: "" } } });
+    const other = new DemoWorkspace("2026-11-02");
+    assert.equal((other.request("exams") as ExamData).allCourses.find(item => item.id === "demo-maths")!.examNote, "");
+  });
   await check("demo recovery can be previewed and undone while completed sessions stay intact", () => {
     const before = read<CalendarData>("calendar").blocks;
     assert.ok(read<MobileToday>("today").planHealth!.overdueSessions);
@@ -71,6 +110,19 @@ async function main() {
     action("undoRecovery"); assert.deepEqual(read<CalendarData>("calendar").blocks, before);
     action("moveBlock", { blockId: "demo-study" });
     assert.ok(read<CalendarData>("calendar").blocks.some(block => block.id === "demo-study" && block.date === "2026-11-03"));
+  });
+  await check("Calendar completion can be toggled repeatedly without losing its assigned time or notes", () => {
+    const workspace = new DemoWorkspace("2026-11-02");
+    const change = (name: string, fields: FormFields) => workspace.request(`actions/${name}`, { method: "POST", body: { fields } });
+    change("updateBlockTime", { blockId: "demo-study", date: "2026-11-02", startHHmm: "10:00", endHHmm: "10:30" });
+    change("saveBlockNote", { blockId: "demo-study", body: "Keep this note" });
+    for (const done of [true, false, true, false]) {
+      change("toggleBlock", { blockId: "demo-study", done: String(done) });
+      const calendar = workspace.request("calendar") as CalendarData;
+      const block = calendar.blocks.find(item => item.id === "demo-study")!;
+      assert.equal(block.completed, done); assert.equal(block.start, 600); assert.equal(block.end, 630);
+      assert.equal((workspace.request("blocks/demo-study") as MobileBlock).note, "Keep this note");
+    }
   });
   await check("paused demo sessions stay deferred after a move and completion keeps their working notes", () => {
     const workspace = new DemoWorkspace("2026-11-02");

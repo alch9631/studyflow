@@ -301,3 +301,35 @@ standalone packaging was blocked by this checkout's externally symlinked
 dependencies and an attempted output path outside the workspace; the default
 Turbopack build could not resolve Next through that external dependency path.
 No native release upload or backend deployment was performed in this change.
+
+## Screen simplification and module notes — 3 November 2026
+
+Exams uses clear Liquid Glass cards, omits University date status, About grades
+and per-module info icons, and opens an editable module note on tap. Long press
+retains exam/result options. Notes sync through an owned, bounded action with
+atomic revision checks; clearing a note also advances its revision. The additive
+Course schema migration must ship with the backend before the new iOS bundle.
+
+Today and Calendar separate activity/page references from compact two-line task
+titles. Today has direct note buttons. Calendar has direct time controls and a
+right-swipe done/undone action that stays enabled for completed sessions. Focus
+keeps its timer and notes prominent and expands source excerpts, saved notes and
+learning checks on demand. Course sheet titles use their full width at a smaller
+size, the settings gear sits beside Deadlines, Add material selects a kind before
+opening Files, and adding a deadline inserts an editable title/date row.
+
+Verified in Expo Go on the iPhone 17 Pro simulator with iOS 26.3: compact Today
+rows and note buttons; Exams without info icons; module note save and reopen;
+inline deadline add/save in the same course sheet; long course-title wrapping;
+Focus pause and saved return to Today; Calendar mark-done and mark-undone via its
+status control. Native screenshots were inspected during the walkthrough.
+The automation drag opened a session instead of producing a measurable swipe,
+so physical-device swipe verification remains outstanding. Signed-in Files upload
+and cross-device note UI were not exercised; API checks cover owned note reads,
+save/clear, conflicts, concurrent saves and foreign-course rejection.
+
+Root lint, root/mobile TypeScript, the iOS Hermes export, 18 mobile API checks,
+14 workspace checks, 17 demo checks, 13 cache/gesture checks and the focus clock,
+notes and session suites passed. No release upload or backend deployment was
+performed. Implementation used the starred repositories' Expo UI/native UI and
+Vercel React Native skill guidance.

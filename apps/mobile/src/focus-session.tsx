@@ -13,6 +13,7 @@ import { Action, AppText, Card, ErrorMessage, IconButton, styles, useTheme } fro
 import { openMaterial } from "./materials";
 import FocusNotes from "./focus-notes";
 import DemoNotice from "./demo-notice";
+import { compactSessionLabel } from "./session-label";
 
 export default function FocusSession({ id, topicId, kind, minutes }: { id: string; topicId?: string; kind?: string; minutes?: string }) {
   const { session, signOut } = useSession();
@@ -30,6 +31,7 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   const [saved, setSaved] = useState<string | null>(null);
   const [checkOpen, setCheckOpen] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => { if (block?.completed) router.dismissTo("/"); }, [block?.completed, router]);
   const finished = useRef(false);
@@ -154,6 +156,9 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   const remaining = Math.max(0, displayClock.minutes * 60 - displayClock.elapsed);
   const canFinishTask = checked && (!block.task?.checkQuestion || response.trim().length > 0);
   const disabled = busy || notesBusy;
+  const label = compactSessionLabel(block.title, block.kind);
+  const sourceRef = block.task?.sourceRef || label.reference;
+  const canOpenSource = !!((block.task?.sourceFileId && block.fileAvailable) || (block.task?.sourceUrl && /^https?:\/\//.test(block.task.sourceUrl)));
   function toggleTimer() {
     const current = latest.current.clock;
     if (!current || disabled || remaining === 0) return;
@@ -163,42 +168,52 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   return <View style={styles.screen}>
     <ScrollView contentInsetAdjustmentBehavior="automatic" automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.content, { paddingBottom: Math.max(40, insets.bottom) }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
       <DemoNotice />
-      <View style={{ gap: 6 }}><AppText size={14} weight="600" muted>{block.course.name}</AppText><AppText size={28} weight="800">{block.title}</AppText></View>
-      <Card style={{ alignItems: "center", backgroundColor: theme.tint, gap: 16 }}>
-        <AppText size={60} weight="500" style={{ fontVariant: ["tabular-nums"] }}>{formatTimer(remaining)}</AppText>
-        <AppText size={14} muted>{remaining === 0 ? "Time is up. Save your progress when you're ready." : displayClock.running ? "Focus time" : "Paused"}</AppText>
-        <AppText size={13} muted>{Math.floor(displayClock.elapsed / 60)} minutes studied · {clock.minutes} minute session</AppText>
+      <View style={{ gap: 4 }}>
+        <AppText size={13} muted>{[block.course.name, label.activity].filter(Boolean).join(" · ")}</AppText>
+        <AppText size={22} weight="700">{label.title}</AppText>
+      </View>
+      <View style={{ alignItems: "center", gap: 10, paddingVertical: 12 }}>
+        <AppText size={64} weight="500" style={{ fontVariant: ["tabular-nums"] }}>{formatTimer(remaining)}</AppText>
+        <AppText size={13} muted>{remaining === 0 ? "Session complete" : `${clock.minutes} min${displayClock.running ? "" : " · Paused"}`}</AppText>
         <Action disabled={disabled || remaining === 0} onPress={toggleTimer}>{displayClock.running ? "Pause" : "Resume"}</Action>
-      </Card>
-      {block.task && <Card><AppText>{block.task.instruction}</AppText><AppText size={14} muted>{block.task.sourceRef || "Your material"}</AppText>
-        {!!block.task.sourceExcerpt && <AppText size={15}>{block.task.sourceExcerpt}</AppText>}
-        {(block.fileAvailable || block.task.sourceUrl) && <Action secondary onPress={() => {
-          if (block.task?.sourceFileId && block.fileAvailable) void openMaterial(session, block.task.sourceFileId, block.task.sourceRef || "source.pdf").catch(() => setError("Couldn't open this source."));
-          else if (block.task?.sourceUrl && /^https?:\/\//.test(block.task.sourceUrl)) void Linking.openURL(block.task.sourceUrl).catch(() => setError("Couldn't open this source."));
-        }}>Open source</Action>}
-      </Card>}
+      </View>
+      {block.task && <View style={{ gap: 8 }}>
+        <AppText size={15}>{block.task.instruction}</AppText>
+        {(sourceRef || block.task.sourceExcerpt || canOpenSource) && <View style={[styles.row, { gap: 4 }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={block.task.sourceExcerpt ? `${sourceOpen ? "Hide" : "Show"} source excerpt${sourceRef ? `: ${sourceRef}` : ""}` : sourceRef || "Source"} accessibilityState={{ expanded: sourceOpen, disabled: !block.task.sourceExcerpt }} disabled={!block.task.sourceExcerpt} onPress={() => setSourceOpen(value => !value)} style={[styles.row, { flex: 1, minHeight: 44, gap: 6 }]}>
+            <AppText size={13} muted style={{ flexShrink: 1 }}>{sourceRef || "Source excerpt"}</AppText>
+            {!!block.task.sourceExcerpt && <Ionicons name={sourceOpen ? "chevron-up-outline" : "chevron-down-outline"} size={16} color={theme.brand} />}
+          </Pressable>
+          {canOpenSource && <IconButton label="Open source" icon="open-outline" onPress={() => {
+            if (block.task?.sourceFileId && block.fileAvailable) void openMaterial(session, block.task.sourceFileId, block.task.sourceRef || "source.pdf").catch(() => setError("Couldn't open this source."));
+            else if (block.task?.sourceUrl) void Linking.openURL(block.task.sourceUrl).catch(() => setError("Couldn't open this source."));
+          }} />}
+        </View>}
+        {sourceOpen && !!block.task.sourceExcerpt && <Card><AppText size={14}>{block.task.sourceExcerpt}</AppText></Card>}
+      </View>}
       <FocusNotes key={block.topicId} topicId={block.topicId} entries={block.notes ?? []} draft={response} onDraftChange={changeResponse} disabled={busy} onBusyChange={setNotesBusy} onReload={async () => {
         const fresh = await getFocus(session.server, session.token, id, { topicId: block.topicId, kind: block.kind });
         setBlock(current => current ? { ...current, notes: fresh.notes } : fresh);
       }} />
       {block.task && <>
-        <Action secondary disabled={disabled} onPress={() => { pauseClock(); setCheckOpen(value => !value); }}>{checkOpen ? "Close goal check" : "Check learning goal"}</Action>
+        <Pressable accessibilityRole="button" accessibilityLabel="Check learning goal" accessibilityState={{ expanded: checkOpen, disabled }} disabled={disabled} onPress={() => { pauseClock(); setCheckOpen(value => !value); }} style={[styles.row, { minHeight: 44, justifyContent: "space-between" }]}>
+          <AppText size={15} weight="600">Check learning goal</AppText><Ionicons name={checkOpen ? "chevron-up-outline" : "chevron-down-outline"} size={18} color={theme.brand} />
+        </Pressable>
         {checkOpen && <Card>
-          <AppText size={19} weight="700">Optional learning check</AppText>
           <AppText>{block.task.successCriteria}</AppText>
           {!!block.task.checkQuestion && <AppText>{block.task.checkQuestion}</AppText>}
-          <AppText size={14} muted>Write your answer in the working notes above before checking it.</AppText>
-          {!!block.task.answerKey && <><Action secondary onPress={() => setShowAnswer(value => !value)}>{showAnswer ? "Hide answer key" : "Compare with the source"}</Action>{showAnswer && <AppText>{block.task.answerKey}</AppText>}</>}
+          <AppText size={13} muted>Answer in your notes, then check.</AppText>
+          {!!block.task.answerKey && <><Action secondary onPress={() => setShowAnswer(value => !value)}>{showAnswer ? "Hide answer" : "Show answer"}</Action>{showAnswer && <AppText>{block.task.answerKey}</AppText>}</>}
           <Pressable disabled={disabled} accessibilityRole="checkbox" accessibilityState={{ checked }} accessibilityLabel="I checked my result against the goal" onPress={() => setChecked(value => !value)} style={[styles.row, { minHeight: 48 }]}>
             <Ionicons name={checked ? "checkbox" : "square-outline"} size={27} color={theme.brand} /><AppText>I checked my result.</AppText>
           </Pressable>
           <Action busy={busy} disabled={!canFinishTask || disabled} onPress={() => { void finish("complete"); }}>Goal achieved</Action>
-          <Action secondary disabled={disabled} onPress={() => { void finish("practice"); }}>I need more practice</Action>
+          <Action secondary disabled={disabled} onPress={() => { void finish("practice"); }}>More practice</Action>
         </Card>}
       </>}
       <ErrorMessage message={error} />{saved && <AppText size={13} muted>{saved}</AppText>}
-      <Action secondary disabled={disabled} onPress={() => { void leave(); }}>Save and close</Action>
-      <Action secondary busy={busy} disabled={disabled} onPress={() => { void finish("session"); }}>Finish session</Action>
+      <Action busy={busy} disabled={disabled} onPress={() => { void finish("session"); }}>Finish session</Action>
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={() => { void leave(); }} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}><AppText size={15} weight="600" style={{ color: theme.brand, opacity: disabled ? 0.5 : 1 }}>Save and close</AppText></Pressable>
     </ScrollView>
   </View>;
 }

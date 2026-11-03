@@ -142,6 +142,8 @@ model Course {
   ects          Int?
   sourceCode    String?
   examSourceTitle String? // Explicitly chosen TUHH title, retained when dates change.
+  examNote      String? // Free-text module note, separate from topic/session notes.
+  examNoteUpdatedAt DateTime? // Revision retained after clearing for stale-edit protection.
   aiOptimized   Boolean      @default(false) // AI tuned topic difficulty/order/review
   intense       Boolean      @default(false) // global scheduler couldn't fit all work before the exam
   // German final grade once the exam is taken (1.0 best … 5.0 fail). null = not graded yet.

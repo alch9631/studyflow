@@ -11,8 +11,9 @@ export function AppText({ children, size = 16, weight = "400", muted = false, se
   return <Text selectable={selectable} numberOfLines={numberOfLines} style={[{ color: muted ? theme.muted : theme.text, fontSize: size, fontWeight: weight, lineHeight: size * 1.4 }, style]}>{children}</Text>;
 }
 
-export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+export function Card({ children, style, glass = false }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; glass?: boolean }) {
   const theme = useTheme();
+  if (glass) return <GlassSurface clear style={[styles.card, style]}>{children}</GlassSurface>;
   return <View style={[styles.card, { backgroundColor: theme.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.line }, style]}>{children}</View>;
 }
 

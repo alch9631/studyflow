@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { AppText, useTheme } from "./ui";
 import { GlassSurface } from "./glass-surface";
 
-/** Equal sections stay on one row at iPhone widths. Settings lives in the header. */
+/** Equal sections stay on one row at iPhone widths. */
 export function SectionTabs({ options, value, onChange }: {
   options: { label: string; value: string }[]; value: string; onChange: (value: string) => void;
 }) {

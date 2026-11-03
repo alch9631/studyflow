@@ -68,7 +68,10 @@ export function Page({ title, subtitle, children, query, back = false, sheet = f
     <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior={dockedTabs ? "never" : "automatic"} contentContainerStyle={styles.content}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.refreshing ?? false} onRefresh={() => { void query.reload(); }} /> : undefined}>
       <View style={{ gap: 4 }}>
-        <View style={[styles.row, { gap: 8 }]}>{back && !sheet && <IconButton glass label="Back" icon="arrow-back-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{sheet ? <IconButton glass label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /> : !back && <NavigationMenu />}</View>
+        {sheet ? <>
+          <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>{actions}<IconButton glass label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /></View>
+          <AppText size={22} weight="700" style={{ flexShrink: 1 }}>{title}</AppText>
+        </> : <View style={[styles.row, { gap: 8 }]}>{back && <IconButton glass label="Back" icon="arrow-back-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <NavigationMenu />}</View>}
         {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>
       <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}

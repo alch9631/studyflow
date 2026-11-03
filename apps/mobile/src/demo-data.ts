@@ -6,6 +6,7 @@ export type DemoBlock = MobileBlock & { date: string; start: number | null; end:
 export type DemoState = {
   today: string; sequence: number; courses: CourseDetail[]; blocks: DemoBlock[];
   progress: Record<string, MobileProgressInput>; notes: Record<string, MobileFocusNote[]>;
+  examNotes: Record<string, { body: string; updatedAt: string | null }>;
   preferences: PreferencesData; lectures: CalendarData["lectures"]; catalog: CatalogItem[];
   undo: DemoBlock[] | null;
 };
@@ -50,7 +51,7 @@ export function createDemoState(today = demoToday()): DemoState {
     block("demo-history-1", courses[0], 0, shiftDay(today, -2), 25, true),
     block("demo-history-2", courses[2], 0, shiftDay(today, -3), 30, true),
   ];
-  return { today, sequence: 0, courses, blocks, progress: {}, notes: {}, undo: null,
+  return { today, sequence: 0, courses, blocks, progress: {}, notes: {}, examNotes: {}, undo: null,
     preferences: { user: { name: "Alex Demo", email: "demo@studyflow.example" }, preferences: { dayStartMin: 540, dayEndMin: 1080, energy: "morning", dailyBudgetMin: 90 }, calendarToken: "" },
     lectures: [{ id: "demo-lecture", title: "Algorithms lecture", weekday: new Date(`${today}T12:00:00Z`).getUTCDay(), startMin: 540, endMin: 630, location: "Sample lecture room", courseId: "demo-algorithms" }],
     catalog: [{ id: "demo-catalog-calculus", code: "DEMO-101", name: "Calculus I", section: "Mathematics", ects: 6, university: "Demo university", program: "Engineering", examDate: shiftDay(today, 42), content: "Limits, derivatives, and integrals." },

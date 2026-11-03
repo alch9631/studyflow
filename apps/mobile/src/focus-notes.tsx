@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Crypto from "expo-crypto";
 import type { MobileFocusNote } from "../../../shared/mobile";
 import { api } from "./api";
 import { useSession } from "./session";
-import { Action, AppText, Card, ErrorMessage } from "./ui";
+import { Action, AppText, Card, ErrorMessage, useTheme } from "./ui";
 import { Field, LinkButton } from "./workspace";
 
 export default function FocusNotes({ topicId, entries, draft, onDraftChange, disabled, onBusyChange, onReload }: {
@@ -11,12 +13,14 @@ export default function FocusNotes({ topicId, entries, draft, onDraftChange, dis
   disabled: boolean; onBusyChange: (value: boolean) => void; onReload: () => Promise<void>;
 }) {
   const { session } = useSession();
+  const theme = useTheme();
   const [saved, setSaved] = useState<MobileFocusNote[]>([]);
   const [editing, setEditing] = useState<MobileFocusNote | null>(null);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(10);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const request = useRef<{ id: string; body: string } | null>(null);
   const byId = new Map(entries.map(note => [note.id, note]));
   for (const note of saved) if (!byId.has(note.id) || note.updatedAt >= byId.get(note.id)!.updatedAt) byId.set(note.id, note);
@@ -34,6 +38,7 @@ export default function FocusNotes({ topicId, entries, draft, onDraftChange, dis
         method: "POST", body: { fields: { topicId, id: existing?.id ?? request.current.id, body: text, ...(existing ? { updatedAt: existing.updatedAt } : {}) } },
       });
       setSaved(notes => [result.note, ...notes.filter(note => note.id !== result.note.id)]);
+      setHistoryOpen(true);
       if (existing) setEditing(null);
       else { request.current = null; onDraftChange(""); }
     } catch (e) { setError(e instanceof Error ? e.message : "Couldn't save this note. Your text is still here."); }
@@ -41,11 +46,13 @@ export default function FocusNotes({ topicId, entries, draft, onDraftChange, dis
   }
 
   return <>
-    <Field label="Your working notes" value={draft} onChange={onDraftChange} multiline disabled={disabled || busy} maxLength={4000} />
-    <Action secondary busy={busy && !editing} disabled={disabled || busy || !draft.trim()} onPress={() => { void save(); }}>Save note</Action>
+    <Field label="Notes" value={draft} onChange={onDraftChange} multiline placeholder="Write an answer or thought…" disabled={disabled || busy} maxLength={4000} />
+    {!!draft.trim() && <Action secondary busy={busy && !editing} disabled={disabled || busy} onPress={() => { void save(); }}>Save note</Action>}
     <ErrorMessage message={error} />
-    {history.length > 0 && <AppText size={19} weight="700">Saved notes</AppText>}
-    {history.slice(0, limit).map(note => <Card key={note.id}>
+    {history.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel={`Saved notes, ${history.length}`} accessibilityState={{ expanded: historyOpen, disabled: busy || !!editing }} disabled={busy || !!editing} onPress={() => setHistoryOpen(value => !value)} style={{ flexDirection: "row", alignItems: "center", minHeight: 44, gap: 8 }}>
+      <AppText size={15} weight="600" style={{ flex: 1 }}>Saved notes · {history.length}</AppText><Ionicons name={historyOpen ? "chevron-up-outline" : "chevron-down-outline"} size={18} color={theme.brand} />
+    </Pressable>}
+    {historyOpen && <View style={{ gap: 12 }}>{history.slice(0, limit).map(note => <Card key={note.id}>
       <AppText size={12} muted>{new Date(note.createdAt).toLocaleString()}</AppText>
       {editing?.id === note.id ? <>
         <Field label="Edit saved note" value={body} onChange={setBody} multiline disabled={disabled || busy} maxLength={note.id.startsWith("topic:") ? 10000 : 4000} />
@@ -61,6 +68,6 @@ export default function FocusNotes({ topicId, entries, draft, onDraftChange, dis
       if (busy || disabled) return;
       setBusy(true); setError(null);
       void onReload().catch(() => setError("Couldn't refresh your notes. Try again when you're connected.")).finally(() => setBusy(false));
-    }} />}
+    }} />}</View>}
   </>;
 }

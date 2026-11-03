@@ -34,7 +34,7 @@ export default function Courses() {
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, backgroundColor: theme.surface, borderRadius: 12, borderCurve: "continuous" }}>
       <Ionicons name="search-outline" size={18} color={theme.muted} /><TextInput accessibilityLabel="Search courses" placeholder="Search" placeholderTextColor={theme.muted} value={search} onChangeText={setSearch} autoCorrect={false} returnKeyType="search" style={{ flex: 1, minHeight: 44, color: theme.text, fontSize: 16 }} />
     </View>
-    <View>{list.map(c => <ContentRow key={c.id} title={c.name} icon={c.isPassed ? "checkmark-circle-outline" : "book-outline"}
+    <View>{list.map(c => <ContentRow key={c.id} title={c.name} titleLines={2} icon={c.isPassed ? "checkmark-circle-outline" : "book-outline"}
       subtitle={c.isPassed ? c.grade !== null ? `Passed · ${c.grade.toFixed(1)}` : "Passed" : `Exam ${dateLabel(c.examDate)}`} onPressIn={() => prefetch(`courses/${encodeURIComponent(c.id)}`)} onPress={() => open(c.id)} />)}</View>
     {!query.loading && !query.error && !list.length ? <AppText muted>{search.trim() ? "No matching courses." : tab === "passed" ? "No passed courses yet." : "Add a course with +."}</AppText> : null}
   </Page>;

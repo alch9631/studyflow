@@ -108,6 +108,31 @@ async function main() {
     assert.equal(response.status, 404); assert.equal((await prisma.course.findUniqueOrThrow({ where: { id: privateCourse.id } })).grade, 1);
     assert.equal((await request("actions/saveNote", token, { topicId: privateCourse.topics[0].id, body: "overwrite" })).status, 404);
   });
+  await check("module notes sync independently with bounded text, ownership and stale-edit protection", async () => {
+    const fields = { courseId: course.id, body: "  Bring the formula sheet\nRoom A  ", updatedAt: "" };
+    assert.equal((await request("actions/saveExamNote", undefined, fields)).status, 401);
+    assert.equal((await request("actions/saveExamNote", token, { ...fields, courseId: privateCourse.id })).status, 404);
+    assert.equal((await request("actions/saveExamNote", token, { ...fields, body: "x".repeat(4001) })).status, 400);
+    assert.equal((await request("actions/saveExamNote", token, { ...fields, updatedAt: "invalid" })).status, 400);
+    const saved = await request("actions/saveExamNote", token, fields); assert.equal(saved.status, 200);
+    const first = (await saved.json()).note;
+    assert.equal(first.body, "Bring the formula sheet\nRoom A"); assert.ok(first.updatedAt);
+    const exams = await (await request("exams", token)).json();
+    const fromReload = exams.allCourses.find((item: { id: string }) => item.id === course.id);
+    assert.equal(fromReload.examNote, first.body); assert.equal(fromReload.examNoteUpdatedAt, first.updatedAt);
+    assert.equal((await request("actions/saveExamNote", token, { ...fields, body: "stale overwrite" })).status, 400);
+    const cleared = await request("actions/saveExamNote", token, { courseId: course.id, body: " ", updatedAt: first.updatedAt });
+    assert.equal(cleared.status, 200); const clear = (await cleared.json()).note;
+    assert.equal(clear.body, ""); assert.ok(clear.updatedAt > first.updatedAt);
+    assert.equal((await request("actions/saveExamNote", token, { ...fields, body: "stale after clear", updatedAt: first.updatedAt })).status, 400);
+    const concurrent = await Promise.all(["one", "two"].map(body => request("actions/saveExamNote", token, { courseId: course.id, body, updatedAt: clear.updatedAt })));
+    assert.deepEqual(concurrent.map(response => response.status).sort(), [200, 400], "only one save can replace a loaded revision");
+    const current = await prisma.course.findUniqueOrThrow({ where: { id: course.id } });
+    assert.ok(["one", "two"].includes(current.examNote!));
+    assert.equal(await prisma.topic.count({ where: { courseId: course.id } }), 3, "module notes never create study topics");
+    assert.equal(await prisma.note.count({ where: { topic: { courseId: course.id } } }), 0, "module notes never replace topic notes");
+    assert.equal((await prisma.course.findUniqueOrThrow({ where: { id: privateCourse.id } })).examNote, null);
+  });
   await check("unknown actions and malformed fields are rejected", async () => {
     assert.equal((await request("actions/constructor", token, {})).status, 404);
     assert.equal((await request("actions/saveGrade", token, { grade: "1" })).status, 400);
