@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useFocusEffect, router } from "expo-router";
 import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,6 +29,9 @@ export function useMobileData<T>(path: string) {
     try { await load(true); } finally { setRefreshing(false); }
   }, [load]);
   const setError = useCallback((message: string | null) => cache.setError(path, message), [cache, path]);
+  // Native tabs mount together. Fetch on mount so the first tab switch has data
+  // ready; the focus read below shares the same request and freshness window.
+  useEffect(() => { void load(); }, [load]);
   // Focus/foreground refreshes are quiet when cached content is already visible.
   // Requests finish into the cache even when a tab loses focus.
   useFocusEffect(useCallback(() => {
@@ -42,6 +45,16 @@ export function useMobileData<T>(path: string) {
     catch (error) { if (error instanceof ApiError && error.status === 401) await signOut(); throw error; }
   }, [session, signOut]);
   return { data: state.data, error: state.error?.message ?? null, loading: !!session && state.data === null && state.loading, refreshing, reload, action, setError };
+}
+
+export function usePrefetchMobileData() {
+  const { session } = useSession();
+  return useCallback((path: string) => {
+    if (!session) return;
+    const cache = sessionCache(session.server, session.token);
+    // Prefetch is optional. A failed read remains retryable on screen focus.
+    void cache.load(path, () => api(session.server, session.token, path)).catch(() => {});
+  }, [session]);
 }
 
 export function Page({ title, subtitle, children, query, back = false, sheet = false, actions }: {
@@ -79,13 +92,13 @@ export function ProgressBar({ value, label }: { value: number; label?: string })
     <View style={{ height: 8, width: `${Math.max(0, Math.min(100, value))}%`, borderRadius: 4, backgroundColor: theme.brand }} />
   </View></View>;
 }
-export function Chips({ options, value, onChange, disabled = false }: { options: { label: string; value: string }[]; value: string; onChange: (value: string) => void; disabled?: boolean }) {
+export function Chips({ options, value, onChange, disabled = false, trailing }: { options: { label: string; value: string }[]; value: string; onChange: (value: string) => void; disabled?: boolean; trailing?: React.ReactNode }) {
   const theme = useTheme();
   return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{options.map(o => <Pressable key={o.value} accessibilityRole="button" accessibilityState={{ selected: o.value === value, disabled }} disabled={disabled} onPress={() => onChange(o.value)} style={{ opacity: disabled ? 0.5 : 1 }}>
     <GlassSurface interactive solid={o.value === value} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, ...(o.value === value ? { backgroundColor: theme.accent } : {}) }}>
       <AppText size={14} weight="600" style={{ color: o.value === value ? theme.onAccent : theme.brand }}>{o.label}</AppText>
     </GlassSurface>
-  </Pressable>)}</View>;
+  </Pressable>)}{trailing}</View>;
 }
 export function edit(action: string, fields: FormFields = {}, returnTo?: string) {
   router.push({ pathname: "/edit/[action]", params: { action, fields: JSON.stringify(fields), ...(returnTo ? { returnTo } : {}) } });

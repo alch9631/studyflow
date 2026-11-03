@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { MobileQueryCache, clearSessionCache, sessionCache } from "../../apps/mobile/src/query-cache";
 import { api } from "../../apps/mobile/src/api";
 import { startDemoSession, endDemoSession } from "../../apps/mobile/src/demo";
+import { fullSwipeSide } from "../../apps/mobile/src/swipe-action";
 
 let passed = 0;
 async function check(name: string, run: () => void | Promise<void>) { await run(); console.log(`  ✓ ${name}`); passed++; }
@@ -71,6 +72,31 @@ async function main() {
     await cache.load("today", async () => "plan");
     await cache.load("courses/one", async () => "old"); await cache.load("courses/two", async () => "new");
     assert.equal(cache.snapshot("today").data, "plan"); assert.equal(cache.snapshot("courses/one").data, null); unmount();
+  });
+  await check("prefetch updates only its own screen while invalidation still notifies every tab", async () => {
+    const cache = new MobileQueryCache(); let today = 0; let courses = 0;
+    cache.subscribe("today", () => today++); cache.subscribe("courses", () => courses++);
+    await cache.load("courses/one", async () => "prefetched detail");
+    assert.equal(today, 0); assert.equal(courses, 0);
+    await cache.load("courses", async () => ["one"]);
+    assert.equal(today, 0); assert.equal(courses, 2);
+    cache.invalidate(); assert.equal(today, 1); assert.equal(courses, 3);
+    cache.clear(); assert.equal(today, 2); assert.equal(courses, 4);
+  });
+  await check("short swipes reveal actions and deliberate full swipes trigger the matching side", () => {
+    assert.equal(fullSwipeSide(88, 360, true, true), null);
+    assert.equal(fullSwipeSide(-150, 360, true, true), null);
+    assert.equal(fullSwipeSide(234, 360, true, true), "leading");
+    assert.equal(fullSwipeSide(-234, 360, true, true), "trailing");
+    // A drag that returns below the threshold before release does not commit.
+    assert.equal(fullSwipeSide(100, 360, true, true), null);
+  });
+  await check("full swipes require a laid-out row and an action on the swiped side", () => {
+    assert.equal(fullSwipeSide(300, 0, true, true), null);
+    assert.equal(fullSwipeSide(300, 360, false, true), null);
+    assert.equal(fullSwipeSide(-300, 360, true, false), null);
+    assert.equal(fullSwipeSide(150, 200, true, true), null);
+    assert.equal(fullSwipeSide(160, 200, true, true), "leading");
   });
   await check("API mutations invalidate other tabs while failed edits preserve fresh data", async () => {
     const session = startDemoSession(); const cache = sessionCache(session.server, session.token); let reads = 0;

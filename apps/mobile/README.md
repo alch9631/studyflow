@@ -29,15 +29,20 @@ subscriptions require signing in; the demo labels those features accordingly.
 
 Today shows one session list with progress above it. Tap a session to choose its
 length; the three-action row menu keeps completion, moving and notes available.
-Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. Swiping
-reveals a button; it never changes data on its own. The sliders icon opens a
+Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. A short
+swipe reveals a button; releasing a full swipe across at least 65% of the row
+(and at least 160 points) runs that action. The sliders icon opens a
 plan-adjustment sheet with a short impact for each choice and the available undo.
 
 Tap a course row to open a resizable sheet with a grabber and close control. **+** offers course creation, the catalog
 and syllabus import. Within a course, Topics, Materials and Deadlines are visible
-section controls; the gear opens course settings. Use the pen for topic notes.
+section controls; the gear beside Deadlines opens grouped course settings. Use
+the search icon to find topics and the pen for topic notes. Start a sitting from
+Today, Calendar or a topic's details. Visited course sections retain their rows
+when switching sections, and hidden sections stay out of accessibility navigation.
 Topics and deadlines swipe right for completion and left for deletion. Materials
-stay in a counted disclosure and swipe left for deletion. Deletion always asks
+appear directly below a counted heading, with Add files and a file-category menu
+above the list, and swipe left for deletion. Deletion always asks
 for confirmation, and all swipe actions have a visible button or menu alternative.
 
 Calendar leads with a swipeable date strip and compact agenda rows. Tap a session
@@ -208,8 +213,11 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 ## Tab caching and state
 
 Today, Calendar, Courses and workspace detail screens share a session-scoped,
-memory-only cache. Revisiting a fresh screen reuses its data for 60 seconds;
-stale data stays visible while it refreshes on focus or return from the background.
+memory-only cache. Revisiting a fresh screen reuses its data for 60 seconds.
+Native tabs start their reads together on mount, so switching tabs can use data
+already loaded in the background. Courses also prefetch the first four displayed
+course details on focus and begin any other course read on touch-down.
+Stale data stays visible while it refreshes on focus or return from the background.
 Pull to refresh always requests current data. Concurrent reads share a request,
 failed refreshes keep the last result beside the retry action, and changing the
 calendar week or course uses a separate cache entry. A day rollover also expires
@@ -295,7 +303,7 @@ credentials. None of those release steps are silently handled by a JavaScript ex
 
 The [2 November 2026 review](../../docs/IOS_UX_REVIEW.md) records the native walkthrough,
 confirmed fixes, screenshots, regression checks, and physical-device verification limits.
-Course and topic actions can start a sitting directly, and Pause/Resume stays beside
+Topic details can start a sitting directly, and Pause/Resume stays beside
 the countdown. Forms protect unsaved edits. Exams and Settings open with Back links
 outside the three-tab navigator.
 

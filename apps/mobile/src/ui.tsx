@@ -31,17 +31,17 @@ export function ErrorMessage({ message }: { message: string | null }) {
   return message ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger, fontSize: 15, lineHeight: 22 }}>{message}</Text> : null;
 }
 
-export function IconButton({ label, icon, onPress, disabled = false, busy = false, glass = false }: {
-  label: string; icon: React.ComponentProps<typeof Ionicons>["name"]; onPress: () => void; disabled?: boolean; busy?: boolean; glass?: boolean;
+export function IconButton({ label, icon, onPress, disabled = false, busy = false, glass = false, selected = false }: {
+  label: string; icon: React.ComponentProps<typeof Ionicons>["name"]; onPress: () => void; disabled?: boolean; busy?: boolean; glass?: boolean; selected?: boolean;
 }) {
   const theme = useTheme();
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress}
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: disabled || busy, busy, selected }} disabled={disabled || busy} onPress={onPress}
     style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
     {({ pressed }) => {
       const content = <View style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: disabled || busy || pressed ? 0.5 : 1 }}>
-        {busy ? <ActivityIndicator color={theme.brand} /> : <Ionicons name={icon} size={22} color={theme.brand} />}
+        {busy ? <ActivityIndicator color={selected ? theme.onAccent : theme.brand} /> : <Ionicons name={icon} size={22} color={selected ? theme.onAccent : theme.brand} />}
       </View>;
-      return glass ? <GlassSurface interactive style={{ borderRadius: 22 }}>{content}</GlassSurface> : content;
+      return glass || selected ? <GlassSurface interactive solid={selected} style={{ borderRadius: 22, ...(selected ? { backgroundColor: theme.accent } : {}) }}>{content}</GlassSurface> : content;
     }}
   </Pressable>;
 }

@@ -25,7 +25,7 @@ export class MobileQueryCache {
     this.listeners.set(listener, path);
     return () => { this.listeners.delete(listener); };
   };
-  private emit() { this.listeners.forEach((_path, listener) => listener()); }
+  private emit(path?: string) { this.listeners.forEach((observedPath, listener) => { if (path === undefined || observedPath === path) listener(); }); }
   private day() { return new Date(this.now()).toDateString(); }
 
   load<T>(path: string, fetcher: () => Promise<T>, force = false): Promise<void> {
@@ -57,9 +57,9 @@ export class MobileQueryCache {
     }).finally(() => {
       if (!valid()) return;
       current.pending = undefined;
-      this.prune(); this.emit();
+      this.prune(); this.emit(path);
     });
-    this.emit();
+    this.emit(path);
     return current.pending;
   }
 
@@ -67,7 +67,7 @@ export class MobileQueryCache {
     const entry = this.entries.get(path);
     if (!entry) return;
     entry.snapshot = { ...entry.snapshot, error: message ? new Error(message) : null };
-    this.emit();
+    this.emit(path);
   }
   invalidate() {
     for (const entry of this.entries.values()) {
