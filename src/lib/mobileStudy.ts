@@ -1,3 +1,4 @@
+import { readTopicPlanning, topicDeadline } from "./topicPlanning";
 import type { MobileBlock, MobileFinishInput, MobileProgressInput, MobileResultInput, MobileToday } from "../../shared/mobile";
 import { prisma } from "./db";
 import { previewSchedule, todayISO } from "./planService";
@@ -41,7 +42,7 @@ export async function mobileToday(userId: string): Promise<MobileToday> {
   const [user, blocks, exam, assignments, lectures, overdue, proposal] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, email: true, preferences: true, recoverySnapshot: true } }),
     prisma.studyBlock.findMany({ where: { date: { gte: start, lt: end }, course: { userId } },
-      select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, actualMinutes: true, course: { select: { id: true, name: true, examDate: true } } },
+      select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, actualMinutes: true, course: { select: { id: true, name: true, examDate: true, assignments: { select: { id: true, dueDate: true, done: true } } } } },
       orderBy: [{ kind: "desc" }, { minutes: "desc" }, { id: "asc" }], take: 500 }),
     prisma.course.findFirst({ where: { userId, passed: false, OR: [{ grade: null }, { grade: { gt: 4 } }], examDate: { gte: start } },
       orderBy: { examDate: "asc" }, select: { name: true, examDate: true } }),
@@ -51,11 +52,14 @@ export async function mobileToday(userId: string): Promise<MobileToday> {
     assessRecovery(userId, date), previewSchedule(userId),
   ]);
   const topics = await prisma.topic.findMany({ where: { course: { userId }, OR: [{ id: { in: blocks.map(b => b.topicId) } }, { done: false, studyProgress: { not: null } }] },
-    select: { id: true, order: true, confidence: true, studyProgress: true } });
+    select: { id: true, order: true, confidence: true, planning: true, studyProgress: true } });
   const byId = new Map(topics.map(t => [t.id, t]));
-  const ranked = prioritizeBlocks(blocks.map(b => ({ ...b, examDays: daysUntil(b.course.examDate, date),
-    confidence: byId.get(b.topicId)?.confidence, topicOrder: byId.get(b.topicId)?.order, progress: readStudyProgress(byId.get(b.topicId)?.studyProgress) })));
   const prefs = parsePrefs(user.preferences);
+  const ranked = prioritizeBlocks(blocks.map(b => ({ ...b, examDays: daysUntil(b.course.examDate, date),
+    importance: readTopicPlanning(byId.get(b.topicId)?.planning).importance,
+    deadlineDays: daysUntil(new Date(topicDeadline(b.course.examDate.toISOString().slice(0, 10), readTopicPlanning(byId.get(b.topicId)?.planning), b.course.assignments) + "T00:00:00Z"), date),
+    remainingWorkMin: (proposal.get(b.course.id)?.blocks.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0) + (proposal.get(b.course.id)?.unscheduled.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0), dailyCapacityMin: prefs.dailyBudgetMin,
+    confidence: byId.get(b.topicId)?.confidence, topicOrder: byId.get(b.topicId)?.order, progress: readStudyProgress(byId.get(b.topicId)?.studyProgress) })));
   const [hours, minutes] = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()).split(":").map(Number);
   const open = ranked.filter(b => !b.completed);
   const availableMinutes = studyBudget(Math.max(0, Math.floor(availableStudyMinutes({ startMin: Math.max(hours * 60 + minutes, prefs.dayStartMin), endMin: prefs.dayEndMin }, lectures) * 0.75)),
@@ -81,7 +85,7 @@ export async function mobileToday(userId: string): Promise<MobileToday> {
       select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, course: { select: { id: true, name: true } } } }) : null;
   return { date, user: { name: user.name, email: user.email }, blocks: await presentBlocks(userId, ranked), nextBlockId: elsewhere?.id ?? hero?.id,
     resumeBlock: elsewhere ? (await presentBlocks(userId, [elsewhere]))[0] : null,
-    planHealth: { overdueSessions: overdue.overdueSessions, overdueMinutes: overdue.overdueMinutes, availableMinutes, overloaded, undoAvailable: recoveryUndoAvailable(user.recoverySnapshot), previews,
+    planHealth: { unscheduled: [...proposal.entries()].flatMap(([courseId, plan]) => plan.unscheduled.map(item => ({ ...item, courseId }))), overdueSessions: overdue.overdueSessions, overdueMinutes: overdue.overdueMinutes, availableMinutes, overloaded, undoAvailable: recoveryUndoAvailable(user.recoverySnapshot), previews,
       nextDays: Array.from({ length: 3 }, (_, index) => { const day = new Date(start.getTime() + index * 86400_000).toISOString().slice(0, 10); const planned = proposed.filter(b => b.date === day);
         return { date: day, count: planned.length, minutes: planned.reduce((sum, b) => sum + b.minutes, 0) }; }) },
     summary: { plannedMinutes: blocks.reduce((sum, b) => sum + b.minutes, 0), completedMinutes: blocks.filter((b) => b.completed).reduce((sum, b) => sum + b.minutes, 0),

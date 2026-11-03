@@ -40,6 +40,15 @@ export default function StudyTaskForm({ courseId, topicId, title = "", task, mat
           {t("study.estimate")}<Input name="estimatedMinutes" type="number" min={5} max={600} step={1} required
             defaultValue={task?.estimatedMinutes ?? 30} className="mt-1 w-full" />
         </label>
+        <label className="block text-sm font-medium">
+          {t.locale === "de" ? "Lernaktivität" : "Study activity"}
+          <Select name="activity" defaultValue={task?.activity ?? ""} className="mt-1 w-full">
+            <option value="">{t.locale === "de" ? "Allgemein" : "General"}</option>
+            <option value="read">{t.locale === "de" ? "Lesen" : "Read"}</option>
+            <option value="solve">{t.locale === "de" ? "Aufgaben lösen" : "Solve"}</option>
+            <option value="recall">{t.locale === "de" ? "Wissen abrufen" : "Recall"}</option>
+          </Select>
+        </label>
         <fieldset className="space-y-3">
           <legend className="mb-2 text-sm font-semibold">{t("study.source")}</legend>
           <label className="block text-sm">

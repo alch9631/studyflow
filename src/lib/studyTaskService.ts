@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 import { readStudyTask, readStudyResult, validateStudyTask } from "./studyTask";
 import { ValidationError } from "./validate";
-import { calibrationFromHistory, rebuildSchedule } from "./planService";
+import { topicCalibration, rebuildSchedule } from "./planService";
 import { difficultyMultiplier, MINUTES_PER_EFFORT } from "./planner";
 
 export async function saveStudyTaskForUser(userId: string, input: {
@@ -19,6 +19,7 @@ export async function saveStudyTaskForUser(userId: string, input: {
     const existing = input.topicId ? await tx.topic.findFirst({ where: { id: input.topicId, courseId: course.id }, select: { studyTask: true, done: true } }) : null;
     if (input.topicId && !existing) return null;
     const previous = readStudyTask(existing?.studyTask);
+    if (!task.activity && previous?.activity) task.activity = previous.activity;
     if (!input.task.sourceExcerpt && previous?.sourceFileId === task.sourceFileId && previous?.sourceRef === task.sourceRef) task.sourceExcerpt = previous?.sourceExcerpt;
     const data = {
       title, studyTask: JSON.stringify(task),
@@ -68,7 +69,10 @@ export async function recordStudyResult(userId: string, input: {
     }
     // Retrying a saved submission must never add study time or extra work twice.
     if (block.studyResult) return { blockId: block.id, courseId: block.courseId, alreadySaved: true, needsReplan: !readStudyResult(block.studyResult)?.planUpdated };
+    const attempts = await tx.studyBlock.findMany({ where: { topicId: topic.id, courseId: block.courseId, kind: "study", id: { not: block.id } }, select: { actualMinutes: true } });
+    const totalActualMinutes = attempts.reduce((sum, attempt) => sum + (attempt.actualMinutes ?? 0), 0) + Math.max(block.actualMinutes ?? 0, input.actualMinutes);
     const result = JSON.stringify({ version: 1, outcome: input.outcome, response: input.response.trim(),
+      baselineMinutes: task.estimatedMinutes, totalActualMinutes, activity: task.activity ?? "general",
       checked: input.checked, selfReported: true, requestId: input.blockId, recordedAt: new Date().toISOString(), planUpdated: false });
     const remainingStudy = input.outcome === "complete" && block.kind === "study"
       ? await tx.studyBlock.aggregate({ where: { topicId: topic.id, courseId: block.courseId, completed: false, kind: "study" }, _sum: { minutes: true } }) : null;
@@ -83,7 +87,7 @@ export async function recordStudyResult(userId: string, input: {
     let effort = topic.effort;
     if (input.outcome === "practice") {
       const history = await tx.studyBlock.findMany({ where: { courseId: block.courseId } });
-      const scale = difficultyMultiplier(block.course.difficulty) * calibrationFromHistory(history);
+      const scale = difficultyMultiplier(block.course.difficulty) * topicCalibration(topic, history);
       const studied = history.filter((b) => b.topicId === topic.id && b.completed && b.kind === "study")
         .reduce((sum, b) => sum + b.minutes, 0);
       // Keep at least one 15-minute practice task outstanding, even if the

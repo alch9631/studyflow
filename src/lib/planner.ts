@@ -21,6 +21,8 @@ export type Topic = {
 };
 
 export type StudyBlock = {
+  /** A protected, already timed session retains its identity during a rebuild. */
+  id?: string;
   date: string; // ISO date, e.g. "2026-06-10"
   topicId: string;
   topicTitle: string;
@@ -355,9 +357,10 @@ function intervalsForDifficulty(d: Difficulty | null | undefined): number[] {
 }
 
 /**
- * Spaced repetition: after a topic's last study session, schedule short recall
- * reviews at EXPANDING intervals, snapped to the next study day and kept before
- * the exam. This is the #1 evidence-backed retention lever.
+ * Forecast recall after a topic's first exposure, rather than waiting for all
+ * its study minutes to be allocated. The service uses actual attempts when known.
+ * Reviews follow expanding intervals, move to eligible study days, and remain
+ * before the exam.
  *
  * `difficultyByTopic` (optional) tunes the spacing PER topic from how hard the
  * student found it: hard topics get more/earlier reviews, easy fewer/later, and
@@ -370,14 +373,14 @@ export function buildReviewBlocks(
   difficultyByTopic: Record<string, Difficulty> = {},
 ): StudyBlock[] {
   if (dates.length === 0) return [];
-  const lastByTopic = new Map<string, { date: string; title: string }>();
+  const firstByTopic = new Map<string, { date: string; title: string }>();
   for (const b of study ?? []) {
-    const cur = lastByTopic.get(b.topicId);
-    if (!cur || b.date > cur.date) lastByTopic.set(b.topicId, { date: b.date, title: b.topicTitle });
+    const cur = firstByTopic.get(b.topicId);
+    if (!cur || b.date < cur.date) firstByTopic.set(b.topicId, { date: b.date, title: b.topicTitle });
   }
 
   const reviews: StudyBlock[] = [];
-  for (const [topicId, { date, title }] of lastByTopic) {
+  for (const [topicId, { date, title }] of firstByTopic) {
     const intervals = intervalsForDifficulty(difficultyByTopic[topicId]);
     const used = new Set<string>();
     for (const iv of intervals) {

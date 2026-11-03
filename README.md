@@ -106,13 +106,33 @@ Run calendar and timeline geometry checks with `npm run test:exam-overview`.
 
 ## The plan engine
 
-The heart of the app lives in [`src/lib/planner.ts`](src/lib/planner.ts) — pure, framework-free TypeScript. No DB, no React, fully unit-tested.
+`src/lib/planService.ts` builds the shared web/mobile plan with the pure integer-minute
+allocator in `src/lib/scheduleAllocator.ts`. Capacity includes the focused daily budget,
+study window and lectures. Allocation can reclaim scarce dates from flexible work;
+work that cannot fit stays in topic effort and appears under **Work awaiting a study day**,
+rather than overfilling the final day. Reviews share the same capacity and contribute
+to overload when they cannot fit.
+
+Recall is anchored to actual study/recall attempts, including a reset after a failed
+attempt. New-topic forecasts begin after the first exposure and include a final recall
+checkpoint. Timed commitments retain their row identity, date and duration when valid.
+Recent, comparable checked tasks inform estimates; stored baseline estimates and time
+across earlier attempts prevent successful retries from looking artificially fast.
+
+Open a topic's **Prerequisites & deadline** settings to select prerequisites, importance,
+an earlier deadline, or an assignment. Dependencies activate after the prerequisite is
+confirmed complete. Circular and cross-course links are rejected. AI may suggest topic
+order while concrete estimates and the single recall engine remain authoritative.
+
+The additive nullable `Topic.planning` column requires `npm run db:push` when updating
+an existing installation. Existing task metadata and mobile responses remain compatible.
 
 ```bash
-npx tsx src/lib/planner.test.ts   # run the engine tests
+npm run test:scheduling
+npm run test:service
+npm run test:spread
+npm run test:planloss
 ```
-
-`generatePlan(course, today)` builds a schedule. `healPlan(course, today)` re-spreads unfinished work across remaining days and flags overload.
 
 ## Stack
 

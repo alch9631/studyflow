@@ -213,6 +213,7 @@ model Topic {
   questions String? // JSON array of AI self-test questions (active recall)
   studyTask String? // Versioned JSON: concrete work, source, success criteria, optional answer key.
   studyProgress String? // Saved answer and elapsed time; survives schedule rebuilds.
+  planning String? // Versioned prerequisites, importance and optional assignment link.
   // Concrete tasks can cover part of a broader topic. Completing a child never
   // marks its parent covered or changes the parent's original work estimate.
   parentTopicId String?

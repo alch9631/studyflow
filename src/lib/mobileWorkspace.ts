@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { ApiError } from "./apiError";
-import { todayISO } from "./planService";
+import { previewSchedule, todayISO } from "./planService";
 import { coursePassed } from "./coursePassed";
 import { readStudyTask } from "./studyTask";
 import { getRemainingExams } from "./examSync";
@@ -17,9 +17,11 @@ export async function mobileCourses(userId: string) {
     select: { id: true, name: true, examDate: true, grade: true, passed: true, ects: true, difficulty: true, studyDays: true,
       topics: { where: { parentTopicId: null }, select: { done: true } },
       blocks: { select: { completed: true, minutes: true, actualMinutes: true, kind: true } } } });
+  const proposal = await previewSchedule(userId);
   return courses.map(({ topics, blocks, ...course }) => ({ ...course, examDate: course.examDate.toISOString().slice(0, 10),
     isPassed: coursePassed(course), topicsDone: topics.filter(t => t.done).length, topicsTotal: topics.length,
-    remainingMinutes: blocks.filter(b => !b.completed && b.kind === "study").reduce((s, b) => s + b.minutes, 0),
+    remainingMinutes: (proposal.get(course.id)?.blocks.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0) +
+      (proposal.get(course.id)?.unscheduled.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0),
     completedMinutes: blocks.filter(b => b.completed).reduce((s, b) => s + b.minutes, 0),
     loggedMinutes: blocks.reduce((s, b) => s + (b.actualMinutes ?? 0), 0) }));
 }
@@ -28,11 +30,12 @@ export async function mobileCourse(userId: string, id: string) {
   const course = await prisma.course.findFirst({ where: { id, userId },
     select: { id: true, name: true, examDate: true, grade: true, passed: true, ects: true, difficulty: true, studyDays: true,
       topics: { orderBy: [{ order: "asc" }, { id: "asc" }], take: 2000,
-        select: { id: true, title: true, done: true, confidence: true, parentTopicId: true, questions: true, studyTask: true, note: { select: { body: true } } } },
+        select: { id: true, title: true, done: true, confidence: true, parentTopicId: true, planning: true, questions: true, studyTask: true, note: { select: { body: true } } } },
       files: { orderBy: { createdAt: "desc" }, take: 200, select: { id: true, filename: true, category: true, sizeBytes: true, analysis: true, createdAt: true } },
       assignments: { orderBy: { dueDate: "asc" }, take: 500, select: { id: true, title: true, dueDate: true, done: true } } } });
   if (!course) throw new ApiError("NOT_FOUND", "Course not found.");
-  return { ...course, isPassed: coursePassed(course), examDate: course.examDate.toISOString().slice(0, 10),
+  const proposal = (await previewSchedule(userId)).get(course.id);
+  return { ...course, unscheduled: proposal?.unscheduled ?? [], isPassed: coursePassed(course), examDate: course.examDate.toISOString().slice(0, 10),
     topics: course.topics.map(({ questions, studyTask, note, ...topic }) => ({ ...topic, task: readStudyTask(studyTask), note: note?.body ?? "",
       questions: parseStringArray(questions) })),
     files: course.files.map(({ analysis, ...file }) => ({ ...file, summary: parseSummary(analysis), mockExamQuestions: parseExamQuestions(analysis).length })),

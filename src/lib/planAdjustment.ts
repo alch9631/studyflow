@@ -2,14 +2,15 @@ import { createHash } from "node:crypto";
 import { prisma } from "./db";
 
 async function planState(userId: string) {
-  const [blocks, courses, topics, user, lectures] = await Promise.all([
+  const [blocks, courses, topics, user, lectures, assignments] = await Promise.all([
     prisma.studyBlock.findMany({ where: { course: { userId } }, orderBy: { id: "asc" } }),
     prisma.course.findMany({ where: { userId }, orderBy: { id: "asc" }, select: { id: true, intense: true, minutesPerDay: true, examDate: true, studyDays: true } }),
-    prisma.topic.findMany({ where: { course: { userId } }, orderBy: { id: "asc" }, select: { id: true, done: true, confidence: true, effort: true, studyTask: true } }),
+    prisma.topic.findMany({ where: { course: { userId } }, orderBy: { id: "asc" }, select: { id: true, done: true, confidence: true, effort: true, studyTask: true, planning: true } }),
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { preferences: true } }),
     prisma.lecture.findMany({ where: { userId }, orderBy: { id: "asc" } }),
+    prisma.assignment.findMany({ where: { course: { userId } }, orderBy: { id: "asc" }, select: { id: true, dueDate: true, done: true } }),
   ]);
-  return { blocks, courses, topics, preferences: user.preferences, lectures };
+  return { blocks, courses, topics, preferences: user.preferences, lectures, assignments };
 }
 type PlanState = Awaited<ReturnType<typeof planState>>;
 const fingerprint = (state: unknown) => createHash("sha256").update(JSON.stringify(state)).digest("hex");
@@ -39,14 +40,15 @@ export async function undoPlanAdjustment(userId: string): Promise<boolean> {
     if (!recoveryUndoAvailable(user.recoverySnapshot)) return false;
     const snapshot = JSON.parse(user.recoverySnapshot!) as { before: Pick<PlanState, "blocks" | "courses">; after: string };
     // The state read and comparison must share the transaction with restoration.
-    const [blocks, courses, topics, preferences, lectures] = await Promise.all([
+    const [blocks, courses, topics, preferences, lectures, assignments] = await Promise.all([
       tx.studyBlock.findMany({ where: { course: { userId } }, orderBy: { id: "asc" } }),
       tx.course.findMany({ where: { userId }, orderBy: { id: "asc" }, select: { id: true, intense: true, minutesPerDay: true, examDate: true, studyDays: true } }),
-      tx.topic.findMany({ where: { course: { userId } }, orderBy: { id: "asc" }, select: { id: true, done: true, confidence: true, effort: true, studyTask: true } }),
+      tx.topic.findMany({ where: { course: { userId } }, orderBy: { id: "asc" }, select: { id: true, done: true, confidence: true, effort: true, studyTask: true, planning: true } }),
       tx.user.findUniqueOrThrow({ where: { id: userId }, select: { preferences: true } }),
       tx.lecture.findMany({ where: { userId }, orderBy: { id: "asc" } }),
+      tx.assignment.findMany({ where: { course: { userId } }, orderBy: { id: "asc" }, select: { id: true, dueDate: true, done: true } }),
     ]);
-    if (fingerprint({ blocks, courses, topics, preferences: preferences.preferences, lectures }) !== snapshot.after) {
+    if (fingerprint({ blocks, courses, topics, preferences: preferences.preferences, lectures, assignments }) !== snapshot.after) {
       await tx.user.update({ where: { id: userId }, data: { recoverySnapshot: null } });
       return false;
     }

@@ -9,15 +9,15 @@
  * run-up to the exam empty. The new allocator PACES each course evenly to its
  * exam (≈ remainingWork / remainingStudyDays), so a subject is present across its
  * whole runway, each topic spans several days, and the days near the exam still
- * carry study + spaced review. Overload (work that can't fit) still piles onto
- * the last study day and flags the course `intense` — nothing is ever dropped.
+ * carry study + spaced review. Overload stays in a separate backlog and flags the course `intense`;
+ * calendar capacity is never exceeded and topic effort is retained.
  *
  * Runs against an isolated throwaway test DB (see ./testDb), never dev/prod.
  * Run: npx tsx src/lib/planSpread.test.ts
  */
 import "./testDb"; // MUST be first: points ./db at the test DB before it loads.
 import { prisma } from "./db";
-import { rebuildSchedule, todayISO } from "./planService";
+import { rebuildSchedule, previewSchedule, todayISO } from "./planService";
 
 let passed = 0;
 let failed = 0;
@@ -144,8 +144,7 @@ async function main() {
   }
 
   // ===========================================================================
-  // 3) OVERLOAD still piles the remainder onto the LAST study day and flags the
-  //    course `intense` — nothing dropped (preserved behavior).
+  // 3) OVERLOAD is visible as backlog; the calendar remains achievable.
   // ===========================================================================
   const cram = await seed([
     { name: "Cram", daysOut: 7, topics: Array.from({ length: 8 }, (_, i) => ({ title: `C${i}`, effort: 5 })) },
@@ -162,13 +161,15 @@ async function main() {
     const totalScheduled = study.reduce((s, b) => s + b.minutes, 0);
 
     check("overload flags course intense", course?.intense === true);
-    // The pile-on shows up as a heavy last day (the remainder dumped there).
-    check("overload piles a heavy remainder onto the last study day",
-      lastDayMinutes > 360);
+    // Excess work is reported separately from executable calendar sessions.
+    check("overload never exceeds daily capacity on the final day",
+      lastDayMinutes <= 180);
     // Nothing dropped: every topic is still represented somewhere in the plan.
-    const covered = new Set(study.map((b) => b.topicTitle));
-    check("overload drops no topics (all 8 still scheduled)", covered.size === 8);
+    const unscheduled = (await previewSchedule(cram.userId)).get(cram.ids[0].id)!.unscheduled;
+    const covered = new Set([...study, ...unscheduled].map((b) => b.topicTitle));
+    check("overload keeps all topics in the calendar or backlog", covered.size === 8);
     check("overload schedules a non-trivial total", totalScheduled > 0);
+    check("calendar plus backlog conserves all 3600 study minutes", totalScheduled + unscheduled.filter(item => item.kind === "study").reduce((sum, item) => sum + item.minutes, 0) === 3600);
   }
 
   // ===========================================================================

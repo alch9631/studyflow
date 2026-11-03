@@ -25,7 +25,7 @@
  */
 import "./testDb"; // MUST be first: points ./db at the test DB before it loads.
 import { prisma } from "./db";
-import { rebuildSchedule, todayISO } from "./planService";
+import { rebuildSchedule, previewSchedule, todayISO } from "./planService";
 import { MINUTES_PER_EFFORT } from "./planner";
 
 let passed = 0;
@@ -61,7 +61,10 @@ async function studyMinutes(topicId: string) {
     if (b.completed) done += b.minutes;
     else open += b.minutes;
   }
-  return { open, done, total: open + done };
+  const topic = await prisma.topic.findUniqueOrThrow({ where: { id: topicId }, select: { courseId: true, course: { select: { userId: true } } } });
+  const proposal = (await previewSchedule(topic.course.userId)).get(topic.courseId)!;
+  const backlog = proposal.unscheduled.filter(item => item.topicId === topicId && item.kind === "study").reduce((sum, item) => sum + item.minutes, 0);
+  return { open, done, backlog, total: open + done + backlog };
 }
 
 async function main() {

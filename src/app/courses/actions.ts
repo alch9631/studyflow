@@ -1045,6 +1045,9 @@ export async function toggleAssignment(formData: FormData) {
       where: { id },
       data: { done: toggleTarget(formData, a.done) },
     });
+    await rebuildSchedule(userId);
+    revalidatePath("/today");
+    revalidatePath("/calendar");
   }
   revalidatePath(
     safeRevalidatePath(str(formData.get("revalidate")), `/courses/${a?.courseId ?? ""}`),
@@ -1064,7 +1067,11 @@ export async function deleteAssignment(formData: FormData) {
     return;
   }
   // Scoped delete: only removes the assignment if its course is owned.
-  await deleteOwnedAssignment(userId, id);
+  if (await deleteOwnedAssignment(userId, id)) {
+    await rebuildSchedule(userId);
+    revalidatePath("/today");
+    revalidatePath("/calendar");
+  }
   revalidatePath(`/courses/${courseId}`);
 }
 

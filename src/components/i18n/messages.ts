@@ -613,11 +613,13 @@ const en = {
       hoursPerDay: "about {hours} h/day",
       minPerDay: "about {min} min/day",
       cause: {
+        "prerequisite": "Some work is waiting for its prerequisites to be completed.",
         "no-runway": "The plan can't be paced out any further.",
-        "few-days": "Other courses share the same study time, so the combined work does not fit before the exam.",
+        "few-days": "Some work or reviews cannot fit their available study days before the deadline. Check the work awaiting a study day.",
         "over-ceiling": "Even using every study day, the workload won't fit before the exam.",
       },
       next: {
+        "prerequisite": "Complete the prerequisite tasks or update their links in topic settings.",
         "no-runway": "Put the time you have into the topics that pay off most — \"Refresh my plan\" will rebuild around what's left.",
         "few-days": "Review your daily availability in Settings, add study days if possible, or reduce lower-priority work.",
         "over-ceiling": "\"Refresh my plan\" rebuilds around what's still ahead — adding study days gives it more room to work with.",
@@ -1859,11 +1861,13 @@ const de: Messages = {
       hoursPerDay: "etwa {hours} Std./Tag",
       minPerDay: "etwa {min} Min/Tag",
       cause: {
+        "prerequisite": "Einige Aufgaben warten auf ihre Voraussetzungen.",
         "no-runway": "Der Plan lässt sich nicht weiter aufteilen.",
-        "few-days": "Andere Kurse teilen sich dieselbe Lernzeit. Die gesamte Arbeit passt daher nicht vor die Prüfung.",
+        "few-days": "Einige Aufgaben oder Wiederholungen passen nicht vor ihrer Frist auf die verfügbaren Lerntage. Prüfe die Arbeit ohne Lerntag.",
         "over-ceiling": "Selbst mit allen Lerntagen passt das Pensum nicht mehr vor die Prüfung.",
       },
       next: {
+        "prerequisite": "Schließe die Voraussetzungen ab oder ändere die Verknüpfungen in den Themeneinstellungen.",
         "no-runway": "Steck die verbleibende Zeit in die Themen, die am meisten bringen — „Plan auffrischen“ baut um den Rest herum neu auf.",
         "few-days": "Prüfe deine tägliche Lernzeit in den Einstellungen, ergänze wenn möglich Lerntage oder kürze weniger wichtige Arbeit.",
         "over-ceiling": "„Plan auffrischen“ baut den Plan um das Verbleibende herum neu auf — zusätzliche Lerntage geben ihm mehr Spielraum.",

@@ -39,6 +39,7 @@ export type MobileToday = {
     overdueSessions: number; overdueMinutes: number; availableMinutes: number; overloaded: boolean; undoAvailable: boolean;
     previews: Record<"protect" | "move" | "lighter", { beforeCount: number; afterCount: number; moved: number; afterPaceMin: number; examReach: string }>;
     nextDays: { date: string; minutes: number; count: number }[];
+    unscheduled?: { courseId: string; topicId: string; topicTitle: string; minutes: number; kind: "study" | "review"; reason: "capacity" | "prerequisite" | "deadline" }[];
   };
   assignments?: { id: string; title: string; dueDate: string; done: boolean; course: { id: string; name: string } }[];
   lectures?: { id: string; title: string; startMin: number; endMin: number; location: string | null }[];

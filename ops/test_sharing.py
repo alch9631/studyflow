@@ -16,6 +16,7 @@ class SharingTests(unittest.TestCase):
     def setUpClass(cls):
         cls.template_dir = tempfile.TemporaryDirectory(prefix='studyflow-sharing-test-')
         cls.template = Path(cls.template_dir.name) / 'template.db'
+        cls.template.touch()  # Prisma's SQLite engine may require an existing file.
         app = Path(__file__).resolve().parent.parent
         subprocess.run([shutil.which('node'), str(app / 'node_modules/prisma/build/index.js'),
                         'db', 'push', '--skip-generate', '--schema', str(app / 'prisma/schema.prisma')],

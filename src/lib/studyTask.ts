@@ -11,9 +11,10 @@ export type StudyTask = {
   checkQuestion: string;
   answerKey: string;
   sourceExcerpt?: string;
+  activity?: "read" | "solve" | "recall";
 };
 
-export function readStudyResult(raw: string | null | undefined): { outcome: "complete" | "practice" | "session"; planUpdated?: boolean; response?: string; recordedAt?: string } | null {
+export function readStudyResult(raw: string | null | undefined): { outcome: "complete" | "practice" | "session"; planUpdated?: boolean; response?: string; recordedAt?: string; baselineMinutes?: number; totalActualMinutes?: number; activity?: string } | null {
   if (!raw) return null;
   try {
     const result = JSON.parse(raw);
@@ -57,6 +58,7 @@ export function validateStudyTask(input: Record<string, unknown>): StudyTask {
     sourceUrl: studySourceUrl(input.sourceUrl),
     sourceRef: text(input.sourceRef, 300), checkQuestion, answerKey,
     sourceExcerpt: text(input.sourceExcerpt, 6000),
+    ...(["read", "solve", "recall"].includes(String(input.activity)) ? { activity: input.activity as StudyMode } : {}),
   };
 }
 
@@ -86,7 +88,7 @@ export function quickStudyTask(mode: StudyMode, minutes: number, language: "de" 
     recall: [de ? "Schließe das Material. Schreibe auf, was du über den ausgewählten Abschnitt weißt. Öffne ihn danach und korrigiere deine Lücken." : "Close the material. Recall what you know about the selected section, then reopen it and correct the gaps.",
       de ? "Ich habe mein Wissen ohne Hilfe abgerufen und mit der Quelle verglichen." : "I have recalled the material without help and checked the gaps against the source."],
   };
-  return validateStudyTask({ ...source, instruction: templates[mode][0], successCriteria: templates[mode][1], estimatedMinutes: minutes });
+  return validateStudyTask({ ...source, activity: mode, instruction: templates[mode][0], successCriteria: templates[mode][1], estimatedMinutes: minutes });
 }
 
 /** Old topics remain valid; malformed task metadata is treated as unconfigured. */

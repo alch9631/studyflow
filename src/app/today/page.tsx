@@ -1,3 +1,5 @@
+import { readTopicPlanning, topicDeadline } from "@/lib/topicPlanning";
+import UnscheduledWorkList from "@/components/UnscheduledWorkList";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
@@ -99,7 +101,7 @@ export default async function TodayPage({
         topicId: true,
         // course.examDate drives the per-course exam proximity used by the
         // explain-my-plan ordering reason and the catch-up urgency.
-        course: { select: { name: true, id: true, examDate: true } },
+        course: { select: { name: true, id: true, examDate: true, assignments: { select: { id: true, dueDate: true, done: true } } } },
       },
       // First-pass STUDY before its REVIEW within a day. "kind desc" puts
       // "study" before "review" (s > r), so you learn a topic before revising
@@ -202,7 +204,7 @@ export default async function TodayPage({
           course: { userId },
           id: { in: [...new Set(blocks.map((b) => b.topicId))] },
         },
-        select: { id: true, studyTask: true, studyProgress: true, confidence: true, order: true, note: { select: { body: true } } },
+        select: { id: true, studyTask: true, studyProgress: true, confidence: true, order: true, planning: true, note: { select: { body: true } } },
       })
     : [];
   const noteByTopic = new Map(noteRows.map((n) => [n.id, n.note?.body ?? null]));
@@ -211,6 +213,10 @@ export default async function TodayPage({
   // Cockpit math: capacity verdict + the four study-queue lanes + hero block.
   const cockpitBlocks: CockpitBlock[] = prioritizeBlocks(blocks.map((b) => ({
     examDays: daysUntil(b.course.examDate, today),
+    importance: readTopicPlanning(noteRows.find(topic => topic.id === b.topicId)?.planning).importance,
+    deadlineDays: daysUntil(new Date(topicDeadline(b.course.examDate.toISOString().slice(0, 10), readTopicPlanning(noteRows.find(topic => topic.id === b.topicId)?.planning), b.course.assignments) + "T00:00:00Z"), today),
+    remainingWorkMin: (proposal.get(b.course.id)?.blocks.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0) + (proposal.get(b.course.id)?.unscheduled.filter(block => block.kind === "study").reduce((sum, block) => sum + block.minutes, 0) ?? 0),
+    dailyCapacityMin: prefs.dailyBudgetMin,
     confidence: noteRows.find((topic) => topic.id === b.topicId)?.confidence,
     topicOrder: noteRows.find((topic) => topic.id === b.topicId)?.order,
     ...b,
@@ -306,6 +312,8 @@ export default async function TodayPage({
       {sp.msg === "undo-done" && <p role="status" className="mb-4 text-sm">{t("behind.undoDone")}</p>}
         </BehindSheet>
       </div>
+
+      <UnscheduledWorkList items={[...proposal.entries()].flatMap(([courseId, plan]) => plan.unscheduled.map(item => ({ ...item, courseId })))} de={t.locale === "de"} />
 
       {/* Recovery engine: after a recovery run, an honest summary of what was
           rebuilt. The proactive trigger now lives in the single "Adjust today"

@@ -2,13 +2,14 @@ import "./testDb";
 import assert from "node:assert/strict";
 import { prisma } from "./db";
 import { deleteTopicForUser } from "./topicDeletion";
+import { readTopicPlanning } from "./topicPlanning";
 
 async function main() {
   const owner = await prisma.user.create({ data: { email: "topic-owner@test.local" } });
   const other = await prisma.user.create({ data: { email: "topic-other@test.local" } });
   const course = await prisma.course.create({ data: { userId: owner.id, name: "Topics", examDate: new Date("2027-02-09") } });
   const topic = await prisma.topic.create({ data: { courseId: course.id, title: "Remove this" } });
-  const child = await prisma.topic.create({ data: { courseId: course.id, parentTopicId: topic.id, title: "Keep this child", note: { create: { body: "Child note" } } } });
+  const child = await prisma.topic.create({ data: { courseId: course.id, parentTopicId: topic.id, title: "Keep this child", planning: JSON.stringify({ version: 1, prerequisites: [topic.id], importance: 4 }), note: { create: { body: "Child note" } } } });
   await prisma.note.create({ data: { topicId: topic.id, body: "Topic scratchpad" } });
   await prisma.focusNote.create({ data: { topicId: topic.id, body: "Session note" } });
   const base = { courseId: course.id, topicId: topic.id, topicTitle: topic.title, date: new Date("2026-10-29"), minutes: 30 };
@@ -31,6 +32,9 @@ async function main() {
   assert.equal(kept.completed, true); assert.equal(kept.minutes, 7); assert.equal(kept.actualMinutes, 7);
   console.log("✓ Completed history stays unchanged; partially logged sessions retain actual study time");
   assert.equal((await prisma.topic.findUniqueOrThrow({ where: { id: child.id } })).parentTopicId, null);
+  const planning = readTopicPlanning((await prisma.topic.findUniqueOrThrow({ where: { id: child.id } })).planning);
+  assert.deepEqual(planning.prerequisites, [], "deleting a prerequisite cannot strand dependent work");
+  assert.equal(planning.importance, 4, "other planning settings survive deletion");
   assert.equal((await prisma.note.findUniqueOrThrow({ where: { topicId: child.id } })).body, "Child note");
   assert.equal(await prisma.studyBlock.count({ where: { id: childBlock.id } }), 1);
   console.log("✓ Child topics and their notes and plan remain intact");

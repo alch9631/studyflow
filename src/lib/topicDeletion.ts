@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { readTopicPlanning } from "./topicPlanning";
 
 /** Delete one owned topic and its future work, retaining completed study history. */
 export async function deleteTopicForUser(userId: string, topicId: string) {
@@ -11,6 +12,12 @@ export async function deleteTopicForUser(userId: string, topicId: string) {
     await tx.studyBlock.deleteMany({ where: { courseId: topic.courseId, topicId, completed: false } });
     // Notes belong to this topic; child topics remain with their own work and notes.
     await tx.topic.delete({ where: { id: topicId } });
+    const dependents = await tx.topic.findMany({ where: { courseId: topic.courseId, planning: { not: null } }, select: { id: true, planning: true } });
+    for (const dependent of dependents) {
+      const planning = readTopicPlanning(dependent.planning);
+      if (planning.prerequisites.includes(topicId)) await tx.topic.update({ where: { id: dependent.id },
+        data: { planning: JSON.stringify({ ...planning, prerequisites: planning.prerequisites.filter(id => id !== topicId) }) } });
+    }
     return topic.courseId;
   });
 }

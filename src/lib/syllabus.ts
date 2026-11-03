@@ -440,11 +440,10 @@ const OPTIMIZE_SCHEMA = {
 };
 
 const OPTIMIZE_SYSTEM =
-  "You are an expert study planner. Given a course's topics and the days left until the exam, " +
-  "return ALL the topics in the best STUDY ORDER (foundational/prerequisite topics first), each " +
-  "with an effort weight 1–3 reflecting difficulty and importance. Keep each original topic's title " +
-  "EXACTLY as given (isReview=false). Then append a few spaced 'Review: <topic>' revision sessions " +
-  "(isReview=true) for the most important/hardest topics, to land near the exam. Don't drop any topic.";
+  "Suggest an order for the supplied study topics using their task and prerequisite context. " +
+  "Keep every original title exactly. Respect explicit prerequisites and completed work. " +
+  "Return isReview=false for every item. Do not add revision topics; the scheduler owns recall. " +
+  "Effort is an advisory weight only; existing time estimates remain authoritative.";
 
 export type OptimizedItem = { title: string; effort: number; isReview: boolean };
 
@@ -452,10 +451,11 @@ export async function optimizeStudyPlan(
   courseName: string,
   topicTitles: string[],
   daysUntilExam: number,
+  context: unknown[] = [],
 ): Promise<OptimizedItem[]> {
   const user =
     `Course: ${courseName}\nDays until exam: ${daysUntilExam}\nTopics:\n` +
-    topicTitles.map((t) => "- " + t).join("\n");
+    topicTitles.map((t) => "- " + t).join("\n") + (context.length ? "\nExisting task evidence and constraints:\n" + JSON.stringify(context) : "");
   const parsed = await jsonComplete<{ items: OptimizedItem[] }>(
     OPTIMIZE_SYSTEM,
     user,

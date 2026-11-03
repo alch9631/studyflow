@@ -28,6 +28,10 @@ export type CockpitBlock = {
   confidence?: string | null;
   topicOrder?: number;
   overdueDays?: number;
+  deadlineDays?: number;
+  importance?: number;
+  remainingWorkMin?: number;
+  dailyCapacityMin?: number;
 };
 
 /** The four study-queue lanes, answering "what now / what can wait". */
@@ -159,15 +163,16 @@ export function priorityReason(block: CockpitBlock): "resume" | "weakReview" | "
 }
 
 export function prioritizeBlocks<T extends CockpitBlock>(blocks: T[]): T[] {
-  const score = (b: CockpitBlock) => {
-    const days = Math.max(0, b.examDays ?? 365);
-    return (days <= 3 ? 100 : days <= 7 ? 65 : days <= 14 ? 30 : 0)
-      + (b.kind === "review" ? 35 : 0)
-      + (b.confidence === "struggling" ? 40 : b.confidence === "practice" ? 15 : 0)
-      + Math.min(30, (b.overdueDays ?? 0) * 10);
-  };
+  // Slack expresses urgency in days of available work, rather than adding
+  // unrelated point bonuses. Importance and recall break equal-slack ties.
+  const slack = (block: T) => Math.max(0, block.deadlineDays ?? block.examDays ?? 365) -
+    Math.ceil((block.remainingWorkMin ?? 0) / Math.max(1, block.dailyCapacityMin ?? 180));
   return blocks.map((block, index) => ({ block, index })).sort((a, b) =>
-    score(b.block) - score(a.block) || (a.block.topicOrder ?? a.index) - (b.block.topicOrder ?? b.index) || a.index - b.index,
+    slack(a.block) - slack(b.block) || (b.block.importance ?? 3) - (a.block.importance ?? 3) ||
+    Number(!!b.block.progress) - Number(!!a.block.progress) ||
+    Number(b.block.kind === "review" && b.block.confidence === "struggling") - Number(a.block.kind === "review" && a.block.confidence === "struggling") ||
+    Number(b.block.kind === "review") - Number(a.block.kind === "review") || (b.block.overdueDays ?? 0) - (a.block.overdueDays ?? 0) ||
+    (a.block.topicOrder ?? a.index) - (b.block.topicOrder ?? b.index) || a.index - b.index,
   ).map(({ block }) => block);
 }
 

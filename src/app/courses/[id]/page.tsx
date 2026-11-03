@@ -1,3 +1,5 @@
+import TopicPlanningForm from "@/components/TopicPlanningForm";
+import UnscheduledWorkList from "@/components/UnscheduledWorkList";
 import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
@@ -173,6 +175,7 @@ export default async function CoursePage({
           done: true,
           questions: true,
           studyTask: true,
+          planning: true,
           parentTopicId: true,
           confidence: true,
           note: { select: { body: true } },
@@ -582,6 +585,7 @@ export default async function CoursePage({
 
       </div>
 
+      <UnscheduledWorkList items={overload.unscheduled.map(item => ({ ...item, courseId: course.id }))} de={t.locale === "de"} />
       {overload.overloaded && (
         <details className="mb-6 text-sm text-muted-foreground"><summary className="min-h-11 cursor-pointer py-3">{t("minimal.planAttention")}</summary>
           <p className="flex items-start gap-2">
@@ -589,7 +593,9 @@ export default async function CoursePage({
             <span>
               {/* Truthful, plan-derived headline: the REAL required pace + days
                   left, phrased calmly (rounded to ~h/day to match the page). */}
-              {overload.cause === "few-days"
+              {overload.cause === "prerequisite"
+                ? t("courseDetail.overload.cause.prerequisite")
+                : overload.cause === "few-days"
                 ? t("study.crowded", { hours: hoursLabel(t, overload.requiredPerDay), days: overload.daysLeft })
                 : overload.cause === "no-runway"
                 ? t("courseDetail.overload.headlineNoRunway", {
@@ -693,6 +699,7 @@ export default async function CoursePage({
                   initialNote={topic.note?.body ?? ""}
                 >
                 {topic.parentTopicId && <p className="text-sm text-muted-foreground">{t("study.partOf", { topic: course.topics.find((parent) => parent.id === topic.parentTopicId)?.title ?? course.name })}</p>}
+                <TopicPlanningForm topicId={topic.id} planning={topic.planning} topics={course.topics} assignments={course.assignments} de={t.locale === "de"} />
                 {task && <StudyTaskForm courseId={course.id} topicId={topic.id} title={topic.title} task={task} materials={taskMaterials} />}
                 {sourceHref && <a href={sourceHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-ink underline underline-offset-4">{t("study.openMaterial")}</a>}
                 {questions.length > 0 && (

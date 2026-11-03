@@ -123,7 +123,40 @@ export function placeDayBlocks(
   if (!preferred.unplaced.length) return preferred;
   // Breaks are optional breathing room, not a reason to strand work that fits.
   const compact = pack(queue, gaps, [], blocks.filter((b) => !Number.isFinite(b.minutes) || b.minutes <= 0).map((b) => b.id), 0);
-  return compact.unplaced.length < preferred.unplaced.length ? compact : preferred;
+  let best = compact.unplaced.length < preferred.unplaced.length ? compact : preferred;
+  const longest = pack([...queue].sort((a, b) => b.minutes - a.minutes), gaps, [],
+    blocks.filter((b) => !Number.isFinite(b.minutes) || b.minutes <= 0).map((b) => b.id), 0);
+  if (longest.unplaced.length < best.unplaced.length) best = longest;
+  // Small daily plans admit a bounded exact assignment to free gaps. This repairs
+  // fragmentation without changing successful preferred-order placements.
+  if (best.unplaced.length && queue.length <= 18 && gaps.length <= 12) {
+    const sorted = [...queue].sort((a, b) => b.minutes - a.minutes);
+    const room = gaps.map(gap => gap.endMin - gap.startMin);
+    const assignment = new Array<number>(sorted.length).fill(-1);
+    let visits = 0;
+    const search = (index: number): boolean => {
+      if (++visits > 50_000) return false;
+      if (index === sorted.length) return true;
+      const seen = new Set<number>();
+      for (let gi = 0; gi < room.length; gi++) {
+        if (room[gi] < sorted[index].minutes || seen.has(room[gi])) continue;
+        seen.add(room[gi]); room[gi] -= sorted[index].minutes; assignment[index] = gi;
+        if (search(index + 1)) return true;
+        room[gi] += sorted[index].minutes; assignment[index] = -1;
+      }
+      return false;
+    };
+    if (search(0)) {
+      const exact: Placed[] = [];
+      for (let gi = 0; gi < gaps.length; gi++) {
+        const group = sorted.filter((_, index) => assignment[index] === gi);
+        const packed = pack(group, [gaps[gi]], [], [], 0);
+        exact.push(...packed.placed);
+      }
+      return { placed: exact, unplaced: blocks.filter(b => !Number.isFinite(b.minutes) || b.minutes <= 0).map(b => b.id) };
+    }
+  }
+  return best;
 }
 
 /** Earliest-first packing ("morning" / "any"): walk gaps front-to-back. */
