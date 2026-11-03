@@ -16,15 +16,15 @@ export default function TabLayout() {
     iconColor={{ default: theme.muted, selected: theme.brand }}
     labelStyle={{ default: { color: theme.muted }, selected: { color: theme.brand } }}>
     {/* Stable tab identity retains scroll, filters and selection. */}
-    <NativeTabs.Trigger name="index" disableScrollToTop disablePopToTop contentStyle={{ backgroundColor: theme.background }}>
+    <NativeTabs.Trigger name="index" disableScrollToTop disablePopToTop disableAutomaticContentInsets contentStyle={{ backgroundColor: theme.background }}>
       <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
       <NativeTabs.Trigger.Icon sf={{ default: "sun.max", selected: "sun.max.fill" }} />
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="calendar" disableScrollToTop disablePopToTop contentStyle={{ backgroundColor: theme.background }}>
+    <NativeTabs.Trigger name="calendar" disableScrollToTop disablePopToTop disableAutomaticContentInsets contentStyle={{ backgroundColor: theme.background }}>
       <NativeTabs.Trigger.Label>Calendar</NativeTabs.Trigger.Label>
       <NativeTabs.Trigger.Icon sf="calendar" />
     </NativeTabs.Trigger>
-    <NativeTabs.Trigger name="courses" disableScrollToTop disablePopToTop contentStyle={{ backgroundColor: theme.background }}>
+    <NativeTabs.Trigger name="courses" disableScrollToTop disablePopToTop disableAutomaticContentInsets contentStyle={{ backgroundColor: theme.background }}>
       <NativeTabs.Trigger.Label>Courses</NativeTabs.Trigger.Label>
       <NativeTabs.Trigger.Icon sf={{ default: "book.closed", selected: "book.closed.fill" }} />
     </NativeTabs.Trigger>

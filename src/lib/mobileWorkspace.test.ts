@@ -1,4 +1,5 @@
 import "./testDb";
+import "next/dist/server/node-environment-baseline";
 import assert from "node:assert/strict";
 import { prisma } from "./db";
 import { createMobileGrant, exchangeMobileGrant, mobileHash } from "./mobileAuth";
@@ -10,6 +11,10 @@ import { mobileForm } from "./mobileActions";
 import { practiceForUser } from "./practice";
 import { quickStudyTask } from "./studyTask";
 import { uploadBatch } from "../../shared/upload-batch";
+import { mobileSaveProgress } from "./mobileStudy";
+import { createWorkStore } from "next/dist/server/async-storage/work-store";
+import { workAsyncStorage } from "next/dist/server/app-render/work-async-storage.external";
+import { IncrementalCache } from "next/dist/server/lib/incremental-cache";
 
 let passed = 0;
 async function check(name: string, run: () => Promise<void> | void) { await run(); console.log(`  ✓ ${name}`); passed++; }
@@ -18,7 +23,11 @@ function request(path: string, token?: string, fields?: unknown) {
   const req = new Request(`http://localhost/api/mobile/${path}`, { method,
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(fields === undefined ? {} : { "Content-Type": "application/json" }) },
     body: fields === undefined ? undefined : JSON.stringify({ fields }) });
-  return (method === "GET" ? GET : POST)(req, { params: Promise.resolve({ path: path.split("?")[0].split("/") }) });
+  const store = createWorkStore({ page: "/api/mobile/[...path]/route", buildId: "test", deploymentId: "test", previouslyRevalidatedTags: [], renderOpts: {
+    supportsDynamicResponse: true, cacheComponents: false, experimental: { authInterrupts: false }, waitUntil: undefined, onClose: () => {}, onAfterTaskError: undefined,
+    incrementalCache: new IncrementalCache({ dev: true, requestHeaders: {}, getPrerenderManifest: () => ({ version: 4, routes: {}, dynamicRoutes: {}, notFoundRoutes: [], preview: { previewModeId: "test", previewModeSigningKey: "test", previewModeEncryptionKey: "test" } }) }),
+  } });
+  return workAsyncStorage.run(store, () => (method === "GET" ? GET : POST)(req, { params: Promise.resolve({ path: path.split("?")[0].split("/") }) }));
 }
 async function main() {
   const owner = await prisma.user.create({ data: { email: "workspace-owner@example.test" } });
@@ -54,6 +63,41 @@ async function main() {
     const stats = await (await request("insights", token)).json(); assert.equal(stats.grades.lpEarned, 6); assert.equal(stats.grades.gpa, 2); assert.equal(stats.loggedMinutes, 25);
     await prisma.course.update({ where: { id: course.id }, data: { grade: 5 } });
     data = await (await request("exams", token)).json(); assert.equal(data.courses.length, 1); assert.equal(data.courses[0].id, course.id);
+  });
+  await check("unmarking a result clears passing grades and the manual flag while ordinary flag edits retain grades", async () => {
+    const result = await prisma.course.create({ data: { userId: owner.id, name: "Passed result", examDate: exam, grade: 2, passed: true } });
+    assert.equal((await request("actions/setPassed", token, { courseId: result.id, passed: "0" })).status, 200);
+    assert.equal((await prisma.course.findUniqueOrThrow({ where: { id: result.id } })).grade, 2);
+    assert.equal((await request("actions/setPassed", token, { courseId: result.id, passed: "0", clearPassingGrade: "1" })).status, 200);
+    const saved = await prisma.course.findUniqueOrThrow({ where: { id: result.id } });
+    assert.equal(saved.grade, null); assert.equal(saved.passed, false);
+    const exams = await (await request("exams", token)).json();
+    assert.ok(exams.courses.some((item: { id: string }) => item.id === result.id));
+    assert.ok(!exams.results.some((item: { id: string }) => item.id === result.id));
+    assert.equal((await request("actions/setPassed", token, { courseId: privateCourse.id, passed: "0", clearPassingGrade: "1" })).status, 404);
+    assert.equal((await prisma.course.findUniqueOrThrow({ where: { id: privateCourse.id } })).grade, 1);
+    await prisma.course.delete({ where: { id: result.id } });
+  });
+  await check("paused session swipes defer resuming and completion preserves notes without leaving a paused task", async () => {
+    const paused = await prisma.course.create({ data: { userId: owner.id, name: "Paused work", examDate: exam, topics: { create: { title: "Resume me", studyProgress: JSON.stringify({ version: 1, response: "Keep these notes", elapsedSeconds: 120, sessionMinutes: 30, updatedAt: new Date().toISOString() }) } } }, include: { topics: true } });
+    const block = await prisma.studyBlock.create({ data: { courseId: paused.id, topicId: paused.topics[0].id, topicTitle: "Resume me", date: new Date(Date.parse(today) + 3 * 86400_000), minutes: 30 } });
+    assert.equal((await request("actions/moveBlock", token, { blockId: block.id })).status, 200);
+    let current = await (await request("today", token)).json();
+    assert.ok(!current.blocks.some((item: { id: string }) => item.id === block.id));
+    assert.notEqual(current.resumeBlock?.id, block.id);
+    const progress = JSON.parse((await prisma.topic.findUniqueOrThrow({ where: { id: block.topicId } })).studyProgress!);
+    assert.equal(progress.response, "Keep these notes"); assert.equal(progress.elapsedSeconds, 120);
+    assert.equal(progress.resumeAfter, new Date(Date.parse(today) + 86400_000).toISOString().slice(0, 10));
+    assert.equal((await prisma.studyBlock.findUniqueOrThrow({ where: { id: block.id } })).date.toISOString().slice(0, 10), progress.resumeAfter);
+    await mobileSaveProgress(owner.id, block.id, { topicId: block.topicId, response: "Old autosave", elapsedSeconds: 60, updatedAt: new Date(Date.parse(progress.updatedAt) - 1).toISOString() });
+    assert.deepEqual(JSON.parse((await prisma.topic.findUniqueOrThrow({ where: { id: block.topicId } })).studyProgress!), progress, "a late old checkpoint cannot undo the deferral or overwrite notes");
+    assert.equal((await request("actions/toggleBlock", token, { blockId: block.id, done: "true" })).status, 200);
+    assert.equal((await prisma.topic.findUniqueOrThrow({ where: { id: block.topicId } })).studyProgress, null);
+    assert.equal((await prisma.focusNote.findFirstOrThrow({ where: { topicId: block.topicId } })).body, "Keep these notes");
+    assert.equal((await request("actions/toggleBlock", token, { blockId: block.id, done: "true" })).status, 200);
+    assert.equal(await prisma.focusNote.count({ where: { topicId: block.topicId } }), 1);
+    current = await (await request("today", token)).json(); assert.notEqual(current.resumeBlock?.id, block.id);
+    await prisma.course.delete({ where: { id: paused.id } });
   });
   await check("calendar and timetable reads remain scoped to the mobile account", async () => {
     await prisma.lecture.create({ data: { userId: other.id, title: "Private class", weekday: 1, startMin: 540, endMin: 600 } });

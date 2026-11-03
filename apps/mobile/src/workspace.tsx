@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, AppState, Platform, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, ApiError } from "./api";
 import { useSession } from "./session";
 import { Action, AppText, ErrorMessage, IconButton, styles, useTheme } from "./ui";
@@ -57,21 +57,25 @@ export function usePrefetchMobileData() {
   }, [session]);
 }
 
-export function Page({ title, subtitle, children, query, back = false, sheet = false, actions }: {
-  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; sheet?: boolean; actions?: React.ReactNode;
+export function Page({ title, subtitle, children, query, back = false, sheet = false, tabPage = false, actions }: {
+  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; sheet?: boolean; tabPage?: boolean; actions?: React.ReactNode;
 }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const dockedTabs = tabPage && Platform.OS === "ios";
   const closeSwipeRow = useCloseSwipeRow();
   return <SafeAreaView edges={sheet ? [] : ["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
-    <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentContainerStyle={styles.content}
+    <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior={dockedTabs ? "never" : "automatic"} contentContainerStyle={styles.content}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.refreshing ?? false} onRefresh={() => { void query.reload(); }} /> : undefined}>
-      <View style={{ gap: 4 }}>{back && !sheet && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
-        <View style={[styles.row, { gap: 4 }]}><AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{sheet ? <IconButton label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /> : !back && <NavigationMenu />}</View>
+      <View style={{ gap: 4 }}>
+        <View style={[styles.row, { gap: 8 }]}>{back && !sheet && <IconButton glass label="Back" icon="arrow-back-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{sheet ? <IconButton glass label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /> : !back && <NavigationMenu />}</View>
         {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>
       <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}
       {query?.loading && <ActivityIndicator color={theme.brand} />}{children}
     </ScrollView>
+    {/* Keep list content above the floating system tab bar, including during scroll. */}
+    {dockedTabs && <View pointerEvents="none" style={{ height: Math.max(88, insets.bottom + 56), backgroundColor: theme.background }} />}
   </SafeAreaView>;
 }
 

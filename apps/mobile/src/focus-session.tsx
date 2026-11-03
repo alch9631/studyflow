@@ -9,7 +9,7 @@ import { advanceFocusClock, type FocusClock } from "../../../shared/focus-clock"
 import { ApiError, finishFocus, finishSession, getFocus, saveProgress } from "./api";
 import { clearDraft, draftKey, readDraft, writeDraft } from "./drafts";
 import { useSession } from "./session";
-import { Action, AppText, Card, ErrorMessage, styles, useTheme } from "./ui";
+import { Action, AppText, Card, ErrorMessage, IconButton, styles, useTheme } from "./ui";
 import { openMaterial } from "./materials";
 import FocusNotes from "./focus-notes";
 import DemoNotice from "./demo-notice";
@@ -148,7 +148,7 @@ export default function FocusSession({ id, topicId, kind, minutes }: { id: strin
   }
 
   if (!session) return <Redirect href="/" />;
-  if (!block || !clock) return <View style={[styles.content, { flex: 1, justifyContent: "center" }]}>{error ? <><ErrorMessage message={error} /><Action secondary onPress={() => setLoadAttempt(value => value + 1)}>Try again</Action><Action secondary onPress={() => router.dismissTo("/")}>Back to Today</Action></> : <ActivityIndicator color={theme.brand} />}</View>;
+  if (!block || !clock) return <View style={[styles.content, { flex: 1, justifyContent: "center" }]}>{error ? <><ErrorMessage message={error} /><Action secondary onPress={() => setLoadAttempt(value => value + 1)}>Try again</Action><IconButton glass label="Back to Today" icon="arrow-back-outline" onPress={() => router.dismissTo("/")} /></> : <ActivityIndicator color={theme.brand} />}</View>;
   if (block.completed) return null;
   const displayClock = advanceFocusClock(clock, now);
   const remaining = Math.max(0, displayClock.minutes * 60 - displayClock.elapsed);

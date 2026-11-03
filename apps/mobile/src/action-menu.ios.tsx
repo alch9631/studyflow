@@ -16,7 +16,7 @@ export function ActionMenu({ label, items, icon = "ellipsis-horizontal", text, d
   return <Host ignoreSafeArea="all" style={{ flexShrink: 0 }} testID={label}>
     <Menu modifiers={[accessibilityLabel(label), accessibilityHint("Opens menu"), disabledModifier(disabled)]}
       label={<RNHostView matchContents boundedByHost>{glass ? <GlassSurface interactive style={{ borderRadius: 22 }}>{trigger}</GlassSurface> : trigger}</RNHostView>}>
-      <Section title={label}>{items.filter(item => !item.attributes?.hidden).map(item => {
+      <Section>{items.filter(item => !item.attributes?.hidden).map(item => {
         const blocked = disabled || !!item.attributes?.disabled;
         const systemImage = typeof item.image === "string" ? item.image : undefined;
         const onPress = () => { if (!blocked) item.onPress?.(); };

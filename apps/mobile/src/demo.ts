@@ -69,7 +69,7 @@ export class DemoWorkspace {
     const state = this.state;
     const blocks = state.blocks.filter(block => block.date === state.today).map(block => this.present(block));
     const open = blocks.filter(block => !block.completed);
-    const resumable = state.blocks.filter(block => !block.completed && state.progress[block.topicId]).sort((a, b) => state.progress[b.topicId].updatedAt.localeCompare(state.progress[a.topicId].updatedAt))[0];
+    const resumable = state.blocks.filter(block => !block.completed && state.progress[block.topicId] && (!state.progress[block.topicId].resumeAfter || state.progress[block.topicId].resumeAfter! <= state.today)).sort((a, b) => state.progress[b.topicId].updatedAt.localeCompare(state.progress[a.topicId].updatedAt))[0];
     const exams = state.courses.filter(course => !passed(course) && course.examDate >= state.today).sort((a, b) => a.examDate.localeCompare(b.examDate));
     const overdue = state.blocks.filter(block => !block.completed && block.date < state.today);
     const reviews = open.filter(block => block.kind === "review");
@@ -232,7 +232,10 @@ export class DemoWorkspace {
       if (name === "deleteCourse") { state.courses = state.courses.filter(item => item !== course); state.blocks = state.blocks.filter(block => block.course.id !== course.id); }
       else if (name === "updateCourse") { const examDate = day(value("examDate")); const difficulty = number(value("difficulty"), 1, 5); course.examDate = examDate; course.difficulty = difficulty; course.studyDays = Array.isArray(fields.studyDays) ? fields.studyDays.join(",") : value("studyDays"); }
       else if (name === "saveGrade") course.grade = value("grade").trim() ? number(value("grade").replace(",", "."), 1, 5) : null;
-      else if (name === "setPassed") course.passed = value("passed") === "1";
+      else if (name === "setPassed") {
+        course.passed = value("passed") === "1";
+        if (!course.passed && value("clearPassingGrade") === "1" && course.grade !== null && course.grade <= 4) course.grade = null;
+      }
       else course.topics.filter(topic => !topic.done && !state.blocks.some(block => block.topicId === topic.id && !block.completed)).forEach(topic => this.createBlock(course, topic));
       course.isPassed = passed(course);
       if (course.isPassed) state.blocks = state.blocks.filter(block => block.course.id !== course.id || block.completed);
@@ -266,9 +269,20 @@ export class DemoWorkspace {
       else course.assignments.find(assignment => assignment.id === value("assignmentId"))!.done = value("done") === "true";
     } else if (["toggleBlock", "moveBlock", "saveBlockNote", "updateBlockTime"].includes(name)) {
       const block = this.block(value("blockId"));
-      if (name === "toggleBlock") block.completed = value("done") === "true";
+      if (name === "toggleBlock") {
+        const wasComplete = block.completed;
+        block.completed = value("done") === "true";
+        if (block.completed && !wasComplete && block.kind === "study") {
+          const progress = state.progress[block.topicId];
+          if (progress?.response.trim()) (state.notes[block.topicId] ??= []).push({ id: `paused-${block.id}-${Date.parse(progress.updatedAt)}`, body: progress.response.trim(), createdAt: progress.updatedAt, updatedAt: progress.updatedAt });
+          delete state.progress[block.topicId];
+        }
+      }
       else if (name === "saveBlockNote") { this.topic(block.topicId).note = value("body"); this.noteDates[block.topicId] = this.stamp(this.noteDates[block.topicId]); }
-      else if (name === "moveBlock") { const next = shiftDay(block.date, 1); if (next >= this.course(block.course.id).examDate) throw new DemoError("This session must stay before the exam."); block.date = next; }
+      else if (name === "moveBlock") {
+        const next = shiftDay(state.today, 1); if (next >= this.course(block.course.id).examDate) throw new DemoError("This session must stay before the exam."); block.date = next;
+        if (block.kind === "study" && state.progress[block.topicId]) state.progress[block.topicId] = { ...state.progress[block.topicId], resumeAfter: next, updatedAt: this.stamp(state.progress[block.topicId].updatedAt) };
+      }
       else if (value("clear") === "1") { block.start = null; block.end = null; }
       else { const date = day(value("date")); const start = time(value("startHHmm")); const end = time(value("endHHmm")); if (end <= start) throw new DemoError("The end time must be after the start."); block.date = date; block.start = start; block.end = end; }
     } else if (name === "addLecture") {

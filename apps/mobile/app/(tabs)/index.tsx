@@ -9,10 +9,13 @@ import { chooseSession, dateLabel, edit, Page, timeLabel, useMobileData } from "
 import { ActionMenu } from "../../src/action-menu";
 import { SwipeRow } from "../../src/swipe-row";
 import { PlanAdjustments } from "../../src/plan-adjustments";
+import { useSession } from "../../src/session";
+import { clearDraft, draftKey } from "../../src/drafts";
 
 export default function Today() {
   const router = useRouter();
   const theme = useTheme();
+  const { session } = useSession();
   const query = useMobileData<MobileToday>("today");
   const { data, error, setError, reload: load } = query;
   const [adjusting, setAdjusting] = useState(false);
@@ -21,7 +24,11 @@ export default function Today() {
   async function changeBlock(block: MobileBlock, name: string, fields: FormFields = {}) {
     if (changing) return;
     setChanging(block.id); setError(null);
-    try { await query.action(name, { blockId: block.id, ...fields }); await load(); }
+    try {
+      await query.action(name, { blockId: block.id, ...fields });
+      if (name === "toggleBlock" && fields.done === "true" && block.kind === "study" && session) await clearDraft(draftKey(session.server, session.userId, block.topicId));
+      await load();
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Couldn't update this session."); }
     finally { setChanging(null); }
   }
@@ -36,7 +43,7 @@ export default function Today() {
   const blocks = data?.resumeBlock && !data.blocks.some(block => block.id === data.resumeBlock!.id) ? [data.resumeBlock, ...data.blocks] : data?.blocks ?? [];
   const date = data ? new Date(`${data.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }) : "";
 
-  return <Page title="Today" subtitle={date} query={query}
+  return <Page tabPage title="Today" subtitle={date} query={query}
     actions={<PlanAdjustments health={data?.planHealth} disabled={!data || adjusting || changing !== null} busy={adjusting} error={error} onAdjust={adjust} />}>
       {notice ? <AppText size={13} muted>{notice}</AppText> : null}
       {data && <>
@@ -56,9 +63,10 @@ export default function Today() {
             style={({ pressed }) => ({ flex: 1, minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, opacity: pressed ? 0.6 : 1 })}>
             <Ionicons name={block.completed ? "checkmark-circle" : block.progress ? "pause-circle-outline" : "ellipse-outline"} size={22} color={block.completed || block.id === next?.id ? theme.brand : theme.muted} />
             <View style={{ flex: 1, gap: 2 }}>
-              <AppText weight="600" style={{ opacity: block.completed ? 0.55 : 1 }}>{block.title}</AppText>
-              <AppText size={13} muted>{block.course.name} · {block.minutes}m{block.progress && !block.completed ? " · Resume" : block.kind === "review" ? " · Review" : ""}</AppText>
+              <AppText selectable={false} weight="600" style={{ opacity: block.completed ? 0.55 : 1 }}>{block.title}</AppText>
+              {!block.completed && <AppText selectable={false} numberOfLines={1} size={12} muted>{block.course.name}</AppText>}
             </View>
+            {!block.completed && <AppText selectable={false} size={12} muted>{block.minutes}m</AppText>}
           </Pressable>
           {changing === block.id ? <ActivityIndicator color={theme.brand} style={{ width: 44 }} /> : <ActionMenu label={`Session actions: ${block.title}`} disabled={changing !== null || adjusting} items={[
             { id: "toggle", title: block.completed ? "Mark unfinished" : "Mark done", image: "checkmark.circle", onPress: () => { void changeBlock(block, "toggleBlock", { done: block.completed ? "false" : "true" }); } },

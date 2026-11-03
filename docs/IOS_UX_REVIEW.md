@@ -264,3 +264,40 @@ Build sources, dependencies, archive and logs are retained at
 `/Volumes/Ubuntu_VM/StudyflowBuilds/0.2.0-10/`. The source manifest, archive
 verification and accepted upload receipt are also saved locally in the ignored
 `build/ios/0.2.0-10/` directory.
+
+## Task gestures and compact screens — 3 November 2026
+
+The shared row now uses one horizontal gesture with separate revealed action
+buttons. Short swipes reveal controls and deliberate full swipes run the matching
+action on release; interrupted gestures close without a mutation. Paused work
+moved to Tomorrow retains its notes, elapsed time and duration, and its resume
+prompt waits until that day. A late older checkpoint cannot undo that deferral.
+Completing paused work saves its working notes and clears the paused state.
+
+Today omits completed-row metadata and repeated Resume/Review text. Session
+length has a top-right glass X. Tab pages reserve a clear area below scrolling
+content for the system tab bar. Course sections share one equal-width bar, with
+settings in the header, coverage under Topics, a single materials toolbar, and
+unfinished deadlines sorted by date.
+
+Remaining exams swipe right to mark done and left to edit the date. Results
+swipe right to edit grades and left to unmark passed. Unmarking a graded pass
+confirms clearing its passing grade, so the module returns to Remaining. Info
+buttons retain published-date details, matching and equivalent tap actions in
+place of exam menus. Other information disclosures use small info controls, and
+back navigation uses glass arrows. Action menus omit repeated grey section titles.
+
+Root lint, root/mobile TypeScript, the iOS Hermes export, and 127 targeted checks
+passed across mobile API, workspace, demo, cache, pass rules and study-loop suites.
+Native simulator screenshots verified Today, the session-length X, Exams, and the
+glass back arrow; accessibility inspection verified info disclosure, result
+confirmation and the course section controls. Gesture automation emitted a
+zero-distance cancelled drag and also failed to move the native duration wheel,
+so physical-device swipe verification remains outstanding. The simulator later
+timed out during capture.
+
+The web webpack build compiled, type-checked and generated its pages. Final
+standalone packaging was blocked by this checkout's externally symlinked
+dependencies and an attempted output path outside the workspace; the default
+Turbopack build could not resolve Next through that external dependency path.
+No native release upload or backend deployment was performed in this change.

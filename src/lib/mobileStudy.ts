@@ -78,7 +78,7 @@ export async function mobileToday(userId: string): Promise<MobileToday> {
     movableReviewCount: deferred.length, movableReviewMin: deferred.reduce((sum, b) => sum + b.minutes, 0), immovableMin: open.filter(b => !movable(b)).reduce((sum, b) => sum + b.minutes, 0),
     rebuilt: { count: rebuilt.length, minutes: rebuilt.reduce((sum, b) => sum + b.minutes, 0) }, exam: { isOverloaded: overloaded },
   });
-  const latest = topics.map(t => ({ ...t, progress: readStudyProgress(t.studyProgress) })).filter(t => t.progress)
+  const latest = topics.map(t => ({ ...t, progress: readStudyProgress(t.studyProgress) })).filter(t => t.progress && (!t.progress.resumeAfter || t.progress.resumeAfter <= date))
     .sort((a, b) => b.progress!.updatedAt.localeCompare(a.progress!.updatedAt))[0];
   const elsewhere = latest && !blocks.some(b => !b.completed && b.topicId === latest.id)
     ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" },

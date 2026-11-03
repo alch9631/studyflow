@@ -230,7 +230,7 @@ export default async function TodayPage({
   const unfinished = await prisma.topic.findMany({ where: { course: { userId }, done: false, studyProgress: { not: null } },
     take: 100, select: { id: true, title: true, studyProgress: true, studyTask: true, note: { select: { body: true } } } });
   const latest = unfinished.map((topic) => ({ ...topic, progress: readStudyProgress(topic.studyProgress) }))
-    .filter((topic) => topic.progress).sort((a, b) => b.progress!.updatedAt.localeCompare(a.progress!.updatedAt))[0];
+    .filter((topic) => topic.progress && (!topic.progress.resumeAfter || topic.progress.resumeAfter <= today)).sort((a, b) => b.progress!.updatedAt.localeCompare(a.progress!.updatedAt))[0];
   const resumeElsewhere = latest && !cockpitBlocks.some((block) => !block.completed && block.topicId === latest.id)
     ? await prisma.studyBlock.findFirst({ where: { topicId: latest.id, completed: false, kind: "study", course: { userId } }, orderBy: { date: "asc" }, select: { id: true, topicId: true, topicTitle: true, minutes: true, completed: true, kind: true, actualMinutes: true, course: { select: { id: true, name: true } } } }) : null;
   const displayHero: CockpitBlock | null = resumeElsewhere && latest ? { ...resumeElsewhere, progress: latest.progress, task: readStudyTask(latest.studyTask), note: latest.note?.body ?? null } : hero;

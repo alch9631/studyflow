@@ -19,7 +19,7 @@ export type MobileBlock = {
   kind: string;
   course: { id: string; name: string };
   task: MobileTask | null;
-  progress: { response: string; elapsedSeconds: number; updatedAt: string; sessionMinutes?: number } | null;
+  progress: { response: string; elapsedSeconds: number; updatedAt: string; sessionMinutes?: number; resumeAfter?: string } | null;
   note?: string;
   notes?: MobileFocusNote[];
   fileAvailable?: boolean;
@@ -56,6 +56,7 @@ export type MobileProgressInput = {
   elapsedSeconds: number;
   updatedAt: string;
   sessionMinutes?: number;
+  resumeAfter?: string;
 };
 export type MobileFinishInput = { topicId: string; kind?: string; response: string; elapsedSeconds: number };
 export type MobileResultInput = {

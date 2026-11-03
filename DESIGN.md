@@ -22,7 +22,10 @@ Use short labels, clear error recovery and at least 44 px touch targets. Preserv
 
 Native app structure:
 
-- Course rows open directly. Topics, Materials and Deadlines are visible section controls; the gear opens settings. Recall belongs with Topics; plan maintenance belongs inside course settings.
-- Use swipe-to-reveal for common row actions: right for Complete/Reopen; left for Tomorrow on Today, Reschedule on Calendar, and Delete on topics/materials/deadlines. Every action has an equivalent tap control. Swiping alone never mutates data; deletion requires confirmation. Close revealed actions when scrolling, changing pages, opening another row or backgrounding.
+- Course rows open directly. Topics, Materials and Deadlines share one equal-width section bar; the gear in the header opens settings. Recall and coverage belong with Topics; plan maintenance belongs inside course settings. Materials has one upload toolbar, and unfinished deadlines appear first in date order.
+- Use swipe-to-reveal for common row actions: right for Complete/Reopen; left for Tomorrow on Today, Reschedule on Calendar, and Delete on topics/materials/deadlines. Short swipes reveal tappable actions; deliberate full swipes run them on release. Every action has an equivalent tap control. Deletion requires confirmation. Close revealed actions when scrolling, changing pages, opening another row or backgrounding.
+- Today keeps the course and duration only on unfinished rows. Completed rows show the title and checkmark. Reserve a clear area for the system tab bar so scrolling content never sits beneath its glass.
+- Remaining exams swipe right to mark done and left to edit the date. Results swipe right to edit a grade and left to unmark a pass. Confirm clearing a passing grade when unmarking. An info button retains details and tap alternatives without a three-dot menu.
+- Optional information uses a small info button with a 44-point target. Back navigation uses a circular glass arrow; Session length closes with a top-right glass X.
 - The app menu contains Exams, Insights and Settings. Timetable belongs in Calendar options; catalog belongs in Add course. Avoid duplicating these destinations in Settings.
-- Plan adjustments use a sheet with status as text and one impact line per choice. Exam preparation opens by tapping the exam name, with edits in a short row menu. Insights leads with its weekly chart; history and detailed statistics start collapsed.
+- Plan adjustments use a sheet with status as text and one impact line per choice. Exam preparation opens by tapping the exam name. Insights leads with its weekly chart; history and detailed statistics start collapsed.

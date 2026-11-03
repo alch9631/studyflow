@@ -25,7 +25,7 @@ export default function Courses() {
     for (const courseId of visibleCourseIds.split(",").filter(Boolean)) prefetch(`courses/${encodeURIComponent(courseId)}`);
   }, [visibleCourseIds, prefetch]));
   function open(id: string, section = "progress") { router.push({ pathname: "/course/[id]", params: { id, section } }); }
-  return <Page title="Courses" query={query} actions={<ActionMenu glass label="Add course" icon="add-outline" items={[
+  return <Page tabPage title="Courses" query={query} actions={<ActionMenu glass label="Add course" icon="add-outline" items={[
     { id: "create", title: "New course", image: "plus", onPress: () => edit("createCourse") },
     { id: "catalog", title: isDemo ? "Sample modules" : "University catalog", image: "books.vertical", onPress: () => router.push("/catalog") },
     ...(!isDemo ? [{ id: "syllabus", title: "Import syllabus", image: "doc.text" as const, onPress: () => edit("importSyllabus") }] : []),

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Linking } from "react-native";
 import type { PracticeData } from "../../../shared/mobileWorkspace";
-import { Action, AppText, Card } from "../src/ui";
+import { Action, AppText, Card, IconButton } from "../src/ui";
 import { Chips, Field, LinkButton, Page, ProgressBar, useMobileData } from "../src/workspace";
 import { useSession } from "../src/session";
 import { openMaterial } from "../src/materials";
@@ -44,7 +44,7 @@ function PracticeRun({ courseId, examFile }: { courseId: string; examFile?: stri
       <LinkButton label="Skip question" onPress={() => { if (!busy) advance(true); }} />
     </> : !query.loading && !query.error && <Card><AppText weight="700">{cards.length ? "Practice complete." : "No recall questions yet."}</AppText><AppText muted>{cards.length ? `${rated} rated · ${skipped} skipped. ${rated ? "Your confidence ratings are saved." : "No confidence ratings were changed."}` : "Add study tasks or build a plan from course materials to create recall questions."}</AppText>
       {cards.length > 0 && <Action onPress={() => { setIndex(0); setResponse(""); setRevealed(false); setRated(0); setSkipped(0); }}>Practice again</Action>}
-      <LinkButton label="Back to course" onPress={() => router.replace(`/course/${courseId}`)} />
+      <IconButton glass label="Back to course" icon="arrow-back-outline" onPress={() => router.replace(`/course/${courseId}`)} />
     </Card>}
   </Page>;
 }

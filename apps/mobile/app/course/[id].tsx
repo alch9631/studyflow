@@ -7,6 +7,7 @@ import { Chips, chooseSession, dateLabel, edit, LinkButton, Page, ProgressBar, u
 import { ActionMenu } from "../../src/action-menu";
 import { SwipeRow, useCloseSwipeRow } from "../../src/swipe-row";
 import { ContentRow } from "../../src/content-row";
+import { SectionTabs } from "../../src/section-tabs";
 import { useSession } from "../../src/session";
 import { openMaterial, pickAndUpload, uploadMaterials, type MaterialUploadFailure } from "../../src/materials";
 
@@ -99,17 +100,17 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
     if (busy) return;
     Alert.alert("Delete material?", file.filename, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteMaterial", { moduleFileId: file.id }); } }]);
   }
-  return <Page back sheet title={course?.name ?? "Course"} subtitle={course ? `Exam ${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}>
+  return <Page back sheet title={course?.name ?? "Course"} subtitle={course ? `Exam ${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}
+    actions={<IconButton glass label="Course settings" icon="settings-outline" selected={tab === "manage"} onPress={() => selectTab(tab === "manage" ? "progress" : "manage")} />}>
     {course && <>
-      <View style={{ gap: 10 }}><ProgressBar value={roots.length ? roots.filter(t => t.done).length / roots.length * 100 : 0} label={`${roots.filter(t => t.done).length}/${roots.length} topics covered${course.isPassed ? " · Passed" : ""}`} />
-        <Chips options={Object.entries(sections).filter(([key]) => key !== "manage").map(([value, label]) => ({ value, label }))} value={tab} onChange={selectTab}
-          trailing={<IconButton glass label="Course settings" icon="settings-outline" selected={tab === "manage"} onPress={() => selectTab("manage")} />} />
-      </View>
+      <SectionTabs options={Object.entries(sections).filter(([key]) => key !== "manage").map(([value, label]) => ({ value, label }))} value={tab} onChange={selectTab} />
       <CourseSection active={tab === "progress"}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <LinkButton label="Practice recall" onPress={() => router.push({ pathname: "/practice", params: { courseId: id } })} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <AppText size={18} weight="700" style={{ flex: 1 }}>Topics · {roots.length}</AppText>
+          <IconButton label="Practice recall" icon="flash-outline" onPress={() => router.push({ pathname: "/practice", params: { courseId: id } })} />
           <IconButton label={searchOpen ? "Close topic search" : "Find a topic"} icon={searchOpen ? "close-outline" : "search-outline"} onPress={() => { setSearchOpen(!searchOpen); setSearch(""); setLimit(40); }} />
         </View>
+        <ProgressBar value={roots.length ? roots.filter(t => t.done).length / roots.length * 100 : 0} label={`${roots.filter(t => t.done).length}/${roots.length} covered${course.isPassed ? " · Passed" : ""}`} />
         {searchOpen && <TextInput autoFocus accessibilityLabel="Find a topic" placeholder="Search topics" placeholderTextColor={theme.muted} value={search} onChangeText={value => { setSearch(value); setLimit(40); }} autoCorrect={false} clearButtonMode="while-editing" returnKeyType="search"
           style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: theme.surface, color: theme.text, fontSize: 16 }} />}
         <View>{topics.slice(0, limit).map(t => <SwipeRow key={t.id} disabled={busy}
@@ -117,7 +118,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
           trailing={{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => deleteTopic(t) }}>
           <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, paddingVertical: 8, gap: 4 }}>
           <IconButton label={`${t.done ? "Mark not covered" : "Mark covered"}: ${t.title}`} icon={t.done ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void run("toggleTopic", { courseId: id, topicId: t.id, done: t.done ? "false" : "true" }); }} />
-          <View style={{ flex: 1 }}><AppText weight="600">{t.title}</AppText>{t.confidence ? <AppText size={13} muted>{t.confidence}</AppText> : null}</View>
+          <View style={{ flex: 1 }}><AppText selectable={false} weight="600">{t.title}</AppText>{t.confidence ? <AppText selectable={false} size={13} muted>{t.confidence}</AppText> : null}</View>
           <IconButton label={`Notes & details: ${t.title}`} icon="create-outline" onPress={() => setExpanded(t.id)} />
         </View></SwipeRow>)}</View>
         {topics.length > limit && <LinkButton label="Show more topics" onPress={() => setLimit(n => n + 40)} />}
@@ -126,14 +127,13 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
       <CourseSection active={tab === "materials"}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <AppText size={18} weight="700">Materials · {course.files.length}</AppText>
-          {!isDemo && <IconButton label="Add files" icon="add-outline" busy={busy} onPress={() => { void upload(); }} />}
         </View>
         {isDemo ? <AppText size={14} muted>Sample notes are included. Sign in to add files.</AppText> : <>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <AppText size={14} muted>Upload as</AppText>
             <ActionMenu label="File category" text={({ "": "Auto detect", skript: "Script", uebung: "Exercises", altklausur: "Past paper", slides: "Slides", sonstiges: "Other" } as Record<string, string>)[category]} icon="chevron-down" disabled={busy} items={[
               { id: "", title: "Auto detect" }, { id: "skript", title: "Script" }, { id: "uebung", title: "Exercises" }, { id: "altklausur", title: "Past paper" }, { id: "slides", title: "Slides" }, { id: "sonstiges", title: "Other" },
             ].map(item => ({ ...item, state: category === item.id ? "on" : "off", onPress: () => setCategory(item.id) }))} />
+            <Action secondary busy={busy} onPress={() => { void upload(); }}>Add files</Action>
           </View>
           {uploadStatus ? <AppText size={13} muted>{uploadStatus}</AppText> : null}
           {failedUploads.map(failure => <ErrorMessage key={failure.item.asset.uri} message={`${failure.item.asset.name}: ${failure.message}`} />)}
@@ -142,7 +142,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
         <View>{course.files.map(file => <SwipeRow key={file.id} disabled={busy} trailing={{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => deleteMaterial(file) }}>
               <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, gap: 4 }}>
               <Pressable accessibilityRole="button" accessibilityLabel={`Open ${file.filename}`} disabled={busy} onPress={() => { if (!session || busy) return; setBusy(true); void openMaterial(session, file.id, file.filename).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }} style={{ flex: 1, minHeight: 52, paddingVertical: 12 }}>
-                <AppText size={14} weight="600">{file.filename}</AppText><AppText size={12} muted>{(file.sizeBytes / 1024).toFixed(0)} KB</AppText>
+                <AppText selectable={false} size={14} weight="600">{file.filename}</AppText>
               </Pressable>
               <ActionMenu label={`Material actions: ${file.filename}`} disabled={busy} items={[
                 { id: "plan", title: "Build study plan", image: "list.bullet.clipboard", onPress: () => { void prepare(file.id); } },
@@ -153,13 +153,16 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
             </View></SwipeRow>)}{!course.files.length ? <AppText size={14} muted>No files yet.</AppText> : null}</View>
       </CourseSection>
       <CourseSection active={tab === "deadlines"}>
-        <LinkButton label="+ Add deadline" onPress={() => edit("addAssignment", { courseId: id })} />
-        <View>{course.assignments.map(a => <SwipeRow key={a.id} disabled={busy}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <AppText size={18} weight="700">Deadlines · {course.assignments.filter(a => !a.done).length}</AppText>
+          <IconButton glass label="Add deadline" icon="add-outline" onPress={() => edit("addAssignment", { courseId: id })} />
+        </View>
+        <View>{[...course.assignments].sort((a, b) => Number(a.done) - Number(b.done) || a.dueDate.localeCompare(b.dueDate)).map(a => <SwipeRow key={a.id} disabled={busy}
           leading={{ label: a.done ? "Reopen" : "Complete", icon: a.done ? "arrow-undo-outline" : "checkmark-outline", onPress: () => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); } }}
           trailing={{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => deleteAssignment(a) }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.line }}>
           <IconButton label={`${a.done ? "Reopen" : "Complete"}: ${a.title}`} icon={a.done ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); }} />
-          <View style={{ flex: 1 }}><AppText weight="600">{a.title}</AppText><AppText size={13} muted>{dateLabel(a.dueDate)}</AppText></View>
+          <View style={{ flex: 1 }}><AppText selectable={false} weight="600">{a.title}</AppText><AppText selectable={false} size={13} muted>{dateLabel(a.dueDate)}</AppText></View>
           <IconButton label={`Delete deadline: ${a.title}`} icon="trash-outline" disabled={busy} onPress={() => deleteAssignment(a)} />
         </View></SwipeRow>)}</View>
         {!course.assignments.length ? <AppText size={14} muted>No deadlines.</AppText> : null}

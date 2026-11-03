@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/devUser";
 import { regeneratePlan, healCoursePlan, aiOptimizeCourse, rebuildSchedule, todayISO } from "@/lib/planService";
 import { coursePassed } from "@/lib/coursePassed";
-import { readStudyTask } from "@/lib/studyTask";
+import { readStudyProgress, readStudyTask } from "@/lib/studyTask";
 import {
   extractSyllabus,
   isSyllabusAIEnabled,
@@ -871,9 +871,19 @@ export async function toggleBlock(formData: FormData) {
   // Scoped: a non-owner toggling another user's block id is a silent no-op.
   const block = await findOwnedBlock(userId, id);
   if (block) {
-    await prisma.studyBlock.update({
-      where: { id },
-      data: { completed: toggleTarget(formData, block.completed) },
+    const completed = toggleTarget(formData, block.completed);
+    await prisma.$transaction(async tx => {
+      const saved = await tx.studyBlock.update({ where: { id }, data: { completed }, select: { topicId: true, kind: true } });
+      // A completed paused sitting must not reappear as a resumable session.
+      if (completed && !block.completed && saved.kind === "study") {
+        const topic = await tx.topic.findFirst({ where: { id: saved.topicId, course: { userId } }, select: { studyProgress: true } });
+        const progress = readStudyProgress(topic?.studyProgress);
+        if (progress?.response.trim()) {
+          const noteId = `paused-${id}-${Date.parse(progress.updatedAt)}`;
+          await tx.focusNote.upsert({ where: { id: noteId }, create: { id: noteId, topicId: saved.topicId, body: progress.response.trim() }, update: {} });
+        }
+        await tx.topic.updateMany({ where: { id: saved.topicId, course: { userId } }, data: { studyProgress: null } });
+      }
     });
   }
   revalidatePath(path);
@@ -1194,25 +1204,25 @@ export async function saveGradeInline(formData: FormData): Promise<GradeSaveOutc
  * The visible action behind the course-page header button and the course-card
  * menu item; the result form's checkbox (setGrade) stores the same flag. When
  * the passed-ness actually flips, the plan is rebuilt so the module's pending
- * sessions disappear immediately (bestanden) or come back (undo). The numeric
- * grade is left untouched either way.
+ * sessions disappear immediately (bestanden) or come back (undo). Ordinary flag
+ * edits leave the numeric grade untouched; explicit result removal can clear it.
  */
 async function applyCoursePassed(
   userId: string,
   id: string,
   passed: boolean,
+  clearPassingGrade = false,
 ): Promise<boolean> {
-  // Ownership-scoped read, so a guessed courseId is a no-op, never another
-  // user's module. The grade is read only to decide whether passed-ness
-  // actually FLIPS — it is never written here (grade and bestanden are
-  // independent saves; see setGrade).
+  // Grade and manual pass stay independent unless the caller explicitly removes
+  // the full passing result, after confirming that the passing grade is cleared.
   const prior = await prisma.course.findFirst({
     where: { id, userId },
     select: { grade: true, passed: true },
   });
   if (!prior) return false;
-  if (!(await updateOwnedCourse(userId, id, { passed }))) return false;
-  if (coursePassed(prior) !== coursePassed({ grade: prior.grade, passed })) {
+  const grade = clearPassingGrade && !passed && prior.grade !== null && prior.grade <= 4 ? null : prior.grade;
+  if (!(await updateOwnedCourse(userId, id, { passed, ...(clearPassingGrade ? { grade } : {}) }))) return false;
+  if (coursePassed(prior) !== coursePassed({ grade, passed })) {
     try {
       await rebuildSchedule(userId);
     } catch (e) {
@@ -1259,7 +1269,8 @@ export async function toggleCoursePassed(formData: FormData): Promise<ActionOutc
     return { ok: false, reason: "invalid" };
   }
   const passed = str(formData.get("passed")) === "1";
-  if (!(await applyCoursePassed(userId, id, passed))) return { ok: false, reason: "not-found" };
+  // Explicit result removal is distinct from toggling the independent manual flag.
+  if (!(await applyCoursePassed(userId, id, passed, str(formData.get("clearPassingGrade")) === "1"))) return { ok: false, reason: "not-found" };
   // applyCoursePassed only revalidates when passed-ness flipped; both lists must
   // refresh either way so the card's badge/state is never stale after a swipe.
   revalidatePath("/courses");
@@ -1351,10 +1362,10 @@ export async function deleteNote(formData: FormData): Promise<ActionOutcome> {
 }
 
 /**
- * Today cockpit — "Move to tomorrow": push a single study block forward by one
- * day. Ownership-scoped via findOwnedBlock so a guessed blockId can never move
+ * Today cockpit — "Move to tomorrow": place a single study block on the next
+ * planner day. Ownership-scoped via findOwnedBlock so a guessed blockId can never move
  * another user's block. The block keeps its time-of-day (if any); only the day
- * shifts +1, stored at UTC midnight like every other block date. Returns an
+ * changes, stored at UTC midnight like every other block date. Returns an
  * {@link ActionOutcome} — notably "exam-day" when the shift is blocked by the
  * exam invariant, so the UI can say why nothing moved. Revalidates /today.
  */
@@ -1370,14 +1381,14 @@ export async function moveBlockToTomorrow(formData: FormData): Promise<ActionOut
   // Scoped: a non-owner moving another user's block id resolves to not-found.
   const block = await findOwnedBlock(userId, id);
   if (!block) return { ok: false, reason: "not-found" };
-  // Read the block's current day to compute "+1 day" at UTC midnight. The select
-  // is scoped through course.userId so this can't read another user's block.
+  // Resumable work can come from another day; Tomorrow always means tomorrow
+  // relative to the planner, rather than relative to that old scheduled day.
   const row = await prisma.studyBlock.findFirst({
     where: { id, course: { userId } },
-    select: { date: true, startTime: true, endTime: true, course: { select: { examDate: true } } },
+    select: { date: true, startTime: true, endTime: true, topicId: true, kind: true, course: { select: { examDate: true } } },
   });
   if (!row) return { ok: false, reason: "not-found" };
-  const next = new Date(row.date.getTime() + 86400_000);
+  const next = new Date(Date.parse(todayISO()) + 86400_000);
   // Never push work onto or past the course's exam day — the scheduler's
   // "everything lands before the exam" invariant (mirrors shiftBlocksToTomorrow).
   // Both dates are UTC midnight, so a plain timestamp compare is exact.
@@ -1395,7 +1406,14 @@ export async function moveBlockToTomorrow(formData: FormData): Promise<ActionOut
     startTime = dayMinutesToInstant(nextDayISO, instantToDayMinutes(row.startTime));
     endTime = new Date(startTime.getTime() + (row.endTime.getTime() - row.startTime.getTime()));
   }
-  await prisma.studyBlock.update({ where: { id }, data: { date: next, startTime, endTime } });
+  await prisma.$transaction(async tx => {
+    await tx.studyBlock.update({ where: { id }, data: { date: next, startTime, endTime } });
+    if (row.kind === "study") {
+      const topic = await tx.topic.findFirst({ where: { id: row.topicId, course: { userId } }, select: { studyProgress: true } });
+      const progress = readStudyProgress(topic?.studyProgress);
+      if (progress) await tx.topic.update({ where: { id: row.topicId }, data: { studyProgress: JSON.stringify({ ...progress, resumeAfter: next.toISOString().slice(0, 10), updatedAt: new Date(Math.max(Date.now(), Date.parse(progress.updatedAt) + 1)).toISOString() }) } });
+    }
+  });
   revalidatePath("/today");
   revalidatePath("/calendar");
   return { ok: true };

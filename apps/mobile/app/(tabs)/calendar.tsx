@@ -49,7 +49,7 @@ export default function Calendar() {
       await query.reload();
     } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  return <Page title="Calendar" query={query} actions={<ActionMenu glass label="Calendar options" items={[
+  return <Page tabPage title="Calendar" query={query} actions={<ActionMenu glass label="Calendar options" items={[
     { id: "timetable", title: "Class timetable", image: "calendar", onPress: () => router.push("/timetable") },
     { id: "window", title: "Study window & budget", image: "clock", onPress: () => router.push("/settings") },
   ]} />}>
@@ -72,7 +72,7 @@ export default function Calendar() {
           </Pressable>;
         })}
       </ScrollView>
-      {week ? <LinkButton label="Back to today" onPress={() => { setWeek(""); setSelected(""); resetNotice(); }} /> : null}
+      {week ? <LinkButton label="Today" onPress={() => { setWeek(""); setSelected(""); resetNotice(); }} /> : null}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <View style={{ flex: 1 }}><AppText size={18} weight="700">{day ? dateLabel(day) : "Agenda"}</AppText>{unscheduled ? <AppText size={13} muted>{unscheduled} without a time</AppText> : null}</View>
         <IconButton label="Arrange selected day" icon="sparkles-outline" busy={busy} disabled={!unscheduled} onPress={() => { void arrange(); }} />

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Redirect, router } from "expo-router";
-import { ScrollView } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Host, Picker } from "@expo/ui";
 import { preferredProgress, type MobileBlock } from "../../../shared/mobile";
 import { sessionDurationChoices } from "../../../shared/session-duration";
 import { draftKey, readDraft, writeDraft, type Draft } from "./drafts";
 import { useSession } from "./session";
-import { Action, AppText, ErrorMessage, styles, useTheme } from "./ui";
-import { LinkButton, useMobileData } from "./workspace";
+import { Action, AppText, ErrorMessage, IconButton, styles, useTheme } from "./ui";
+import { useMobileData } from "./workspace";
 import DemoNotice from "./demo-notice";
 
 export default function SessionChoice({ id, topicId, kind }: { id: string; topicId?: string; kind?: string }) {
@@ -41,12 +41,12 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
   const choices = sessionDurationChoices(progress?.sessionMinutes ?? block?.minutes ?? 30, elapsed);
   const minutes = chosen ?? choices.selected;
   return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><AppText size={23} weight="700" style={{ flex: 1 }}>Session length</AppText><IconButton glass label="Close session length" icon="close-outline" onPress={() => router.back()} /></View>
     <DemoNotice />
-    <AppText size={23} weight="700">{block?.title ?? "Choose your study time"}</AppText>
+    {block && <AppText weight="600">{block.title}</AppText>}
     <ErrorMessage message={query.error} />
     {query.error && <Action secondary onPress={() => { void query.reload(); }}>Try again</Action>}
     <>
-      <AppText muted>How many minutes do you want to focus? The timer starts when you continue.</AppText>
       {ready && <Host matchContents seedColor={theme.brand}>
         <Picker selectedValue={minutes} onValueChange={setChosen} appearance="wheel" testID="session-duration">
           {choices.options.filter(value => value >= choices.minimum).map(value => <Picker.Item key={value} value={value} label={`${value} minutes`} />)}
@@ -57,6 +57,5 @@ export default function SessionChoice({ id, topicId, kind }: { id: string; topic
         if (block) router.replace({ pathname: "/focus/[id]", params: { id, topicId: block.topicId, kind: block.kind, minutes: String(minutes) } });
       }}>Start focusing</Action>
     </>
-    <LinkButton label="Cancel" onPress={() => router.back()} />
   </ScrollView>;
 }

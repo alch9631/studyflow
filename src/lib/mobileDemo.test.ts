@@ -72,6 +72,36 @@ async function main() {
     action("moveBlock", { blockId: "demo-study" });
     assert.ok(read<CalendarData>("calendar").blocks.some(block => block.id === "demo-study" && block.date === "2026-11-03"));
   });
+  await check("paused demo sessions stay deferred after a move and completion keeps their working notes", () => {
+    const workspace = new DemoWorkspace("2026-11-02");
+    const change = (name: string, fields: FormFields) => workspace.request(`actions/${name}`, { method: "POST", body: { fields } });
+    const progress = { topicId: "demo-matrices", response: "Keep my paused notes", elapsedSeconds: 90, sessionMinutes: 30, updatedAt: "2026-11-02T12:00:00.000Z" };
+    workspace.request("blocks/demo-study/progress", { method: "PUT", body: progress });
+    change("moveBlock", { blockId: "demo-study" });
+    let today = workspace.request("today") as MobileToday;
+    assert.equal(today.resumeBlock, null); assert.ok(!today.blocks.some(block => block.id === "demo-study"));
+    const moved = workspace.request("blocks/demo-study") as MobileBlock;
+    assert.equal(moved.progress!.response, progress.response); assert.equal(moved.progress!.elapsedSeconds, 90);
+    change("toggleBlock", { blockId: "demo-study", done: "true" });
+    const completed = workspace.request("blocks/demo-study") as MobileBlock;
+    assert.equal(completed.progress, null); assert.ok(completed.notes!.some(note => note.body === progress.response));
+    change("toggleBlock", { blockId: "demo-study", done: "true" });
+    assert.equal((workspace.request("blocks/demo-study") as MobileBlock).notes!.filter(note => note.body === progress.response).length, 1);
+    today = workspace.request("today") as MobileToday; assert.equal(today.resumeBlock, null);
+  });
+  await check("unmarking a graded or ungraded demo pass returns it to remaining exams", () => {
+    const workspace = new DemoWorkspace("2026-11-02");
+    const change = (fields: FormFields) => workspace.request("actions/setPassed", { method: "POST", body: { fields } });
+    change({ courseId: "demo-programming", passed: "0", clearPassingGrade: "1" });
+    let exams = workspace.request("exams") as ExamData;
+    assert.ok(exams.courses.some(course => course.id === "demo-programming"));
+    assert.equal(exams.allCourses.find(course => course.id === "demo-programming")!.grade, null);
+    change({ courseId: "demo-maths", passed: "1" });
+    change({ courseId: "demo-maths", passed: "0", clearPassingGrade: "1" });
+    exams = workspace.request("exams") as ExamData;
+    assert.ok(exams.courses.some(course => course.id === "demo-maths"));
+    assert.equal(exams.results.some(course => course.id === "demo-maths"), false);
+  });
   await check("demo grades, recall ratings and preferences update the screens that display them", () => {
     action("setConfidence", { topicId: "demo-vectors", confidence: "solid" });
     assert.equal(read<PracticeData>("practice?courseId=demo-maths").cards[0].confidence, "solid");

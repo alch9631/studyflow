@@ -1,25 +1,29 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Pressable, View } from "react-native";
+import { AppState, Pressable, StyleSheet, View } from "react-native";
 import { usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
-import ReanimatedSwipeable, { SwipeDirection, type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { AppText, useTheme } from "./ui";
 import { fullSwipeSide } from "./swipe-action";
 
+type Side = "leading" | "trailing";
 type SwipeAction = { label: string; icon: React.ComponentProps<typeof Ionicons>["name"]; onPress: () => void; destructive?: boolean };
-type SwipeCoordinator = { close: () => void; reveal: (row: SwipeableMethods) => void; release: (row: SwipeableMethods) => void };
+type SwipeHandle = { close: () => void };
+type SwipeCoordinator = { close: () => void; reveal: (row: SwipeHandle) => void; release: (row: SwipeHandle) => void };
 const SwipeContext = createContext<SwipeCoordinator>({ close: () => {}, reveal: () => {}, release: () => {} });
+const ACTION_WIDTH = 96;
 
 export function SwipeRowsProvider({ children }: { children: React.ReactNode }) {
-  const active = useRef<SwipeableMethods | null>(null);
+  const active = useRef<SwipeHandle | null>(null);
   const path = usePathname();
   const close = useCallback(() => { active.current?.close(); active.current = null; }, []);
-  const reveal = useCallback((row: SwipeableMethods) => {
+  const reveal = useCallback((row: SwipeHandle) => {
     if (active.current !== row) active.current?.close();
     active.current = row;
   }, []);
-  const release = useCallback((row: SwipeableMethods) => { if (active.current === row) active.current = null; row.reset(); }, []);
+  const release = useCallback((row: SwipeHandle) => { if (active.current === row) active.current = null; }, []);
   useEffect(close, [path, close]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", state => { if (state !== "active") close(); });
@@ -31,52 +35,80 @@ export function SwipeRowsProvider({ children }: { children: React.ReactNode }) {
 
 export function useCloseSwipeRow() { return use(SwipeContext).close; }
 
-/** Short swipes reveal buttons; full swipes invoke the same action on release. */
+/** One horizontal recognizer owns the drag; revealed buttons are outside it. */
 export function SwipeRow({ children, leading, trailing, disabled = false }: {
   children: React.ReactNode; leading?: SwipeAction; trailing?: SwipeAction; disabled?: boolean;
 }) {
   const theme = useTheme();
   const coordinator = use(SwipeContext);
-  const row = useRef<SwipeableMethods>(null);
-  const width = useRef(0);
+  const translation = useSharedValue(0);
+  const start = useSharedValue(0);
+  const width = useSharedValue(0);
   const triggered = useRef(false);
-  const [openSide, setOpenSide] = useState<"leading" | "trailing" | null>(null);
-  useEffect(() => { if (disabled) { row.current?.reset(); setOpenSide(null); } }, [disabled]);
+  const [openSide, setOpenSide] = useState<Side | null>(null);
+  const close = useCallback(() => {
+    translation.value = withTiming(0, { duration: 180 });
+    setOpenSide(null);
+  }, [translation]);
+  const handle = useMemo(() => ({ close }), [close]);
   const { release } = coordinator;
-  useEffect(() => { const instance = row.current; return () => { if (instance) release(instance); }; }, [release]);
-  function reveal() { if (row.current) coordinator.reveal(row.current); }
-  function perform(action: SwipeAction) {
-    if (disabled || triggered.current) return;
+  useEffect(() => () => release(handle), [handle, release]);
+  useEffect(() => { if (disabled) close(); }, [disabled, close]);
+  function begin() {
+    triggered.current = false;
+    setOpenSide(null);
+    coordinator.reveal(handle);
+  }
+  function perform(side: Side) {
+    const action = side === "leading" ? leading : trailing;
+    if (disabled || triggered.current || !action) return;
     triggered.current = true;
     coordinator.close();
     action.onPress();
   }
-  const fullSwipe = usePanGesture({
-    enabled: !disabled, runOnJS: true, activeOffsetX: [-20, 20], failOffsetY: [-14, 14],
-    onActivate: () => { triggered.current = false; },
+  const canLead = !!leading;
+  const canTrail = !!trailing;
+  const pan = usePanGesture({
+    enabled: !disabled, activeOffsetX: [-18, 18], failOffsetY: [-12, 12], maxPointers: 1,
+    onActivate: () => {
+      "worklet";
+      cancelAnimation(translation);
+      start.value = translation.value;
+      scheduleOnRN(begin);
+    },
+    onUpdate: event => {
+      "worklet";
+      const next = start.value + event.translationX;
+      translation.value = Math.max(canTrail ? -width.value : 0, Math.min(canLead ? width.value : 0, next));
+    },
     onDeactivate: event => {
-      if (event.canceled) return;
-      const side = fullSwipeSide(event.translationX, width.current, !!leading, !!trailing);
-      const action = side === "leading" ? leading : side === "trailing" ? trailing : undefined;
-      if (action) perform(action);
+      "worklet";
+      const full = event.canceled ? null : fullSwipeSide(event.translationX, width.value, canLead, canTrail);
+      const side = event.canceled ? null : translation.value >= 44 && canLead ? "leading" : translation.value <= -44 && canTrail ? "trailing" : null;
+      translation.value = withTiming(full || !side ? 0 : side === "leading" ? ACTION_WIDTH : -ACTION_WIDTH, { duration: 180 });
+      scheduleOnRN(setOpenSide, full ? null : side);
+      if (full) scheduleOnRN(perform, full);
     },
   });
-  function actionButton(action: SwipeAction, side: "leading" | "trailing") {
+  const contentStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translation.value }] }));
+  const leadingStyle = useAnimatedStyle(() => ({ opacity: translation.value > 0 ? 1 : 0 }));
+  const trailingStyle = useAnimatedStyle(() => ({ opacity: translation.value < 0 ? 1 : 0 }));
+  function actionButton(action: SwipeAction, side: Side) {
     const open = openSide === side && !disabled;
-    return <View aria-hidden={!open} accessibilityElementsHidden={!open} importantForAccessibility={open ? "auto" : "no-hide-descendants"} style={{ justifyContent: "center" }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={action.label} disabled={disabled || !open}
-        onPress={() => perform(action)}
-        style={({ pressed }) => ({ minWidth: 88, maxWidth: 140, minHeight: 52, flex: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 4, alignItems: "center", justifyContent: "center", backgroundColor: action.destructive ? theme.danger : theme.brand, opacity: pressed ? 0.7 : 1 })}>
-        <Ionicons name={action.icon} size={22} color={theme.background} />
-        <AppText size={13} weight="600" style={{ color: theme.background, textAlign: "center" }}>{action.label}</AppText>
+    return <Animated.View key={side} pointerEvents={open ? "auto" : "none"} aria-hidden={!open} accessibilityElementsHidden={!open} importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+      style={[StyleSheet.absoluteFill, { alignItems: side === "leading" ? "flex-start" : "flex-end", backgroundColor: action.destructive ? theme.danger : theme.accent }, side === "leading" ? leadingStyle : trailingStyle]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={action.label} disabled={!open} onPress={() => perform(side)}
+        style={({ pressed }) => ({ width: ACTION_WIDTH, minHeight: 52, flex: 1, paddingHorizontal: 8, paddingVertical: 10, gap: 4, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 })}>
+        <Ionicons name={action.icon} size={22} color={action.destructive ? "#fff" : theme.onAccent} />
+        <AppText selectable={false} size={13} weight="600" style={{ color: action.destructive ? "#fff" : theme.onAccent, textAlign: "center" }}>{action.label}</AppText>
       </Pressable>
-    </View>;
+    </Animated.View>;
   }
-  return <GestureDetector gesture={fullSwipe}><View onLayout={event => { width.current = event.nativeEvent.layout.width; }}>
-    <ReanimatedSwipeable ref={row} enabled={!disabled} friction={1} leftThreshold={44} rightThreshold={44}
-    simultaneousWith={fullSwipe} dragOffsetFromLeft={20} dragOffsetFromRight={-20} overshootLeft={!!leading} overshootRight={!!trailing} overshootFriction={2}
-    onSwipeableOpenStartDrag={reveal} onSwipeableWillOpen={direction => { reveal(); setOpenSide(direction === SwipeDirection.RIGHT ? "leading" : "trailing"); }} onSwipeableWillClose={() => setOpenSide(null)}
-    renderLeftActions={leading ? () => actionButton(leading, "leading") : undefined} renderRightActions={trailing ? () => actionButton(trailing, "trailing") : undefined}>
-    <View style={{ backgroundColor: theme.background }}>{children}</View>
-  </ReanimatedSwipeable></View></GestureDetector>;
+  return <View onLayout={event => { width.value = event.nativeEvent.layout.width; }} style={{ overflow: "hidden" }}>
+    {leading && actionButton(leading, "leading")}{trailing && actionButton(trailing, "trailing")}
+    <GestureDetector gesture={pan}><Animated.View style={[{ backgroundColor: theme.background }, contentStyle]}>
+      {children}
+      {openSide && <Pressable accessibilityRole="button" accessibilityLabel="Close swipe actions" onPress={coordinator.close} style={StyleSheet.absoluteFill} />}
+    </Animated.View></GestureDetector>
+  </View>;
 }

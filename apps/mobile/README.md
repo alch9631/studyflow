@@ -33,10 +33,14 @@ Swipe right to reveal Complete (or Reopen), and left to reveal Tomorrow. A short
 swipe reveals a button; releasing a full swipe across at least 65% of the row
 (and at least 160 points) runs that action. The sliders icon opens a
 plan-adjustment sheet with a short impact for each choice and the available undo.
+Completed rows omit secondary text. Paused sessions moved to Tomorrow retain their
+notes and timer, but stop appearing as a resume prompt until that day. Completing
+a paused session keeps its working notes and clears the paused state. Session
+length has a top-right X, and back navigation uses a circular glass arrow.
 
 Tap a course row to open a resizable sheet with a grabber and close control. **+** offers course creation, the catalog
 and syllabus import. Within a course, Topics, Materials and Deadlines are visible
-section controls; the gear beside Deadlines opens grouped course settings. Use
+sections in one equal-width bar; the header gear opens grouped course settings. Use
 the search icon to find topics and the pen for topic notes. Start a sitting from
 Today, Calendar or a topic's details. Visited course sections retain their rows
 when switching sections, and hidden sections stay out of accessibility navigation.
@@ -49,7 +53,13 @@ Calendar leads with a swipeable date strip and compact agenda rows. Tap a sessio
 to study; swipe left or use its menu to change its time. Arrange applies only to
 the selected day and leaves manual times and completed work alone. Class timetable
 lives in Calendar options. The app menu contains Exams, Insights and Settings.
-Exam rows open course preparation and keep date/result edits in a short menu.
+Exam rows open course preparation. Swipe right to mark done and left to edit the
+date. In Results & grades, swipe right to edit a grade and left to unmark a pass.
+Unmarking a graded pass confirms clearing its passing grade, so the module really
+returns to Remaining. Small info buttons reveal details and equivalent tap
+actions; exams have no three-dot menu. Other optional information uses the same
+info control. The three main tabs reserve an opaque area below their scrolling
+content for the system tab bar.
 Insights leads with the weekly chart, with history and detailed statistics optional.
 
 ## Run locally

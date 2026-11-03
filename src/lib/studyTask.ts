@@ -1,4 +1,4 @@
-import { ValidationError } from "./validate";
+import { isValidISODate, ValidationError } from "./validate";
 
 export type StudyTask = {
   version: 1;
@@ -62,7 +62,7 @@ export function validateStudyTask(input: Record<string, unknown>): StudyTask {
   };
 }
 
-export type StudyProgress = { version: 1; response: string; elapsedSeconds: number; updatedAt: string; sessionMinutes?: number };
+export type StudyProgress = { version: 1; response: string; elapsedSeconds: number; updatedAt: string; sessionMinutes?: number; resumeAfter?: string };
 export function readStudyProgress(raw: string | null | undefined): StudyProgress | null {
   try {
     const p = JSON.parse(raw ?? "null");
@@ -70,7 +70,8 @@ export function readStudyProgress(raw: string | null | undefined): StudyProgress
       Number.isInteger(p.elapsedSeconds) && p.elapsedSeconds >= 0 && p.elapsedSeconds <= 36000 && typeof p.updatedAt === "string" &&
       Number.isFinite(Date.parse(p.updatedAt)) && (p.sessionMinutes === undefined || Number.isInteger(p.sessionMinutes) && p.sessionMinutes >= 1 && p.sessionMinutes <= 600);
     return valid ? { version: 1, response: p.response, elapsedSeconds: p.elapsedSeconds, updatedAt: new Date(p.updatedAt).toISOString(),
-      ...(p.sessionMinutes === undefined ? {} : { sessionMinutes: p.sessionMinutes }) } : null;
+      ...(p.sessionMinutes === undefined ? {} : { sessionMinutes: p.sessionMinutes }),
+      ...(typeof p.resumeAfter === "string" && isValidISODate(p.resumeAfter) ? { resumeAfter: p.resumeAfter } : {}) } : null;
   } catch { return null; }
 }
 
