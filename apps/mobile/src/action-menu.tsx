@@ -10,6 +10,7 @@ export type ActionMenuProps = {
   icon?: React.ComponentProps<typeof Ionicons>["name"];
   text?: string;
   disabled?: boolean;
+  glass?: boolean;
 };
 
 export function selectMenuItem(items: ActionMenuItem[], id: string) {

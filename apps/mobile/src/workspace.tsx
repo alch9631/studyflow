@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, ApiError } from "./api";
 import { useSession } from "./session";
@@ -9,40 +9,48 @@ import type { ActionResult, FormFields } from "../../../shared/mobileWorkspace";
 import DemoNotice from "./demo-notice";
 import NavigationMenu from "./navigation-menu";
 import { useCloseSwipeRow } from "./swipe-row";
+import { MobileQueryCache, sessionCache } from "./query-cache";
 
 export function useMobileData<T>(path: string) {
   const { session, signOut } = useSession();
-  const key = session ? `${session.server}:${session.userId}:${session.token}:${path}` : "signed-out";
-  const [state, setState] = useState<{ key: string; data: T | null; error: string | null; loading: boolean }>();
-  const data = state?.key === key ? state.data : null;
-  const error = state?.key === key ? state.error : null;
-  const loading = state?.key !== key || state.loading;
-  const setError = useCallback((message: string | null) => setState(previous => ({ key, data: previous?.key === key ? previous.data : null, loading: previous?.key === key ? previous.loading : false, error: message })), [key]);
-  const generation = useRef(0);
+  const cache = useMemo(() => session ? sessionCache(session.server, session.token) : new MobileQueryCache(), [session]);
+  const snapshot = useCallback(() => cache.snapshot<T>(path), [cache, path]);
+  const subscribe = useCallback((listener: () => void) => cache.subscribe(path, listener), [cache, path]);
+  const state = useSyncExternalStore(subscribe, snapshot, snapshot);
+  const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(async (force = false) => {
+    if (!session) return;
+    try { await cache.load(path, () => api<T>(session.server, session.token, path), force); }
+    catch (error) { if (error instanceof ApiError && error.status === 401) await signOut(); }
+  }, [cache, path, session, signOut]);
   const reload = useCallback(async () => {
-    const current = ++generation.current;
-    if (!session) { setState({ key, data: null, error: null, loading: false }); return; }
-    setState(previous => ({ key, data: previous?.key === key ? previous.data : null, loading: true, error: null }));
-    try { const value = await api<T>(session.server, session.token, path); if (current === generation.current) setState({ key, data: value, error: null, loading: false }); }
-    catch (e) { if (current === generation.current) { if (e instanceof ApiError && e.status === 401) await signOut(); else setState(previous => ({ key, data: previous?.key === key ? previous.data : null, loading: false, error: e instanceof Error ? e.message : "Couldn't load your data." })); } }
-  }, [key, path, session, signOut]);
-  useFocusEffect(useCallback(() => { void reload(); return () => { generation.current++; }; }, [reload]));
+    setRefreshing(true);
+    try { await load(true); } finally { setRefreshing(false); }
+  }, [load]);
+  const setError = useCallback((message: string | null) => cache.setError(path, message), [cache, path]);
+  // Focus/foreground refreshes are quiet when cached content is already visible.
+  // Requests finish into the cache even when a tab loses focus.
+  useFocusEffect(useCallback(() => {
+    void load();
+    const subscription = AppState.addEventListener("change", state => { if (state === "active") void load(); });
+    return () => subscription.remove();
+  }, [load]));
   const action = useCallback(async <R = ActionResult,>(name: string, fields: FormFields = {}): Promise<R> => {
     if (!session) throw new Error("Sign in to continue.");
     try { return await api<R>(session.server, session.token, `actions/${encodeURIComponent(name)}`, { method: "POST", body: { fields }, timeout: 120_000 }); }
     catch (error) { if (error instanceof ApiError && error.status === 401) await signOut(); throw error; }
   }, [session, signOut]);
-  return { data, error, loading, reload, action, setError };
+  return { data: state.data, error: state.error?.message ?? null, loading: !!session && state.data === null && state.loading, refreshing, reload, action, setError };
 }
 
 export function Page({ title, subtitle, children, query, back = false, actions }: {
-  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; actions?: React.ReactNode;
+  title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; actions?: React.ReactNode;
 }) {
   const theme = useTheme();
   const closeSwipeRow = useCloseSwipeRow();
   return <SafeAreaView edges={["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
     <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentContainerStyle={styles.content}
-      refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.loading} onRefresh={() => { void query.reload(); }} /> : undefined}>
+      refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.refreshing ?? false} onRefresh={() => { void query.reload(); }} /> : undefined}>
       <View style={{ gap: 4 }}>{back && <LinkButton label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}
         <View style={[styles.row, { gap: 4 }]}><AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <NavigationMenu />}</View>
         {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>

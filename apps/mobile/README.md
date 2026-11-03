@@ -136,7 +136,7 @@ Local drafts survive a network error and can be retried by reopening the session
 There is no complete offline plan cache or automatic queue for finished results yet.
 ## Native workspace (0.2)
 
-Three tabs expose Today, Calendar and Courses. The app menu opens Exams, Insights and Settings. They use the same account
+Three native iOS tabs expose Today, Calendar and Courses. The app menu opens Exams, Insights and Settings. They use the same account
 and database as the web app:
 
 - Exams: remaining exams, month calendar, published university dates and manual
@@ -205,6 +205,33 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 | `/api/mobile/practice?courseId=…&examFile=…` | GET | Shared recall or optional past-paper queue |
 | `/api/mobile/actions/:name` | POST | Allowlisted web workflows; JSON fields or bounded file upload |
 
+## Tab caching and state
+
+Today, Calendar, Courses and workspace detail screens share a session-scoped,
+memory-only cache. Revisiting a fresh screen reuses its data for 60 seconds;
+stale data stays visible while it refreshes on focus or return from the background.
+Pull to refresh always requests current data. Concurrent reads share a request,
+failed refreshes keep the last result beside the retry action, and changing the
+calendar week or course uses a separate cache entry. A day rollover also expires
+cached plans. The cache retains up to 40 unobserved/observed entries combined,
+except that mounted screens and in-flight reads are retained until safe to evict.
+
+Successful edits, focus checkpoints and material uploads invalidate the session's
+cached reads. A response started before an edit cannot replace newer data. Sign-out
+and demo restart clear the previous session's cache; server and session identities
+never share cached data. Cached workspace data is not persisted across app launches.
+
+iOS uses [Expo Router native tabs](https://docs.expo.dev/router/advanced/native-tabs/)
+with system tab materials, SF Symbols and automatic bottom content insets. Tab
+identity stays stable across appearance changes, and tapping a tab again retains
+its scroll position. Calendar week/day selection and Courses filters/search remain
+in screen state when switching tabs. Android and web retain their existing tabs.
+
+Liquid Glass is limited to navigation menus, plan adjustment, course creation and
+calendar week controls. Cards, lists, forms and date selections use solid surfaces.
+Custom glass supports both appearances and uses an opaque fallback when Reduce
+Transparency is enabled or the native glass APIs are unavailable.
+
 ## Verify
 
 ```sh
@@ -212,6 +239,7 @@ JSON 401 responses rather than login redirects. Authenticated responses are no-s
 npm run test:mobile
 npm run test:mobile-workspace
 npm run test:mobile-demo
+npm run test:mobile-cache
 npm run test:proxy
 npm run mobile:check
 

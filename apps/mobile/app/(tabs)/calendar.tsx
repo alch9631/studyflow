@@ -48,15 +48,15 @@ export default function Calendar() {
       await query.reload();
     } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  return <Page title="Calendar" query={query} actions={<ActionMenu label="Calendar options" items={[
+  return <Page title="Calendar" query={query} actions={<ActionMenu glass label="Calendar options" items={[
     { id: "timetable", title: "Class timetable", image: "calendar", onPress: () => router.push("/timetable") },
     { id: "window", title: "Study window & budget", image: "clock", onPress: () => router.push("/settings") },
   ]} />}>
     {d ? <>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <IconButton label="Previous week" icon="chevron-back-outline" onPress={() => shift(-1)} />
+        <IconButton glass label="Previous week" icon="chevron-back-outline" onPress={() => shift(-1)} />
         <View style={{ flex: 1, alignItems: "center" }}><AppText size={14} weight="600">{dateLabel(d.days[0])} – {dateLabel(d.days[6])}</AppText></View>
-        <IconButton label="Next week" icon="chevron-forward-outline" onPress={() => shift(1)} />
+        <IconButton glass label="Next week" icon="chevron-forward-outline" onPress={() => shift(1)} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
         {d.days.map(iso => {

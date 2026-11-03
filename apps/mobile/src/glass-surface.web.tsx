@@ -1,7 +1,7 @@
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { useAppearance, useTheme } from "./theme";
 
-export function GlassSurface({ children, style }: { children?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+export function GlassSurface({ children, style }: { children?: React.ReactNode; style?: StyleProp<ViewStyle>; interactive?: boolean }) {
   const theme = useTheme();
   const { reduceTransparency } = useAppearance();
   const glass = theme.dark && !reduceTransparency;

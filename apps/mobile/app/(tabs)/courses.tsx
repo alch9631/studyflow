@@ -18,7 +18,7 @@ export default function Courses() {
   const all = query.data ?? [];
   const list = all.filter(c => c.isPassed === (tab === "passed") && c.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   function open(id: string, section = "progress") { router.push({ pathname: "/course/[id]", params: { id, section } }); }
-  return <Page title="Courses" query={query} actions={<ActionMenu label="Add course" icon="add-outline" items={[
+  return <Page title="Courses" query={query} actions={<ActionMenu glass label="Add course" icon="add-outline" items={[
     { id: "create", title: "New course", image: "plus", onPress: () => edit("createCourse") },
     { id: "catalog", title: isDemo ? "Sample modules" : "University catalog", image: "books.vertical", onPress: () => router.push("/catalog") },
     ...(!isDemo ? [{ id: "syllabus", title: "Import syllabus", image: "doc.text" as const, onPress: () => edit("importSyllabus") }] : []),

@@ -4,16 +4,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
 import type { ActionMenuProps } from "./action-menu";
 import { AppText, useTheme } from "./ui";
+import { GlassSurface } from "./glass-surface";
 
 // An accessible RN child does not label SwiftUI's native menu trigger.
-export function ActionMenu({ label, items, icon = "ellipsis-horizontal", text, disabled = false }: ActionMenuProps) {
+export function ActionMenu({ label, items, icon = "ellipsis-horizontal", text, disabled = false, glass = false }: ActionMenuProps) {
   const theme = useTheme();
+  const trigger = <View style={{ minWidth: 44, minHeight: 44, paddingHorizontal: text ? 10 : 0, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.5 : 1 }}>
+    {text ? <AppText size={14} weight="600" style={{ color: theme.brand }}>{text}</AppText> : null}
+    <Ionicons name={icon} size={text ? 16 : 22} color={theme.brand} />
+  </View>;
   return <Host ignoreSafeArea="all" style={{ flexShrink: 0 }} testID={label}>
     <Menu modifiers={[accessibilityLabel(label), accessibilityHint("Opens menu"), disabledModifier(disabled)]}
-      label={<RNHostView matchContents boundedByHost><View style={{ minWidth: 44, minHeight: 44, paddingHorizontal: text ? 10 : 0, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.5 : 1 }}>
-        {text ? <AppText size={14} weight="600" style={{ color: theme.brand }}>{text}</AppText> : null}
-        <Ionicons name={icon} size={text ? 16 : 22} color={theme.brand} />
-      </View></RNHostView>}>
+      label={<RNHostView matchContents boundedByHost>{glass ? <GlassSurface interactive style={{ borderRadius: 22 }}>{trigger}</GlassSurface> : trigger}</RNHostView>}>
       <Section title={label}>{items.filter(item => !item.attributes?.hidden).map(item => {
         const blocked = disabled || !!item.attributes?.disabled;
         const systemImage = typeof item.image === "string" ? item.image : undefined;

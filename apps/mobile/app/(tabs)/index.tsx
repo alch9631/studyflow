@@ -1,60 +1,42 @@
-import { useCallback, useRef, useState } from "react";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useState } from "react";
+import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { MobileBlock, MobileToday } from "../../../../shared/mobile";
 import type { FormFields } from "../../../../shared/mobileWorkspace";
-import { ApiError, getToday } from "../../src/api";
-import { useSession } from "../../src/session";
 import { Action, AppText, styles, useTheme } from "../../src/ui";
-import { api } from "../../src/api";
-import { chooseSession, dateLabel, edit, Page, timeLabel } from "../../src/workspace";
+import { chooseSession, dateLabel, edit, Page, timeLabel, useMobileData } from "../../src/workspace";
 import { ActionMenu } from "../../src/action-menu";
 import { SwipeRow } from "../../src/swipe-row";
 import { PlanAdjustments } from "../../src/plan-adjustments";
 
 export default function Today() {
-  const { session, signOut } = useSession();
   const router = useRouter();
   const theme = useTheme();
-  const [data, setData] = useState<MobileToday | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const query = useMobileData<MobileToday>("today");
+  const { data, error, setError, reload: load } = query;
   const [adjusting, setAdjusting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const generation = useRef(0);
   const [changing, setChanging] = useState<string | null>(null);
   async function changeBlock(block: MobileBlock, name: string, fields: FormFields = {}) {
-    if (!session || changing) return;
+    if (changing) return;
     setChanging(block.id); setError(null);
-    try { await api(session.server, session.token, `actions/${name}`, { method: "POST", body: { fields: { blockId: block.id, ...fields } } }); await load(); }
+    try { await query.action(name, { blockId: block.id, ...fields }); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : "Couldn't update this session."); }
     finally { setChanging(null); }
   }
   async function adjust(name: string) {
-    if (!session || adjusting) return false; setAdjusting(true); setError(null);
-    try { await api(session.server, session.token, `actions/${name}`, { method: "POST", body: { fields: {} }, timeout: 120_000 }); setNotice(name === "undoRecovery" ? "Adjustment undone." : "Plan updated."); await load(); return true; }
+    if (adjusting) return false; setAdjusting(true); setError(null);
+    try { await query.action(name); setNotice(name === "undoRecovery" ? "Adjustment undone." : "Plan updated."); await load(); return true; }
     catch (e) { setError((e as Error).message); return false; } finally { setAdjusting(false); }
   }
-  const load = useCallback(async () => {
-    if (!session) return;
-    const current = ++generation.current;
-    setRefreshing(true); setError(null);
-    try { const value = await getToday(session.server, session.token); if (current === generation.current) setData(value); }
-    catch (e) {
-      if (current !== generation.current) return;
-      if (e instanceof ApiError && e.status === 401) { await signOut(); return; }
-      setError(e instanceof Error ? e.message : "Couldn't load your plan.");
-    } finally { if (current === generation.current) setRefreshing(false); }
-  }, [session, signOut]);
-  useFocusEffect(useCallback(() => { void load(); return () => { generation.current++; }; }, [load]));
   const next = data?.resumeBlock ?? data?.blocks.find(block => block.id === data.nextBlockId && !block.completed) ?? data?.blocks.find(block => !block.completed);
   function focus(block: MobileBlock) { chooseSession(block); }
   const left = data ? Math.max(0, data.summary.plannedMinutes - data.summary.completedMinutes) : 0;
   const blocks = data?.resumeBlock && !data.blocks.some(block => block.id === data.resumeBlock!.id) ? [data.resumeBlock, ...data.blocks] : data?.blocks ?? [];
   const date = data ? new Date(`${data.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }) : "";
 
-  return <Page title="Today" subtitle={date} query={{ loading: refreshing, error, reload: load }}
+  return <Page title="Today" subtitle={date} query={query}
     actions={<PlanAdjustments health={data?.planHealth} disabled={!data || adjusting || changing !== null} busy={adjusting} error={error} onAdjust={adjust} />}>
       {notice ? <AppText size={13} muted>{notice}</AppText> : null}
       {data && <>

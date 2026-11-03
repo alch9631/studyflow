@@ -181,3 +181,46 @@ source manifest are also saved in the ignored `build/ios/0.2.0-8/` directory.
 The upload had the same three non-blocking vendor debug-symbol warnings listed
 for build 7. The [external SSD workflow](../apps/mobile/README.md#build-on-an-external-ssd)
 documents the storage setup used for this release.
+
+## Native tabs and cached workspace follow-up — 3 November 2026
+
+Today, Calendar and Courses now share the workspace data cache and use the
+system iOS tab bar. Returning to a fresh tab reuses data; stale results remain
+visible during revalidation. Edits, focus saves and uploads invalidate cached
+reads, while session changes clear account data. The memory cache deduplicates
+requests, separates calendar weeks and course IDs, and rejects responses that
+started before an edit or sign-out.
+
+The iOS tab bar owns its system material and SF Symbols. Its stable tab identity
+preserves screen state through tab and appearance changes. Custom glass is
+limited to navigation menus, course creation, plan adjustment and week controls;
+content cards and forms use solid surfaces. Custom controls honor Reduce
+Transparency and unsupported native APIs with opaque fallbacks.
+
+Verified in Expo Go on the iPhone 17 Pro simulator running iOS 26.3:
+
+- Courses search survived a round trip to Calendar.
+- Calendar retained the following week's selected day after switching tabs.
+- Completing a sample session on Today updated Calendar's completed row and
+  unscheduled count on return.
+- Native tabs and glass navigation menus worked in both light and dark mode.
+- The final source passed root lint, root/mobile TypeScript checks, the iOS
+  Hermes export, 10 cache tests, 11 demo tests, 18 mobile API tests and 11 native
+  workspace tests. Dependency checking used Expo's local SDK compatibility map.
+
+These are simulator and automated checks; physical-device behavior and full
+VoiceOver navigation remain unverified. Workspace caching lasts for the current
+app process and does not add a persistent offline mutation queue.
+
+Build **0.2.0 (9)** was archived and uploaded from the verified working tree on
+the external APFS SSD. Apple accepted it on **3 November 2026 at 08:50 CET** and
+reported that it was processing for TestFlight. All 62 recorded build inputs
+matched the development checkout and release copy after archiving. The signed
+archive's version, bundle identifier, production backend, native-tab bundle and
+code signature passed verification, and the production health endpoint returned
+`{"ok":true}`. The upload retained the same three non-blocking vendor debug-symbol
+warnings as builds 7 and 8.
+
+The source copy, dependencies, archive and full build/upload logs are retained at
+`/Volumes/Ubuntu_VM/StudyflowBuilds/0.2.0-9/`. The source manifest and accepted upload
+receipt are also saved locally in the ignored `build/ios/0.2.0-9/` directory.

@@ -8,6 +8,7 @@ import type { MobileSession } from "../../../shared/mobile";
 import { api, exchangeSession, serverUrl } from "./api";
 import { DEMO_SERVER, endDemoSession, startDemoSession } from "./demo";
 import { clearSessionDrafts } from "./drafts";
+import { clearSessionCache } from "./query-cache";
 
 WebBrowser.maybeCompleteAuthSession();
 const STORAGE_KEY = "studyflow.mobile.session.v1";
@@ -74,18 +75,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // A late unauthorized response from an old account cannot sign out a newer one.
     if (!session || currentSession.current?.token !== session.token) return;
     if (session?.server === DEMO_SERVER) {
+      clearSessionCache(session.server, session.token);
       endDemoSession(session.token);
       setSession(current => current?.token === session.token ? null : current);
       await clearSessionDrafts(session.server, session.userId).catch(() => {});
       return;
     }
     await SecureStore.deleteItemAsync(STORAGE_KEY);
+    clearSessionCache(session.server, session.token);
     setSession(current => current?.token === session.token ? null : current);
     // Local sign-out must work even if a development server moved or is offline.
     // Revoke this device's server token whenever the server is reachable.
     if (session) void api(session.server, session.token, "session", { method: "DELETE" }).catch(() => {});
   }, [session]);
   const startDemo = useCallback(() => {
+    if (session) clearSessionCache(session.server, session.token);
     if (session?.server === DEMO_SERVER) void clearSessionDrafts(session.server, session.userId).catch(() => {});
     setSession(startDemoSession());
   }, [session]);

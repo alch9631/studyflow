@@ -3,6 +3,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { uploadBatch } from "../../../shared/upload-batch";
 import { DEMO_SERVER } from "./demo-data";
+import { invalidateSessionCache } from "./query-cache";
 
 type Session = { server: string; token: string };
 export type MaterialSelection = { asset: DocumentPicker.DocumentPickerAsset; category: string };
@@ -28,6 +29,7 @@ async function uploadOriginal(session: Session, courseId: string, { asset, categ
     const response = await fetch(`${session.server}/api/mobile/actions/uploadMaterial`, { method: "POST", headers: { Authorization: `Bearer ${session.token}` }, body, signal: controller.signal, credentials: "omit" });
     const result = await response.json();
     if (!response.ok) throw new Error(result?.error?.message ?? "Couldn't upload this file.");
+    invalidateSessionCache(session.server, session.token);
   } finally { clearTimeout(timeout); }
 }
 export async function openMaterial(session: Session, id: string, filename: string) {

@@ -21,7 +21,7 @@ export function PlanAdjustments({ health, disabled, busy, error, onAdjust }: {
   const [open, setOpen] = useState(false);
   async function adjust(name: string) { if (await onAdjust(name)) setOpen(false); }
   return <>
-    <IconButton label="Adjust plan" icon="options-outline" disabled={disabled} onPress={() => setOpen(true)} />
+    <IconButton glass label="Adjust plan" icon="options-outline" disabled={disabled} onPress={() => setOpen(true)} />
     <Modal visible={open} onRequestClose={() => setOpen(false)} presentationStyle="pageSheet" animationType="slide">
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
