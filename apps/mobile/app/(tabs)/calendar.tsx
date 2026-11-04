@@ -61,14 +61,14 @@ export default function Calendar() {
       await query.reload();
     } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  return <Page tabPage title="Calendar" query={query} actions={<LinkButton label="Timetable" onPress={() => router.push("/timetable")} />}>
+  return <Page tabPage title="Calendar" query={query}>
     {d ? <>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <IconButton glass label="Previous week" icon="chevron-back-outline" onPress={() => shift(-1)} />
         <View style={{ flex: 1, alignItems: "center" }}><AppText size={14} weight="600">{dateLabel(d.days[0])} – {dateLabel(d.days[6])}</AppText></View>
         <IconButton glass label="Next week" icon="chevron-forward-outline" onPress={() => shift(1)} />
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6 }}>
         {d.days.map(iso => {
           const date = new Date(`${iso}T12:00:00Z`);
           const active = iso === day;

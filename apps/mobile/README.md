@@ -27,7 +27,11 @@ subscriptions require signing in; the demo labels those features accordingly.
 
 ## Compact navigation
 
-Home opens with a daily summary. **Start work** or **Resume focus** opens the session-length picker, and **Lock in** starts the timer.
+Home opens with the date, a short daily summary and the next task. **Start work** or **Resume focus** opens the session-length picker, and **Lock in** starts the timer.
+The five icon-only tabs use native SF Symbols and Liquid Glass on iOS 26,
+with the system adapting the material to light or dark appearance.
+The bar uses native touch transitions and requests scroll minimization where iOS supports it.
+Native scroll insets keep content accessible around the bar, including at larger text sizes.
 
 Today shows one session list with progress above it. Tap a session to choose its
 length or the status circle to toggle completion. Swipe left for notes and right
@@ -55,14 +59,14 @@ for confirmation, and all swipe actions have a visible button or menu alternativ
 Calendar leads with a swipeable date strip and compact agenda rows. Tap a session
 to study or swipe right to mark done or undone. Hold a session to set its time,
 or tap an assigned start time to edit it. Swipe left to clear or assign a time. Arrange applies only to
-the selected day and leaves manual times and completed work alone. The Timetable link opens recurring classes. Courses opens Exams.
+the selected day and leaves manual times and completed work alone. Courses opens Exams.
 Exam cards use clear Liquid Glass with an accessible solid fallback. Tap a module
 to edit its synced exam note; long press for date, grade and pass options.
 Swipe right to mark done and left to edit the
 date. In Results & grades, swipe right to edit a grade and left to unmark a pass.
 Unmarking a graded pass confirms clearing its passing grade, so the module really
 returns to Remaining. Courses lists active courses first and keeps passed courses searchable.
-Insights leads with the weekly chart, with history and detailed statistics optional.
+Insights leads with the weekly chart, with history and detailed statistics optional. Course progress is available inside Courses.
 Focus keeps the timer and notes visible; source excerpts, saved notes and the
 learning check expand when needed.
 
@@ -173,7 +177,7 @@ and database as the web app:
   multiple originals per selection, sequential upload progress, retry for failed
   files, document-derived study plans with a selection/review step, and removal.
 - Planning: a native day/week agenda, time assignment, automatic arrangement,
-  recurring class timetable, deadlines and plan recovery/undo.
+  existing class events, deadlines and plan recovery/undo.
 - Settings & account: active recall via course progress, study-window/daily-budget preferences,
   Apple Calendar subscription, and opt-in daily local reminders.
 

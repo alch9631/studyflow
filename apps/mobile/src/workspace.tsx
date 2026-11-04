@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, AppState, Platform, Pressable, RefreshControl, ScrollView, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { api, ApiError } from "./api";
 import { useSession } from "./session";
 import { Action, AppText, ErrorMessage, IconButton, styles, useTheme } from "./ui";
 import { GlassSurface } from "./glass-surface";
 import type { ActionResult, FormFields } from "../../../shared/mobileWorkspace";
 import DemoNotice from "./demo-notice";
-import { TAB_BAR_HEIGHT, tabBarBottom } from "./theme-tab-bar";
 import { useCloseSwipeRow } from "./swipe-row";
 import { MobileQueryCache, sessionCache } from "./query-cache";
 
@@ -56,15 +55,15 @@ export function usePrefetchMobileData() {
   }, [session]);
 }
 
-export function Page({ title, subtitle, children, query, back = false, sheet = false, tabPage = false, actions }: {
+export function Page({ title, subtitle, children, query, back = false, sheet = false, tabPage = false, actions, contentStyle }: {
   title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; sheet?: boolean; tabPage?: boolean; actions?: React.ReactNode;
+  contentStyle?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const tabContent = tabPage && { flexGrow: 1, paddingBottom: TAB_BAR_HEIGHT + tabBarBottom(insets.bottom) + 16 };
   const closeSwipeRow = useCloseSwipeRow();
-  return <SafeAreaView edges={sheet ? [] : ["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>
-    <ScrollView onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior={tabPage ? "never" : "automatic"} contentContainerStyle={[styles.content, tabContent]}
+  const nativeTabPage = tabPage && Platform.OS === "ios";
+  // Keep the tab's ScrollView at the root so UIKit can track scrolling and insets.
+  const content = <ScrollView style={[styles.screen, { backgroundColor: theme.background }]} onScrollBeginDrag={closeSwipeRow} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, contentStyle]}
       refreshControl={query ? <RefreshControl tintColor={theme.brand} refreshing={query.refreshing ?? false} onRefresh={() => { void query.reload(); }} /> : undefined}>
       <View style={{ gap: 4 }}>
         {sheet ? <>
@@ -75,8 +74,8 @@ export function Page({ title, subtitle, children, query, back = false, sheet = f
       <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}
       {query?.loading && <ActivityIndicator color={theme.brand} />}{children}
-    </ScrollView>
-  </SafeAreaView>;
+    </ScrollView>;
+  return nativeTabPage ? content : <SafeAreaView edges={sheet ? [] : ["top"]} style={[styles.screen, { backgroundColor: theme.background }]}>{content}</SafeAreaView>;
 }
 
 export function LinkButton({ label, onPress, danger = false }: { label: string; onPress: () => void; danger?: boolean }) {

@@ -1,8 +1,7 @@
 import { View } from "react-native";
-import { router } from "expo-router";
 import type { InsightsData } from "../../../../shared/mobileWorkspace";
 import { AppText, Card, useTheme } from "../../src/ui";
-import { dateLabel, LinkButton, minutesLabel, Page, ProgressBar, useMobileData } from "../../src/workspace";
+import { dateLabel, minutesLabel, Page, ProgressBar, useMobileData } from "../../src/workspace";
 import { Disclosure } from "../../src/disclosure";
 
 export default function Insights() {
@@ -19,9 +18,6 @@ export default function Insights() {
       </Disclosure>
       <Disclosure label="Learning evidence"><AppText>{d.evidence.goalsMet} goals met · {d.evidence.practiceNeeded} need practice</AppText><AppText muted>{d.evidence.attempts} checked attempts · {d.evidence.laterRecall} recalled successfully on a later day</AppText><AppText size={12} muted>Session completion and topic coverage do not imply an exam grade.</AppText></Disclosure>
       <Disclosure label="Modules & credits"><AppText>{d.courses.filter(c => c.passed || c.grade !== null && c.grade <= 4).length} modules passed · {d.grades.lpEarned} ECTS earned</AppText><AppText muted>{minutesLabel(d.upcomingWorkload)} planned over the next seven days</AppText></Disclosure>
-      <Disclosure label={`Course progress · ${d.courses.length}`}>
-      {d.courses.map(c => <Card key={c.id}><AppText size={18} weight="700">{c.name}</AppText><ProgressBar value={c.progressPct} label={`${c.topicsDone} of ${c.topicsTotal} topics covered`} /><AppText size={14} muted>{minutesLabel(c.actualMinutes)} logged · {minutesLabel(c.remainingStudyMinutes)} study remaining</AppText><AppText size={14} muted>{c.grade !== null ? `Grade ${c.grade.toFixed(1)} · ` : ""}Exam {dateLabel(c.examDate)}</AppText><LinkButton label="Open course progress" onPress={() => router.push(`/course/${c.id}`)} /></Card>)}
-      </Disclosure>
       {!d.hasData && <AppText muted>Add a course to start building your study history.</AppText>}
     </>}
   </Page>;
