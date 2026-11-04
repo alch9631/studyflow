@@ -48,8 +48,10 @@ Tap a course row to open a resizable sheet with a grabber and close control. **+
 and syllabus import. Within a course, Topics, Materials and Deadlines are visible
 sections in one equal-width bar; the gear beside Deadlines opens course settings. Use
 the search icon to find topics and the pen for topic notes. Start a sitting from
-Today, Calendar or a topic's details. Visited course sections retain their rows
-when switching sections, and hidden sections stay out of accessibility navigation.
+Today, Calendar or a topic's details. Visited course sections retain their scroll
+position and drafts. Row windows are virtualized, and the full topic list stays scrollable and searchable. The
+section marker and content move together, with support for Reduce Motion. Hidden
+sections stay out of touch and accessibility navigation.
 Topics and deadlines swipe right for completion and left for deletion. Materials
 appear below a counted heading; Add material offers the file kind and then opens
 Files. Materials swipe left for deletion. Adding a deadline inserts an editable

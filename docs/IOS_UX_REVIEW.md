@@ -333,3 +333,46 @@ Root lint, root/mobile TypeScript, the iOS Hermes export, 18 mobile API checks,
 notes and session suites passed. No release upload or backend deployment was
 performed. Implementation used the starred repositories' Expo UI/native UI and
 Vercel React Native skill guidance.
+
+## Native course motion and measured rendering — 4 November 2026
+
+Integrated the native bottom tabs from `59ea62e`, preserving the completed Home,
+Calendar and Insights changes from the other session. Implementation follows
+[Vercel's React Native skill](https://github.com/vercel-labs/agent-skills/blob/main/skills/react-native-skills/SKILL.md),
+including native navigation, bounded list rendering, stable row callbacks and
+transform-based animation.
+
+Course selection and content share a 240 ms UI-thread transition. The marker
+moves with the incoming section's directional slide; Reduce Motion uses the
+system setting. Each visited section retains its viewport and local form state.
+Inactive sections reject touches and leave accessibility navigation. Topic,
+material and deadline rows use FlatList windows and memoized cells. All topics
+remain scrollable and searchable without a forty-row pagination barrier.
+
+A controlled iPhone 17 Pro / iOS 26.3 simulator comparison used production,
+minified JavaScript in Expo Go, with `__DEV__` verified false. Both versions used
+the same native-tab commit and a fixture with 120 topics, 24 materials and 12
+deadlines. After one cold round, ten section changes each sampled approximately
+1.1 seconds of JavaScript and UI-thread callback intervals.
+
+| Course measurement | Before | After |
+| --- | ---: | ---: |
+| Median of each change's peak JS interval | 227.2 ms | 23.1 ms |
+| Median of each change's peak UI interval | 218.0 ms | 16.7 ms |
+| UI intervals exceeding 25 ms, over ten changes | 12 | 0 |
+| Initial course-open peak JS interval | 701.8 ms | 180.7 ms |
+
+[Raw samples and methodology](ios-course-performance/measurements.json) include
+cold results and the sampling definitions. First mounts still produced long
+intervals. These measurements describe the simulator's JS and Reanimated
+callback cadence, rather than physical-device presentation frames. Temporary
+profiling hooks, navigation drivers and fixture changes are excluded from the
+application change.
+
+Native XCTest checks passed for section taps, hidden-section accessibility,
+retained deadline drafts and topic searches, finding topic 120, completing a
+topic, course settings, closing the sheet and navigating the UIKit tab bar. The
+animated control keeps its decorative glass outside the touch-target hierarchy;
+a native comparison caught and verified that hit-testing fix before delivery.
+
+Final mobile TypeScript, the Hermes iOS export and all 18 mobile demo checks passed.

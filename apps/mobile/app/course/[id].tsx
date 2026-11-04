@@ -1,18 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { Alert, Keyboard, Modal, Pressable, ScrollView, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, FlatList, Keyboard, Modal, Pressable, RefreshControl, ScrollView, TextInput, View, type ListRenderItem } from "react-native";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
+import Animated from "react-native-reanimated";
+import { useSectionContentStyle, useSectionMotion, type SectionMotion } from "../../src/section-motion";
 import DateTimePicker from "@expo/ui/community/datetime-picker";
 import type { CourseDetail, FormFields } from "../../../../shared/mobileWorkspace";
 import { Action, AppText, Card, ErrorMessage, IconButton, useTheme } from "../../src/ui";
-import { Chips, chooseSession, dateLabel, edit, LinkButton, Page, ProgressBar, useMobileData } from "../../src/workspace";
+import { Chips, chooseSession, dateLabel, edit, LinkButton, ProgressBar, useMobileData } from "../../src/workspace";
 import { ActionMenu } from "../../src/action-menu";
-import { SwipeRow, useCloseSwipeRow } from "../../src/swipe-row";
+import { useCloseSwipeRow } from "../../src/swipe-row";
 import { ContentRow } from "../../src/content-row";
+import { CoursePage } from "../../src/course-page";
+import { DeadlineRow, MaterialRow, TopicRow } from "../../src/course-rows";
 import { SectionTabs } from "../../src/section-tabs";
 import { useSession } from "../../src/session";
 import { openMaterial, pickAndUpload, uploadMaterials, type MaterialUploadFailure } from "../../src/materials";
 
 type Plan = { fileId: string; id: string; outline: boolean; items: { id: string; title: string; reference?: string; instruction?: string }[] };
+const courseSections = { progress: "Topics", materials: "Materials", deadlines: "Deadlines", manage: "Settings" };
+const sectionKeys = Object.keys(courseSections);
+const sectionOptions = Object.entries(courseSections).filter(([key]) => key !== "manage").map(([value, label]) => ({ value, label }));
 const materialTypes = [
   { id: "auto", category: "", title: "Auto detect" }, { id: "skript", category: "skript", title: "Script" },
   { id: "uebung", category: "uebung", title: "Exercises" }, { id: "altklausur", category: "altklausur", title: "Past paper" },
@@ -20,13 +27,30 @@ const materialTypes = [
 ];
 function localDay(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 
-/** Mount a section on first use, then retain its native rows for instant returns. */
-function CourseSection({ active, children }: { active: boolean; children: React.ReactNode }) {
+const rowKey = (item: { id: string }) => item.id;
+
+/** Retain each section's scroll and draft state; mount rows only near its viewport. */
+function CourseSection<T extends { id: string }>({ active, children, data = [], renderItem, query, motion }: {
+  active: boolean; children: React.ReactNode; data?: T[]; renderItem?: ListRenderItem<T>;
+  query: { refreshing: boolean; reload: () => Promise<void> }; motion: SectionMotion;
+}) {
   const [visited, setVisited] = useState(active);
+  const closeSwipeRow = useCloseSwipeRow();
+  const sceneStyle = useSectionContentStyle(motion, active);
+  const theme = useTheme();
   useEffect(() => { if (active) setVisited(true); }, [active]);
   if (!active && !visited) return null;
-  return <View aria-hidden={!active} accessibilityElementsHidden={!active} importantForAccessibility={active ? "auto" : "no-hide-descendants"}
-    style={active ? { gap: 18 } : { display: "none" }}>{children}</View>;
+  return <Animated.View aria-hidden={!active} accessibilityElementsHidden={!active} importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+    pointerEvents={active ? "auto" : "none"}
+    style={[{ position: "absolute", inset: 0 }, sceneStyle]}>
+    <FlatList data={data} renderItem={renderItem} keyExtractor={rowKey}
+      ListHeaderComponent={<View style={{ gap: 18, marginBottom: 18 }}>{children}</View>}
+      initialNumToRender={8} maxToRenderPerBatch={4} windowSize={5}
+      onScrollBeginDrag={closeSwipeRow} scrollsToTop={active}
+      keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive" contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 32 }}
+      refreshControl={<RefreshControl tintColor={theme.brand} refreshing={query.refreshing} onRefresh={() => { void query.reload(); }} />} />
+  </Animated.View>;
 }
 
 export default function Course() {
@@ -38,11 +62,12 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
   const query = useMobileData<CourseDetail>(`courses/${encodeURIComponent(id)}`);
   const { session, isDemo } = useSession(); const theme = useTheme(); const course = query.data;
   const closeSwipeRow = useCloseSwipeRow();
-  const sections = { progress: "Topics", materials: "Materials", deadlines: "Deadlines", manage: "Settings" };
+  const sections = courseSections;
   const initialTab = section && Object.hasOwn(sections, section) ? section : "progress";
   const [tab, setTab] = useState(initialTab);
+  const sectionMotion = useSectionMotion(sectionKeys.indexOf(tab));
   useEffect(() => { setTab(initialTab); setExpanded(""); }, [id, initialTab]);
-  const [busy, setBusy] = useState(false); const [expanded, setExpanded] = useState(""); const [search, setSearch] = useState(""); const [searchOpen, setSearchOpen] = useState(false); const [limit, setLimit] = useState(40);
+  const [busy, setBusy] = useState(false); const [expanded, setExpanded] = useState(""); const [search, setSearch] = useState(""); const [searchOpen, setSearchOpen] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null); const [selected, setSelected] = useState<string[]>([]);
   const [failedUploads, setFailedUploads] = useState<MaterialUploadFailure[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -59,13 +84,13 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
       { text: "Discard", style: "destructive", onPress: () => { setAllowLeave(true); repeat(); } },
     ]);
   });
-  useEffect(() => { setSearch(""); setLimit(40); }, [id]);
+  useEffect(() => { setSearch(""); }, [id]);
   function selectTab(value: string) { closeSwipeRow(); Keyboard.dismiss(); setTab(value); }
-  async function run(name: string, fields: FormFields = {}) {
+  const run = useCallback(async (name: string, fields: FormFields = {}) => {
     if (busy) return; setBusy(true); query.setError(null);
     try { await query.action(name, fields); await query.reload(); if (name === "deleteTopic") setExpanded(""); }
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
-  }
+  }, [busy, query.action, query.reload, query.setError]);
   async function upload(category = "", retry = false) {
     if (!session || busy) return; setBusy(true); query.setError(null);
     try {
@@ -101,7 +126,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
       chooseSession({ id: result.blockId, topicId: result.topicId, kind: result.kind });
     } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  async function prepare(fileId: string) {
+  const prepare = useCallback(async (fileId: string) => {
     setBusy(true); query.setError(null);
     try {
       const result = await query.action<{ outline?: { id: string; units: { id: string; title: string; reference: string }[] }; drafts?: { id: string; items: { id: string; title: string; task: { instruction: string } }[] } }>("prepareMaterial", { fileId, language: "en" });
@@ -109,55 +134,65 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
         : { fileId, id: result.drafts!.id, outline: false, items: result.drafts!.items.map(d => ({ id: d.id, title: d.title, instruction: d.task.instruction })) };
       setPlan(p); setSelected(p.items.map(i => i.id));
     } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
-  }
+  }, [query.action, query.setError]);
   async function acceptPlan() {
     if (!plan || !selected.length) return;
     setBusy(true);
     try { await query.action(plan.outline ? "acceptOutline" : "acceptTasks", { fileId: plan.fileId, draftId: plan.id, ids: selected }); setPlan(null); await query.reload(); }
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
-  const roots = course?.topics.filter(t => !t.parentTopicId) ?? [];
+  const roots = useMemo(() => course?.topics.filter(t => !t.parentTopicId) ?? [], [course?.topics]);
+  const covered = useMemo(() => roots.filter(t => t.done).length, [roots]);
   const selectedTopic = course?.topics.find(t => t.id === expanded);
-  const topics = course?.topics.filter(t => t.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) ?? [];
-  function deleteTopic(topic: CourseDetail["topics"][number]) {
+  const topics = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase();
+    return course?.topics.filter(t => !needle || t.title.toLocaleLowerCase().includes(needle)) ?? [];
+  }, [course?.topics, search]);
+  const assignments = useMemo(() => [...(course?.assignments ?? [])].sort((a, b) => Number(a.done) - Number(b.done) || a.dueDate.localeCompare(b.dueDate)), [course?.assignments]);
+  const deleteTopic = useCallback((topic: CourseDetail["topics"][number]) => {
     if (busy) return;
     Alert.alert("Delete topic?", `${topic.title}\nIts notes and future sessions will be removed. Logged study history is kept.`, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteTopic", { topicId: topic.id, courseId: id }); } }]);
-  }
-  function deleteAssignment(assignment: CourseDetail["assignments"][number]) {
+  }, [busy, id, run]);
+  const deleteAssignment = useCallback((assignment: CourseDetail["assignments"][number]) => {
     if (busy) return;
     Alert.alert("Delete deadline?", assignment.title, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteAssignment", { assignmentId: assignment.id, courseId: id }); } }]);
-  }
-  function deleteMaterial(file: CourseDetail["files"][number]) {
+  }, [busy, id, run]);
+  const deleteMaterial = useCallback((file: CourseDetail["files"][number]) => {
     if (busy) return;
     Alert.alert("Delete material?", file.filename, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void run("deleteMaterial", { moduleFileId: file.id }); } }]);
-  }
-  return <Page back sheet title={course?.name ?? "Course"} subtitle={course ? `${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}>
-    {course && <>
+  }, [busy, run]);
+  const openFile = useCallback((file: CourseDetail["files"][number]) => {
+    if (!session || busy) return;
+    setBusy(true);
+    void openMaterial(session, file.id, file.filename).catch(e => query.setError(e.message)).finally(() => setBusy(false));
+  }, [session, busy, query.setError]);
+  const renderTopic = useCallback<ListRenderItem<CourseDetail["topics"][number]>>(({ item }) =>
+    <TopicRow topic={item} busy={busy} id={id} run={run} onDelete={deleteTopic} onOpen={setExpanded} />, [busy, id, run, deleteTopic]);
+  const renderMaterial = useCallback<ListRenderItem<CourseDetail["files"][number]>>(({ item }) =>
+    <MaterialRow file={item} busy={busy} id={id} onDelete={deleteMaterial} onOpen={openFile} onPrepare={prepare} />, [busy, id, deleteMaterial, openFile, prepare]);
+  const renderDeadline = useCallback<ListRenderItem<CourseDetail["assignments"][number]>>(({ item }) =>
+    <DeadlineRow assignment={item} busy={busy} run={run} onDelete={deleteAssignment} />, [busy, run, deleteAssignment]);
+  return <CoursePage title={course?.name ?? "Course"} subtitle={course ? `${dateLabel(course.examDate)}${course.ects ? ` · ${course.ects} ECTS` : ""}` : undefined} query={query}
+    navigation={course ? (
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={{ flex: 1, minWidth: 0 }}><SectionTabs options={Object.entries(sections).filter(([key]) => key !== "manage").map(([value, label]) => ({ value, label }))} value={tab} onChange={selectTab} /></View>
+        <View style={{ flex: 1, minWidth: 0 }}><SectionTabs options={sectionOptions} motion={sectionMotion} value={tab} onChange={selectTab} /></View>
         <IconButton glass label="Course settings" icon="settings-outline" selected={tab === "manage"} onPress={() => selectTab(tab === "manage" ? "progress" : "manage")} />
       </View>
-      <CourseSection active={tab === "progress"}>
+    ) : null}>
+    {course && <View style={{ flex: 1 }}>
+      <CourseSection motion={sectionMotion} active={tab === "progress"} data={topics} renderItem={renderTopic} query={query}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <AppText size={18} weight="700" style={{ flex: 1 }}>Topics · {roots.length}</AppText>
           <IconButton label="Practice recall" icon="flash-outline" onPress={() => router.push({ pathname: "/practice", params: { courseId: id } })} />
-          <IconButton label={searchOpen ? "Close topic search" : "Find a topic"} icon={searchOpen ? "close-outline" : "search-outline"} onPress={() => { setSearchOpen(!searchOpen); setSearch(""); setLimit(40); }} />
+          <IconButton label={searchOpen ? "Close topic search" : "Find a topic"} icon={searchOpen ? "close-outline" : "search-outline"} onPress={() => { setSearchOpen(!searchOpen); setSearch(""); }} />
         </View>
-        <ProgressBar value={roots.length ? roots.filter(t => t.done).length / roots.length * 100 : 0} label={`${roots.filter(t => t.done).length}/${roots.length} covered${course.isPassed ? " · Passed" : ""}`} />
-        {searchOpen && <TextInput autoFocus accessibilityLabel="Find a topic" placeholder="Search topics" placeholderTextColor={theme.muted} value={search} onChangeText={value => { setSearch(value); setLimit(40); }} autoCorrect={false} clearButtonMode="while-editing" returnKeyType="search"
+        <ProgressBar value={roots.length ? covered / roots.length * 100 : 0} label={`${covered}/${roots.length} covered${course.isPassed ? " · Passed" : ""}`} />
+        {searchOpen && <TextInput autoFocus accessibilityLabel="Find a topic" placeholder="Search topics" placeholderTextColor={theme.muted} value={search} onChangeText={value => { setSearch(value); }} autoCorrect={false} clearButtonMode="while-editing" returnKeyType="search"
           style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: theme.surface, color: theme.text, fontSize: 16 }} />}
-        <View>{topics.slice(0, limit).map(t => <SwipeRow key={t.id} disabled={busy}
-          leading={{ label: t.done ? "Reopen" : "Complete", icon: t.done ? "arrow-undo-outline" : "checkmark-outline", onPress: () => { void run("toggleTopic", { courseId: id, topicId: t.id, done: t.done ? "false" : "true" }); } }}
-          trailing={{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => deleteTopic(t) }}>
-          <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, paddingVertical: 8, gap: 4 }}>
-          <IconButton label={`${t.done ? "Mark not covered" : "Mark covered"}: ${t.title}`} icon={t.done ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void run("toggleTopic", { courseId: id, topicId: t.id, done: t.done ? "false" : "true" }); }} />
-          <View style={{ flex: 1 }}><AppText selectable={false} weight="600">{t.title}</AppText>{t.confidence ? <AppText selectable={false} size={13} muted>{t.confidence}</AppText> : null}</View>
-          <IconButton label={`Notes & details: ${t.title}`} icon="create-outline" onPress={() => setExpanded(t.id)} />
-        </View></SwipeRow>)}</View>
-        {topics.length > limit && <LinkButton label="Show more topics" onPress={() => setLimit(n => n + 40)} />}
+
         {!topics.length && <><AppText muted>{search.trim() ? "No matching topics." : "No topics yet."}</AppText>{!search.trim() && <LinkButton label="Add study task" onPress={() => edit("saveStudyTask", { courseId: id })} />}</>}
       </CourseSection>
-      <CourseSection active={tab === "materials"}>
+      <CourseSection motion={sectionMotion} active={tab === "materials"} data={course.files} renderItem={renderMaterial} query={query}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <AppText size={18} weight="700" style={{ flex: 1 }}>Materials · {course.files.length}</AppText>
           {!isDemo && <ActionMenu glass label="Add material" text="Add material" icon="add-outline" disabled={busy} items={materialTypes.map(({ id: typeId, category, title }) => ({ id: typeId, title, onPress: () => { void upload(category); } }))} />}
@@ -167,20 +202,10 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
           {failedUploads.map(failure => <ErrorMessage key={failure.item.asset.uri} message={`${failure.item.asset.name}: ${failure.message}`} />)}
           {failedUploads.length ? <Action secondary busy={busy} onPress={() => { void upload("", true); }}>Retry failed files</Action> : null}
         </>}
-        <View>{course.files.map(file => <SwipeRow key={file.id} disabled={busy} trailing={{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => deleteMaterial(file) }}>
-              <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: theme.line, gap: 4 }}>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Open ${file.filename}`} disabled={busy} onPress={() => { if (!session || busy) return; setBusy(true); void openMaterial(session, file.id, file.filename).catch(e => query.setError(e.message)).finally(() => setBusy(false)); }} style={{ flex: 1, minHeight: 52, paddingVertical: 12 }}>
-                <AppText selectable={false} size={14} weight="600">{file.filename}</AppText>
-              </Pressable>
-              <ActionMenu label={`Material actions: ${file.filename}`} disabled={busy} items={[
-                { id: "plan", title: "Build study plan", image: "list.bullet.clipboard", onPress: () => { void prepare(file.id); } },
-                ...(file.mockExamQuestions ? [{ id: "paper", title: `Practice · ${file.mockExamQuestions} questions`, image: "brain.head.profile" as const, onPress: () => router.push({ pathname: "/practice", params: { courseId: id, examFile: file.id } }) }] : []),
-                ...(file.summary ? [{ id: "summary", title: "Summary", image: "doc.text" as const, onPress: () => Alert.alert(file.filename, file.summary) }] : []),
-                { id: "delete", title: "Delete file", image: "trash", attributes: { destructive: true }, onPress: () => deleteMaterial(file) },
-              ]} />
-            </View></SwipeRow>)}{!course.files.length ? <AppText size={14} muted>No files yet.</AppText> : null}</View>
+        {!course.files.length ? <AppText size={14} muted>No files yet.</AppText> : null}
+
       </CourseSection>
-      <CourseSection active={tab === "deadlines"}>
+      <CourseSection motion={sectionMotion} active={tab === "deadlines"} data={assignments} renderItem={renderDeadline} query={query}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <AppText size={18} weight="700">Deadlines · {course.assignments.filter(a => !a.done).length}</AppText>
           <IconButton glass label="Add deadline" icon="add-outline" disabled={busy || addingDeadline} onPress={() => { closeSwipeRow(); setDeadlineDate(new Date()); setDeadlineError(null); setAddingDeadline(true); }} />
@@ -195,17 +220,10 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8 }}><AppText size={13} muted>Due</AppText><DateTimePicker value={deadlineDate} disabled={busy} mode="date" display="compact" presentation="inline" accentColor={theme.brand} themeVariant={theme.dark ? "dark" : "light"} onValueChange={(_, date) => setDeadlineDate(date)} /></View>
           <ErrorMessage message={deadlineError} />
         </View>}
-        <View>{[...course.assignments].sort((a, b) => Number(a.done) - Number(b.done) || a.dueDate.localeCompare(b.dueDate)).map(a => <SwipeRow key={a.id} disabled={busy}
-          leading={{ label: a.done ? "Reopen" : "Complete", icon: a.done ? "arrow-undo-outline" : "checkmark-outline", onPress: () => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); } }}
-          trailing={{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => deleteAssignment(a) }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.line }}>
-          <IconButton label={`${a.done ? "Reopen" : "Complete"}: ${a.title}`} icon={a.done ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void run("toggleAssignment", { assignmentId: a.id, done: a.done ? "false" : "true" }); }} />
-          <View style={{ flex: 1 }}><AppText selectable={false} weight="600">{a.title}</AppText><AppText selectable={false} size={13} muted>{dateLabel(a.dueDate)}</AppText></View>
-          <IconButton label={`Delete deadline: ${a.title}`} icon="trash-outline" disabled={busy} onPress={() => deleteAssignment(a)} />
-        </View></SwipeRow>)}</View>
+
         {!course.assignments.length && !addingDeadline ? <AppText size={14} muted>No deadlines.</AppText> : null}
       </CourseSection>
-      <CourseSection active={tab === "manage"}>
+      <CourseSection motion={sectionMotion} active={tab === "manage"} query={query}>
         <AppText size={18} weight="700">Course settings</AppText>
         <Card style={{ gap: 0, paddingVertical: 0 }}>
           <ContentRow title="Exam & study days" subtitle={`Exam ${dateLabel(course.examDate)}`} icon="calendar-outline" disabled={busy} onPress={() => edit("updateCourse", { courseId: id, examDate: course.examDate, studyDays: course.studyDays.split(","), difficulty: String(course.difficulty) })} />
@@ -226,7 +244,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
           <LinkButton label="Delete course" danger onPress={() => Alert.alert("Delete this course?", "This removes its topics, files, sessions and notes.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { if (busy) return; setBusy(true); void query.action("deleteCourse", { courseId: id }).then(() => router.replace("/(tabs)/courses")).catch(e => query.setError(e.message)).finally(() => setBusy(false)); } }])} />
         </View>
       </CourseSection>
-    </>}
+    </View>}
     <Modal visible={!!selectedTopic} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setExpanded("")}>
       <ScrollView keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: theme.background }} contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><AppText size={20} weight="700" style={{ flex: 1 }}>{selectedTopic?.title}</AppText><IconButton label="Close topic details" icon="close-outline" onPress={() => setExpanded("")} /></View>
@@ -246,5 +264,5 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
       {plan?.items.map(item => <Pressable key={item.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected.includes(item.id) }} onPress={() => setSelected(ids => ids.includes(item.id) ? ids.filter(id => id !== item.id) : [...ids, item.id])}><Card><AppText weight="600">{selected.includes(item.id) ? "✓ " : "○ "}{item.title}</AppText><AppText size={13} muted>{item.reference ?? item.instruction}</AppText></Card></Pressable>)}
       <ErrorMessage message={query.error} /><Action busy={busy} disabled={!selected.length} onPress={() => { void acceptPlan(); }}>Add selected units</Action>
     </ScrollView></Modal>
-  </Page>;
+  </CoursePage>;
 }
