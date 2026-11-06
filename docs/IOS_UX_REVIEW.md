@@ -376,3 +376,22 @@ animated control keeps its decorative glass outside the touch-target hierarchy;
 a native comparison caught and verified that hit-testing fix before delivery.
 
 Final mobile TypeScript, the Hermes iOS export and all 18 mobile demo checks passed.
+
+## TestFlight build 15 — 6 November 2026
+
+Build **0.2.0 (15)** was archived from `63448dc` and uploaded directly through
+Xcode. Apple accepted the upload on **6 November 2026 at 02:34 CET** and reported
+that the package was processing for TestFlight. Tester availability after
+processing has not been verified.
+
+All 85 recorded source inputs matched the release copy. The production backend
+URL, version, bundle identifier, signing team and code signature passed archive
+verification. Mobile TypeScript, 18 demo checks, 13 cache/gesture checks and 14
+workspace checks passed; the production health endpoint returned `{"ok":true}`.
+No backend changes were required for this release.
+
+Sources, dependencies, the signed archive and build logs are retained at
+`/Volumes/Ubuntu_VM/StudyflowBuilds/0.2.0-15/`. Verification details and the accepted
+upload receipt are saved locally in the ignored `build/ios/0.2.0-15/` directory.
+The upload retained the same three non-blocking vendor debug-symbol warnings
+for `React.framework`, `ReactNativeDependencies.framework` and `hermesvm.framework`.
