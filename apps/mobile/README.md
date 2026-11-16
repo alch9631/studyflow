@@ -346,7 +346,7 @@ export EXPO_PUBLIC_API_URL=https://avi-pi.tail76033e.ts.net:8443
 export IOS_BUILD_NUMBER=9 # Choose a number greater than the latest TestFlight build.
 export EXPO_USE_PRECOMPILED_MODULES=0
 npm ci
-npx expo prebuild --platform ios
+npx expo prebuild --platform ios --no-clean
 
 xcodebuild -workspace ios/Studyflow.xcworkspace -scheme Studyflow \
   -configuration Release -destination 'generic/platform=iOS' \
@@ -358,8 +358,8 @@ xcodebuild -exportArchive -archivePath dist/Studyflow.xcarchive \
 ```
 
 `ExportOptions.plist` uploads to App Store Connect; Apple then processes the build
-for TestFlight. It keeps the explicitly selected build number. The generated
-`ios/` project and release output remain ignored. Alternatively, open
+for TestFlight. It keeps the explicitly selected build number. The
+`ios/` project is shared with Xcode Cloud. Alternatively, open
 `ios/Studyflow.xcworkspace` in Xcode, choose an iOS device destination, then use
 **Product → Archive → Distribute App → App Store Connect**.
 
@@ -384,7 +384,39 @@ Keep the same Node 24, backend URL, build number and source-module settings as
 the local workflow above. This puts dependency extraction and native build
 output on the SSD without relocating the normal development checkout.
 
-## Cloud build and TestFlight
+## Xcode Cloud on main
+
+The shared `Studyflow` scheme in `apps/mobile/ios/Studyflow.xcworkspace`
+archives the iOS app. Xcode Cloud runs `ios/ci_scripts/ci_post_clone.sh` to
+install the mobile npm dependencies, apply the current Expo config, install the
+locked pods, and set the production API URL for the JavaScript bundle.
+
+1. Open the workspace in Xcode. In **Report navigator → Cloud → Get Started**,
+   sign in with the Studyflow Apple Developer team, select the existing
+   Studyflow app (`app.studyflow.mobile`), and grant Xcode Cloud access to
+   `alch9631/studyflow` on GitHub.
+2. Add an **Archive** action for platform **iOS** and scheme **Studyflow**. For
+   the first build, use deployment preparation **None** so you can verify the
+   archive before enabling delivery. Run it against a branch that contains the
+   tracked workspace and script.
+3. In App Store Connect, open the Studyflow Xcode Cloud product. Under
+   **Settings → Build Number**, set **Next Build Number** above the highest
+   build number already uploaded for the current marketing version. For
+   `0.2.0`, use at least 16.
+4. Edit the workflow so **Branch Changes** on `main` is the only start
+   condition. Remove any default **Pull Request Changes** condition. Set the
+   Archive action's **Deployment Preparation** to **TestFlight (Internal
+   Testing Only)** and add the **TestFlight Internal Testing** post-action for
+   the existing **Team (Expo)** group.
+5. After the setup is on `main`, verify a successful archive in Xcode Cloud
+   and the corresponding build and group in TestFlight after Apple processes it.
+
+When mobile dependencies change, run `npm ci` in `apps/mobile` and
+`EXPO_USE_PRECOMPILED_MODULES=0 pod install` in `apps/mobile/ios`, then commit
+the updated lockfile. Use `npx expo prebuild --platform ios --no-clean` to
+refresh the tracked project and preserve the cloud script and lockfile.
+
+## EAS build and TestFlight
 
 The EAS profiles use the `sdk-58` build image and remote build numbers. Preview and
 production builds connect to the existing Pi HTTPS backend, which is publicly
