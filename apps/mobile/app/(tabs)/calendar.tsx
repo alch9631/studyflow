@@ -1,127 +1,269 @@
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import type { CalendarData } from "../../../../shared/mobileWorkspace";
-import { AppText, IconButton, useTheme } from "../../src/ui";
-import { GlassSurface } from "../../src/glass-surface";
+import { Action, AppText, Card, IconButton, useTheme } from "../../src/ui";
 import { chooseSession, dateLabel, edit, LinkButton, Page, timeLabel, useMobileData } from "../../src/workspace";
 import { ContentRow } from "../../src/content-row";
-import { SwipeRow } from "../../src/swipe-row";
+import { SwipeRow, useCloseSwipeRow } from "../../src/swipe-row";
 import { compactSessionLabel } from "../../src/session-label";
 import { useSession } from "../../src/session";
 import { clearDraft, draftKey } from "../../src/drafts";
 
+type StudyBlock = CalendarData["blocks"][number];
+type Arrangement = { day: string; placed: number; unplaced: number };
+const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" });
+const agendaDate = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+
 export default function Calendar() {
   const theme = useTheme();
   const { session } = useSession();
+  const closeSwipeRow = useCloseSwipeRow();
   const [week, setWeek] = useState("");
   const [selected, setSelected] = useState("");
+  const [showUnscheduled, setShowUnscheduled] = useState(false);
+  const [busy, setBusy] = useState<"arrange" | "update" | null>(null);
+  const [arrangement, setArrangement] = useState<Arrangement | null>(null);
   const query = useMobileData<CalendarData>(`calendar${week ? `?week=${week}` : ""}`);
-  const d = query.data;
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [unplaced, setUnplaced] = useState(0);
-  const day = selected && d?.days.includes(selected) ? selected : d?.days.includes(d.today) ? d.today : d?.days[0];
-  const sessions = d?.blocks.filter(block => block.date === day) ?? [];
-  const unscheduled = sessions.filter(block => !block.completed && block.start === null).length;
-  const lectures = d?.lectures.filter(lecture => lecture.weekday === new Date(`${day}T12:00:00Z`).getUTCDay()) ?? [];
-  const exams = d?.exams.filter(exam => exam.date === day) ?? [];
-  function resetNotice() { setNotice(""); setUnplaced(0); }
-  function shift(delta: number) {
-    if (!d) return;
-    resetNotice(); setSelected("");
-    setWeek(new Date(Date.parse(d.days[0]) + delta * 7 * 86400_000).toISOString().slice(0, 10));
+  const data = query.data;
+  const days = data?.days.map(iso => {
+    const date = new Date(`${iso}T12:00:00Z`);
+    return {
+      iso, date,
+      blocks: data.blocks.filter(block => block.date === iso),
+      lectures: data.lectures.filter(lecture => lecture.weekday === date.getUTCDay()),
+      exams: data.exams.filter(exam => exam.date === iso),
+    };
+  }) ?? [];
+  const day = days.find(item => item.iso === (selected || data?.today)) ?? days[0];
+  const unscheduled = day?.blocks.filter(block => !block.completed && block.start === null) ?? [];
+  const timedEvents = [
+    ...(day?.lectures ?? []).map(lecture => ({ kind: "class" as const, start: lecture.startMin, lecture })),
+    ...(day?.blocks ?? []).flatMap(block => block.start === null ? [] : [{ kind: "study" as const, start: block.start, block }]),
+  ].sort((first, second) => first.start - second.start);
+  const result = arrangement?.day === day?.iso ? arrangement : null;
+
+  function selectDate(iso: string) {
+    closeSwipeRow();
+    setSelected(iso);
+    setShowUnscheduled(false);
+    setArrangement(null);
   }
-  function changeTime(block: CalendarData["blocks"][number]) {
-    edit("updateBlockTime", { blockId: block.id, date: block.date, startHHmm: timeLabel(block.start ?? 540), endHHmm: timeLabel(block.end ?? Math.min(1439, (block.start ?? 540) + block.minutes)) });
+
+  function shiftWeek(delta: number) {
+    if (!data) return;
+    selectDate("");
+    setWeek(new Date(Date.parse(data.days[0]) + delta * 7 * 86400_000).toISOString().slice(0, 10));
   }
+
+  function jumpToToday() {
+    selectDate("");
+    setWeek("");
+  }
+
+  function changeTime(block: StudyBlock) {
+    closeSwipeRow();
+    const start = block.start ?? 540;
+    edit("updateBlockTime", {
+      blockId: block.id,
+      date: block.date,
+      startHHmm: timeLabel(start),
+      endHHmm: timeLabel(block.end ?? Math.min(1439, start + block.minutes)),
+    });
+  }
+
   async function clearTime(blockId: string) {
     if (busy) return;
-    setBusy(true); query.setError(null);
-    try { await query.action("updateBlockTime", { blockId, clear: "1" }); await query.reload(); }
-    catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
+    setBusy("update");
+    query.setError(null);
+    try {
+      await query.action("updateBlockTime", { blockId, clear: "1" });
+      await query.reload();
+    } catch (error) {
+      query.setError((error as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
-  async function toggleBlock(block: CalendarData["blocks"][number]) {
+
+  async function toggleBlock(block: StudyBlock) {
     if (busy) return;
-    setBusy(true); query.setError(null);
+    setBusy("update");
+    query.setError(null);
     try {
       await query.action("toggleBlock", { blockId: block.id, done: block.completed ? "false" : "true" });
       if (!block.completed && block.kind === "study" && session) await clearDraft(draftKey(session.server, session.userId, block.topicId));
       await query.reload();
-    } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
+    } catch (error) {
+      query.setError((error as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
+
   async function arrange() {
-    if (!d || !day || busy || !unscheduled) return;
-    setBusy(true); query.setError(null); resetNotice();
+    if (!data || !day || busy || !unscheduled.length) return;
+    closeSwipeRow();
+    setBusy("arrange");
+    setArrangement(null);
+    query.setError(null);
     try {
-      const result = await query.action<{ placed: number; unplaced: number; rateLimited?: boolean }>("autoSchedule", { weekStart: d.days[0], day });
-      if (result.rateLimited) throw new Error("Too many changes. Wait a moment, then try again.");
-      setUnplaced(result.unplaced);
-      setNotice(result.unplaced ? `${result.placed} scheduled · ${result.unplaced} need more time` : `${result.placed} scheduled`);
+      const { placed, unplaced, rateLimited } = await query.action<{ placed: number; unplaced: number; rateLimited?: boolean }>(
+        "autoSchedule", { weekStart: data.days[0], day: day.iso },
+      );
+      if (rateLimited) throw new Error("Too many changes. Wait a moment, then try again.");
+      setArrangement({ day: day.iso, placed, unplaced });
       await query.reload();
-    } catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
+    } catch (error) {
+      query.setError((error as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
-  return <Page tabPage title="Calendar" query={query}>
-    {d ? <>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <IconButton glass label="Previous week" icon="chevron-back-outline" onPress={() => shift(-1)} />
-        <View style={{ flex: 1, alignItems: "center" }}><AppText size={14} weight="600">{dateLabel(d.days[0])} – {dateLabel(d.days[6])}</AppText></View>
-        <IconButton glass label="Next week" icon="chevron-forward-outline" onPress={() => shift(1)} />
+
+  const awayFromToday = !!week || (day && day.iso !== data?.today);
+  return <Page tabPage title="Calendar" query={query}
+    actions={awayFromToday ? <IconButton glass label="Jump to today" icon="today-outline" onPress={jumpToToday} /> : undefined}>
+    {data && day && <>
+      <View style={calendarStyles.week}>
+        <View style={calendarStyles.weekHeader}>
+          <IconButton glass label="Previous week" icon="chevron-back-outline" onPress={() => shiftWeek(-1)} />
+          <AppText size={15} weight="600" style={calendarStyles.weekRange}>
+            {shortDate.format(days[0].date)} – {shortDate.format(days[days.length - 1].date)}
+          </AppText>
+          <IconButton glass label="Next week" icon="chevron-forward-outline" onPress={() => shiftWeek(1)} />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={calendarStyles.strip} contentContainerStyle={calendarStyles.stripContent}>
+          {days.map(({ iso, date, lectures, exams, blocks }) => {
+            const active = iso === day.iso;
+            const isToday = iso === data.today;
+            const hasEvents = lectures.length > 0 || exams.length > 0 || blocks.some(block => block.start !== null);
+            return <Pressable key={iso} accessibilityRole="button" accessibilityState={{ selected: active }}
+              accessibilityLabel={`${dateLabel(iso)}${isToday ? ", today" : ""}${hasEvents ? ", events scheduled" : ""}`}
+              onPress={() => selectDate(iso)}
+              style={({ pressed }) => [calendarStyles.day, {
+                backgroundColor: active ? theme.accent : pressed ? theme.tint : "transparent",
+                borderColor: isToday && !active ? theme.brand : "transparent",
+              }]}>
+              <AppText selectable={false} size={12} style={{ color: active ? theme.onAccent : theme.muted }}>{weekday.format(date)}</AppText>
+              <AppText selectable={false} size={18} weight="700" style={{ color: active ? theme.onAccent : theme.text }}>{date.getUTCDate()}</AppText>
+              <View style={[calendarStyles.eventDot, { backgroundColor: hasEvents ? active ? theme.onAccent : theme.brand : "transparent" }]} />
+            </Pressable>;
+          })}
+        </ScrollView>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6 }}>
-        {d.days.map(iso => {
-          const date = new Date(`${iso}T12:00:00Z`);
-          const active = iso === day;
-          return <Pressable key={iso} accessibilityRole="button" accessibilityLabel={dateLabel(iso)} accessibilityState={{ selected: active }}
-            onPress={() => { setSelected(iso); resetNotice(); }}>
-            <GlassSurface interactive solid={active} style={{ minWidth: 48, minHeight: 64, alignItems: "center", justifyContent: "center", gap: 3, padding: 8, borderRadius: 12, ...(active ? { backgroundColor: theme.accent } : {}) }}>
-              <AppText size={12} style={{ color: active ? theme.onAccent : theme.muted }}>{date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })}</AppText>
-              <AppText size={17} weight="700" style={{ color: active ? theme.onAccent : theme.text }}>{date.getUTCDate()}</AppText>
-            </GlassSurface>
-          </Pressable>;
-        })}
-      </ScrollView>
-      {week ? <LinkButton label="Today" onPress={() => { setWeek(""); setSelected(""); resetNotice(); }} /> : null}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={{ flex: 1 }}><AppText size={18} weight="700">{day ? dateLabel(day) : "Agenda"}</AppText>{unscheduled ? <AppText size={13} muted>{unscheduled} to schedule</AppText> : null}</View>
-        <IconButton label="Arrange selected day" icon="sparkles-outline" busy={busy} disabled={!unscheduled} onPress={() => { void arrange(); }} />
+
+      <View style={calendarStyles.agenda}>
+        <AppText size={22} weight="700">{day.iso === data.today ? `Today, ${shortDate.format(day.date)}` : agendaDate.format(day.date)}</AppText>
+        <View>
+          {day.exams.map(exam => <ContentRow key={exam.id} title={exam.name} subtitle="Exam" icon="school-outline" onPress={() => router.navigate("/courses/exams")} />)}
+          {timedEvents.map(event => {
+            if (event.kind === "study") {
+              return <ScheduledStudy key={`study:${event.block.id}`} block={event.block} start={event.start} busy={!!busy}
+                onToggle={() => { void toggleBlock(event.block); }} onEditTime={() => changeTime(event.block)}
+                onClearTime={() => { void clearTime(event.block.id); }} />;
+            }
+            const { lecture, start } = event;
+            const subtitle = lecture.location ? `Class · ${lecture.location}` : "Class";
+            return <View key={`class:${lecture.id}`} accessible
+              accessibilityLabel={`${timeLabel(start)} to ${timeLabel(lecture.endMin)}, ${lecture.title}, ${subtitle}`}
+              style={[calendarStyles.event, { borderBottomColor: theme.line }]}>
+              <View style={calendarStyles.time}><EventTime start={start} end={lecture.endMin} /></View>
+              <View style={[calendarStyles.eventMarker, { backgroundColor: theme.muted }]} />
+              <View style={calendarStyles.eventContent}>
+                <AppText weight="600">{lecture.title}</AppText>
+                <AppText size={13} muted>{subtitle}</AppText>
+              </View>
+            </View>;
+          })}
+          {!day.exams.length && !timedEvents.length && <AppText muted>No events scheduled.</AppText>}
+        </View>
       </View>
-      {notice ? <AppText size={14} muted>{notice}</AppText> : null}
-      {unplaced ? <LinkButton label="Change study window" onPress={() => router.push("/settings")} /> : null}
-      <View>
-        {exams.map(exam => <ContentRow key={exam.id} title={exam.name} subtitle="Exam" onPress={() => router.navigate("/courses/exams")} />)}
-        {lectures.map(lecture => <View key={lecture.id} style={{ paddingVertical: 14, gap: 3, borderBottomWidth: 1, borderBottomColor: theme.line }}>
-          <AppText weight="600">{lecture.title}</AppText><AppText size={13} muted>{timeLabel(lecture.startMin)}–{timeLabel(lecture.endMin)}{lecture.location ? ` · ${lecture.location}` : ""}</AppText>
-        </View>)}
-        {sessions.map(block => {
-          const label = compactSessionLabel(block.topicTitle, block.kind);
-          const time = block.start !== null ? timeLabel(block.start) : null;
-          const editTime = () => changeTime(block);
-          return <SwipeRow key={block.id} disabled={busy}
-            leading={{ label: block.completed ? "Mark undone" : "Mark done", icon: block.completed ? "arrow-undo-outline" : "checkmark-outline", onPress: () => { void toggleBlock(block); } }}
-            trailing={!block.completed ? block.start !== null
-              ? { label: "Remove time", icon: "time-outline", onPress: () => { void clearTime(block.id); } }
-              : { label: "Schedule", icon: "time-outline", onPress: editTime } : undefined}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, borderBottomWidth: 1, borderBottomColor: theme.line }}>
-              <IconButton label={`${block.completed ? "Mark undone" : "Mark done"}: ${label.title}`} icon={block.completed ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={() => { void toggleBlock(block); }} />
-              <Pressable accessibilityRole="button" accessibilityLabel={`${block.topicTitle}, ${block.course.name}${time ? `, ${time}` : ""}${block.completed ? ", complete" : ""}`}
-                accessibilityHint="Opens session length. Hold to schedule."
-                accessibilityActions={[{ name: "schedule", label: "Edit time" }]}
-                onAccessibilityAction={({ nativeEvent }) => { if (nativeEvent.actionName === "schedule") editTime(); }}
-                disabled={busy || block.completed} onPress={() => chooseSession(block)} onLongPress={editTime}
-                style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 72, justifyContent: "center", gap: 3, paddingVertical: 12, opacity: block.completed ? 0.55 : pressed ? 0.6 : 1 })}>
-                <AppText selectable={false} numberOfLines={2} weight="600">{label.title}</AppText>
-                {!block.completed && <AppText selectable={false} numberOfLines={1} size={12} muted>{[label.activity, block.course.name].filter(Boolean).join(" · ")}</AppText>}
-              </Pressable>
-              {!block.completed && time && <Pressable accessibilityRole="button" accessibilityLabel={`Change time for ${label.title}, ${time}`} disabled={busy} onPress={editTime}
-                style={{ minWidth: 44, minHeight: 44, alignItems: "flex-end", justifyContent: "center" }}>
-                <AppText selectable={false} size={13} muted>{time}</AppText>
-              </Pressable>}
+
+      {unscheduled.length > 0 && <Card style={calendarStyles.planning}>
+        <View style={calendarStyles.planningHeader}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Unscheduled study, ${unscheduled.length} ${unscheduled.length === 1 ? "session" : "sessions"}`}
+            accessibilityState={{ expanded: showUnscheduled }} onPress={() => setShowUnscheduled(value => !value)}
+            style={({ pressed }) => [calendarStyles.planningToggle, { opacity: pressed ? 0.65 : 1 }]}>
+            <View style={calendarStyles.planningTitle}>
+              <AppText selectable={false} weight="600">Unscheduled study</AppText>
+              <AppText selectable={false} size={13} muted>{unscheduled.length} {unscheduled.length === 1 ? "session" : "sessions"}</AppText>
             </View>
-          </SwipeRow>;
-        })}
-      </View>
-      {!sessions.length && !exams.length && !lectures.length ? <AppText muted>Nothing planned.</AppText> : null}
-    </> : null}
+            <Ionicons name={showUnscheduled ? "chevron-up" : "chevron-down"} size={17} color={theme.muted} />
+          </Pressable>
+          <Action secondary disabled={busy === "update"} busy={busy === "arrange"} onPress={() => { void arrange(); }}>Arrange</Action>
+        </View>
+        {showUnscheduled && unscheduled.map(block => <ContentRow key={block.id}
+          title={compactSessionLabel(block.topicTitle, block.kind).title} subtitle={block.course.name}
+          icon="time-outline" disabled={!!busy} onPress={() => changeTime(block)} />)}
+      </Card>}
+      {result && <View>
+        <AppText size={14} muted>{result.placed} scheduled{result.unplaced ? ` · ${result.unplaced} need more time` : ""}</AppText>
+        {result.unplaced > 0 && <LinkButton label="Change study window" onPress={() => router.push("/settings")} />}
+      </View>}
+    </>}
   </Page>;
 }
+
+function EventTime({ start, end }: { start: number; end: number | null }) {
+  return <>
+    <AppText selectable={false} weight="600" size={14} style={calendarStyles.timeText}>{timeLabel(start)}</AppText>
+    {end !== null && <AppText selectable={false} size={12} muted style={calendarStyles.timeText}>{timeLabel(end)}</AppText>}
+  </>;
+}
+
+function ScheduledStudy({ block, start, busy, onToggle, onEditTime, onClearTime }: {
+  block: StudyBlock; start: number; busy: boolean; onToggle: () => void; onEditTime: () => void; onClearTime: () => void;
+}) {
+  const theme = useTheme();
+  const { title, activity } = compactSessionLabel(block.topicTitle, block.kind);
+  const status = block.completed ? "Mark undone" : "Mark done";
+  const time = `${timeLabel(start)}${block.end !== null ? ` to ${timeLabel(block.end)}` : ""}`;
+  return <SwipeRow disabled={busy}
+    leading={{ label: status, icon: block.completed ? "arrow-undo-outline" : "checkmark-outline", onPress: onToggle }}
+    trailing={block.completed ? undefined : { label: "Remove time", icon: "time-outline", onPress: onClearTime }}>
+    <View style={[calendarStyles.event, { borderBottomColor: theme.line }]}>
+      {block.completed ? <View style={calendarStyles.time}><EventTime start={start} end={block.end} /></View> :
+        <Pressable accessibilityRole="button" accessibilityLabel={`Change time for ${title}, ${time}`}
+          accessibilityActions={[{ name: "removeTime", label: "Remove time" }]}
+          onAccessibilityAction={({ nativeEvent }) => { if (nativeEvent.actionName === "removeTime") onClearTime(); }}
+          disabled={busy} onPress={onEditTime} style={calendarStyles.time}>
+          <EventTime start={start} end={block.end} />
+        </Pressable>}
+      <View style={[calendarStyles.eventMarker, { backgroundColor: block.completed ? theme.line : theme.brand }]} />
+      <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${block.course.name}, ${time}${block.completed ? ", complete" : ""}`}
+        accessibilityHint={block.completed ? undefined : "Opens session length. Hold to edit the time."}
+        disabled={busy || block.completed} onPress={() => chooseSession(block)} onLongPress={onEditTime}
+        style={({ pressed }) => [calendarStyles.eventContent, { opacity: pressed ? 0.65 : 1 }]}>
+        <AppText selectable={false} weight="600" muted={block.completed}>{title}</AppText>
+        <AppText selectable={false} size={13} muted>{activity || "Study"} · {block.course.name}</AppText>
+      </Pressable>
+      <View style={calendarStyles.eventAction}>
+        <IconButton label={`${status}: ${title}`} icon={block.completed ? "checkmark-circle" : "ellipse-outline"} disabled={busy} onPress={onToggle} />
+      </View>
+    </View>
+  </SwipeRow>;
+}
+
+const calendarStyles = StyleSheet.create({
+  week: { gap: 12 },
+  weekHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  weekRange: { flex: 1, textAlign: "center" },
+  strip: { flexGrow: 0 },
+  stripContent: { flexGrow: 1, gap: 4 },
+  day: { flexGrow: 1, minWidth: 44, minHeight: 70, paddingHorizontal: 3, paddingVertical: 6, alignItems: "center", justifyContent: "center", gap: 2, borderWidth: StyleSheet.hairlineWidth, borderRadius: 15, borderCurve: "continuous" },
+  eventDot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+  agenda: { gap: 10 },
+  event: { flexDirection: "row", alignItems: "stretch", gap: 10, minHeight: 68, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  time: { minWidth: 46, minHeight: 44, justifyContent: "center", alignItems: "flex-start" },
+  timeText: { fontVariant: ["tabular-nums"] },
+  eventMarker: { width: 2, borderRadius: 1, marginVertical: 5 },
+  eventContent: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: "center", gap: 2 },
+  eventAction: { justifyContent: "center" },
+  planning: { padding: 14 },
+  planningHeader: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 14 },
+  planningToggle: { flex: 1, flexDirection: "row", alignItems: "center", minHeight: 48, minWidth: 120, gap: 6 },
+  planningTitle: { flex: 1 },
+});

@@ -27,7 +27,7 @@ subscriptions require signing in; the demo labels those features accordingly.
 
 ## Compact navigation
 
-Home opens with the date, a short daily summary and the next task. **Start work** or **Resume focus** opens the session-length picker, and **Lock in** starts the timer.
+Home gives the next task a full-width card and links the daily progress summary to Today. **Start work** or **Resume focus** opens the session-length picker, and **Lock in** starts the timer.
 The five icon-only tabs use native SF Symbols and Liquid Glass on iOS 26,
 with the system adapting the material to light or dark appearance.
 The bar uses native touch transitions and requests scroll minimization where iOS supports it.
@@ -58,17 +58,20 @@ Files. Materials swipe left for deletion. Adding a deadline inserts an editable
 title/date row in the course sheet. Deletion always asks
 for confirmation, and all swipe actions have a visible button or menu alternative.
 
-Calendar leads with a swipeable date strip and compact agenda rows. Tap a session
-to study or swipe right to mark done or undone. Hold a session to set its time,
-or tap an assigned start time to edit it. Swipe left to clear or assign a time. Arrange applies only to
-the selected day and leaves manual times and completed work alone. Courses opens Exams.
+Calendar shows a week strip and a selected day’s agenda of exams, classes and timed
+study. Tap a scheduled session to study, tap its time to edit it, swipe left to
+clear its time or swipe right to mark it done or undone. **Unscheduled study**
+expands to show sessions that can be assigned a time. **Arrange** applies only to the
+selected day and leaves manual times and completed work alone. Courses opens Exams.
 Exam cards use clear Liquid Glass with an accessible solid fallback. Tap a module
 to edit its synced exam note; long press for date, grade and pass options.
 Swipe right to mark done and left to edit the
 date. In Results & grades, swipe right to edit a grade and left to unmark a pass.
 Unmarking a graded pass confirms clearing its passing grade, so the module really
-returns to Remaining. Courses lists active courses first and keeps passed courses searchable.
-Insights leads with the weekly chart, with history and detailed statistics optional. Course progress is available inside Courses.
+returns to Remaining. Passed courses appear under **Results & grades**.
+Insights charts completed plan time over the last seven days or four weeks. Tap a
+bar for its dates and minutes. This week’s plan, study history, learning evidence
+and totals are available below the chart.
 Focus keeps the timer and notes visible; source excerpts, saved notes and the
 learning check expand when needed.
 

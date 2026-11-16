@@ -114,12 +114,21 @@ export class DemoWorkspace {
     const weekPlanned = weekBlocks.reduce((sum, block) => sum + block.minutes, 0); const weekDone = weekBlocks.filter(block => block.completed).reduce((sum, block) => sum + block.minutes, 0);
     const total = (key: "loggedMinutes" | "completedMinutes" | "remainingMinutes") => courses.reduce((sum, course) => sum + course[key], 0);
     const grades = courses.filter(course => course.grade !== null && course.grade <= 4);
+    const completedMinutesOn = (date: string) => state.blocks.filter(block => block.date === date && block.completed).reduce((sum, block) => sum + block.minutes, 0);
+    const historyWeeks = 12;
+    const historyStart = shiftDay(week[0], -7 * (historyWeeks - 1));
     return { today: state.today, hasData: courses.length > 0, loggedMinutes: total("loggedMinutes"), totalPlannedMinutes: state.blocks.reduce((sum, block) => sum + block.minutes, 0), totalCompletedMinutes: total("completedMinutes"),
       currentStreak: 1, longestStreak: 2, weekPlanned, weekDone, weekPct: weekPlanned ? weekDone / weekPlanned * 100 : 0, duePct: 0, consistency: 50, activeDays: 3, upcomingWorkload: total("remainingMinutes"), completedModules: courses.filter(course => course.isPassed).length,
       grades: { gpa: grades.length ? grades.reduce((sum, course) => sum + course.grade!, 0) / grades.length : null, lpEarned: courses.filter(course => course.isPassed).reduce((sum, course) => sum + (course.ects ?? 0), 0), gradedCount: grades.length },
       evidence: { attempts: state.blocks.filter(block => block.outcome === "complete" || block.outcome === "practice").length, goalsMet: state.blocks.filter(block => block.outcome === "complete").length, practiceNeeded: state.blocks.filter(block => block.outcome === "practice").length, laterRecall: 0 },
-      dailyLoad: week.map(date => ({ key: date, label: new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }), min: state.blocks.filter(block => block.date === date && block.completed).reduce((sum, block) => sum + block.actualMinutes, 0) })),
-      heatmap: Array.from({ length: 84 }, (_, index) => { const date = shiftDay(state.today, index - 83); return { date, min: state.blocks.filter(block => block.date === date && block.completed).reduce((sum, block) => sum + block.actualMinutes, 0), future: false, examWeek: false }; }),
+      dailyLoad: Array.from({ length: 7 }, (_, index) => {
+        const date = shiftDay(state.today, index - 6);
+        return { key: date, label: new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }), min: completedMinutesOn(date) };
+      }),
+      heatmap: Array.from({ length: 7 * historyWeeks }, (_, index) => {
+        const date = shiftDay(historyStart, index);
+        return { date, min: completedMinutesOn(date), future: date > state.today, examWeek: false };
+      }),
       courses: courses.map(course => ({ id: course.id, name: course.name, grade: course.grade, passed: course.isPassed, ects: course.ects, examDate: course.examDate, topicsTotal: course.topicsTotal, topicsDone: course.topicsDone, progressPct: course.topicsTotal ? course.topicsDone / course.topicsTotal * 100 : 0,
         actualMinutes: course.loggedMinutes, remainingStudyMinutes: course.remainingMinutes, daysToExam: Math.round((Date.parse(course.examDate) - Date.parse(state.today)) / 86400_000), pressurePerDay: 0 })) };
   }

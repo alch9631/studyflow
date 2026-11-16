@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { Linking } from "react-native";
 import type { PracticeData } from "../../../shared/mobileWorkspace";
-import { Action, AppText, Card, IconButton } from "../src/ui";
+import { Action, AppText, Card } from "../src/ui";
 import { Chips, Field, LinkButton, Page, ProgressBar, useMobileData } from "../src/workspace";
 import { useSession } from "../src/session";
 import { openMaterial } from "../src/materials";
@@ -13,6 +13,7 @@ export default function Practice() {
 }
 
 function PracticeRun({ courseId, examFile }: { courseId: string; examFile?: string }) {
+  const navigation = useNavigation();
   const { session } = useSession();
   const query = useMobileData<PracticeData>(`practice?courseId=${encodeURIComponent(courseId)}${examFile ? `&examFile=${encodeURIComponent(examFile)}` : ""}`);
   const cards = query.data?.cards ?? [];
@@ -31,7 +32,16 @@ function PracticeRun({ courseId, examFile }: { courseId: string; examFile?: stri
     catch (e) { query.setError((e as Error).message); } finally { setBusy(false); }
   }
   function advance(skip = false) { if (skip) setSkipped(value => value + 1); setIndex(i => i + 1); setResponse(""); setRevealed(false); query.setError(null); }
-  return <Page back title="Active recall" subtitle={query.data?.courseName} query={query}>
+  function backToCourse() {
+    if (!navigation.isFocused()) return;
+    const state = navigation.getState();
+    const previous = state?.routes[state.index - 1];
+    const previousParams = previous?.params as { id?: string } | undefined;
+    // Pop the practice route so the original sheet keeps its section, search and scroll.
+    if (previous?.name === "course/[id]" && previousParams?.id === courseId) navigation.goBack();
+    else router.replace({ pathname: "/course/[id]", params: { id: courseId } });
+  }
+  return <Page back onBack={backToCourse} title="Active recall" subtitle={query.data?.courseName} query={query}>
     {card ? <><ProgressBar value={index / cards.length * 100} label={`${index + 1} of ${cards.length} questions`} /><Card><AppText size={13} muted>{card.topicTitle}</AppText><AppText size={23} weight="700">{card.question}</AppText></Card><Field label="Your answer" value={response} onChange={setResponse} multiline maxLength={4000} disabled={busy} />
       {!revealed ? <Action secondary disabled={!response.trim()} onPress={() => setRevealed(true)}>Check answer</Action> : <Card><AppText>{card.answerKey || "Check your answer against your course material, then rate how confident you feel."}</AppText>
         {(card.sourceFileId || card.sourceUrl) && <LinkButton label="Open source" onPress={() => {
@@ -44,7 +54,7 @@ function PracticeRun({ courseId, examFile }: { courseId: string; examFile?: stri
       <LinkButton label="Skip question" onPress={() => { if (!busy) advance(true); }} />
     </> : !query.loading && !query.error && <Card><AppText weight="700">{cards.length ? "Practice complete." : "No recall questions yet."}</AppText><AppText muted>{cards.length ? `${rated} rated · ${skipped} skipped. ${rated ? "Your confidence ratings are saved." : "No confidence ratings were changed."}` : "Add study tasks or build a plan from course materials to create recall questions."}</AppText>
       {cards.length > 0 && <Action onPress={() => { setIndex(0); setResponse(""); setRevealed(false); setRated(0); setSkipped(0); }}>Practice again</Action>}
-      <IconButton glass label="Back to course" icon="arrow-back-outline" onPress={() => router.replace(`/course/${courseId}`)} />
+      <Action secondary onPress={backToCourse}>Back to course</Action>
     </Card>}
   </Page>;
 }

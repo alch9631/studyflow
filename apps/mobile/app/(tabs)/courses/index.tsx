@@ -15,27 +15,27 @@ export default function Courses() {
   const query = useMobileData<CourseSummary[]>("courses");
   const prefetch = usePrefetchMobileData();
   const [search, setSearch] = useState("");
-  const all = query.data ?? [];
-  const list = all.filter(c => c.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
-    .sort((first, second) => Number(first.isPassed) - Number(second.isPassed));
+  const activeCourses = query.data?.filter(course => !course.isPassed) ?? [];
+  const needle = search.trim().toLocaleLowerCase();
+  const list = activeCourses.filter(course => course.name.toLocaleLowerCase().includes(needle));
   const visibleCourseIds = list.slice(0, 4).map(course => course.id).join(",");
   useFocusEffect(useCallback(() => {
     // Warm only the first visible courses; tapping any other row starts its read
     // before the sheet opens, without fetching the entire course archive.
     for (const courseId of visibleCourseIds.split(",").filter(Boolean)) prefetch(`courses/${encodeURIComponent(courseId)}`);
   }, [visibleCourseIds, prefetch]));
-  function open(id: string, section = "progress") { router.push({ pathname: "/course/[id]", params: { id, section } }); }
   return <Page tabPage title="Courses" query={query} actions={<ActionMenu glass label="Add course" icon="add-outline" items={[
     { id: "create", title: "New course", image: "plus", onPress: () => edit("createCourse") },
     { id: "catalog", title: isDemo ? "Sample modules" : "University catalog", image: "books.vertical", onPress: () => router.push("/catalog") },
     ...(!isDemo ? [{ id: "syllabus", title: "Import syllabus", image: "doc.text" as const, onPress: () => edit("importSyllabus") }] : []),
   ]} />}>
     <ContentRow title="Exams" icon="school-outline" onPress={() => router.push("/courses/exams")} />
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, backgroundColor: theme.surface, borderRadius: 12, borderCurve: "continuous" }}>
+    {activeCourses.length > 0 && <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, backgroundColor: theme.surface, borderRadius: 12, borderCurve: "continuous" }}>
       <Ionicons name="search-outline" size={18} color={theme.muted} /><TextInput accessibilityLabel="Search courses" placeholder="Search" placeholderTextColor={theme.muted} value={search} onChangeText={setSearch} autoCorrect={false} returnKeyType="search" style={{ flex: 1, minHeight: 44, color: theme.text, fontSize: 16 }} />
-    </View>
-    <View>{list.map(c => <ContentRow key={c.id} title={c.name} titleLines={2} icon={c.isPassed ? "checkmark-circle-outline" : "book-outline"}
-      subtitle={c.isPassed ? c.grade !== null ? `Passed · ${c.grade.toFixed(1)}` : "Passed" : `Exam ${dateLabel(c.examDate)}`} onPressIn={() => prefetch(`courses/${encodeURIComponent(c.id)}`)} onPress={() => open(c.id)} />)}</View>
-    {!query.loading && !query.error && !list.length ? <AppText muted>{search.trim() ? "No matching courses." : "Add a course with +."}</AppText> : null}
+    </View>}
+    {list.length > 0 && <View>{list.map(course => <ContentRow key={course.id} title={course.name} titleLines={2} icon="book-outline"
+      subtitle={`Exam ${dateLabel(course.examDate)}`} onPressIn={() => prefetch(`courses/${encodeURIComponent(course.id)}`)}
+      onPress={() => router.navigate({ pathname: "/course/[id]", params: { id: course.id } })} />)}</View>}
+    {query.data && !query.error && !list.length && <AppText muted>{activeCourses.length ? "No matching courses." : "No active courses."}</AppText>}
   </Page>;
 }
