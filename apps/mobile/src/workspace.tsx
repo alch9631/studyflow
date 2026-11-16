@@ -55,8 +55,9 @@ export function usePrefetchMobileData() {
   }, [session]);
 }
 
-export function Page({ title, subtitle, children, query, back = false, sheet = false, tabPage = false, actions, contentStyle }: {
+export function Page({ title, subtitle, children, query, back = false, onBack, sheet = false, tabPage = false, actions, contentStyle }: {
   title: string; subtitle?: string; children: React.ReactNode; query?: { loading: boolean; refreshing?: boolean; error: string | null; reload: () => Promise<void> }; back?: boolean; sheet?: boolean; tabPage?: boolean; actions?: React.ReactNode;
+  onBack?: () => void;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const theme = useTheme();
@@ -69,7 +70,7 @@ export function Page({ title, subtitle, children, query, back = false, sheet = f
         {sheet ? <>
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>{actions}<IconButton glass label="Close course" icon="close-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} /></View>
           <AppText size={22} weight="700" style={{ flexShrink: 1 }}>{title}</AppText>
-        </> : <View style={[styles.row, { gap: 8 }]}>{back && <IconButton glass label="Back" icon="arrow-back-outline" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <IconButton glass label="Settings" icon="settings-outline" onPress={() => router.push("/settings")} />}</View>}
+        </> : <View style={[styles.row, { gap: 8 }]}>{back && <IconButton glass label="Back" icon="arrow-back-outline" onPress={onBack ?? (() => router.canGoBack() ? router.back() : router.replace("/"))} />}<AppText size={28} weight="700" style={{ flex: 1 }}>{title}</AppText>{actions}{!back && <IconButton glass label="Settings" icon="settings-outline" onPress={() => router.push("/settings")} />}</View>}
         {subtitle && <AppText size={14} muted>{subtitle}</AppText>}</View>
       <DemoNotice />
       {query?.error && <><ErrorMessage message={query.error} /><Action secondary onPress={() => { void query.reload(); }}>Try again</Action></>}

@@ -38,7 +38,7 @@ export const MaterialRow = memo(function MaterialRow({ file, busy, id, onDelete,
       </Pressable>
       <ActionMenu label={`Material actions: ${file.filename}`} disabled={busy} items={[
         { id: "plan", title: "Build study plan", image: "list.bullet.clipboard", onPress: () => { void onPrepare(file.id); } },
-        ...(file.mockExamQuestions ? [{ id: "paper", title: `Practice · ${file.mockExamQuestions} questions`, image: "brain.head.profile" as const, onPress: () => router.push({ pathname: "/practice", params: { courseId: id, examFile: file.id } }) }] : []),
+        ...(file.mockExamQuestions ? [{ id: "paper", title: `Practice · ${file.mockExamQuestions} questions`, image: "brain.head.profile" as const, onPress: () => router.navigate({ pathname: "/practice", params: { courseId: id, examFile: file.id } }) }] : []),
         ...(file.summary ? [{ id: "summary", title: "Summary", image: "doc.text" as const, onPress: () => Alert.alert(file.filename, file.summary) }] : []),
         { id: "delete", title: "Delete file", image: "trash", attributes: { destructive: true }, onPress: () => onDelete(file) },
       ]} />

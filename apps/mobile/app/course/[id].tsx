@@ -183,7 +183,7 @@ function CourseWorkspace({ id, section }: { id: string; section?: string }) {
       <CourseSection motion={sectionMotion} active={tab === "progress"} data={topics} renderItem={renderTopic} query={query}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <AppText size={18} weight="700" style={{ flex: 1 }}>Topics · {roots.length}</AppText>
-          <IconButton label="Practice recall" icon="flash-outline" onPress={() => router.push({ pathname: "/practice", params: { courseId: id } })} />
+          <IconButton label="Practice recall" icon="flash-outline" onPress={() => router.navigate({ pathname: "/practice", params: { courseId: id } })} />
           <IconButton label={searchOpen ? "Close topic search" : "Find a topic"} icon={searchOpen ? "close-outline" : "search-outline"} onPress={() => { setSearchOpen(!searchOpen); setSearch(""); }} />
         </View>
         <ProgressBar value={roots.length ? covered / roots.length * 100 : 0} label={`${covered}/${roots.length} covered${course.isPassed ? " · Passed" : ""}`} />
